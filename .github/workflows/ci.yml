@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Annule les exécutions obsolètes sur une même réf (push successifs).
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test:
+    name: Typecheck · Tests · Build
+    runs-on: ubuntu-latest
+    env:
+      # Aucune base réelle en CI : Prisma se construit avec cette URL factice et
+      # les tests qui touchent la base la voient indisponible (readiness → 503).
+      # Pas un secret : pointe une base inexistante. La vraie config vit dans
+      # les secrets d'environnement (cf. TLX-004).
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci?schema=public
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm --filter @talent-x/api exec prisma generate
+
+      # lint : à ajouter ici une fois ESLint configuré (TLX-002).
+
+      - name: Typecheck
+        run: pnpm -r typecheck
+
+      - name: Tests
+        run: pnpm -r --if-present test
+
+      - name: Build
+        run: pnpm -r build
