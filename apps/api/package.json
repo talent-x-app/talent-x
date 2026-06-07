@@ -6,11 +6,15 @@
     "dev": "nest start --watch",
     "build": "prisma generate && nest build",
     "start": "node dist/main.js",
-    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.spec.json",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
-    "prisma:generate": "prisma generate"
+    "prisma:generate": "prisma generate",
+    "seed": "prisma db seed"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
     "@nestjs/common": "^10.4.15",
@@ -37,6 +41,7 @@
     "prisma": "^5.22.0",
     "supertest": "^7.2.2",
     "ts-jest": "^29.4.11",
+    "tsx": "^4.22.4",
     "typescript": "~5.6.3"
   }
 }

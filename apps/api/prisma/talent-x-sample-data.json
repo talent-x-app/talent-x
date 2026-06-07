@@ -1,0 +1,173 @@
+{
+  "_comment": "Données de DÉVELOPPEMENT (TLX-014). Domaine fictif talentx.dev. Aucune donnée réelle ni secret. Les références entre entités utilisent des clés logiques (key) résolues en UUID par prisma/seed.ts.",
+  "users": [
+    {
+      "key": "coach1",
+      "email": "coach@talentx.dev",
+      "role": "coach",
+      "firstName": "Awa",
+      "lastName": "Diallo",
+      "sport": "Athlétisme",
+      "bio": "Entraîneure sprint & haies."
+    },
+    {
+      "key": "ath1",
+      "email": "athlete1@talentx.dev",
+      "role": "athlete",
+      "firstName": "Moussa",
+      "lastName": "Camara",
+      "sport": "Sprint"
+    },
+    {
+      "key": "ath2",
+      "email": "athlete2@talentx.dev",
+      "role": "athlete",
+      "firstName": "Fatou",
+      "lastName": "Bah",
+      "sport": "Demi-fond"
+    },
+    {
+      "key": "ath3",
+      "email": "athlete3@talentx.dev",
+      "role": "athlete",
+      "firstName": "Ibrahima",
+      "lastName": "Sow",
+      "sport": "Sauts"
+    }
+  ],
+  "consents": [
+    { "user": "ath1", "type": "data_processing", "granted": true, "textVersion": "v1" },
+    { "user": "ath1", "type": "coach_access", "granted": true, "textVersion": "v1" },
+    { "user": "ath2", "type": "data_processing", "granted": true, "textVersion": "v1" },
+    { "user": "ath2", "type": "coach_access", "granted": true, "textVersion": "v1" },
+    { "user": "ath3", "type": "data_processing", "granted": true, "textVersion": "v1" },
+    { "user": "ath3", "type": "coach_access", "granted": false, "textVersion": "v1" }
+  ],
+  "groups": [
+    {
+      "key": "grp1",
+      "coach": "coach1",
+      "name": "Groupe Sprint Conakry",
+      "description": "Groupe d'entraînement sprint, saison 2026.",
+      "inviteCode": "SPRINT-2026",
+      "members": ["ath1", "ath2", "ath3"]
+    }
+  ],
+  "sessions": [
+    {
+      "key": "s1",
+      "coach": "coach1",
+      "title": "Séance Vitesse — 30/60m",
+      "description": "Travail de départ et de vitesse maximale.",
+      "scheduledDate": "2026-06-10",
+      "status": "published",
+      "exercises": {
+        "schemaVersion": 1,
+        "items": [
+          {
+            "name": "Échauffement",
+            "order": 1,
+            "durationSeconds": 900,
+            "notes": "Mobilité + gammes."
+          },
+          { "name": "30m départ", "order": 2, "sets": 4, "reps": 1, "restSeconds": 180 },
+          { "name": "60m lancé", "order": 3, "sets": 3, "reps": 1, "restSeconds": 300 }
+        ]
+      }
+    },
+    {
+      "key": "s2",
+      "coach": "coach1",
+      "title": "Musculation — Force max",
+      "description": "Séance de force, bas du corps.",
+      "status": "draft",
+      "exercises": {
+        "schemaVersion": 1,
+        "items": [
+          {
+            "name": "Squat",
+            "order": 1,
+            "sets": 5,
+            "reps": 3,
+            "restSeconds": 240,
+            "load": { "value": 80, "unit": "percent_1rm" }
+          }
+        ]
+      }
+    }
+  ],
+  "assignments": [
+    {
+      "key": "a1",
+      "session": "s1",
+      "athlete": "ath1",
+      "status": "completed",
+      "dueDate": "2026-06-10"
+    },
+    {
+      "key": "a2",
+      "session": "s1",
+      "athlete": "ath2",
+      "status": "completed",
+      "dueDate": "2026-06-10"
+    },
+    {
+      "key": "a3",
+      "session": "s1",
+      "athlete": "ath3",
+      "status": "assigned",
+      "dueDate": "2026-06-10"
+    }
+  ],
+  "performances": [
+    {
+      "assignment": "a1",
+      "athlete": "ath1",
+      "rpe": 7,
+      "notes": "Bonnes sensations sur les départs.",
+      "results": {
+        "schemaVersion": 1,
+        "items": [
+          {
+            "exerciseName": "30m départ",
+            "order": 2,
+            "setResults": [
+              { "set": 1, "durationSeconds": 4, "completed": true },
+              { "set": 2, "durationSeconds": 4, "completed": true },
+              { "set": 3, "durationSeconds": 4, "completed": true },
+              { "set": 4, "durationSeconds": 5, "completed": true }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "assignment": "a2",
+      "athlete": "ath2",
+      "rpe": 8,
+      "notes": "Fatiguée en fin de séance.",
+      "results": {
+        "schemaVersion": 1,
+        "items": [
+          {
+            "exerciseName": "60m lancé",
+            "order": 3,
+            "setResults": [
+              { "set": 1, "durationSeconds": 8, "completed": true },
+              { "set": 2, "durationSeconds": 8, "completed": true },
+              { "set": 3, "durationSeconds": 9, "completed": false }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "comments": [
+    { "author": "coach1", "session": "s1", "body": "Focus sur la qualité des appuis au départ." },
+    {
+      "author": "coach1",
+      "performance": "a1",
+      "body": "Beau travail sur les 30m, on garde ce rythme."
+    }
+  ]
+}

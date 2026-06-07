@@ -18,6 +18,7 @@ pnpm install
 docker compose up -d                                 # PostgreSQL + Redis (dev)
 cp apps/api/.env.example apps/api/.env               # config locale (non versionnée)
 pnpm --filter @talent-x/api prisma migrate deploy    # applique les migrations (voir apps/api/prisma/README.md)
+pnpm --filter @talent-x/api seed                      # données de dev (talent-x-sample-data.json)
 pnpm --filter @talent-x/api dev
 pnpm --filter @talent-x/mobile start
 ```
