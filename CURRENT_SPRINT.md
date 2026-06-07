@@ -8,6 +8,6 @@ Objectif de fin de cycle : l'app démarre avec le thème, la CI est verte, la ba
 - **TLX-012** Schéma Prisma depuis le modèle de données + migration initiale — Réf : docs/Talent-X_06_Modele_de_donnees.md
 
 ## En cours
+- **TLX-001** Initialiser le mono-repo (Expo + NestJS + Prisma, pnpm workspaces) — code OK (`pnpm -r build`/`typecheck` verts, `GET /api/v1/health` OK), PR en attente de push/merge
 
 ## Terminés ce sprint
-- **TLX-001** Initialiser le mono-repo (Expo + NestJS + Prisma, pnpm workspaces) — `pnpm install` + `pnpm -r build` verts, `GET /api/v1/health` OK
