@@ -1,0 +1,28 @@
+<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="_components.css">
+<style>
+body { margin:0; font-family:var(--tx-font-primary); }
+.split { display:grid; grid-template-columns:1fr 1fr; }
+.pane { padding:20px; display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.pane.l { background:#F4F6FA; }
+.pane.d { background:#0B0F17; }
+.cap { width:100%; font-size:10px; font-weight:600; letter-spacing:.16em; text-transform:uppercase; color:var(--tx-text-muted); margin-bottom:4px; }
+</style></head>
+<body>
+<div class="split">
+  <div class="pane l demo">
+    <span class="cap">Tailles S / M / L</span>
+    <button class="btn btn-primary btn-sm">Small</button>
+    <button class="btn btn-primary">Medium</button>
+    <button class="btn btn-primary btn-lg">Large</button>
+  </div>
+  <div class="pane d demo" data-theme="dark">
+    <span class="cap">Tailles S / M / L</span>
+    <button class="btn btn-secondary btn-sm">Small</button>
+    <button class="btn btn-secondary">Medium</button>
+    <button class="btn btn-secondary btn-lg">Large</button>
+  </div>
+</div>
+</body></html>

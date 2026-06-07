@@ -1,0 +1,29 @@
+<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="_components.css">
+<style>
+body { margin:0; font-family:var(--tx-font-primary); }
+.split { display:grid; grid-template-columns:1fr 1fr; }
+.pane { padding:20px; display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+.pane.l { background:#F4F6FA; }
+.pane.d { background:#0B0F17; }
+.cap { width:100%; font-size:10px; font-weight:600; letter-spacing:.16em; text-transform:uppercase; color:var(--tx-text-muted); }
+</style></head>
+<body>
+<div class="split">
+  <div class="pane l demo">
+    <span class="cap">Badges</span>
+    <span class="badge badge-accent">PRO</span>
+    <span class="badge badge-success">+12 %</span>
+    <span class="badge badge-warning">À revoir</span>
+    <span class="badge badge-danger">Manqué</span>
+  </div>
+  <div class="pane d demo" data-theme="dark">
+    <span class="cap">Avatars · coach / athlète</span>
+    <span class="avatar">MD<span class="avatar-role" style="background:#2E7CF6"></span></span>
+    <span class="avatar" style="background:#2A3140">JL<span class="avatar-role" style="background:#1FA968"></span></span>
+    <span class="avatar">AK<span class="ring"></span></span>
+  </div>
+</div>
+</body></html>

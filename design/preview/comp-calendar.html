@@ -1,0 +1,48 @@
+<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="_components.css">
+<style>
+body { margin:0; font-family:var(--tx-font-primary); }
+.split { display:grid; grid-template-columns:1fr 1fr; }
+.pane { padding:20px; display:flex; flex-direction:column; gap:14px; justify-content:center; }
+.pane.l { background:#F4F6FA; }
+.pane.d { background:#0B0F17; }
+.cap { font-size:10px; font-weight:600; letter-spacing:.16em; text-transform:uppercase; color:var(--tx-text-muted); }
+.days { display:flex; gap:8px; }
+.day { flex:1; text-align:center; }
+.day .w { font-size:10px; color:var(--tx-text-muted); margin-bottom:5px; font-weight:600; }
+.day .d { height:38px; border-radius:11px; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:600; background:var(--tx-surface); border:1px solid var(--tx-border); color:var(--tx-text-secondary); position:relative; }
+.day .d.on { background:var(--tx-accent); color:#fff; border-color:transparent; }
+.day .d.done { color:var(--tx-text-primary); }
+.day .d.done::after { content:""; position:absolute; bottom:5px; width:4px; height:4px; border-radius:50%; background:var(--tx-success); }
+.day .d.rest { opacity:.5; }
+</style></head>
+<body>
+<div class="split">
+  <div class="pane l demo">
+    <span class="cap">Semaine d'entraînement</span>
+    <div class="days">
+      <div class="day"><div class="w">L</div><div class="d done">12</div></div>
+      <div class="day"><div class="w">M</div><div class="d done">13</div></div>
+      <div class="day"><div class="w">M</div><div class="d rest">14</div></div>
+      <div class="day"><div class="w">J</div><div class="d on">15</div></div>
+      <div class="day"><div class="w">V</div><div class="d">16</div></div>
+      <div class="day"><div class="w">S</div><div class="d">17</div></div>
+      <div class="day"><div class="w">D</div><div class="d rest">18</div></div>
+    </div>
+  </div>
+  <div class="pane d demo" data-theme="dark">
+    <span class="cap">Semaine d'entraînement</span>
+    <div class="days">
+      <div class="day"><div class="w">L</div><div class="d done">12</div></div>
+      <div class="day"><div class="w">M</div><div class="d done">13</div></div>
+      <div class="day"><div class="w">M</div><div class="d rest">14</div></div>
+      <div class="day"><div class="w">J</div><div class="d on">15</div></div>
+      <div class="day"><div class="w">V</div><div class="d">16</div></div>
+      <div class="day"><div class="w">S</div><div class="d">17</div></div>
+      <div class="day"><div class="w">D</div><div class="d rest">18</div></div>
+    </div>
+  </div>
+</div>
+</body></html>

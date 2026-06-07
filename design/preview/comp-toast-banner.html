@@ -1,0 +1,30 @@
+<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="_components.css">
+<style>
+body { margin:0; font-family:var(--tx-font-primary); }
+.split { display:grid; grid-template-columns:1fr 1fr; }
+.pane { padding:18px; display:flex; flex-direction:column; gap:12px; justify-content:center; }
+.pane.l { background:#F4F6FA; }
+.pane.d { background:#0B0F17; }
+.toast { display:flex; align-items:center; gap:10px; background:var(--tx-surface); border:1px solid var(--tx-border); border-radius:var(--tx-radius-md); padding:12px 14px; box-shadow:var(--tx-shadow-md); font-size:13px; }
+.toast .ic { width:30px; height:30px; border-radius:8px; display:flex; align-items:center; justify-content:center; flex:none; }
+.banner { display:flex; align-items:flex-start; gap:10px; border-radius:var(--tx-radius-md); padding:12px 14px; font-size:13px; }
+.banner.warn { background:var(--tx-warning-bg); color:var(--tx-warning); }
+.banner.info { background:var(--tx-info-bg); color:var(--tx-info); }
+.t-body { color:var(--tx-text-primary); }
+.t-body b { font-weight:600; }
+</style></head>
+<body>
+<div class="split">
+  <div class="pane l demo">
+    <div class="toast"><span class="ic" style="background:var(--tx-success-bg);color:var(--tx-success)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span><span class="t-body"><b>Séance enregistrée.</b> Athlète notifié.</span></div>
+    <div class="banner warn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:1px"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg><span>Charge élevée 3 jours d'affilée — prévoir une récup.</span></div>
+  </div>
+  <div class="pane d demo" data-theme="dark">
+    <div class="toast"><span class="ic" style="background:var(--tx-danger-bg);color:var(--tx-danger)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg></span><span class="t-body"><b>Synchronisation échouée.</b> Réessayer.</span></div>
+    <div class="banner info"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:1px"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg><span>Nouveau record personnel au développé couché&nbsp;!</span></div>
+  </div>
+</div>
+</body></html>

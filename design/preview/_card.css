@@ -1,0 +1,24 @@
+/* Shared styling for Design System preview cards. Cards live in /preview,
+   so they reference ../tokens.css for tokens. This file adds card chrome. */
+@import url('../tokens.css');
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  font-family: var(--tx-font-primary);
+  background: var(--tx-surface);
+  color: var(--tx-text-primary);
+  padding: 18px 20px;
+}
+.card-pad { padding: 18px 20px; }
+
+/* Split light/dark demo surfaces */
+.split { display: grid; grid-template-columns: 1fr 1fr; gap: 0; border-radius: 14px; overflow: hidden; border: 1px solid rgba(11,15,23,.10); }
+.pane { padding: 18px; }
+.pane-light { background: #F4F6FA; }
+.pane-dark  { background: #0B0F17; }
+
+.row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.col { display: flex; flex-direction: column; gap: 10px; }
+.lbl { font-size: 10px; font-weight: 600; letter-spacing: .18em; text-transform: uppercase; color: var(--tx-text-muted); margin: 0 0 10px; }
+.mono { font-family: ui-monospace, Menlo, Consolas, monospace; }

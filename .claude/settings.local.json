@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__531dbc95-5eee-402f-85e4-39f631e5c22d__list_teams",
+      "mcp__531dbc95-5eee-402f-85e4-39f631e5c22d__list_projects",
+      "mcp__531dbc95-5eee-402f-85e4-39f631e5c22d__list_issues",
+      "mcp__531dbc95-5eee-402f-85e4-39f631e5c22d__get_team",
+      "mcp__531dbc95-5eee-402f-85e4-39f631e5c22d__save_project",
+      "mcp__531dbc95-5eee-402f-85e4-39f631e5c22d__list_milestones",
+      "mcp__531dbc95-5eee-402f-85e4-39f631e5c22d__save_milestone",
+      "mcp__531dbc95-5eee-402f-85e4-39f631e5c22d__save_issue",
+      "mcp__531dbc95-5eee-402f-85e4-39f631e5c22d__list_issue_labels",
+      "mcp__531dbc95-5eee-402f-85e4-39f631e5c22d__create_issue_label",
+      "Bash(grep -o \"Dépend de[^\\\\\\\\\\\\\\\\]*\" \"Talent-X_linear-import.csv\")",
+      "Bash(awk -F',' 'NR>1{print $1}' \"Talent-X_linear-import.csv\")",
+      "Bash(python3 -c ' *)",
+      "Bash(python3)",
+      "Bash(python3 _extract.py)",
+      "Bash(rm _extract.py)",
+      "Bash(cd \"/c/Users/idris/Documents/0001Talentx/talent-x\" && python3 _extract.py && rm _extract.py)"
+    ]
+  }
+}

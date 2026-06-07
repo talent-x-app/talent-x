@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Talent-X — Identité / Logo</title><style>
+:root{--blue-lt:#5BAEFF;--blue:#2E7CF6;--blue-dp:#1B5BE0;--navy:#1F4E79;--ink:#0B0F17;--white:#fff;
+--panel:#11151F;--panel2:#0E121B;--line:rgba(255,255,255,.08);--text:#E7ECF3;--muted:#8A94A6;--muted2:#5C6678;
+--grad:linear-gradient(135deg,var(--blue-lt),var(--blue) 55%,var(--blue-dp));--radius:18px;}
+*{box-sizing:border-box}html{scroll-behavior:smooth}
+body{margin:0;background:var(--ink);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased;line-height:1.55}
+.wrap{max-width:1080px;margin:0 auto;padding:0 28px}
+.eyebrow{font-size:11px;letter-spacing:.28em;text-transform:uppercase;color:var(--muted2);font-weight:600}
+h1{margin:0;font-weight:700;letter-spacing:-.01em}
+h2{margin:0;font-size:13px;letter-spacing:.22em;text-transform:uppercase;color:var(--muted);font-weight:600}
+p{margin:.5em 0;color:var(--muted)}a{color:var(--blue-lt);text-decoration:none}
+svg{display:block}
+.topbar{display:flex;justify-content:space-between;align-items:center;padding:20px 28px;border-bottom:1px solid var(--line);position:sticky;top:0;background:rgba(11,15,23,.82);backdrop-filter:blur(12px);z-index:20}
+.topbar .brand{display:flex;align-items:center;gap:12px}
+.meta{font-size:11px;letter-spacing:.24em;text-transform:uppercase;color:var(--muted2)}
+.hero{position:relative;padding:90px 0 70px;text-align:center;overflow:hidden}
+.hero::before{content:"";position:absolute;inset:-30% 0 auto 0;height:600px;background:radial-gradient(60% 60% at 50% 30%,rgba(46,124,246,.22),transparent 70%);pointer-events:none}
+.hero .stage{position:relative;display:flex;justify-content:center;align-items:center;min-height:220px;border:1px solid var(--line);border-radius:28px;background:var(--panel2);padding:56px 32px;transition:background .35s,border-color .35s}
+.hero .stage svg{max-width:82%;height:auto}
+.hero.light .stage{background:#F4F6FA;border-color:transparent}
+.hero .wm-light{display:none}.hero.light .wm-light{display:block}.hero.light .wm-dark{display:none}
+.hero h1{font-size:clamp(26px,4vw,40px);margin-top:32px}
+.hero .sub{max-width:560px;margin:14px auto 0}
+.toggle{display:inline-flex;gap:4px;margin-top:24px;padding:4px;border:1px solid var(--line);border-radius:999px;background:var(--panel)}
+.toggle button{border:0;background:transparent;color:var(--muted);padding:7px 16px;border-radius:999px;font-size:13px;font-weight:600;cursor:pointer}
+.toggle button.on{background:var(--grad);color:#fff}
+section{padding:54px 0;border-top:1px solid var(--line)}
+.sec-head{display:flex;align-items:baseline;gap:16px;margin-bottom:14px}
+.sec-head .num{font-size:12px;color:var(--muted2);font-weight:700;letter-spacing:.1em}
+.lead{color:var(--muted);max-width:640px;margin:0 0 26px}
+.exp{position:relative}
+.toolbar{position:absolute;top:10px;right:10px;display:flex;gap:6px;opacity:0;transition:opacity .2s}
+.card:hover .toolbar,.tile:hover .toolbar,.hero .stage:hover .toolbar{opacity:1}
+.btn{font-size:11px;font-weight:600;letter-spacing:.04em;color:var(--text);background:rgba(255,255,255,.07);border:1px solid var(--line);border-radius:8px;padding:6px 10px;cursor:pointer;backdrop-filter:blur(6px)}
+.btn:hover{background:rgba(255,255,255,.14)}
+.tile.light .btn{color:#0B0F17;background:rgba(11,15,23,.06);border-color:rgba(11,15,23,.12)}
+.grid{display:grid;gap:16px}.g2{grid-template-columns:repeat(2,1fr)}.g3{grid-template-columns:repeat(3,1fr)}
+@media(max-width:760px){.g3{grid-template-columns:1fr}.g2{grid-template-columns:1fr}}
+.tile{border:1px solid var(--line);border-radius:14px;background:var(--panel);overflow:hidden}
+.tile .stage{display:flex;justify-content:center;align-items:center;padding:30px 22px;min-height:120px;position:relative}
+.tile.light .stage{background:#F4F6FA}
+.tile .stage svg{max-width:80%;height:auto}
+.tile .cap{font-size:11px;letter-spacing:.04em;color:var(--muted);padding:12px 16px;border-top:1px solid var(--line)}
+.tile.light .cap{color:#5C6678;border-color:rgba(11,15,23,.08)}
+.icons{display:flex;gap:26px;flex-wrap:wrap;align-items:flex-start}
+.icons figure{margin:0;text-align:center}
+.icons img{width:118px;height:118px;border-radius:26px;display:block;box-shadow:0 14px 40px rgba(0,0,0,.5)}
+.icons figcaption{font-size:11px;color:var(--muted);margin:12px 0 8px}
+.dls{display:flex;gap:8px;justify-content:center}
+.dls a{font-size:11px;font-weight:600;color:var(--muted);border:1px solid var(--line);border-radius:7px;padding:4px 9px}
+.dls a:hover{color:#fff;border-color:var(--blue)}
+.favs{display:flex;gap:30px;align-items:flex-end;flex-wrap:wrap}
+.favs figure{margin:0;text-align:center}
+.favs .chip{background:#11151F;border:1px solid var(--line);border-radius:8px;padding:14px;display:inline-flex}
+.favs img{display:block}.favs figcaption{font-size:11px;color:var(--muted);margin-top:10px}
+.swatches{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+@media(max-width:760px){.swatches{grid-template-columns:repeat(2,1fr)}}
+.sw{border:1px solid var(--line);border-radius:14px;overflow:hidden;cursor:pointer;background:var(--panel)}
+.sw .chip{height:80px}.sw .body{padding:12px 14px}
+.sw .nm{font-size:12px;font-weight:700}.sw .hex{font-size:12px;color:var(--muted);font-family:ui-monospace,Menlo,Consolas,monospace;margin-top:2px}
+.sw .use{font-size:11px;color:var(--muted2);margin-top:6px}
+.cs{display:grid;grid-template-columns:1fr 1fr;gap:28px;align-items:center}
+@media(max-width:760px){.cs{grid-template-columns:1fr}}
+.cs-frame{position:relative;border:1px dashed rgba(255,255,255,.16);border-radius:14px;padding:78px;background:var(--panel);display:inline-block}
+.cs-inner{border:1px dashed rgba(91,174,255,.45);padding:10px;display:inline-flex}
+.cs-x{position:absolute;color:var(--muted2);font-size:15px;font-weight:700}
+.cs-x.t{top:30px;left:50%;transform:translateX(-50%)}
+.cs-x.l{left:28px;top:50%;transform:translateY(-50%)}
+.rule{font-size:13px;color:var(--muted);margin:.5em 0}.rule b{color:var(--text);font-weight:600}
+footer{padding:46px 0 80px;border-top:1px solid var(--line);color:var(--muted2);font-size:12.5px}
+footer b{color:var(--text)}
+#toast{position:fixed;bottom:26px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--grad);color:#fff;padding:10px 18px;border-radius:999px;font-size:13px;font-weight:600;opacity:0;pointer-events:none;transition:all .25s;z-index:50}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+</style></head><body>
+<div class="topbar"><div class="brand"><svg width="26" height="13" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 230 114" role="img" aria-label="Talent-X"><title>Talent-X</title><path d="M 32.00 97.75 L 61.50 82.00 L 78.25 32.50 L 114.75 32.50 L 106.75 14.00 L 20.50 15.25 L 14.00 32.50 L 53.00 33.00 Z" fill="#FFFFFF"></path><path d="M 216.25 14.25 L 183.75 14.00 L 149.50 35.75 L 137.25 15.25 L 109.75 14.00 L 129.00 47.75 L 41.00 99.75 L 79.00 99.75 L 136.75 64.50 L 160.00 98.75 L 192.75 99.50 L 160.50 51.25 Z" fill="#FFFFFF"></path></svg><span class="meta">Talent-X · Design System</span></div><span class="meta">01 — Identité / Logo</span></div>
+
+<div class="hero" id="hero"><div class="wrap">
+  <div class="eyebrow">Logo principal</div>
+  <div class="stage" style="margin-top:22px"><div class="exp" data-export="talent-x-logo">
+    <div class="wm-dark"><svg width="434" height="120" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1012 280" role="img" aria-label="Talent-X"><title>Talent-X</title><defs><linearGradient id="heroD" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5BAEFF"/><stop offset="0.55" stop-color="#2E7CF6"/><stop offset="1" stop-color="#1B5BE0"/></linearGradient></defs><g transform="translate(70,10.00)"><g transform="skewX(-7.0)"><g><g transform="translate(0.00,200.00) scale(0.20000,-0.20000)"><path d="M567 702V565H381V0H210V565H24V702Z" fill="#FFFFFF"/></g>
+<g transform="translate(117.00,200.00) scale(0.20000,-0.20000)"><path d="M274 566Q333 566 377.5 542.0Q422 518 446 479V558H617V0H446V79Q421 40 376.5 16.0Q332 -8 273 -8Q205 -8 149.0 27.5Q93 63 60.5 128.5Q28 194 28 280Q28 366 60.5 431.0Q93 496 149.0 531.0Q205 566 274 566ZM324 417Q273 417 237.5 380.5Q202 344 202 280Q202 216 237.5 178.5Q273 141 324 141Q375 141 410.5 178.0Q446 215 446 279Q446 343 410.5 380.0Q375 417 324 417Z" fill="#FFFFFF"/></g>
+<g transform="translate(251.60,200.00) scale(0.20000,-0.20000)"><path d="M233 740V0H62V740Z" fill="#FFFFFF"/></g>
+<g transform="translate(309.40,200.00) scale(0.20000,-0.20000)"><path d="M585 238H198Q202 186 231.5 158.5Q261 131 304 131Q368 131 393 185H575Q561 130 524.5 86.0Q488 42 433.0 17.0Q378 -8 310 -8Q228 -8 164.0 27.0Q100 62 64.0 127.0Q28 192 28 279Q28 366 63.5 431.0Q99 496 163.0 531.0Q227 566 310 566Q391 566 454.0 532.0Q517 498 552.5 435.0Q588 372 588 288Q588 264 585 238ZM413 333Q413 377 383.0 403.0Q353 429 308 429Q265 429 235.5 404.0Q206 379 199 333Z" fill="#FFFFFF"/></g>
+<g transform="translate(431.40,200.00) scale(0.20000,-0.20000)"><path d="M617 326V0H447V303Q447 359 418.0 390.0Q389 421 340 421Q291 421 262.0 390.0Q233 359 233 303V0H62V558H233V484Q259 521 303.0 542.5Q347 564 402 564Q500 564 558.5 500.5Q617 437 617 326Z" fill="#FFFFFF"/></g>
+<g transform="translate(565.00,200.00) scale(0.20000,-0.20000)"><path d="M373 145V0H286Q193 0 141.0 45.5Q89 91 89 194V416H21V558H89V694H260V558H372V416H260V192Q260 167 272.0 156.0Q284 145 312 145Z" fill="#FFFFFF"/></g>
+<g transform="translate(645.00,200.00) scale(0.20000,-0.20000)"><path d="M492 422V280H52V422Z" fill="#FFFFFF"/></g>
+<path d="M 759.80 55.80 L 792.80 55.80 L 871.80 204.20 L 838.80 204.20 Z M 838.80 55.80 L 871.80 55.80 L 792.80 204.20 L 759.80 204.20 Z" fill="url(#heroD)" fill-rule="nonzero"/></g></g></g></svg></div>
+    <div class="wm-light"><svg width="434" height="120" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1012 280" role="img" aria-label="Talent-X"><title>Talent-X</title><defs><linearGradient id="heroL" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5BAEFF"/><stop offset="0.55" stop-color="#2E7CF6"/><stop offset="1" stop-color="#1B5BE0"/></linearGradient></defs><g transform="translate(70,10.00)"><g transform="skewX(-7.0)"><g><g transform="translate(0.00,200.00) scale(0.20000,-0.20000)"><path d="M567 702V565H381V0H210V565H24V702Z" fill="#1F4E79"/></g>
+<g transform="translate(117.00,200.00) scale(0.20000,-0.20000)"><path d="M274 566Q333 566 377.5 542.0Q422 518 446 479V558H617V0H446V79Q421 40 376.5 16.0Q332 -8 273 -8Q205 -8 149.0 27.5Q93 63 60.5 128.5Q28 194 28 280Q28 366 60.5 431.0Q93 496 149.0 531.0Q205 566 274 566ZM324 417Q273 417 237.5 380.5Q202 344 202 280Q202 216 237.5 178.5Q273 141 324 141Q375 141 410.5 178.0Q446 215 446 279Q446 343 410.5 380.0Q375 417 324 417Z" fill="#1F4E79"/></g>
+<g transform="translate(251.60,200.00) scale(0.20000,-0.20000)"><path d="M233 740V0H62V740Z" fill="#1F4E79"/></g>
+<g transform="translate(309.40,200.00) scale(0.20000,-0.20000)"><path d="M585 238H198Q202 186 231.5 158.5Q261 131 304 131Q368 131 393 185H575Q561 130 524.5 86.0Q488 42 433.0 17.0Q378 -8 310 -8Q228 -8 164.0 27.0Q100 62 64.0 127.0Q28 192 28 279Q28 366 63.5 431.0Q99 496 163.0 531.0Q227 566 310 566Q391 566 454.0 532.0Q517 498 552.5 435.0Q588 372 588 288Q588 264 585 238ZM413 333Q413 377 383.0 403.0Q353 429 308 429Q265 429 235.5 404.0Q206 379 199 333Z" fill="#1F4E79"/></g>
+<g transform="translate(431.40,200.00) scale(0.20000,-0.20000)"><path d="M617 326V0H447V303Q447 359 418.0 390.0Q389 421 340 421Q291 421 262.0 390.0Q233 359 233 303V0H62V558H233V484Q259 521 303.0 542.5Q347 564 402 564Q500 564 558.5 500.5Q617 437 617 326Z" fill="#1F4E79"/></g>
+<g transform="translate(565.00,200.00) scale(0.20000,-0.20000)"><path d="M373 145V0H286Q193 0 141.0 45.5Q89 91 89 194V416H21V558H89V694H260V558H372V416H260V192Q260 167 272.0 156.0Q284 145 312 145Z" fill="#1F4E79"/></g>
+<g transform="translate(645.00,200.00) scale(0.20000,-0.20000)"><path d="M492 422V280H52V422Z" fill="#1F4E79"/></g>
+<path d="M 759.80 55.80 L 792.80 55.80 L 871.80 204.20 L 838.80 204.20 Z M 838.80 55.80 L 871.80 55.80 L 792.80 204.20 L 759.80 204.20 Z" fill="url(#heroL)" fill-rule="nonzero"/></g></g></g></svg></div><div class="toolbar"><button class="btn" onclick="copySvg(this)">copier</button><button class="btn" onclick="dlSvg(this)">SVG</button></div></div></div>
+  <div class="toggle"><button id="tD" class="on" onclick="setHero('dark')">Fond sombre</button><button id="tL" onclick="setHero('light')">Fond clair</button></div>
+  <h1>Talent-X</h1>
+  <p class="sub">Wordmark dynamique : « Talent- » en Poppins&nbsp;Bold vectorisé, et un « X » anguleux à dégradé bleu comme élément signature — l'intersection coach × athlète, la performance.</p>
+</div></div>
+
+<section><div class="wrap">
+  <div class="sec-head"><span class="num">02</span><h2>Monogramme</h2></div>
+  <p class="lead">Tracé monochrome sur mesure : le T et le X séparés par un vide, et une longue diagonale dynamique. Décliné en blanc (fond sombre), ink (fond clair) et sur tuile pour l'icône d'application.</p>
+  <div class="grid g3">
+    <div class="tile"><div class="exp" data-export="talent-x-monogram-white"><div class="stage"><svg width="92" height="46" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 230 114" role="img" aria-label="Talent-X"><title>Talent-X</title><path d="M 32.00 97.75 L 61.50 82.00 L 78.25 32.50 L 114.75 32.50 L 106.75 14.00 L 20.50 15.25 L 14.00 32.50 L 53.00 33.00 Z" fill="#FFFFFF"></path><path d="M 216.25 14.25 L 183.75 14.00 L 149.50 35.75 L 137.25 15.25 L 109.75 14.00 L 129.00 47.75 L 41.00 99.75 L 79.00 99.75 L 136.75 64.50 L 160.00 98.75 L 192.75 99.50 L 160.50 51.25 Z" fill="#FFFFFF"></path></svg><div class="toolbar"><button class="btn" onclick="copySvg(this)">copier</button><button class="btn" onclick="dlSvg(this)">SVG</button></div></div></div><div class="cap">Blanc · fond sombre</div></div>
+    <div class="tile light"><div class="exp" data-export="talent-x-monogram-ink"><div class="stage"><svg width="92" height="46" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 230 114" role="img" aria-label="Talent-X"><title>Talent-X</title><path d="M 32.00 97.75 L 61.50 82.00 L 78.25 32.50 L 114.75 32.50 L 106.75 14.00 L 20.50 15.25 L 14.00 32.50 L 53.00 33.00 Z" fill="#0B0F17"></path><path d="M 216.25 14.25 L 183.75 14.00 L 149.50 35.75 L 137.25 15.25 L 109.75 14.00 L 129.00 47.75 L 41.00 99.75 L 79.00 99.75 L 136.75 64.50 L 160.00 98.75 L 192.75 99.50 L 160.50 51.25 Z" fill="#0B0F17"></path></svg><div class="toolbar"><button class="btn" onclick="copySvg(this)">copier</button><button class="btn" onclick="dlSvg(this)">SVG</button></div></div></div><div class="cap">Ink · fond clair</div></div>
+    <div class="tile"><div class="exp" data-export="talent-x-appicon-blue"><div class="stage"><svg width="92" height="92" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Talent-X"><title>Talent-X</title><defs><linearGradient id="ag" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5BAEFF"></stop><stop offset="0.55" stop-color="#2E7CF6"></stop><stop offset="1" stop-color="#1B5BE0"></stop></linearGradient></defs><rect width="512" height="512" rx="115" fill="url(#ag)"></rect><g transform="translate(66.56,162.10) scale(1.6473)"><path d="M 32.00 97.75 L 61.50 82.00 L 78.25 32.50 L 114.75 32.50 L 106.75 14.00 L 20.50 15.25 L 14.00 32.50 L 53.00 33.00 Z" fill="#FFFFFF"></path><path d="M 216.25 14.25 L 183.75 14.00 L 149.50 35.75 L 137.25 15.25 L 109.75 14.00 L 129.00 47.75 L 41.00 99.75 L 79.00 99.75 L 136.75 64.50 L 160.00 98.75 L 192.75 99.50 L 160.50 51.25 Z" fill="#FFFFFF"></path></g></svg><div class="toolbar"><button class="btn" onclick="copySvg(this)">copier</button><button class="btn" onclick="dlSvg(this)">SVG</button></div></div></div><div class="cap">Sur tuile bleue</div></div>
+  </div>
+</div></section>
+
+<section><div class="wrap">
+  <div class="sec-head"><span class="num">03</span><h2>Déclinaisons du logo</h2></div>
+  <p class="lead">Une version par contexte. Sur fond sombre, le mot est blanc ; sur fond clair, il passe en bleu profond. Les monochromes servent à l'impression une couleur, la gravure ou les usages contraints.</p>
+  <div class="grid g2">
+    <div class="tile"><div class="exp" data-export="talent-x-logo"><div class="stage"><svg width="188" height="52" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1012 280" role="img" aria-label="Talent-X"><title>Talent-X</title><defs><linearGradient id="d1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5BAEFF"/><stop offset="0.55" stop-color="#2E7CF6"/><stop offset="1" stop-color="#1B5BE0"/></linearGradient></defs><g transform="translate(70,10.00)"><g transform="skewX(-7.0)"><g><g transform="translate(0.00,200.00) scale(0.20000,-0.20000)"><path d="M567 702V565H381V0H210V565H24V702Z" fill="#FFFFFF"/></g>
+<g transform="translate(117.00,200.00) scale(0.20000,-0.20000)"><path d="M274 566Q333 566 377.5 542.0Q422 518 446 479V558H617V0H446V79Q421 40 376.5 16.0Q332 -8 273 -8Q205 -8 149.0 27.5Q93 63 60.5 128.5Q28 194 28 280Q28 366 60.5 431.0Q93 496 149.0 531.0Q205 566 274 566ZM324 417Q273 417 237.5 380.5Q202 344 202 280Q202 216 237.5 178.5Q273 141 324 141Q375 141 410.5 178.0Q446 215 446 279Q446 343 410.5 380.0Q375 417 324 417Z" fill="#FFFFFF"/></g>
+<g transform="translate(251.60,200.00) scale(0.20000,-0.20000)"><path d="M233 740V0H62V740Z" fill="#FFFFFF"/></g>
+<g transform="translate(309.40,200.00) scale(0.20000,-0.20000)"><path d="M585 238H198Q202 186 231.5 158.5Q261 131 304 131Q368 131 393 185H575Q561 130 524.5 86.0Q488 42 433.0 17.0Q378 -8 310 -8Q228 -8 164.0 27.0Q100 62 64.0 127.0Q28 192 28 279Q28 366 63.5 431.0Q99 496 163.0 531.0Q227 566 310 566Q391 566 454.0 532.0Q517 498 552.5 435.0Q588 372 588 288Q588 264 585 238ZM413 333Q413 377 383.0 403.0Q353 429 308 429Q265 429 235.5 404.0Q206 379 199 333Z" fill="#FFFFFF"/></g>
+<g transform="translate(431.40,200.00) scale(0.20000,-0.20000)"><path d="M617 326V0H447V303Q447 359 418.0 390.0Q389 421 340 421Q291 421 262.0 390.0Q233 359 233 303V0H62V558H233V484Q259 521 303.0 542.5Q347 564 402 564Q500 564 558.5 500.5Q617 437 617 326Z" fill="#FFFFFF"/></g>
+<g transform="translate(565.00,200.00) scale(0.20000,-0.20000)"><path d="M373 145V0H286Q193 0 141.0 45.5Q89 91 89 194V416H21V558H89V694H260V558H372V416H260V192Q260 167 272.0 156.0Q284 145 312 145Z" fill="#FFFFFF"/></g>
+<g transform="translate(645.00,200.00) scale(0.20000,-0.20000)"><path d="M492 422V280H52V422Z" fill="#FFFFFF"/></g>
+<path d="M 759.80 55.80 L 792.80 55.80 L 871.80 204.20 L 838.80 204.20 Z M 838.80 55.80 L 871.80 55.80 L 792.80 204.20 L 759.80 204.20 Z" fill="url(#d1)" fill-rule="nonzero"/></g></g></g></svg><div class="toolbar"><button class="btn" onclick="copySvg(this)">copier</button><button class="btn" onclick="dlSvg(this)">SVG</button></div></div></div><div class="cap">Couleur · fond sombre</div></div>
+    <div class="tile"><div class="exp" data-export="talent-x-logo-white"><div class="stage"><svg width="188" height="52" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1012 280" role="img" aria-label="Talent-X"><title>Talent-X</title><defs></defs><g transform="translate(70,10.00)"><g transform="skewX(-7.0)"><g><g transform="translate(0.00,200.00) scale(0.20000,-0.20000)"><path d="M567 702V565H381V0H210V565H24V702Z" fill="#FFFFFF"/></g>
+<g transform="translate(117.00,200.00) scale(0.20000,-0.20000)"><path d="M274 566Q333 566 377.5 542.0Q422 518 446 479V558H617V0H446V79Q421 40 376.5 16.0Q332 -8 273 -8Q205 -8 149.0 27.5Q93 63 60.5 128.5Q28 194 28 280Q28 366 60.5 431.0Q93 496 149.0 531.0Q205 566 274 566ZM324 417Q273 417 237.5 380.5Q202 344 202 280Q202 216 237.5 178.5Q273 141 324 141Q375 141 410.5 178.0Q446 215 446 279Q446 343 410.5 380.0Q375 417 324 417Z" fill="#FFFFFF"/></g>
+<g transform="translate(251.60,200.00) scale(0.20000,-0.20000)"><path d="M233 740V0H62V740Z" fill="#FFFFFF"/></g>
+<g transform="translate(309.40,200.00) scale(0.20000,-0.20000)"><path d="M585 238H198Q202 186 231.5 158.5Q261 131 304 131Q368 131 393 185H575Q561 130 524.5 86.0Q488 42 433.0 17.0Q378 -8 310 -8Q228 -8 164.0 27.0Q100 62 64.0 127.0Q28 192 28 279Q28 366 63.5 431.0Q99 496 163.0 531.0Q227 566 310 566Q391 566 454.0 532.0Q517 498 552.5 435.0Q588 372 588 288Q588 264 585 238ZM413 333Q413 377 383.0 403.0Q353 429 308 429Q265 429 235.5 404.0Q206 379 199 333Z" fill="#FFFFFF"/></g>
+<g transform="translate(431.40,200.00) scale(0.20000,-0.20000)"><path d="M617 326V0H447V303Q447 359 418.0 390.0Q389 421 340 421Q291 421 262.0 390.0Q233 359 233 303V0H62V558H233V484Q259 521 303.0 542.5Q347 564 402 564Q500 564 558.5 500.5Q617 437 617 326Z" fill="#FFFFFF"/></g>
+<g transform="translate(565.00,200.00) scale(0.20000,-0.20000)"><path d="M373 145V0H286Q193 0 141.0 45.5Q89 91 89 194V416H21V558H89V694H260V558H372V416H260V192Q260 167 272.0 156.0Q284 145 312 145Z" fill="#FFFFFF"/></g>
+<g transform="translate(645.00,200.00) scale(0.20000,-0.20000)"><path d="M492 422V280H52V422Z" fill="#FFFFFF"/></g>
+<path d="M 759.80 55.80 L 792.80 55.80 L 871.80 204.20 L 838.80 204.20 Z M 838.80 55.80 L 871.80 55.80 L 792.80 204.20 L 759.80 204.20 Z" fill="#FFFFFF" fill-rule="nonzero"/></g></g></g></svg><div class="toolbar"><button class="btn" onclick="copySvg(this)">copier</button><button class="btn" onclick="dlSvg(this)">SVG</button></div></div></div><div class="cap">Mono blanc · fond sombre</div></div>
+    <div class="tile light"><div class="exp" data-export="talent-x-logo-onlight"><div class="stage"><svg width="188" height="52" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1012 280" role="img" aria-label="Talent-X"><title>Talent-X</title><defs><linearGradient id="d3" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5BAEFF"/><stop offset="0.55" stop-color="#2E7CF6"/><stop offset="1" stop-color="#1B5BE0"/></linearGradient></defs><g transform="translate(70,10.00)"><g transform="skewX(-7.0)"><g><g transform="translate(0.00,200.00) scale(0.20000,-0.20000)"><path d="M567 702V565H381V0H210V565H24V702Z" fill="#1F4E79"/></g>
+<g transform="translate(117.00,200.00) scale(0.20000,-0.20000)"><path d="M274 566Q333 566 377.5 542.0Q422 518 446 479V558H617V0H446V79Q421 40 376.5 16.0Q332 -8 273 -8Q205 -8 149.0 27.5Q93 63 60.5 128.5Q28 194 28 280Q28 366 60.5 431.0Q93 496 149.0 531.0Q205 566 274 566ZM324 417Q273 417 237.5 380.5Q202 344 202 280Q202 216 237.5 178.5Q273 141 324 141Q375 141 410.5 178.0Q446 215 446 279Q446 343 410.5 380.0Q375 417 324 417Z" fill="#1F4E79"/></g>
+<g transform="translate(251.60,200.00) scale(0.20000,-0.20000)"><path d="M233 740V0H62V740Z" fill="#1F4E79"/></g>
+<g transform="translate(309.40,200.00) scale(0.20000,-0.20000)"><path d="M585 238H198Q202 186 231.5 158.5Q261 131 304 131Q368 131 393 185H575Q561 130 524.5 86.0Q488 42 433.0 17.0Q378 -8 310 -8Q228 -8 164.0 27.0Q100 62 64.0 127.0Q28 192 28 279Q28 366 63.5 431.0Q99 496 163.0 531.0Q227 566 310 566Q391 566 454.0 532.0Q517 498 552.5 435.0Q588 372 588 288Q588 264 585 238ZM413 333Q413 377 383.0 403.0Q353 429 308 429Q265 429 235.5 404.0Q206 379 199 333Z" fill="#1F4E79"/></g>
+<g transform="translate(431.40,200.00) scale(0.20000,-0.20000)"><path d="M617 326V0H447V303Q447 359 418.0 390.0Q389 421 340 421Q291 421 262.0 390.0Q233 359 233 303V0H62V558H233V484Q259 521 303.0 542.5Q347 564 402 564Q500 564 558.5 500.5Q617 437 617 326Z" fill="#1F4E79"/></g>
+<g transform="translate(565.00,200.00) scale(0.20000,-0.20000)"><path d="M373 145V0H286Q193 0 141.0 45.5Q89 91 89 194V416H21V558H89V694H260V558H372V416H260V192Q260 167 272.0 156.0Q284 145 312 145Z" fill="#1F4E79"/></g>
+<g transform="translate(645.00,200.00) scale(0.20000,-0.20000)"><path d="M492 422V280H52V422Z" fill="#1F4E79"/></g>
+<path d="M 759.80 55.80 L 792.80 55.80 L 871.80 204.20 L 838.80 204.20 Z M 838.80 55.80 L 871.80 55.80 L 792.80 204.20 L 759.80 204.20 Z" fill="url(#d3)" fill-rule="nonzero"/></g></g></g></svg><div class="toolbar"><button class="btn" onclick="copySvg(this)">copier</button><button class="btn" onclick="dlSvg(this)">SVG</button></div></div></div><div class="cap">Couleur · fond clair</div></div>
+    <div class="tile light"><div class="exp" data-export="talent-x-logo-ink"><div class="stage"><svg width="188" height="52" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1012 280" role="img" aria-label="Talent-X"><title>Talent-X</title><defs></defs><g transform="translate(70,10.00)"><g transform="skewX(-7.0)"><g><g transform="translate(0.00,200.00) scale(0.20000,-0.20000)"><path d="M567 702V565H381V0H210V565H24V702Z" fill="#0B0F17"/></g>
+<g transform="translate(117.00,200.00) scale(0.20000,-0.20000)"><path d="M274 566Q333 566 377.5 542.0Q422 518 446 479V558H617V0H446V79Q421 40 376.5 16.0Q332 -8 273 -8Q205 -8 149.0 27.5Q93 63 60.5 128.5Q28 194 28 280Q28 366 60.5 431.0Q93 496 149.0 531.0Q205 566 274 566ZM324 417Q273 417 237.5 380.5Q202 344 202 280Q202 216 237.5 178.5Q273 141 324 141Q375 141 410.5 178.0Q446 215 446 279Q446 343 410.5 380.0Q375 417 324 417Z" fill="#0B0F17"/></g>
+<g transform="translate(251.60,200.00) scale(0.20000,-0.20000)"><path d="M233 740V0H62V740Z" fill="#0B0F17"/></g>
+<g transform="translate(309.40,200.00) scale(0.20000,-0.20000)"><path d="M585 238H198Q202 186 231.5 158.5Q261 131 304 131Q368 131 393 185H575Q561 130 524.5 86.0Q488 42 433.0 17.0Q378 -8 310 -8Q228 -8 164.0 27.0Q100 62 64.0 127.0Q28 192 28 279Q28 366 63.5 431.0Q99 496 163.0 531.0Q227 566 310 566Q391 566 454.0 532.0Q517 498 552.5 435.0Q588 372 588 288Q588 264 585 238ZM413 333Q413 377 383.0 403.0Q353 429 308 429Q265 429 235.5 404.0Q206 379 199 333Z" fill="#0B0F17"/></g>
+<g transform="translate(431.40,200.00) scale(0.20000,-0.20000)"><path d="M617 326V0H447V303Q447 359 418.0 390.0Q389 421 340 421Q291 421 262.0 390.0Q233 359 233 303V0H62V558H233V484Q259 521 303.0 542.5Q347 564 402 564Q500 564 558.5 500.5Q617 437 617 326Z" fill="#0B0F17"/></g>
+<g transform="translate(565.00,200.00) scale(0.20000,-0.20000)"><path d="M373 145V0H286Q193 0 141.0 45.5Q89 91 89 194V416H21V558H89V694H260V558H372V416H260V192Q260 167 272.0 156.0Q284 145 312 145Z" fill="#0B0F17"/></g>
+<g transform="translate(645.00,200.00) scale(0.20000,-0.20000)"><path d="M492 422V280H52V422Z" fill="#0B0F17"/></g>
+<path d="M 759.80 55.80 L 792.80 55.80 L 871.80 204.20 L 838.80 204.20 Z M 838.80 55.80 L 871.80 55.80 L 792.80 204.20 L 759.80 204.20 Z" fill="#0B0F17" fill-rule="nonzero"/></g></g></g></svg><div class="toolbar"><button class="btn" onclick="copySvg(this)">copier</button><button class="btn" onclick="dlSvg(this)">SVG</button></div></div></div><div class="cap">Mono ink · fond clair</div></div>
+  </div>
+</div></section>
+
+<section><div class="wrap">
+  <div class="sec-head"><span class="num">04</span><h2>Icônes d'application</h2></div>
+  <p class="lead">Tuiles d'app prêtes pour iOS / Android, fournies en SVG et en PNG exportés.</p>
+  <div class="icons">
+    <figure><img src="../assets/app-icon-512.png" alt="App icon bleu"><figcaption>Tuile bleue</figcaption><div class="dls"><a download="talent-x-appicon-blue.png" href="../assets/favicon.svg">PNG 512</a><a download="apple-touch-icon.png" href="../assets/favicon.svg">180</a></div></figure>
+    <figure><img src="../assets/app-icon-512.png" alt="App icon ink"><figcaption>Tuile ink</figcaption><div class="dls"><a download="talent-x-appicon-ink.png" href="../assets/favicon.svg">PNG 512</a></div></figure>
+    <figure><div class="exp" data-export="talent-x-appicon-blue" style="display:inline-block"><svg style='border-radius:26px' width="118" height="118" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Talent-X"><title>Talent-X</title><defs><linearGradient id="ag" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5BAEFF"></stop><stop offset="0.55" stop-color="#2E7CF6"></stop><stop offset="1" stop-color="#1B5BE0"></stop></linearGradient></defs><rect width="512" height="512" rx="115" fill="url(#ag)"></rect><g transform="translate(66.56,162.10) scale(1.6473)"><path d="M 32.00 97.75 L 61.50 82.00 L 78.25 32.50 L 114.75 32.50 L 106.75 14.00 L 20.50 15.25 L 14.00 32.50 L 53.00 33.00 Z" fill="#FFFFFF"></path><path d="M 216.25 14.25 L 183.75 14.00 L 149.50 35.75 L 137.25 15.25 L 109.75 14.00 L 129.00 47.75 L 41.00 99.75 L 79.00 99.75 L 136.75 64.50 L 160.00 98.75 L 192.75 99.50 L 160.50 51.25 Z" fill="#FFFFFF"></path></g></svg><div style="margin-top:12px"><div class="toolbar"><button class="btn" onclick="copySvg(this)">copier</button><button class="btn" onclick="dlSvg(this)">SVG</button></div></div></div><figcaption style="margin-top:8px">SVG vectoriel</figcaption></figure>
+  </div>
+</div></section>
+
+<section><div class="wrap">
+  <div class="sec-head"><span class="num">05</span><h2>Favicon</h2></div>
+  <p class="lead">Le monogramme reste identifiable jusqu'à 32 px ; en dessous, privilégier le 32 px. Fourni en PNG 16 / 32 / 48 et en SVG.</p>
+  <div class="favs">
+    <figure><span class="chip"><img src="../assets/favicon.svg" width="48" height="48" alt="48px"></span><figcaption>48 px</figcaption></figure>
+    <figure><span class="chip"><img src="../assets/favicon.svg" width="32" height="32" alt="32px"></span><figcaption>32 px</figcaption></figure>
+    <figure><span class="chip"><img src="../assets/favicon.svg" width="16" height="16" alt="16px"></span><figcaption>16 px</figcaption></figure>
+    <figure style="align-self:center"><div class="dls"><a download="favicon-16.png" href="../assets/favicon.svg">16</a><a download="favicon-32.png" href="../assets/favicon.svg">32</a><a download="favicon-48.png" href="../assets/favicon.svg">48</a></div></figure>
+  </div>
+</div></section>
+
+<section><div class="wrap">
+  <div class="sec-head"><span class="num">06</span><h2>Couleurs</h2></div>
+  <p class="lead">Palette de base du design system. Cliquez une pastille pour copier le code. Le « X » utilise le dégradé bleu (clair → profond).</p>
+  <div class="swatches">
+    <div class="sw" data-hex="#2E7CF6" onclick="copyHex(this)" title="Copier #2E7CF6"><div class="chip" style="background:#2E7CF6"></div><div class="body"><div class="nm">Blue / primaire</div><div class="hex">#2E7CF6</div><div class="use">Accent principal, le « X »</div></div></div>
+    <div class="sw" data-hex="#5BAEFF" onclick="copyHex(this)" title="Copier #5BAEFF"><div class="chip" style="background:#5BAEFF"></div><div class="body"><div class="nm">Blue light</div><div class="hex">#5BAEFF</div><div class="use">Haut du dégradé, highlight</div></div></div>
+    <div class="sw" data-hex="#1B5BE0" onclick="copyHex(this)" title="Copier #1B5BE0"><div class="chip" style="background:#1B5BE0"></div><div class="body"><div class="nm">Blue deep</div><div class="hex">#1B5BE0</div><div class="use">Bas du dégradé</div></div></div>
+    <div class="sw" data-hex="#1F4E79" onclick="copyHex(this)" title="Copier #1F4E79"><div class="chip" style="background:#1F4E79"></div><div class="body"><div class="nm">Navy</div><div class="hex">#1F4E79</div><div class="use">Wordmark sur fond clair</div></div></div>
+    <div class="sw" data-hex="#0B0F17" onclick="copyHex(this)" title="Copier #0B0F17"><div class="chip" style="background:#0B0F17"></div><div class="body"><div class="nm">Ink</div><div class="hex">#0B0F17</div><div class="use">Fond sombre, mono foncé</div></div></div>
+    <div class="sw" data-hex="#FFFFFF" onclick="copyHex(this)" title="Copier #FFFFFF"><div class="chip" style="background:#FFFFFF"></div><div class="body"><div class="nm">White</div><div class="hex">#FFFFFF</div><div class="use">Wordmark sur fond sombre</div></div></div>
+  </div>
+  <div class="swatches" style="margin-top:14px">
+    <div class="sw" data-hex="linear-gradient(135deg,#5BAEFF,#2E7CF6 55%,#1B5BE0)" onclick="copyHex(this)" style="grid-column:span 2">
+      <div class="chip" style="background:var(--grad);height:80px"></div>
+      <div class="body"><div class="nm">Dégradé « X »</div><div class="hex">135° · #5BAEFF → #2E7CF6 → #1B5BE0</div><div class="use">Réservé à l'élément signature ; à éviter sur le texte.</div></div>
+    </div>
+  </div>
+</div></section>
+
+<section><div class="wrap">
+  <div class="sec-head"><span class="num">07</span><h2>Zone de protection &amp; taille minimale</h2></div>
+  <div class="cs">
+    <div><div class="cs-frame"><div class="cs-inner"><svg width="120" height="59" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 230 114" role="img" aria-label="Talent-X"><title>Talent-X</title><path d="M 32.00 97.75 L 61.50 82.00 L 78.25 32.50 L 114.75 32.50 L 106.75 14.00 L 20.50 15.25 L 14.00 32.50 L 53.00 33.00 Z" fill="#FFFFFF"></path><path d="M 216.25 14.25 L 183.75 14.00 L 149.50 35.75 L 137.25 15.25 L 109.75 14.00 L 129.00 47.75 L 41.00 99.75 L 79.00 99.75 L 136.75 64.50 L 160.00 98.75 L 192.75 99.50 L 160.50 51.25 Z" fill="#FFFFFF"></path></svg></div><span class="cs-x t">X</span><span class="cs-x l">X</span></div></div>
+    <div>
+      <p class="rule"><b>Zone de protection.</b> Conserver autour du logo une marge libre au moins égale à la hauteur de la lettre « X » (unité en bleu). Aucun texte, élément ou bord ne doit y pénétrer.</p>
+      <p class="rule"><b>Taille minimale.</b> Wordmark : <b>≥ 24 px</b> de hauteur. Monogramme : <b>≥ 20 px</b>. En dessous, utiliser le favicon dédié (≥ 16 px).</p>
+      <p class="rule"><b>À éviter.</b> Déformer les proportions, recolorer le wordmark, ajouter ombre / biseau / contour, ou poser la version couleur sur un fond peu contrasté.</p>
+    </div>
+  </div>
+</div></section>
+
+<footer><div class="wrap">
+  <p><b>Typographie.</b> Wordmark construit sur <b>Poppins Bold</b> (SIL Open Font License, usage commercial autorisé), déjà vectorisé en tracés dans ces SVG — aucun chargement de police, rendu identique partout. Le « X » et le monogramme sont des tracés 100 % sur mesure.</p>
+  <p><b>Production.</b> Tous les SVG sont plats, sans dépendance externe, exportables tels quels. Pour une identité totalement propriétaire à terme, le wordmark pourra être redessiné sur une police display sous licence ; le X et le monogramme, déjà custom, restent inchangés.</p>
+  <p>Talent-X · Design System — 01 Identité / Logo · v1.0</p>
+</div></footer>
+<div id="toast"></div><script>
+function nW(el){return el.closest('.exp');}
+function sT(w){let s=w.querySelector('svg').outerHTML;if(!s.startsWith('<?xml'))s='<?xml version="1.0" encoding="UTF-8"?>\n'+s;return s;}
+function copySvg(b){navigator.clipboard.writeText(sT(nW(b))).then(()=>toast('SVG copié'));}
+function dlSvg(b){const w=nW(b);const u=URL.createObjectURL(new Blob([sT(w)],{type:'image/svg+xml'}));const a=document.createElement('a');a.href=u;a.download=w.dataset.export+'.svg';a.click();URL.revokeObjectURL(u);}
+function copyHex(e){navigator.clipboard.writeText(e.dataset.hex).then(()=>toast(e.dataset.hex+' copié'));}
+let tt;function toast(t){const e=document.getElementById('toast');e.textContent=t;e.classList.add('show');clearTimeout(tt);tt=setTimeout(()=>e.classList.remove('show'),1400);}
+function setHero(m){const h=document.getElementById('hero');h.classList.toggle('light',m=='light');document.getElementById('tD').classList.toggle('on',m=='dark');document.getElementById('tL').classList.toggle('on',m=='light');}
+</script>
+</body></html>

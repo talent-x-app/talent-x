@@ -1,0 +1,5 @@
+/* Talent-X — global CSS entry point.
+   Consumers link THIS file; it reaches every token, font-face and utility class.
+   Keep this file as @import lines only. */
+@import url('tokens.css');
+@import url('colors_and_type.css');

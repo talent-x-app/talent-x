@@ -1,0 +1,19 @@
+<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">
+<link rel="stylesheet" href="_card.css">
+<style>
+body { padding:0; }
+.grid { display:grid; grid-template-columns:repeat(4,1fr); }
+.cell { min-height:130px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; }
+.dark { background:#0B0F17; } .light { background:#F4F6FA; }
+.cell img { width:64px; height:64px; }
+.cap { font-size:10px; font-weight:600; letter-spacing:.02em; }
+.dark .cap { color:#8A94A6; } .light .cap { color:#5C6678; }
+</style></head>
+<body>
+<div class="grid">
+  <div class="cell dark"><img src="../assets/monogram-white.svg" alt="Monogramme TX blanc"><span class="cap">Mono · blanc</span></div>
+  <div class="cell light"><img src="../assets/monogram-ink.svg" alt="Monogramme TX ink"><span class="cap">Mono · ink</span></div>
+  <div class="cell dark"><img src="../assets/app-icon.svg" alt="Icône d'app Talent-X"><span class="cap">App icon · SVG</span></div>
+  <div class="cell light"><img src="../assets/app-icon-512.png" alt="Icône d'app Talent-X PNG" style="border-radius:14px"><span class="cap">App icon · PNG</span></div>
+</div>
+</body></html>

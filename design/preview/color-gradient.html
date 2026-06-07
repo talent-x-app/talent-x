@@ -1,0 +1,22 @@
+<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="_card.css">
+<style>
+.wrap { display:grid; grid-template-columns: 1.3fr 1fr; gap: 16px; align-items:center; }
+.grad { height: 96px; border-radius: 14px; background: linear-gradient(135deg, #5BAEFF 0%, #2E7CF6 55%, #1B5BE0 100%); display:flex; align-items:flex-end; padding:12px; }
+.grad .x { font-size: 56px; font-weight: 700; color:#fff; font-style: italic; line-height:1; transform: skewX(-7deg); }
+.meta .name { font-size: 13px; font-weight: 700; }
+.meta .stops { font-size: 11px; font-family: ui-monospace, Menlo, monospace; color: var(--tx-text-secondary); margin: 6px 0; }
+.meta .use { font-size: 11px; color: var(--tx-text-muted); line-height:1.45; }
+</style></head>
+<body>
+<div class="wrap">
+  <div class="grad"><span class="x">X</span></div>
+  <div class="meta">
+    <div class="name">Dégradé « X »</div>
+    <div class="stops">135° · 5BAEFF → 2E7CF6 55% → 1B5BE0</div>
+    <div class="use">Signature uniquement : marque, monogramme, un seul accent héros. Jamais sur du texte courant ni en remplissage d'UI.</div>
+  </div>
+</div>
+</body></html>

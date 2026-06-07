@@ -1,0 +1,38 @@
+<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="_card.css">
+<style>
+body { padding: 0; }
+.split { border:0; border-radius:0; }
+.tok { display:flex; align-items:center; gap:9px; padding: 5px 0; }
+.dot { width: 22px; height: 22px; border-radius: 6px; flex: none; }
+.tok .n { font-size: 11px; font-weight: 500; }
+.pane-light .dot { border: 1px solid rgba(11,15,23,.12); }
+.pane-dark .dot  { border: 1px solid rgba(255,255,255,.12); }
+.pane-light .n { color:#0B0F17; } .pane-dark .n { color:#E7ECF3; }
+.lbl2 { font-size:10px; font-weight:600; letter-spacing:.18em; text-transform:uppercase; margin:0 0 8px; }
+.pane-light .lbl2 { color:#5C6678; } .pane-dark .lbl2 { color:#8A94A6; }
+</style></head>
+<body>
+<div class="split">
+  <div class="pane pane-light">
+    <div class="lbl2">Light</div>
+    <div class="tok"><span class="dot" style="background:#F4F6FA"></span><span class="n">background</span></div>
+    <div class="tok"><span class="dot" style="background:#FFFFFF"></span><span class="n">surface</span></div>
+    <div class="tok"><span class="dot" style="background:#ECF0F6"></span><span class="n">surface-sunken</span></div>
+    <div class="tok"><span class="dot" style="background:#0B0F17"></span><span class="n">text-primary</span></div>
+    <div class="tok"><span class="dot" style="background:#2E7CF6"></span><span class="n">accent</span></div>
+    <div class="tok"><span class="dot" style="background:rgba(11,15,23,.10)"></span><span class="n">border</span></div>
+  </div>
+  <div class="pane pane-dark">
+    <div class="lbl2">Dark</div>
+    <div class="tok"><span class="dot" style="background:#0B0F17"></span><span class="n">background</span></div>
+    <div class="tok"><span class="dot" style="background:#11151F"></span><span class="n">surface</span></div>
+    <div class="tok"><span class="dot" style="background:#0E121B"></span><span class="n">surface-sunken</span></div>
+    <div class="tok"><span class="dot" style="background:#E7ECF3"></span><span class="n">text-primary</span></div>
+    <div class="tok"><span class="dot" style="background:#2E7CF6"></span><span class="n">accent</span></div>
+    <div class="tok"><span class="dot" style="background:rgba(255,255,255,.08)"></span><span class="n">border</span></div>
+  </div>
+</div>
+</body></html>

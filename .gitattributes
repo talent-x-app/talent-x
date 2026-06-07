@@ -1,0 +1,4 @@
+# Décommenter pour stocker les binaires lourds via Git LFS :
+# *.png  filter=lfs diff=lfs merge=lfs -text
+# *.pdf  filter=lfs diff=lfs merge=lfs -text
+# *.docx filter=lfs diff=lfs merge=lfs -text

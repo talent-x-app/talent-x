@@ -1,0 +1,2537 @@
+# Talent-X — Contrat OpenAPI 3.1
+# Source de vérité de l'API. Dérivé de TX-SPEC-002 v2.0 et TX-DATA-006.
+# Généré le 2026-06-04. À versionner dans le dépôt (ex. /openapi/talent-x.yaml).
+
+openapi: 3.1.0
+info:
+  title: Talent-X API
+  version: 1.0.0
+  description: 'Contrat d''API REST de Talent-X — source de vérité dérivée de TX-SPEC-002 v2.0 (catalogue
+    d''endpoints, matrice d''autorisation, conventions et format d''erreur) et alignée sur le modèle de
+    données TX-DATA-006.
+
+
+    Conventions transverses : préfixe /api/v1 ; jeton d''accès JWT (RS256) via en-tête Authorization ;
+    pagination par enveloppe { data, meta } ; idempotence des écritures sensibles via Idempotency-Key
+    ; opérations longues asynchrones (202 + ressource de statut) ; rate limiting signalé par les en-têtes
+    RateLimit-*. L''autorisation combine rôle, appartenance (lien coach↔athlète), propriété et consentement
+    ; voir TX-SPEC-002 §6.'
+  contact:
+    name: Talent-X
+  license:
+    name: Propriétaire
+servers:
+- url: https://api.talent-x.example/api/v1
+  description: Production (URL à confirmer)
+- url: http://localhost:3000/api/v1
+  description: Développement local
+tags:
+- name: Authentification
+  description: Inscription, connexion, rotation des jetons, 2FA.
+- name: Profil & RGPD
+  description: Profil, consentements, export et suppression.
+- name: Groupes
+  description: Création et administration des groupes et des effectifs.
+- name: Séances
+  description: Cycle de vie et affectation des séances.
+- name: Affectations & performances
+  description: Affectations et saisie des performances.
+- name: Collaboration
+  description: Commentaires sur séances et performances.
+- name: Progression
+  description: Progression athlète et tableau de bord coach.
+- name: Notifications
+  description: Device tokens et préférences.
+- name: Système
+  description: Health et readiness.
+security:
+- bearerAuth: []
+paths:
+  /auth/register:
+    post:
+      tags:
+      - Authentification
+      summary: Créer un compte
+      operationId: register
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+            example:
+              email: coach@example.com
+              password: SecureP@ss123
+              role: coach
+      responses:
+        '201':
+          description: Compte créé.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthSession'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /auth/login:
+    post:
+      tags:
+      - Authentification
+      summary: Authentifier et délivrer les jetons
+      operationId: login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+            example:
+              email: coach@example.com
+              password: SecureP@ss123
+      responses:
+        '200':
+          description: Authentifié.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthSession'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
+  /auth/refresh:
+    post:
+      tags:
+      - Authentification
+      summary: Renouveler la session (rotation + détection de réutilisation)
+      description: Le refresh token est à usage unique. La réutilisation d'un jeton déjà consommé invalide
+        toute la famille (vol présumé) et renvoie 409 TOKEN_REUSE_DETECTED.
+      operationId: refresh
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshRequest'
+      responses:
+        '200':
+          description: Nouveau couple de jetons.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthTokens'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
+        '409':
+          $ref: '#/components/responses/TokenReuse'
+  /auth/logout:
+    post:
+      tags:
+      - Authentification
+      summary: Révoquer le refresh token courant
+      operationId: logout
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshRequest'
+      responses:
+        '204':
+          description: Session révoquée.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
+  /auth/logout-all:
+    post:
+      tags:
+      - Authentification
+      summary: Révoquer toutes les sessions
+      operationId: logoutAll
+      responses:
+        '204':
+          description: Toutes les sessions ont été révoquées.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
+  /auth/forgot-password:
+    post:
+      tags:
+      - Authentification
+      summary: Déclencher la réinitialisation (réponse neutre)
+      description: Réponse identique que l'email existe ou non (anti-énumération de comptes).
+      operationId: forgotPassword
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ForgotPasswordRequest'
+      responses:
+        '202':
+          description: Demande prise en compte (réponse neutre).
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
+  /auth/reset-password:
+    post:
+      tags:
+      - Authentification
+      summary: Réinitialiser le mot de passe (token à usage unique)
+      operationId: resetPassword
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResetPasswordRequest'
+      responses:
+        '204':
+          description: Mot de passe réinitialisé.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
+  /auth/2fa/enable:
+    post:
+      tags:
+      - Authentification
+      summary: Activer la 2FA TOTP (V2)
+      description: Réservé aux comptes coach. Fonctionnalité prévue en V2.
+      operationId: enable2fa
+      responses:
+        '200':
+          description: Secret TOTP à provisionner.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TwoFactorSetup'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /auth/2fa/verify:
+    post:
+      tags:
+      - Authentification
+      summary: Vérifier un code 2FA (V2)
+      operationId: verify2fa
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TwoFactorVerify'
+      responses:
+        '204':
+          description: Code vérifié.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
+  /users/me:
+    get:
+      tags:
+      - Profil & RGPD
+      summary: Profil courant
+      operationId: getMe
+      responses:
+        '200':
+          description: Profil.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    put:
+      tags:
+      - Profil & RGPD
+      summary: Mettre à jour le profil
+      operationId: updateMe
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserUpdate'
+      responses:
+        '200':
+          description: Profil mis à jour.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    delete:
+      tags:
+      - Profil & RGPD
+      summary: Demander la suppression du compte (asynchrone)
+      operationId: deleteMe
+      responses:
+        '202':
+          description: Suppression planifiée.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Job'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
+  /users/me/consents:
+    get:
+      tags:
+      - Profil & RGPD
+      summary: Lister les consentements
+      operationId: getConsents
+      responses:
+        '200':
+          description: État des consentements.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConsentList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    put:
+      tags:
+      - Profil & RGPD
+      summary: Donner ou retirer un consentement
+      operationId: updateConsent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConsentUpdate'
+            example:
+              type: coach_access
+              granted: false
+              textVersion: 2026-01
+      responses:
+        '200':
+          description: Consentement mis à jour.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Consent'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
+  /users/me/export:
+    post:
+      tags:
+      - Profil & RGPD
+      summary: Demander un export de données (asynchrone)
+      operationId: requestExport
+      responses:
+        '202':
+          description: Export en cours de préparation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Job'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
+  /users/me/export/{jobId}:
+    get:
+      tags:
+      - Profil & RGPD
+      summary: Statut et lien de l'export
+      operationId: getExport
+      parameters:
+      - $ref: '#/components/parameters/JobIdPath'
+      responses:
+        '200':
+          description: Statut de l'export.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExportJob'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /groups:
+    post:
+      tags:
+      - Groupes
+      summary: Créer un groupe
+      operationId: createGroup
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GroupCreate'
+      responses:
+        '201':
+          description: Groupe créé.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Group'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    get:
+      tags:
+      - Groupes
+      summary: Lister ses groupes
+      operationId: listGroups
+      parameters:
+      - $ref: '#/components/parameters/PageParam'
+      - $ref: '#/components/parameters/LimitParam'
+      - $ref: '#/components/parameters/SortParam'
+      responses:
+        '200':
+          description: Liste paginée des groupes.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
+  /groups/{id}:
+    get:
+      tags:
+      - Groupes
+      summary: Détail d'un groupe
+      operationId: getGroup
+      parameters:
+      - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: Groupe.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Group'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags:
+      - Groupes
+      summary: Modifier un groupe
+      operationId: updateGroup
+      parameters:
+      - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GroupUpdate'
+      responses:
+        '200':
+          description: Groupe mis à jour.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Group'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags:
+      - Groupes
+      summary: Supprimer (logique) un groupe
+      operationId: deleteGroup
+      parameters:
+      - $ref: '#/components/parameters/IdPath'
+      responses:
+        '204':
+          description: Groupe supprimé.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /groups/{id}/members:
+    get:
+      tags:
+      - Groupes
+      summary: Lister les membres
+      operationId: listGroupMembers
+      parameters:
+      - $ref: '#/components/parameters/IdPath'
+      - $ref: '#/components/parameters/PageParam'
+      - $ref: '#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: Liste paginée des membres.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupMemberPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /groups/{id}/members/{athleteId}:
+    delete:
+      tags:
+      - Groupes
+      summary: Retirer un athlète du groupe
+      operationId: removeGroupMember
+      parameters:
+      - $ref: '#/components/parameters/IdPath'
+      - $ref: '#/components/parameters/AthleteIdPath'
+      responses:
+        '204':
+          description: Athlète retiré.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /groups/{id}/invite-code:
+    post:
+      tags:
+      - Groupes
+      summary: Régénérer ou révoquer le code d'invitation
+      operationId: manageInviteCode
+      parameters:
+      - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InviteCodeAction'
+      responses:
+        '200':
+          description: Nouveau code (ou code révoqué).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InviteCode'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /groups/join:
+    post:
+      tags:
+      - Groupes
+      summary: Rejoindre un groupe via code
+      operationId: joinGroup
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JoinGroupRequest'
+      responses:
+        '200':
+          description: Groupe rejoint.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupMember'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /groups/{id}/leave:
+    post:
+      tags:
+      - Groupes
+      summary: Quitter un groupe
+      operationId: leaveGroup
+      parameters:
+      - $ref: '#/components/parameters/IdPath'
+      responses:
+        '204':
+          description: Groupe quitté.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /sessions:
+    post:
+      tags:
+      - Séances
+      summary: Créer une séance
+      operationId: createSession
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SessionCreate'
+      responses:
+        '201':
+          description: Séance créée.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    get:
+      tags:
+      - Séances
+      summary: 'Lister les séances (coach : les siennes ; athlète : affectées)'
+      operationId: listSessions
+      parameters:
+      - $ref: '#/components/parameters/PageParam'
+      - $ref: '#/components/parameters/LimitParam'
+      - $ref: '#/components/parameters/SortParam'
+      - $ref: '#/components/parameters/SessionStatusFilter'
+      responses:
+        '200':
+          description: Liste paginée des séances.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
+  /sessions/{id}:
+    get:
+      tags:
+      - Séances
+      summary: Lire une séance autorisée
+      operationId: getSession
+      parameters:
+      - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: Séance.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags:
+      - Séances
+      summary: Modifier une séance
+      operationId: updateSession
+      parameters:
+      - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SessionUpdate'
+      responses:
+        '200':
+          description: Séance mise à jour.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags:
+      - Séances
+      summary: Supprimer (logique) une séance
+      operationId: deleteSession
+      parameters:
+      - $ref: '#/components/parameters/IdPath'
+      responses:
+        '204':
+          description: Séance supprimée.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /sessions/{id}/duplicate:
+    post:
+      tags:
+      - Séances
+      summary: Dupliquer une séance
+      operationId: duplicateSession
+      parameters:
+      - $ref: '#/components/parameters/IdPath'
+      responses:
+        '201':
+          description: Séance dupliquée.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /sessions/{id}/archive:
+    post:
+      tags:
+      - Séances
+      summary: Archiver une séance
+      operationId: archiveSession
+      parameters:
+      - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: Séance archivée.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /sessions/{id}/assign:
+    post:
+      tags:
+      - Séances
+      summary: Affecter une séance à des athlètes
+      operationId: assignSession
+      parameters:
+      - $ref: '#/components/parameters/IdPath'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssignRequest'
+      responses:
+        '201':
+          description: Affectations créées.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssignmentList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/IdempotencyConflict'
+  /assignments:
+    get:
+      tags:
+      - Affectations & performances
+      summary: Lister ses affectations
+      operationId: listAssignments
+      parameters:
+      - $ref: '#/components/parameters/PageParam'
+      - $ref: '#/components/parameters/LimitParam'
+      - $ref: '#/components/parameters/AssignmentStatusFilter'
+      responses:
+        '200':
+          description: Liste paginée des affectations.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssignmentPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
+  /assignments/{id}:
+    get:
+      tags:
+      - Affectations & performances
+      summary: Détail d'une affectation
+      operationId: getAssignment
+      parameters:
+      - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: Affectation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Assignment'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /assignments/{id}/performance:
+    post:
+      tags:
+      - Affectations & performances
+      summary: Soumettre la performance (idempotent ; consentement requis)
+      description: Le consentement de traitement doit être actif (sinon 403 CONSENT_REQUIRED). L'en-tête
+        Idempotency-Key absorbe les reprises réseau (saisie hors ligne).
+      operationId: submitPerformance
+      parameters:
+      - $ref: '#/components/parameters/IdPath'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PerformanceCreate'
+            example:
+              results:
+                schemaVersion: 1
+                items:
+                - exerciseName: Développé couché
+                  order: 1
+                  setResults:
+                  - set: 1
+                    reps: 8
+                    load:
+                      value: 60
+                      unit: kg
+              rpe: 8
+              notes: Bonne séance
+      responses:
+        '201':
+          description: Performance enregistrée.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Performance'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
+        '403':
+          $ref: '#/components/responses/ConsentRequired'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/IdempotencyConflict'
+    get:
+      tags:
+      - Affectations & performances
+      summary: Lire la performance
+      operationId: getPerformance
+      parameters:
+      - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: Performance.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Performance'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags:
+      - Affectations & performances
+      summary: Corriger la performance (tracé)
+      operationId: updatePerformance
+      parameters:
+      - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PerformanceCreate'
+      responses:
+        '200':
+          description: Performance corrigée.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Performance'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /comments:
+    post:
+      tags:
+      - Collaboration
+      summary: Commenter une séance ou une performance
+      operationId: createComment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommentCreate'
+      responses:
+        '201':
+          description: Commentaire créé.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Comment'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    get:
+      tags:
+      - Collaboration
+      summary: Lister les commentaires d'une cible
+      operationId: listComments
+      parameters:
+      - $ref: '#/components/parameters/SessionIdQuery'
+      - $ref: '#/components/parameters/PerformanceIdQuery'
+      - $ref: '#/components/parameters/PageParam'
+      - $ref: '#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: Liste paginée des commentaires.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommentPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
+  /comments/{id}:
+    delete:
+      tags:
+      - Collaboration
+      summary: Supprimer son commentaire
+      operationId: deleteComment
+      parameters:
+      - $ref: '#/components/parameters/IdPath'
+      responses:
+        '204':
+          description: Commentaire supprimé.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /athletes/me/progress:
+    get:
+      tags:
+      - Progression
+      summary: Consulter sa propre progression
+      operationId: getMyProgress
+      responses:
+        '200':
+          description: Progression.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Progress'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
+  /athletes/{id}/stats:
+    get:
+      tags:
+      - Progression
+      summary: Statistiques d'un athlète lié (consentement requis)
+      operationId: getAthleteStats
+      parameters:
+      - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: Statistiques.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Stats'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
+        '403':
+          $ref: '#/components/responses/ConsentRequired'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /coach/dashboard:
+    get:
+      tags:
+      - Progression
+      summary: Vue d'ensemble des athlètes du coach
+      operationId: getCoachDashboard
+      responses:
+        '200':
+          description: Tableau de bord.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Dashboard'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /notifications/devices:
+    post:
+      tags:
+      - Notifications
+      summary: Enregistrer un device token
+      operationId: registerDevice
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeviceTokenCreate'
+      responses:
+        '201':
+          description: Device enregistré.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceToken'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
+  /notifications/devices/{id}:
+    delete:
+      tags:
+      - Notifications
+      summary: Révoquer un device token
+      operationId: revokeDevice
+      parameters:
+      - $ref: '#/components/parameters/IdPath'
+      responses:
+        '204':
+          description: Device révoqué.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /notifications/preferences:
+    get:
+      tags:
+      - Notifications
+      summary: Lire les préférences
+      operationId: getNotificationPreferences
+      responses:
+        '200':
+          description: Préférences.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationPreferences'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    put:
+      tags:
+      - Notifications
+      summary: Mettre à jour les préférences
+      operationId: updateNotificationPreferences
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NotificationPreferences'
+      responses:
+        '200':
+          description: Préférences mises à jour.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationPreferences'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
+  /health:
+    get:
+      tags:
+      - Système
+      summary: Liveness
+      operationId: health
+      security: []
+      responses:
+        '200':
+          description: Le service répond.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+  /ready:
+    get:
+      tags:
+      - Système
+      summary: Readiness (dépendances)
+      operationId: ready
+      security: []
+      responses:
+        '200':
+          description: Prêt.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Readiness'
+        '503':
+          description: Une dépendance n'est pas disponible.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Readiness'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Access token JWT signé RS256.
+  parameters:
+    IdPath:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    AthleteIdPath:
+      name: athleteId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    JobIdPath:
+      name: jobId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    PageParam:
+      name: page
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    LimitParam:
+      name: limit
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+    SortParam:
+      name: sort
+      in: query
+      required: false
+      description: Champ de tri, préfixé de '-' pour l'ordre décroissant (ex. -createdAt).
+      schema:
+        type: string
+    SessionStatusFilter:
+      name: status
+      in: query
+      required: false
+      schema:
+        $ref: '#/components/schemas/SessionStatus'
+    AssignmentStatusFilter:
+      name: status
+      in: query
+      required: false
+      schema:
+        $ref: '#/components/schemas/AssignmentStatus'
+    SessionIdQuery:
+      name: sessionId
+      in: query
+      required: false
+      schema:
+        type: string
+        format: uuid
+    PerformanceIdQuery:
+      name: performanceId
+      in: query
+      required: false
+      schema:
+        type: string
+        format: uuid
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: Clé d'idempotence générée par le client pour absorber les reprises réseau.
+      schema:
+        type: string
+  headers:
+    RateLimit-Limit:
+      description: Quota sur la fenêtre courante.
+      schema:
+        type: integer
+    RateLimit-Remaining:
+      description: Requêtes restantes sur la fenêtre.
+      schema:
+        type: integer
+    RateLimit-Reset:
+      description: Secondes avant réinitialisation du quota.
+      schema:
+        type: integer
+    Retry-After:
+      description: Secondes à attendre avant un nouvel essai.
+      schema:
+        type: integer
+  responses:
+    BadRequest:
+      description: Requête invalide.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            statusCode: 400
+            error: BAD_REQUEST
+            message: Invalid request
+    Unauthorized:
+      description: Authentification requise ou invalide.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            statusCode: 401
+            error: UNAUTHORIZED
+            message: Authentication required
+    Forbidden:
+      description: Accès refusé (rôle, appartenance ou propriété).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            statusCode: 403
+            error: FORBIDDEN
+            message: Access denied
+    NotFound:
+      description: Ressource introuvable.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            statusCode: 404
+            error: NOT_FOUND
+            message: Resource not found
+    Conflict:
+      description: Conflit (ressource déjà existante).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            statusCode: 409
+            error: CONFLICT
+            message: Resource already exists
+    ValidationFailed:
+      description: Échec de validation des données.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            statusCode: 422
+            error: VALIDATION_ERROR
+            message: Validation failed
+            details:
+            - field: email
+              constraint: isEmail
+              message: email must be a valid email address
+    TooManyRequests:
+      description: Trop de requêtes (rate limiting).
+      headers:
+        RateLimit-Limit:
+          $ref: '#/components/headers/RateLimit-Limit'
+        RateLimit-Remaining:
+          $ref: '#/components/headers/RateLimit-Remaining'
+        RateLimit-Reset:
+          $ref: '#/components/headers/RateLimit-Reset'
+        Retry-After:
+          $ref: '#/components/headers/Retry-After'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            statusCode: 429
+            error: RATE_LIMITED
+            message: Too many requests
+    ServerError:
+      description: Erreur interne.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            statusCode: 500
+            error: INTERNAL_ERROR
+            message: Internal server error
+    ConsentRequired:
+      description: Action bloquée faute de consentement actif.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            statusCode: 403
+            error: CONSENT_REQUIRED
+            message: Consent required
+    IdempotencyConflict:
+      description: 'Conflit d''idempotence : la clé a déjà été utilisée avec une charge différente.'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            statusCode: 409
+            error: IDEMPOTENCY_CONFLICT
+            message: Idempotency key reused with a different payload
+    TokenReuse:
+      description: 'Réutilisation de refresh token détectée : la famille de jetons est révoquée.'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            statusCode: 409
+            error: TOKEN_REUSE_DETECTED
+            message: Session invalidated
+  schemas:
+    Error:
+      type: object
+      properties:
+        statusCode:
+          type: integer
+        error:
+          type: string
+          description: Code d'erreur stable et exploitable côté client.
+        message:
+          type: string
+        details:
+          type: array
+          items:
+            $ref: '#/components/schemas/ValidationDetail'
+        timestamp:
+          type: string
+          format: date-time
+        path:
+          type: string
+      required:
+      - statusCode
+      - error
+      - message
+    ValidationDetail:
+      type: object
+      properties:
+        field:
+          type: string
+        constraint:
+          type: string
+        message:
+          type: string
+    PageMeta:
+      type: object
+      properties:
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+        hasNext:
+          type: boolean
+      required:
+      - total
+      - page
+      - limit
+      - hasNext
+    Job:
+      type: object
+      properties:
+        jobId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum:
+          - pending
+          - processing
+          - ready
+          - failed
+      required:
+      - jobId
+      - status
+    ExportJob:
+      allOf:
+      - $ref: '#/components/schemas/Job'
+      - type: object
+        properties:
+          downloadUrl:
+            type: string
+            format: uri
+          expiresAt:
+            type: string
+            format: date-time
+    Role:
+      type: string
+      enum:
+      - coach
+      - athlete
+    RegisterRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+        role:
+          $ref: '#/components/schemas/Role'
+        firstName:
+          type: string
+        lastName:
+          type: string
+      required:
+      - email
+      - password
+      - role
+    LoginRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+      required:
+      - email
+      - password
+    RefreshRequest:
+      type: object
+      properties:
+        refreshToken:
+          type: string
+      required:
+      - refreshToken
+    AuthTokens:
+      type: object
+      properties:
+        accessToken:
+          type: string
+        refreshToken:
+          type: string
+        expiresIn:
+          type: integer
+          description: Durée de vie de l'access token, en secondes.
+      required:
+      - accessToken
+      - refreshToken
+      - expiresIn
+    AuthSession:
+      allOf:
+      - $ref: '#/components/schemas/AuthTokens'
+      - type: object
+        properties:
+          user:
+            $ref: '#/components/schemas/User'
+        required:
+        - user
+    ForgotPasswordRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+      required:
+      - email
+    ResetPasswordRequest:
+      type: object
+      properties:
+        token:
+          type: string
+        newPassword:
+          type: string
+          minLength: 8
+      required:
+      - token
+      - newPassword
+    TwoFactorSetup:
+      type: object
+      properties:
+        otpauthUrl:
+          type: string
+        secret:
+          type: string
+    TwoFactorVerify:
+      type: object
+      properties:
+        code:
+          type: string
+      required:
+      - code
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        role:
+          $ref: '#/components/schemas/Role'
+        firstName:
+          type: string
+        lastName:
+          type: string
+        photoUrl:
+          type: string
+          format: uri
+        sport:
+          type: string
+        bio:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+      - id
+      - email
+      - role
+    UserSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        firstName:
+          type: string
+        lastName:
+          type: string
+        sport:
+          type: string
+      required:
+      - id
+    UserUpdate:
+      type: object
+      properties:
+        firstName:
+          type: string
+        lastName:
+          type: string
+        photoUrl:
+          type: string
+          format: uri
+        sport:
+          type: string
+        bio:
+          type: string
+    ConsentType:
+      type: string
+      enum:
+      - data_processing
+      - coach_access
+      - marketing
+    Consent:
+      type: object
+      properties:
+        type:
+          $ref: '#/components/schemas/ConsentType'
+        granted:
+          type: boolean
+        textVersion:
+          type: string
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+      - type
+      - granted
+    ConsentUpdate:
+      type: object
+      properties:
+        type:
+          $ref: '#/components/schemas/ConsentType'
+        granted:
+          type: boolean
+        textVersion:
+          type: string
+      required:
+      - type
+      - granted
+    ConsentList:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Consent'
+      required:
+      - data
+    Group:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        coachId:
+          type: string
+          format: uuid
+        inviteCode:
+          type: string
+        memberCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+      - id
+      - name
+      - coachId
+    GroupCreate:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+      required:
+      - name
+    GroupUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+    GroupMember:
+      type: object
+      properties:
+        athleteId:
+          type: string
+          format: uuid
+        groupId:
+          type: string
+          format: uuid
+        joinedAt:
+          type: string
+          format: date-time
+        athlete:
+          $ref: '#/components/schemas/UserSummary'
+      required:
+      - athleteId
+      - groupId
+    JoinGroupRequest:
+      type: object
+      properties:
+        inviteCode:
+          type: string
+      required:
+      - inviteCode
+    InviteCodeAction:
+      type: object
+      properties:
+        action:
+          type: string
+          enum:
+          - regenerate
+          - revoke
+      required:
+      - action
+    InviteCode:
+      type: object
+      properties:
+        inviteCode:
+          type:
+          - string
+          - 'null'
+          description: null après révocation.
+    SessionStatus:
+      type: string
+      enum:
+      - draft
+      - published
+      - archived
+    Load:
+      type: object
+      properties:
+        value:
+          type: number
+        unit:
+          type: string
+          enum:
+          - kg
+          - lb
+          - percent_1rm
+          - bodyweight
+      required:
+      - value
+      - unit
+    Exercise:
+      type: object
+      properties:
+        name:
+          type: string
+        order:
+          type: integer
+        sets:
+          type: integer
+        reps:
+          type: integer
+        durationSeconds:
+          type: integer
+        restSeconds:
+          type: integer
+        load:
+          $ref: '#/components/schemas/Load'
+        notes:
+          type: string
+      required:
+      - name
+      - order
+    ExercisesDoc:
+      type: object
+      properties:
+        schemaVersion:
+          type: integer
+          description: Version du contrat JSONB (cf. TX-DATA-006).
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Exercise'
+      required:
+      - items
+    Session:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+        scheduledDate:
+          type: string
+          format: date
+        status:
+          $ref: '#/components/schemas/SessionStatus'
+        coachId:
+          type: string
+          format: uuid
+        exercises:
+          $ref: '#/components/schemas/ExercisesDoc'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+      - id
+      - title
+      - status
+      - coachId
+      - exercises
+    SessionCreate:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        scheduledDate:
+          type: string
+          format: date
+        status:
+          $ref: '#/components/schemas/SessionStatus'
+        exercises:
+          $ref: '#/components/schemas/ExercisesDoc'
+      required:
+      - title
+      - exercises
+    SessionUpdate:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        scheduledDate:
+          type: string
+          format: date
+        status:
+          $ref: '#/components/schemas/SessionStatus'
+        exercises:
+          $ref: '#/components/schemas/ExercisesDoc'
+    AssignRequest:
+      type: object
+      properties:
+        athleteIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+          minItems: 1
+        dueDate:
+          type: string
+          format: date
+      required:
+      - athleteIds
+    AssignmentStatus:
+      type: string
+      enum:
+      - assigned
+      - in_progress
+      - completed
+      - skipped
+    Assignment:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        sessionId:
+          type: string
+          format: uuid
+        athleteId:
+          type: string
+          format: uuid
+        status:
+          $ref: '#/components/schemas/AssignmentStatus'
+        dueDate:
+          type: string
+          format: date
+        session:
+          $ref: '#/components/schemas/Session'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+      - id
+      - sessionId
+      - athleteId
+      - status
+    AssignmentList:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Assignment'
+      required:
+      - data
+    SetResult:
+      type: object
+      properties:
+        set:
+          type: integer
+        reps:
+          type: integer
+        load:
+          $ref: '#/components/schemas/Load'
+        durationSeconds:
+          type: integer
+        completed:
+          type: boolean
+      required:
+      - set
+    ExerciseResult:
+      type: object
+      properties:
+        exerciseName:
+          type: string
+        order:
+          type: integer
+        setResults:
+          type: array
+          items:
+            $ref: '#/components/schemas/SetResult'
+      required:
+      - exerciseName
+    ResultsDoc:
+      type: object
+      properties:
+        schemaVersion:
+          type: integer
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExerciseResult'
+      required:
+      - items
+    Performance:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        assignmentId:
+          type: string
+          format: uuid
+        athleteId:
+          type: string
+          format: uuid
+        results:
+          $ref: '#/components/schemas/ResultsDoc'
+        rpe:
+          type: integer
+          minimum: 1
+          maximum: 10
+        notes:
+          type: string
+        submittedAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+      - id
+      - assignmentId
+      - athleteId
+      - results
+    PerformanceCreate:
+      type: object
+      properties:
+        results:
+          $ref: '#/components/schemas/ResultsDoc'
+        rpe:
+          type: integer
+          minimum: 1
+          maximum: 10
+        notes:
+          type: string
+      required:
+      - results
+    Comment:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        authorId:
+          type: string
+          format: uuid
+        sessionId:
+          type: string
+          format: uuid
+        performanceId:
+          type: string
+          format: uuid
+        body:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required:
+      - id
+      - authorId
+      - body
+    CommentCreate:
+      type: object
+      properties:
+        sessionId:
+          type: string
+          format: uuid
+        performanceId:
+          type: string
+          format: uuid
+        body:
+          type: string
+      required:
+      - body
+      description: 'Renseigner exactement une cible : sessionId OU performanceId.'
+      oneOf:
+      - required:
+        - sessionId
+      - required:
+        - performanceId
+    Progress:
+      type: object
+      properties:
+        athleteId:
+          type: string
+          format: uuid
+        metrics:
+          type: object
+          additionalProperties: true
+        series:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+      required:
+      - athleteId
+    Stats:
+      type: object
+      properties:
+        athleteId:
+          type: string
+          format: uuid
+        metrics:
+          type: object
+          additionalProperties: true
+      required:
+      - athleteId
+    Dashboard:
+      type: object
+      properties:
+        athletes:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserSummary'
+        summary:
+          type: object
+          additionalProperties: true
+    DevicePlatform:
+      type: string
+      enum:
+      - apns
+      - fcm
+    DeviceToken:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        platform:
+          $ref: '#/components/schemas/DevicePlatform'
+        token:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required:
+      - id
+      - platform
+      - token
+    DeviceTokenCreate:
+      type: object
+      properties:
+        platform:
+          $ref: '#/components/schemas/DevicePlatform'
+        token:
+          type: string
+      required:
+      - platform
+      - token
+    NotificationPreferences:
+      type: object
+      properties:
+        sessionAssigned:
+          type: boolean
+        performanceFeedback:
+          type: boolean
+        groupUpdates:
+          type: boolean
+        marketing:
+          type: boolean
+    Health:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - ok
+      required:
+      - status
+    Readiness:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - ready
+          - not_ready
+        checks:
+          type: object
+          additionalProperties:
+            type: boolean
+      required:
+      - status
+    GroupPage:
+      type: object
+      required:
+      - data
+      - meta
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Group'
+        meta:
+          $ref: '#/components/schemas/PageMeta'
+    GroupMemberPage:
+      type: object
+      required:
+      - data
+      - meta
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/GroupMember'
+        meta:
+          $ref: '#/components/schemas/PageMeta'
+    SessionPage:
+      type: object
+      required:
+      - data
+      - meta
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Session'
+        meta:
+          $ref: '#/components/schemas/PageMeta'
+    AssignmentPage:
+      type: object
+      required:
+      - data
+      - meta
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Assignment'
+        meta:
+          $ref: '#/components/schemas/PageMeta'
+    CommentPage:
+      type: object
+      required:
+      - data
+      - meta
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Comment'
+        meta:
+          $ref: '#/components/schemas/PageMeta'

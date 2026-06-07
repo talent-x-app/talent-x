@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Talent‑X — UI kit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: #08090d;
+    font-family: 'Poppins', system-ui, sans-serif;
+    display: flex; align-items: center; justify-content: center;
+    min-height: 100vh; overflow: hidden;
+  }
+  #stage { position: relative; }
+  #scaler { transform-origin: center center; }
+  .hint { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
+    font-family: 'Poppins', sans-serif; font-size: 12px; color: #5C6678; letter-spacing: .02em; }
+</style>
+</head>
+<body>
+  <div id="stage"><div id="scaler"><div id="root"></div></div></div>
+  <div class="hint">Talent‑X · prototype cliquable — connecte-toi, ouvre un athlète, lance une séance.</div>
+
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+  <script type="text/babel" src="theme.jsx"></script>
+  <script type="text/babel" src="components.jsx"></script>
+  <script type="text/babel" src="ios-frame.jsx"></script>
+  <script type="text/babel" src="screens.jsx"></script>
+  <script type="text/babel" src="screens2.jsx"></script>
+
+  <script type="text/babel">
+    const { useState } = React;
+
+    function TabBar({ tab, onChange, t }) {
+      return (
+        <div style={{ flex: 'none', background: t.surface, paddingBottom: 22 }}>
+          <TXTabBar t={t} active={tab} onChange={onChange} tabs={[
+            { id: 'home', icon: 'home', label: 'Accueil' },
+            { id: 'cal', icon: 'calendar', label: 'Calendrier' },
+            { id: 'prog', icon: 'chart', label: 'Progression' },
+            { id: 'profile', icon: 'user', label: 'Profil' },
+          ]} />
+        </div>
+      );
+    }
+
+    function App() {
+      const t = theme('dark');
+      const [auth, setAuth] = useState(false);
+      const [tab, setTab] = useState('home');
+      const [stack, setStack] = useState([]); // {type, athlete?}
+      const push = v => setStack(s => [...s, v]);
+      const pop = () => setStack(s => s.slice(0, -1));
+
+      let content, showTabs = false;
+
+      if (!auth) {
+        content = <LoginScreen t={t} onLogin={() => setAuth(true)} />;
+      } else if (stack.length) {
+        const top = stack[stack.length - 1];
+        if (top.type === 'athlete') content = <AthleteScreen t={t} athlete={top.athlete} onBack={pop} onOpenWorkout={() => push({ type: 'workout' })} />;
+        else content = <WorkoutScreen t={t} onBack={pop} />;
+      } else {
+        showTabs = true;
+        if (tab === 'home') content = <HomeScreen t={t} onOpenAthlete={a => push({ type: 'athlete', athlete: a })} onOpenWorkout={() => push({ type: 'workout' })} />;
+        else if (tab === 'cal') content = <CalendarScreen t={t} onOpenWorkout={() => push({ type: 'workout' })} />;
+        else if (tab === 'prog') content = <ProgressScreen t={t} />;
+        else content = <ProfileScreen t={t} onLogout={() => { setAuth(false); setTab('home'); }} />;
+      }
+
+      return (
+        <IOSDevice dark>
+          <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: t.bg }}>
+            <div style={{ flex: 1, minHeight: 0 }}>{content}</div>
+            {showTabs && <TabBar t={t} tab={tab} onChange={setTab} />}
+          </div>
+        </IOSDevice>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+
+    // fit the 402×874 device to the viewport
+    function fit() {
+      const W = 402, H = 874, pad = 48;
+      const s = Math.min(1, (window.innerWidth - pad) / W, (window.innerHeight - pad) / H);
+      document.getElementById('scaler').style.transform = `scale(${s})`;
+    }
+    window.addEventListener('resize', fit);
+    fit();
+  </script>
+</body>
+</html>

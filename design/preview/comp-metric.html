@@ -1,0 +1,30 @@
+<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="_components.css">
+<style>
+body { margin:0; font-family:var(--tx-font-primary); }
+.split { display:grid; grid-template-columns:1fr 1fr; }
+.pane { padding:18px; display:grid; grid-template-columns:1fr 1fr; gap:12px; align-content:center; }
+.pane.l { background:#F4F6FA; }
+.pane.d { background:#0B0F17; }
+.metric { background:var(--tx-surface); border:1px solid var(--tx-border); border-radius:var(--tx-radius-md); padding:14px; box-shadow:var(--tx-shadow-sm); }
+.metric .top { display:flex; align-items:center; gap:7px; color:var(--tx-text-muted); font-size:11px; font-weight:600; letter-spacing:.04em; text-transform:uppercase; }
+.metric .top svg { width:15px; height:15px; }
+.metric .val { font-size:28px; font-weight:700; letter-spacing:-.02em; margin-top:6px; line-height:1; }
+.metric .val .u { font-size:13px; font-weight:600; color:var(--tx-text-muted); }
+.metric .delta { font-size:12px; font-weight:600; margin-top:6px; display:flex; align-items:center; gap:3px; }
+.up { color:var(--tx-success); } .down { color:var(--tx-danger); }
+</style></head>
+<body>
+<div class="split">
+  <div class="pane l demo">
+    <div class="metric"><div class="top"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l5-5 4 4 7-7"/></svg>Volume</div><div class="val">12.4<span class="u">t</span></div><div class="delta up">▲ 8% vs sem.</div></div>
+    <div class="metric"><div class="top"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Durée</div><div class="val">5<span class="u">h 20</span></div><div class="delta down">▼ 3%</div></div>
+  </div>
+  <div class="pane d demo" data-theme="dark">
+    <div class="metric"><div class="top"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l5-5 4 4 7-7"/></svg>Volume</div><div class="val">12.4<span class="u">t</span></div><div class="delta up">▲ 8% vs sem.</div></div>
+    <div class="metric"><div class="top"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Durée</div><div class="val">5<span class="u">h 20</span></div><div class="delta down">▼ 3%</div></div>
+  </div>
+</div>
+</body></html>

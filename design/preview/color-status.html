@@ -1,0 +1,37 @@
+<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="_card.css">
+<style>
+.grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+.stat { }
+.stat .name { font-size: 11px; font-weight: 700; margin-bottom: 7px; letter-spacing: .02em; }
+.tones { display: grid; grid-template-columns: repeat(3,1fr); gap: 5px; }
+.tone { border-radius: 7px; overflow: hidden; }
+.tone .c { height: 38px; }
+.tone .t { font-size: 8px; font-family: ui-monospace, Menlo, monospace; color: var(--tx-text-muted); margin-top: 4px; }
+</style></head>
+<body>
+<div class="grid">
+  <div class="stat"><div class="name" style="color:#1FA968">Success</div><div class="tones">
+    <div class="tone"><div class="c" style="background:#34D17F"></div><div class="t">400</div></div>
+    <div class="tone"><div class="c" style="background:#1FA968"></div><div class="t">500</div></div>
+    <div class="tone"><div class="c" style="background:#178A55"></div><div class="t">600</div></div>
+  </div></div>
+  <div class="stat"><div class="name" style="color:#C9821A">Warning</div><div class="tones">
+    <div class="tone"><div class="c" style="background:#FFC24B"></div><div class="t">400</div></div>
+    <div class="tone"><div class="c" style="background:#F5A524"></div><div class="t">500</div></div>
+    <div class="tone"><div class="c" style="background:#C9821A"></div><div class="t">600</div></div>
+  </div></div>
+  <div class="stat"><div class="name" style="color:#E5484D">Danger</div><div class="tones">
+    <div class="tone"><div class="c" style="background:#FF6B7A"></div><div class="t">400</div></div>
+    <div class="tone"><div class="c" style="background:#E5484D"></div><div class="t">500</div></div>
+    <div class="tone"><div class="c" style="background:#C23438"></div><div class="t">600</div></div>
+  </div></div>
+  <div class="stat"><div class="name" style="color:#2E7CF6">Info</div><div class="tones">
+    <div class="tone"><div class="c" style="background:#5BAEFF"></div><div class="t">400</div></div>
+    <div class="tone"><div class="c" style="background:#2E7CF6"></div><div class="t">500</div></div>
+    <div class="tone"><div class="c" style="background:#1B5BE0"></div><div class="t">600</div></div>
+  </div></div>
+</div>
+</body></html>

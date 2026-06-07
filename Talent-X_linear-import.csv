@@ -1,0 +1,546 @@
+"Title","Description","Labels","Priority","Estimate","Milestone"
+"TLX-001 — Initialiser le mono-repo (Expo + NestJS + Prisma, pnpm workspaces)","Mise en place technique ; documenter l'usage dans le README du dépôt.
+
+**Réf :** TX-OPS-004
+**Jalon :** Fondations
+
+**DoD :** code + tests, critères d'acceptation cochés, PR liée et revue, aucun secret en dur.","infra,frontend,backend","Urgent","5","Fondations"
+"TLX-002 — Config qualité : ESLint, Prettier, TypeScript strict, Husky pre-commit","Mise en place technique ; documenter l'usage dans le README du dépôt.
+
+**Réf :** —
+**Jalon :** Fondations
+**Dépend de :** TLX-001
+
+**DoD :** code + tests, critères d'acceptation cochés, PR liée et revue, aucun secret en dur.","infra","High","2","Fondations"
+"TLX-003 — Pipeline CI (lint, typecheck, tests, build)","Mise en place technique ; documenter l'usage dans le README du dépôt.
+
+**Réf :** TX-OPS-004 §6
+**Jalon :** Fondations
+**Dépend de :** TLX-001
+
+**DoD :** code + tests, critères d'acceptation cochés, PR liée et revue, aucun secret en dur.","infra,test","High","3","Fondations"
+"TLX-004 — Environnements dev/staging/prod + gestion des secrets","Mise en place technique ; documenter l'usage dans le README du dépôt.
+
+**Réf :** TX-OPS-004 §5
+**Jalon :** Fondations
+**Dépend de :** TLX-001
+
+**DoD :** code + tests, critères d'acceptation cochés, PR liée et revue, aucun secret en dur.","infra","High","3","Fondations"
+"TLX-005 — Design system en code : tokens RN + CSS + thème typé","Mise en place technique ; documenter l'usage dans le README du dépôt.
+
+**Réf :** Design system
+**Jalon :** Fondations
+**Dépend de :** TLX-001
+
+**DoD :** code + tests, critères d'acceptation cochés, PR liée et revue, aucun secret en dur.","design-system,frontend","Urgent","5","Fondations"
+"TLX-006 — Bibliothèque de composants de base (bouton, champ, carte, chip, slider, tab bar)","Mise en place technique ; documenter l'usage dans le README du dépôt.
+
+**Réf :** Design system
+**Jalon :** Fondations
+**Dépend de :** TLX-005
+
+**DoD :** code + tests, critères d'acceptation cochés, PR liée et revue, aucun secret en dur.","design-system,frontend","High","8","Fondations"
+"TLX-007 — Navigation expo-router + tab bars coach/athlète","Construire l'écran/le composant conforme à la carte détaillée en réutilisant le design system ; câbler la navigation et gérer les états (vide/chargement/erreur).
+
+**Réf :** Carte écrans
+**Jalon :** Fondations
+**Dépend de :** TLX-006
+
+**DoD :** code + tests, critères d'acceptation cochés, PR liée et revue, aucun secret en dur.","frontend","High","5","Fondations"
+"TLX-008 — Générer le client API typé depuis l'OpenAPI (orval)","Implémenter conformément à la référence ; couvrir les cas limites.
+
+**Réf :** talent-x-openapi.yaml
+**Jalon :** Fondations
+**Dépend de :** TLX-001
+
+**DoD :** code + tests, critères d'acceptation cochés, PR liée et revue, aucun secret en dur.","frontend,api","High","3","Fondations"
+"TLX-009 — Couche données : TanStack Query + intercepteur auth/refresh","Implémenter conformément à la référence ; couvrir les cas limites.
+
+**Réf :** TX-ARCH-001 §8
+**Jalon :** Fondations
+**Dépend de :** TLX-008
+
+**DoD :** code + tests, critères d'acceptation cochés, PR liée et revue, aucun secret en dur.","frontend","High","5","Fondations"
+"TLX-010 — Gestion globale erreurs / toasts / bandeau hors-ligne","Implémenter conformément à la référence ; couvrir les cas limites.
+
+**Réf :** —
+**Jalon :** Fondations
+**Dépend de :** TLX-006
+
+**DoD :** code + tests, critères d'acceptation cochés, PR liée et revue, aucun secret en dur.","frontend","Medium","3","Fondations"
+"TLX-011 — Squelette NestJS + DTO/contrôleurs depuis l'OpenAPI","Implémenter l'endpoint conforme au contrat OpenAPI : DTO, validations, RBAC/ownership, codes d'erreur normalisés.
+
+**Réf :** talent-x-openapi.yaml
+**Jalon :** Fondations
+**Dépend de :** TLX-001
+
+**DoD :** code + tests, critères d'acceptation cochés, PR liée et revue, aucun secret en dur.","backend,api","Urgent","5","Fondations"
+"TLX-012 — Schéma Prisma depuis le modèle de données + migration initiale","Implémenter conformément à la référence ; couvrir les cas limites.
+
+**Réf :** TX-DATA-006
+**Jalon :** Fondations
+**Dépend de :** TLX-001
+
+**DoD :** code + tests, critères d'acceptation cochés, PR liée et revue, aucun secret en dur.","backend","Urgent","5","Fondations"
+"TLX-013 — Journalisation structurée + request-id + endpoint /health","Implémenter l'endpoint conforme au contrat OpenAPI : DTO, validations, RBAC/ownership, codes d'erreur normalisés.
+
+**Réf :** TX-OPS-004
+**Jalon :** Fondations
+**Dépend de :** TLX-011
+
+**DoD :** code + tests, critères d'acceptation cochés, PR liée et revue, aucun secret en dur.","backend,infra","Medium","2","Fondations"
+"TLX-014 — Seed de la base de dev depuis talent-x-sample-data.json","Implémenter conformément à la référence ; couvrir les cas limites.
+
+**Réf :** Sample data
+**Jalon :** Fondations
+**Dépend de :** TLX-012
+
+**DoD :** code + tests, critères d'acceptation cochés, PR liée et revue, aucun secret en dur.","backend","Medium","2","Fondations"
+"TLX-015 — Harnais de tests : Jest (unit) + Maestro (e2e mobile) + e2e API","Mise en place technique ; documenter l'usage dans le README du dépôt.
+
+**Réf :** TX-OPS-004 §6
+**Jalon :** Fondations
+**Dépend de :** TLX-003
+
+**DoD :** code + tests, critères d'acceptation cochés, PR liée et revue, aucun secret en dur.","infra,test","Medium","5","Fondations"
+"TLX-020 — Génération et rotation des clés RS256","Mise en place technique ; documenter l'usage dans le README du dépôt.
+
+**Réf :** TX-ARCH-001 ADR-04
+**Jalon :** Auth & RGPD
+**Dépend de :** TLX-011
+
+**DoD :** code + tests, critères d'acceptation cochés, PR liée et revue, aucun secret en dur.","backend,infra","Urgent","3","Auth & RGPD"
+"TLX-021 — POST /auth/register — inscription + choix du rôle","Implémenter l'endpoint conforme au contrat OpenAPI : DTO, validations, RBAC/ownership, codes d'erreur normalisés.
+
+**Réf :** OpenAPI
+**Jalon :** Auth & RGPD
+**Dépend de :** TLX-012, TLX-020
+
+**DoD :** code + tests, critères d'acceptation cochés, PR liée et revue, aucun secret en dur.","backend,api","Urgent","5","Auth & RGPD"
+"TLX-022 — POST /auth/login — JWT access + refresh","Implémenter l'endpoint conforme au contrat OpenAPI : DTO, validations, RBAC/ownership, codes d'erreur normalisés.
+
+**Réf :** OpenAPI
+**Jalon :** Auth & RGPD
+**Dépend de :** TLX-021
+
+**DoD :** code + tests, critères d'acceptation cochés, PR liée et revue, aucun secret en dur.","backend,api","Urgent","5","Auth & RGPD"
+"TLX-023 — POST /auth/refresh — rotation du refresh token","Implémenter l'endpoint conforme au contrat OpenAPI : DTO, validations, RBAC/ownership, codes d'erreur normalisés.
+
+**Réf :** OpenAPI
+**Jalon :** Auth & RGPD
+**Dépend de :** TLX-022
+
+**DoD :** code + tests, critères d'acceptation cochés, PR liée et revue, aucun secret en dur.","backend,api","Urgent","3","Auth & RGPD"
+"TLX-024 — Middleware RBAC + ownership (coach/athlète/groupe)","Implémenter l'endpoint conforme au contrat OpenAPI : DTO, validations, RBAC/ownership, codes d'erreur normalisés.
+
+**Réf :** TX-ARCH-001 §9
+**Jalon :** Auth & RGPD
+**Dépend de :** TLX-022
+
+**DoD :** code + tests, critères d'acceptation cochés, PR liée et revue, aucun secret en dur.","backend","Urgent","5","Auth & RGPD"
+"TLX-025 — Écran Connexion (O-02)","Construire l'écran/le composant conforme à la carte détaillée en réutilisant le design system ; câbler la navigation et gérer les états (vide/chargement/erreur).
+
+**Réf :** Carte O-02
+**Jalon :** Auth & RGPD
+**Dépend de :** TLX-007, TLX-009
+
+**DoD :** code + tests, critères d'acceptation cochés, PR liée et revue, aucun secret en dur.","frontend","High","3","Auth & RGPD"
+"TLX-026 — Écrans Inscription + choix du rôle (O-03, O-04)","Construire l'écran/le composant conforme à la carte détaillée en réutilisant le design system ; câbler la navigation et gérer les états (vide/chargement/erreur).
+
+**Réf :** Carte O-03/04
+**Jalon :** Auth & RGPD
+**Dépend de :** TLX-007, TLX-009
+
+**DoD :** code + tests, critères d'acceptation cochés, PR liée et revue, aucun secret en dur.","frontend","High","5","Auth & RGPD"
+"TLX-027 — Persistance de session + refresh silencieux (app)","Implémenter conformément à la référence ; couvrir les cas limites.
+
+**Réf :** —
+**Jalon :** Auth & RGPD
+**Dépend de :** TLX-009, TLX-023
+
+**DoD :** code + tests, critères d'acceptation cochés, PR liée et revue, aucun secret en dur.","frontend","High","3","Auth & RGPD"
+"TLX-030 — Écran Consentement (O-05, case non pré-cochée)","Construire l'écran/le composant conforme à la carte détaillée en réutilisant le design system ; câbler la navigation et gérer les états (vide/chargement/erreur).
+
+**Réf :** Carte O-05
+**Jalon :** Auth & RGPD
+**Dépend de :** TLX-026
+
+**DoD :** code + tests, critères d'acceptation cochés, PR liée et revue, aucun secret en dur.","frontend,rgpd","Urgent","3","Auth & RGPD"
+"TLX-031 — POST /consents + versionnage du consentement","Implémenter l'endpoint conforme au contrat OpenAPI : DTO, validations, RBAC/ownership, codes d'erreur normalisés.
+
+**Réf :** TX-SEC-003
+**Jalon :** Auth & RGPD
+**Dépend de :** TLX-012
+
+**DoD :** code + tests, critères d'acceptation cochés, PR liée et revue, aucun secret en dur.","backend,api,rgpd","Urgent","3","Auth & RGPD"
+"TLX-032 — Gating API CONSENT_REQUIRED (données de santé)","Implémenter conformément à la référence ; couvrir les cas limites.
+
+**Réf :** TX-SEC-003
+**Jalon :** Auth & RGPD
+**Dépend de :** TLX-031, TLX-024
+
+**DoD :** code + tests, critères d'acceptation cochés, PR liée et revue, aucun secret en dur.","backend,rgpd","Urgent","5","Auth & RGPD"
+"TLX-033 — GET /users/:id/data-export — export RGPD","Implémenter l'endpoint conforme au contrat OpenAPI : DTO, validations, RBAC/ownership, codes d'erreur normalisés.
+
+**Réf :** TX-SEC-003 §6
+**Jalon :** Auth & RGPD
+**Dépend de :** TLX-032
+
+**DoD :** code + tests, critères d'acceptation cochés, PR liée et revue, aucun secret en dur.","backend,api,rgpd","Medium","5","Auth & RGPD"
+"TLX-034 — DELETE /users/:id — effacement + anonymisation","Implémenter l'endpoint conforme au contrat OpenAPI : DTO, validations, RBAC/ownership, codes d'erreur normalisés.
+
+**Réf :** TX-SEC-003 §7
+**Jalon :** Auth & RGPD
+**Dépend de :** TLX-032
+
+**DoD :** code + tests, critères d'acceptation cochés, PR liée et revue, aucun secret en dur.","backend,api,rgpd","Medium","5","Auth & RGPD"
+"TLX-040 — GET/PATCH /athletes/:id — profil athlète","Implémenter l'endpoint conforme au contrat OpenAPI : DTO, validations, RBAC/ownership, codes d'erreur normalisés.
+
+**Réf :** OpenAPI
+**Jalon :** Profils & Groupes
+**Dépend de :** TLX-024
+
+**DoD :** code + tests, critères d'acceptation cochés, PR liée et revue, aucun secret en dur.","backend,api","High","3","Profils & Groupes"
+"TLX-041 — GET/POST /groups (+ gestion des membres)","Implémenter l'endpoint conforme au contrat OpenAPI : DTO, validations, RBAC/ownership, codes d'erreur normalisés.
+
+**Réf :** OpenAPI · TX-DATA-006
+**Jalon :** Profils & Groupes
+**Dépend de :** TLX-024
+
+**DoD :** code + tests, critères d'acceptation cochés, PR liée et revue, aucun secret en dur.","backend,api","High","5","Profils & Groupes"
+"TLX-042 — Écran Profil athlète (A-10)","Construire l'écran/le composant conforme à la carte détaillée en réutilisant le design system ; câbler la navigation et gérer les états (vide/chargement/erreur).
+
+**Réf :** Carte A-10
+**Jalon :** Profils & Groupes
+**Dépend de :** TLX-009
+
+**DoD :** code + tests, critères d'acceptation cochés, PR liée et revue, aucun secret en dur.","frontend","High","3","Profils & Groupes"
+"TLX-043 — Écran Profil coach (C-11)","Construire l'écran/le composant conforme à la carte détaillée en réutilisant le design system ; câbler la navigation et gérer les états (vide/chargement/erreur).
+
+**Réf :** Carte C-11
+**Jalon :** Profils & Groupes
+**Dépend de :** TLX-009
+
+**DoD :** code + tests, critères d'acceptation cochés, PR liée et revue, aucun secret en dur.","frontend","High","3","Profils & Groupes"
+"TLX-044 — Écran Athlètes (C-02)","Construire l'écran/le composant conforme à la carte détaillée en réutilisant le design system ; câbler la navigation et gérer les états (vide/chargement/erreur).
+
+**Réf :** Carte C-02
+**Jalon :** Profils & Groupes
+**Dépend de :** TLX-040, TLX-041
+
+**DoD :** code + tests, critères d'acceptation cochés, PR liée et revue, aucun secret en dur.","frontend","High","5","Profils & Groupes"
+"TLX-045 — Écran Détail athlète (C-03)","Construire l'écran/le composant conforme à la carte détaillée en réutilisant le design system ; câbler la navigation et gérer les états (vide/chargement/erreur).
+
+**Réf :** Carte C-03
+**Jalon :** Profils & Groupes
+**Dépend de :** TLX-044
+
+**DoD :** code + tests, critères d'acceptation cochés, PR liée et revue, aucun secret en dur.","frontend","High","5","Profils & Groupes"
+"TLX-050 — POST/GET /sessions — séances à blocs typés","Implémenter l'endpoint conforme au contrat OpenAPI : DTO, validations, RBAC/ownership, codes d'erreur normalisés.
+
+**Réf :** OpenAPI · Carte C-05
+**Jalon :** Sessions
+**Dépend de :** TLX-012, TLX-024
+
+**DoD :** code + tests, critères d'acceptation cochés, PR liée et revue, aucun secret en dur.","backend,api","Urgent","8","Sessions"
+"TLX-051 — POST /assignments — assigner à un athlète ou un groupe","Implémenter l'endpoint conforme au contrat OpenAPI : DTO, validations, RBAC/ownership, codes d'erreur normalisés.
+
+**Réf :** OpenAPI
+**Jalon :** Sessions
+**Dépend de :** TLX-050
+
+**DoD :** code + tests, critères d'acceptation cochés, PR liée et revue, aucun secret en dur.","backend,api","Urgent","5","Sessions"
+"TLX-052 — Constructeur de séance (C-05) — canvas + en-tête [PARENT]","Construire l'écran/le composant conforme à la carte détaillée en réutilisant le design system ; câbler la navigation et gérer les états (vide/chargement/erreur).
+
+**Réf :** Carte C-05
+**Jalon :** Sessions
+**Dépend de :** TLX-006, TLX-009, TLX-050
+
+**DoD :** code + tests, critères d'acceptation cochés, PR liée et revue, aucun secret en dur.","frontend","Urgent","13","Sessions"
+"TLX-053 — Sélecteur de type de bloc (tous formats, groupé)","Implémenter conformément à la référence ; couvrir les cas limites.
+
+**Réf :** Carte C-05 §5
+**Jalon :** Sessions
+**Dépend de :** TLX-052
+
+**DoD :** code + tests, critères d'acceptation cochés, PR liée et revue, aucun secret en dur.","frontend","Urgent","5","Sessions"
+"TLX-054 — Éditeur de bloc — Fractionné / Intervalles","Construire l'écran/le composant conforme à la carte détaillée en réutilisant le design system ; câbler la navigation et gérer les états (vide/chargement/erreur).
+
+**Réf :** Carte C-05 §6
+**Jalon :** Sessions
+**Dépend de :** TLX-052, TLX-053
+
+**DoD :** code + tests, critères d'acceptation cochés, PR liée et revue, aucun secret en dur.","frontend","Urgent","5","Sessions"
+"TLX-055 — Éditeur de bloc — Répétitions de vitesse / Sprints","Construire l'écran/le composant conforme à la carte détaillée en réutilisant le design system ; câbler la navigation et gérer les états (vide/chargement/erreur).
+
+**Réf :** Carte C-05 §6
+**Jalon :** Sessions
+**Dépend de :** TLX-054
+
+**DoD :** code + tests, critères d'acceptation cochés, PR liée et revue, aucun secret en dur.","frontend","High","3","Sessions"
+"TLX-056 — Éditeur de bloc — Course continue / Tempo / Côtes / Fartlek","Construire l'écran/le composant conforme à la carte détaillée en réutilisant le design system ; câbler la navigation et gérer les états (vide/chargement/erreur).
+
+**Réf :** Carte C-05 §6
+**Jalon :** Sessions
+**Dépend de :** TLX-054
+
+**DoD :** code + tests, critères d'acceptation cochés, PR liée et revue, aucun secret en dur.","frontend","High","3","Sessions"
+"TLX-057 — Éditeur de bloc — Haies (rythme, hauteur, espacement)","Construire l'écran/le composant conforme à la carte détaillée en réutilisant le design system ; câbler la navigation et gérer les états (vide/chargement/erreur).
+
+**Réf :** Carte C-05 §6
+**Jalon :** Sessions
+**Dépend de :** TLX-054
+
+**DoD :** code + tests, critères d'acceptation cochés, PR liée et revue, aucun secret en dur.","frontend","High","3","Sessions"
+"TLX-058 — Éditeur de bloc — Sauts (élan, complets, pliométrie)","Construire l'écran/le composant conforme à la carte détaillée en réutilisant le design system ; câbler la navigation et gérer les états (vide/chargement/erreur).
+
+**Réf :** Carte C-05 §6
+**Jalon :** Sessions
+**Dépend de :** TLX-054
+
+**DoD :** code + tests, critères d'acceptation cochés, PR liée et revue, aucun secret en dur.","frontend","High","3","Sessions"
+"TLX-059 — Éditeur de bloc — Lancers (technique + complets)","Construire l'écran/le composant conforme à la carte détaillée en réutilisant le design system ; câbler la navigation et gérer les états (vide/chargement/erreur).
+
+**Réf :** Carte C-05 §6
+**Jalon :** Sessions
+**Dépend de :** TLX-054
+
+**DoD :** code + tests, critères d'acceptation cochés, PR liée et revue, aucun secret en dur.","frontend","High","3","Sessions"
+"TLX-060 — Éditeur de bloc — Musculation (séries × reps × charge)","Construire l'écran/le composant conforme à la carte détaillée en réutilisant le design system ; câbler la navigation et gérer les états (vide/chargement/erreur).
+
+**Réf :** Carte C-05 §6
+**Jalon :** Sessions
+**Dépend de :** TLX-054
+
+**DoD :** code + tests, critères d'acceptation cochés, PR liée et revue, aucun secret en dur.","frontend","High","3","Sessions"
+"TLX-061 — Éditeur de bloc — Gainage / Circuit / Échauffement / Retour au calme","Construire l'écran/le composant conforme à la carte détaillée en réutilisant le design system ; câbler la navigation et gérer les états (vide/chargement/erreur).
+
+**Réf :** Carte C-05 §6
+**Jalon :** Sessions
+**Dépend de :** TLX-054
+
+**DoD :** code + tests, critères d'acceptation cochés, PR liée et revue, aucun secret en dur.","frontend","Medium","3","Sessions"
+"TLX-062 — Cibles de bloc → pré-remplissage de la saisie de perf (A-04)","Implémenter conformément à la référence ; couvrir les cas limites.
+
+**Réf :** Carte C-05 §7
+**Jalon :** Sessions
+**Dépend de :** TLX-050
+
+**DoD :** code + tests, critères d'acceptation cochés, PR liée et revue, aucun secret en dur.","backend,frontend","High","5","Sessions"
+"TLX-063 — Écran Assignation (C-06) + Confirmation (C-07)","Construire l'écran/le composant conforme à la carte détaillée en réutilisant le design system ; câbler la navigation et gérer les états (vide/chargement/erreur).
+
+**Réf :** Carte C-06/07
+**Jalon :** Sessions
+**Dépend de :** TLX-051, TLX-052
+
+**DoD :** code + tests, critères d'acceptation cochés, PR liée et revue, aucun secret en dur.","frontend","High","5","Sessions"
+"TLX-064 — Bibliothèque de modèles de séance (C-10)","Implémenter conformément à la référence ; couvrir les cas limites.
+
+**Réf :** Carte C-10
+**Jalon :** Sessions
+**Dépend de :** TLX-050
+
+**DoD :** code + tests, critères d'acceptation cochés, PR liée et revue, aucun secret en dur.","frontend,backend","Medium","5","Sessions"
+"TLX-065 — Écran Séances athlète (A-02) + Détail séance (A-03)","Construire l'écran/le composant conforme à la carte détaillée en réutilisant le design system ; câbler la navigation et gérer les états (vide/chargement/erreur).
+
+**Réf :** Carte A-02/03
+**Jalon :** Sessions
+**Dépend de :** TLX-009, TLX-050
+
+**DoD :** code + tests, critères d'acceptation cochés, PR liée et revue, aucun secret en dur.","frontend","High","5","Sessions"
+"TLX-070 — POST/GET /performances (+ idempotence)","Implémenter l'endpoint conforme au contrat OpenAPI : DTO, validations, RBAC/ownership, codes d'erreur normalisés.
+
+**Réf :** OpenAPI · TX-SPEC-002 RB-05
+**Jalon :** Performances
+**Dépend de :** TLX-050, TLX-032
+
+**DoD :** code + tests, critères d'acceptation cochés, PR liée et revue, aucun secret en dur.","backend,api","Urgent","8","Performances"
+"TLX-071 — Saisie de perf (A-04) — coquille + champs communs (RPE, ressenti, notes) [PARENT]","Construire l'écran/le composant conforme à la carte détaillée en réutilisant le design system ; câbler la navigation et gérer les états (vide/chargement/erreur).
+
+**Réf :** Carte A-04 §2/§5
+**Jalon :** Performances
+**Dépend de :** TLX-009, TLX-070
+
+**DoD :** code + tests, critères d'acceptation cochés, PR liée et revue, aucun secret en dur.","frontend","Urgent","8","Performances"
+"TLX-072 — Saisie — mode Temps (sprint/haies/demi-fond)","Construire l'écran/le composant conforme à la carte détaillée en réutilisant le design system ; câbler la navigation et gérer les états (vide/chargement/erreur).
+
+**Réf :** Carte A-04 §4.1
+**Jalon :** Performances
+**Dépend de :** TLX-071
+
+**DoD :** code + tests, critères d'acceptation cochés, PR liée et revue, aucun secret en dur.","frontend","Urgent","5","Performances"
+"TLX-073 — Saisie — mode Intervalles (fractionné/VMA)","Construire l'écran/le composant conforme à la carte détaillée en réutilisant le design system ; câbler la navigation et gérer les états (vide/chargement/erreur).
+
+**Réf :** Carte A-04 §4.2
+**Jalon :** Performances
+**Dépend de :** TLX-071, TLX-062
+
+**DoD :** code + tests, critères d'acceptation cochés, PR liée et revue, aucun secret en dur.","frontend","Urgent","5","Performances"
+"TLX-074 — Saisie — mode Série d'essais distance (sauts/lancers)","Construire l'écran/le composant conforme à la carte détaillée en réutilisant le design system ; câbler la navigation et gérer les états (vide/chargement/erreur).
+
+**Réf :** Carte A-04 §4.3
+**Jalon :** Performances
+**Dépend de :** TLX-071
+
+**DoD :** code + tests, critères d'acceptation cochés, PR liée et revue, aucun secret en dur.","frontend","Urgent","5","Performances"
+"TLX-075 — Saisie — mode Grille de barres (hauteur/perche)","Construire l'écran/le composant conforme à la carte détaillée en réutilisant le design system ; câbler la navigation et gérer les états (vide/chargement/erreur).
+
+**Réf :** Carte A-04 §4.4
+**Jalon :** Performances
+**Dépend de :** TLX-071
+
+**DoD :** code + tests, critères d'acceptation cochés, PR liée et revue, aucun secret en dur.","frontend","Medium","5","Performances"
+"TLX-076 — Détection de record (PB) + proposition de mise à jour","Implémenter conformément à la référence ; couvrir les cas limites.
+
+**Réf :** Carte A-04 §7
+**Jalon :** Performances
+**Dépend de :** TLX-070
+
+**DoD :** code + tests, critères d'acceptation cochés, PR liée et revue, aucun secret en dur.","frontend,backend","High","5","Performances"
+"TLX-077 — Brouillon auto-save + saisie hors-ligne + synchronisation","Implémenter conformément à la référence ; couvrir les cas limites.
+
+**Réf :** TX-ARCH-001 §4
+**Jalon :** Performances
+**Dépend de :** TLX-071, TLX-010
+
+**DoD :** code + tests, critères d'acceptation cochés, PR liée et revue, aucun secret en dur.","frontend,backend","Medium","8","Performances"
+"TLX-078 — Écran Confirmation de perf (A-05)","Construire l'écran/le composant conforme à la carte détaillée en réutilisant le design system ; câbler la navigation et gérer les états (vide/chargement/erreur).
+
+**Réf :** Carte A-05
+**Jalon :** Performances
+**Dépend de :** TLX-071
+
+**DoD :** code + tests, critères d'acceptation cochés, PR liée et revue, aucun secret en dur.","frontend","High","3","Performances"
+"TLX-080 — Dérivations API : KPIs, à revoir, aujourd'hui, alertes","Implémenter l'endpoint conforme au contrat OpenAPI : DTO, validations, RBAC/ownership, codes d'erreur normalisés.
+
+**Réf :** Carte C-01 §8
+**Jalon :** Pilotage coach
+**Dépend de :** TLX-070, TLX-051
+
+**DoD :** code + tests, critères d'acceptation cochés, PR liée et revue, aucun secret en dur.","backend,api","Urgent","8","Pilotage coach"
+"TLX-081 — Tableau de bord coach (C-01) — vue principale [PARENT]","Construire l'écran/le composant conforme à la carte détaillée en réutilisant le design system ; câbler la navigation et gérer les états (vide/chargement/erreur).
+
+**Réf :** Carte C-01
+**Jalon :** Pilotage coach
+**Dépend de :** TLX-009, TLX-080
+
+**DoD :** code + tests, critères d'acceptation cochés, PR liée et revue, aucun secret en dur.","frontend","Urgent","13","Pilotage coach"
+"TLX-082 — Section À revoir + état positif « Rien à revoir »","Construire l'écran/le composant conforme à la carte détaillée en réutilisant le design system ; câbler la navigation et gérer les états (vide/chargement/erreur).
+
+**Réf :** Carte C-01 §4
+**Jalon :** Pilotage coach
+**Dépend de :** TLX-081
+
+**DoD :** code + tests, critères d'acceptation cochés, PR liée et revue, aucun secret en dur.","frontend","Urgent","3","Pilotage coach"
+"TLX-083 — Section Aujourd'hui (affectations + statuts)","Construire l'écran/le composant conforme à la carte détaillée en réutilisant le design system ; câbler la navigation et gérer les états (vide/chargement/erreur).
+
+**Réf :** Carte C-01 §4
+**Jalon :** Pilotage coach
+**Dépend de :** TLX-081
+
+**DoD :** code + tests, critères d'acceptation cochés, PR liée et revue, aucun secret en dur.","frontend","Urgent","3","Pilotage coach"
+"TLX-084 — Alertes & signaux (consentement, séance manquée…)","Implémenter conformément à la référence ; couvrir les cas limites.
+
+**Réf :** Carte C-01 §5
+**Jalon :** Pilotage coach
+**Dépend de :** TLX-080, TLX-081
+
+**DoD :** code + tests, critères d'acceptation cochés, PR liée et revue, aucun secret en dur.","frontend,backend","High","5","Pilotage coach"
+"TLX-085 — États première utilisation + tout est à jour","Implémenter conformément à la référence ; couvrir les cas limites.
+
+**Réf :** Carte C-01 §6
+**Jalon :** Pilotage coach
+**Dépend de :** TLX-081
+
+**DoD :** code + tests, critères d'acceptation cochés, PR liée et revue, aucun secret en dur.","frontend","Medium","3","Pilotage coach"
+"TLX-086 — Revue de performance + feedback (C-08)","Implémenter conformément à la référence ; couvrir les cas limites.
+
+**Réf :** Carte C-08
+**Jalon :** Pilotage coach
+**Dépend de :** TLX-070
+
+**DoD :** code + tests, critères d'acceptation cochés, PR liée et revue, aucun secret en dur.","frontend,backend","Urgent","8","Pilotage coach"
+"TLX-090 — Écran Progression (A-06) — graphes par discipline","Construire l'écran/le composant conforme à la carte détaillée en réutilisant le design system ; câbler la navigation et gérer les états (vide/chargement/erreur).
+
+**Réf :** Carte A-06
+**Jalon :** Progression & Échanges
+**Dépend de :** TLX-070
+
+**DoD :** code + tests, critères d'acceptation cochés, PR liée et revue, aucun secret en dur.","frontend,backend","High","8","Progression & Échanges"
+"TLX-091 — Records personnels (A-07)","Construire l'écran/le composant conforme à la carte détaillée en réutilisant le design system ; câbler la navigation et gérer les états (vide/chargement/erreur).
+
+**Réf :** Carte A-07
+**Jalon :** Progression & Échanges
+**Dépend de :** TLX-076
+
+**DoD :** code + tests, critères d'acceptation cochés, PR liée et revue, aucun secret en dur.","frontend,backend","High","5","Progression & Échanges"
+"TLX-092 — Fil de feedback athlète (A-09)","Construire l'écran/le composant conforme à la carte détaillée en réutilisant le design system ; câbler la navigation et gérer les états (vide/chargement/erreur).
+
+**Réf :** Carte A-09
+**Jalon :** Progression & Échanges
+**Dépend de :** TLX-086
+
+**DoD :** code + tests, critères d'acceptation cochés, PR liée et revue, aucun secret en dur.","frontend,backend","High","5","Progression & Échanges"
+"TLX-110 — Notifications — infrastructure APNs/FCM","Implémenter l'endpoint conforme au contrat OpenAPI : DTO, validations, RBAC/ownership, codes d'erreur normalisés.
+
+**Réf :** TX-ARCH-001 §4.5
+**Jalon :** Progression & Échanges
+**Dépend de :** TLX-011
+
+**DoD :** code + tests, critères d'acceptation cochés, PR liée et revue, aucun secret en dur.","backend,infra","High","8","Progression & Échanges"
+"TLX-111 — Notifications in-app + préférences","Implémenter conformément à la référence ; couvrir les cas limites.
+
+**Réf :** —
+**Jalon :** Progression & Échanges
+**Dépend de :** TLX-110
+
+**DoD :** code + tests, critères d'acceptation cochés, PR liée et revue, aucun secret en dur.","frontend,backend","Medium","5","Progression & Échanges"
+"TLX-100 — Calendrier athlète (A-08) + coach (C-09)","Construire l'écran/le composant conforme à la carte détaillée en réutilisant le design system ; câbler la navigation et gérer les états (vide/chargement/erreur).
+
+**Réf :** Carte A-08/C-09
+**Jalon :** Calendrier & Compétitions
+**Dépend de :** TLX-051
+
+**DoD :** code + tests, critères d'acceptation cochés, PR liée et revue, aucun secret en dur.","frontend,backend","High","8","Calendrier & Compétitions"
+"TLX-101 — Compétitions — CRUD + engagement d'athlètes","Implémenter conformément à la référence ; couvrir les cas limites.
+
+**Réf :** OpenAPI
+**Jalon :** Calendrier & Compétitions
+**Dépend de :** TLX-040
+
+**DoD :** code + tests, critères d'acceptation cochés, PR liée et revue, aucun secret en dur.","backend,api,frontend","Medium","8","Calendrier & Compétitions"
+"TLX-120 — Suite de tests (couverture cible) + tests de charge k6","Implémenter conformément à la référence ; couvrir les cas limites.
+
+**Réf :** TX-OPS-004 §6
+**Jalon :** Lancement & Qualité
+**Dépend de :** TLX-015
+
+**DoD :** code + tests, critères d'acceptation cochés, PR liée et revue, aucun secret en dur.","test,backend","High","8","Lancement & Qualité"
+"TLX-121 — Migrations expand-contract + runbook","Mise en place technique ; documenter l'usage dans le README du dépôt.
+
+**Réf :** TX-OPS-004
+**Jalon :** Lancement & Qualité
+**Dépend de :** TLX-012
+
+**DoD :** code + tests, critères d'acceptation cochés, PR liée et revue, aucun secret en dur.","backend,infra","Medium","5","Lancement & Qualité"
+"TLX-122 — Build EAS iOS/Android + distribution","Mise en place technique ; documenter l'usage dans le README du dépôt.
+
+**Réf :** —
+**Jalon :** Lancement & Qualité
+**Dépend de :** TLX-007
+
+**DoD :** code + tests, critères d'acceptation cochés, PR liée et revue, aucun secret en dur.","infra,frontend","High","5","Lancement & Qualité"
+"TLX-123 — Déploiement prod OVHcloud + observabilité","Mise en place technique ; documenter l'usage dans le README du dépôt.
+
+**Réf :** TX-OPS-004 §5
+**Jalon :** Lancement & Qualité
+**Dépend de :** TLX-004, TLX-013
+
+**DoD :** code + tests, critères d'acceptation cochés, PR liée et revue, aucun secret en dur.","infra,backend","High","8","Lancement & Qualité"
+"TLX-124 — Conformité RGPD finale (export, effacement, registre)","Implémenter conformément à la référence ; couvrir les cas limites.
+
+**Réf :** TX-DPIA-007
+**Jalon :** Lancement & Qualité
+**Dépend de :** TLX-033, TLX-034
+
+**DoD :** code + tests, critères d'acceptation cochés, PR liée et revue, aucun secret en dur.","rgpd,backend","High","5","Lancement & Qualité"

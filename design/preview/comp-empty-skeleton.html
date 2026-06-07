@@ -1,0 +1,42 @@
+<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="_components.css">
+<style>
+body { margin:0; font-family:var(--tx-font-primary); }
+.split { display:grid; grid-template-columns:1fr 1fr; }
+.pane { padding:20px; display:flex; align-items:center; justify-content:center; }
+.pane.l { background:#F4F6FA; }
+.pane.d { background:#0B0F17; }
+/* empty state */
+.empty { text-align:center; max-width:230px; }
+.empty .ic { width:56px; height:56px; border-radius:16px; background:var(--tx-accent-subtle); color:var(--tx-accent-text); display:flex; align-items:center; justify-content:center; margin:0 auto 12px; }
+.empty .ic svg { width:28px; height:28px; }
+.empty .t { font-size:16px; font-weight:600; }
+.empty .s { font-size:13px; color:var(--tx-text-muted); margin:5px 0 14px; line-height:1.45; }
+/* skeleton */
+.skel-card { width:100%; background:var(--tx-surface); border:1px solid var(--tx-border); border-radius:var(--tx-radius-md); padding:14px; }
+.sk { background:var(--tx-surface-sunken); border-radius:6px; position:relative; overflow:hidden; }
+.sk::after { content:""; position:absolute; inset:0; background:linear-gradient(90deg,transparent,rgba(128,140,160,.18),transparent); animation:sh 1.3s infinite; }
+@keyframes sh { 100% { transform:translateX(100%) } }
+.sk::after { transform:translateX(-100%); }
+</style></head>
+<body>
+<div class="split">
+  <div class="pane l demo">
+    <div class="empty">
+      <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M12 14v4M10 16h4"/></svg></div>
+      <div class="t">Aucune séance prévue</div>
+      <div class="s">Crée le premier plan de la semaine pour ton athlète.</div>
+      <button class="btn btn-primary btn-sm">Nouveau plan</button>
+    </div>
+  </div>
+  <div class="pane d demo" data-theme="dark">
+    <div class="skel-card">
+      <div style="display:flex;gap:11px;align-items:center"><div class="sk" style="width:42px;height:42px;border-radius:11px"></div><div style="flex:1"><div class="sk" style="height:13px;width:60%;margin-bottom:7px"></div><div class="sk" style="height:11px;width:40%"></div></div></div>
+      <div class="sk" style="height:11px;width:100%;margin-top:14px"></div>
+      <div class="sk" style="height:11px;width:85%;margin-top:8px"></div>
+    </div>
+  </div>
+</div>
+</body></html>

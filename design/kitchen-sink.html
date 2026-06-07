@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="dark"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Talent-X — Kitchen Sink</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,400;0,500;0,600;0,700;1,400;1,600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="preview/_components.css">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body { background: var(--tx-background); color: var(--tx-text-primary); font-family: var(--tx-font-primary); transition: background .3s, color .3s; }
+
+  /* Top bar */
+  .topbar { position: sticky; top: 0; z-index: 50; display: flex; align-items: center; gap: 14px; padding: 16px 28px; background: color-mix(in srgb, var(--tx-background) 82%, transparent); backdrop-filter: blur(12px); border-bottom: 1px solid var(--tx-border); }
+  .topbar .logo { height: 26px; }
+  .topbar .meta { font-size: 11px; letter-spacing: .24em; text-transform: uppercase; color: var(--tx-text-muted); flex: 1; }
+  .theme-toggle { display: inline-flex; gap: 3px; padding: 4px; border: 1px solid var(--tx-border); border-radius: 999px; background: var(--tx-surface); }
+  .theme-toggle button { border: 0; background: transparent; color: var(--tx-text-muted); padding: 7px 16px; border-radius: 999px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; }
+  .theme-toggle button.on { background: var(--tx-accent); color: #fff; }
+
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 36px 28px 90px; }
+  .sec { margin-top: 48px; }
+  .sec:first-child { margin-top: 0; }
+  .sec > .lbl { font-size: 11px; font-weight: 700; letter-spacing: .22em; text-transform: uppercase; color: var(--tx-accent-text); margin: 0 0 4px; }
+  .sec > h2 { font-size: 24px; font-weight: 700; letter-spacing: -.02em; margin: 0 0 20px; }
+  .panel { background: var(--tx-surface); border: 1px solid var(--tx-border); border-radius: var(--tx-radius-lg); padding: 24px; box-shadow: var(--tx-shadow-sm); }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .grid3 { display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; }
+  .grid4 { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; }
+  @media (max-width: 720px) { .grid2, .grid3, .grid4 { grid-template-columns: 1fr 1fr; } }
+  .cap { font-size: 10px; font-weight: 600; letter-spacing: .16em; text-transform: uppercase; color: var(--tx-text-muted); margin: 0 0 12px; }
+  .stack { display: flex; flex-direction: column; gap: 14px; }
+  .rowwrap { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+
+  /* color swatches */
+  .ramp { display: grid; grid-template-columns: repeat(11,1fr); gap: 6px; }
+  .ramp .c { height: 44px; border-radius: 8px; border: 1px solid var(--tx-border); }
+  .ramp .k { font-size: 9px; color: var(--tx-text-muted); margin-top: 4px; text-align: center; }
+  .grad-hero { height: 90px; border-radius: var(--tx-radius-md); background: var(--tx-gradient-x); display: flex; align-items: center; justify-content: center; }
+  .grad-hero .x { font-size: 54px; font-weight: 700; font-style: italic; color: #fff; transform: skewX(-7deg); }
+
+  /* type */
+  .tspec { display: flex; align-items: baseline; gap: 16px; padding: 8px 0; border-bottom: 1px solid var(--tx-border); }
+  .tspec:last-child { border: 0; }
+  .tspec .m { font-size: 11px; color: var(--tx-text-muted); font-family: ui-monospace, Menlo, monospace; margin-left: auto; white-space: nowrap; }
+
+  .metric { background: var(--tx-surface-raised); border: 1px solid var(--tx-border); border-radius: var(--tx-radius-md); padding: 16px; }
+  .metric .top { display: flex; align-items: center; gap: 7px; color: var(--tx-text-muted); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+  .metric .top svg { width: 15px; height: 15px; }
+  .metric .val { font-size: 30px; font-weight: 700; letter-spacing: -.02em; margin-top: 8px; line-height: 1; }
+  .metric .val .u { font-size: 14px; color: var(--tx-text-muted); font-weight: 600; }
+  .metric .delta { font-size: 12px; font-weight: 600; margin-top: 8px; }
+  .up { color: var(--tx-success); } .down { color: var(--tx-danger); }
+
+  .wcard { background: var(--tx-surface-raised); border: 1px solid var(--tx-border); border-radius: var(--tx-radius-md); overflow: hidden; }
+  .wcard .hd { display: flex; align-items: center; gap: 12px; padding: 14px; }
+  .wcard .tile { width: 44px; height: 44px; border-radius: 12px; background: var(--tx-gradient-x); display: flex; align-items: center; justify-content: center; flex: none; }
+  .wcard .tile svg { width: 23px; height: 23px; color: #fff; }
+  .wcard .nm { font-size: 15px; font-weight: 600; }
+  .wcard .mt { font-size: 12px; color: var(--tx-text-muted); }
+  .exr { display: flex; align-items: center; gap: 12px; padding: 11px 14px; border-top: 1px solid var(--tx-border); font-size: 14px; }
+  .exr .n { flex: 1; }
+  .exr .sets { color: var(--tx-text-muted); font-size: 12px; }
+  .exr .chk { width: 22px; height: 22px; border-radius: 6px; background: var(--tx-accent); display: flex; align-items: center; justify-content: center; flex: none; }
+  .exr.todo .chk { background: transparent; border: 2px solid var(--tx-border-strong); }
+
+  .rpe { display: flex; gap: 5px; }
+  .rpe .p { flex: 1; height: 38px; border-radius: 8px; background: var(--tx-surface-sunken); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; color: var(--tx-text-muted); cursor: pointer; }
+  .rpe .p.on { background: var(--tx-accent); color: #fff; }
+
+  .toast { display: flex; align-items: center; gap: 10px; background: var(--tx-surface-raised); border: 1px solid var(--tx-border); border-radius: var(--tx-radius-md); padding: 12px 14px; box-shadow: var(--tx-shadow-md); font-size: 13px; }
+  .toast .ic { width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex: none; background: var(--tx-success-bg); color: var(--tx-success); }
+  .banner { display: flex; gap: 10px; border-radius: var(--tx-radius-md); padding: 12px 14px; font-size: 13px; background: var(--tx-warning-bg); color: var(--tx-warning); }
+
+  .days { display: flex; gap: 8px; }
+  .day { flex: 1; text-align: center; }
+  .day .w { font-size: 10px; color: var(--tx-text-muted); margin-bottom: 5px; font-weight: 600; }
+  .day .d { height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 600; background: var(--tx-surface-raised); border: 1px solid var(--tx-border); color: var(--tx-text-secondary); position: relative; }
+  .day .d.on { background: var(--tx-accent); color: #fff; border-color: transparent; }
+  .day .d.done::after { content: ""; position: absolute; bottom: 6px; width: 4px; height: 4px; border-radius: 50%; background: var(--tx-success); }
+  .day .d.rest { opacity: .45; }
+
+  .ringnum { font-size: 19px; font-weight: 700; fill: var(--tx-text-primary); font-family: var(--tx-font-primary); }
+  .legend { display: flex; gap: 16px; margin-top: 10px; font-size: 12px; color: var(--tx-text-secondary); }
+  .legend span { display: flex; align-items: center; gap: 6px; }
+  .dotc { width: 10px; height: 10px; border-radius: 3px; }
+</style>
+</head>
+<body class="demo">
+  <div class="topbar">
+    <img class="logo" id="logo" src="assets/logo-wordmark-dark.svg" alt="Talent-X">
+    <span class="meta">Design System · Kitchen Sink</span>
+    <div class="theme-toggle">
+      <button id="bL" onclick="setTheme('light')">Clair</button>
+      <button id="bD" class="on" onclick="setTheme('dark')">Sombre</button>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <!-- FOUNDATIONS -->
+    <div class="sec">
+      <p class="lbl">Fondations</p>
+      <h2>Couleur</h2>
+      <div class="panel stack">
+        <div>
+          <p class="cap">Blue — primaire</p>
+          <div class="ramp" id="blueRamp"></div>
+        </div>
+        <div>
+          <p class="cap">Slate — neutres</p>
+          <div class="ramp" id="slateRamp"></div>
+        </div>
+        <div class="grid3" style="align-items:end">
+          <div><p class="cap">Dégradé signature</p><div class="grad-hero"><span class="x">X</span></div></div>
+          <div><p class="cap">Statuts</p><div class="rowwrap"><span class="badge badge-success">Success</span><span class="badge badge-warning">Warning</span><span class="badge badge-danger">Danger</span><span class="badge badge-accent">Info</span></div></div>
+          <div><p class="cap">Sémantique</p><div class="rowwrap" style="gap:7px"><span class="badge" style="background:var(--tx-surface-sunken);color:var(--tx-text-secondary)">surface</span><span class="badge" style="background:var(--tx-accent);color:#fff">accent</span></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sec">
+      <p class="lbl">Fondations</p>
+      <h2>Typographie</h2>
+      <div class="panel">
+        <div class="tspec"><span style="font-size:36px;font-weight:700;letter-spacing:-.02em">Performance, mesurée.</span><span class="m">Display · 44/700</span></div>
+        <div class="tspec"><span style="font-size:26px;font-weight:600">Plan de la semaine</span><span class="m">H2 · 28/600</span></div>
+        <div class="tspec"><span style="font-size:18px;font-weight:600">Séance du jour</span><span class="m">Title · 18/600</span></div>
+        <div class="tspec"><span style="font-size:15px;color:var(--tx-text-secondary)">Texte courant de l'interface, lisible et confortable sur mobile.</span><span class="m">Body · 15/400</span></div>
+        <div class="tspec"><span style="font-size:11px;font-weight:600;letter-spacing:.22em;text-transform:uppercase;color:var(--tx-text-muted)">Overline</span><span class="m">11 · .22em</span></div>
+      </div>
+    </div>
+
+    <!-- COMPONENTS -->
+    <div class="sec">
+      <p class="lbl">Composants</p>
+      <h2>Actions & saisie</h2>
+      <div class="grid2">
+        <div class="panel stack">
+          <p class="cap">Boutons</p>
+          <div class="rowwrap"><button class="btn btn-primary">Démarrer</button><button class="btn btn-secondary">Détails</button><button class="btn btn-ghost">Annuler</button></div>
+          <div class="rowwrap"><button class="btn btn-danger">Supprimer</button><button class="btn btn-primary btn-sm">Small</button><button class="btn btn-primary is-disabled">Désactivé</button></div>
+        </div>
+        <div class="panel stack">
+          <p class="cap">Champs</p>
+          <div class="field"><label>E-mail</label><input class="input" value="coach@talent-x.app"></div>
+          <div class="rowwrap" style="gap:18px">
+            <span class="ctl-row"><span class="switch on"></span> Notif.</span>
+            <span class="ctl-row"><span class="check on"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span> Stats</span>
+            <span class="segmented"><button class="on">Sem.</button><button>Mois</button></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sec">
+      <p class="lbl">Composants métier</p>
+      <h2>Coaching</h2>
+      <div class="grid4" style="margin-bottom:16px">
+        <div class="metric"><div class="top"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l5-5 4 4 7-7"/></svg>Volume</div><div class="val">12.4<span class="u">t</span></div><div class="delta up">▲ 8%</div></div>
+        <div class="metric"><div class="top"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Durée</div><div class="val">5<span class="u">h20</span></div><div class="delta down">▼ 3%</div></div>
+        <div class="metric"><div class="top"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.4 7.4H22l-6 4.6 2.3 7.4-6-4.6-6 4.6L8.6 14 2.6 9.4h7z"/></svg>RPE moy.</div><div class="val">7.2</div><div class="delta up">stable</div></div>
+        <div class="metric" style="display:flex;align-items:center;justify-content:center">
+          <svg width="78" height="78" viewBox="0 0 86 86"><defs><linearGradient id="rg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5BAEFF"/><stop offset="1" stop-color="#1B5BE0"/></linearGradient></defs><circle cx="43" cy="43" r="36" fill="none" stroke="var(--tx-surface-sunken)" stroke-width="9"/><circle cx="43" cy="43" r="36" fill="none" stroke="url(#rg)" stroke-width="9" stroke-linecap="round" stroke-dasharray="226" stroke-dashoffset="40" transform="rotate(-90 43 43)"/><text x="43" y="49" text-anchor="middle" class="ringnum">82%</text></svg>
+        </div>
+      </div>
+      <div class="grid2">
+        <div class="wcard">
+          <div class="hd"><span class="tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 6.5l11 11M3 8l3-3 2 2-3 3zM16 19l3-3 2 2-3 3z"/></svg></span><div><div class="nm">Haut du corps</div><div class="mt">6 exercices · ~50 min · RPE 7</div></div></div>
+          <div class="exr"><span class="chk"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span><span class="n">Développé couché</span><span class="sets">4 × 8 · 60 kg</span></div>
+          <div class="exr todo"><span class="chk"></span><span class="n">Tractions lestées</span><span class="sets">3 × max</span></div>
+          <div class="exr todo"><span class="chk"></span><span class="n">Rowing haltère</span><span class="sets">3 × 12</span></div>
+        </div>
+        <div class="panel stack">
+          <p class="cap">Semaine</p>
+          <div class="days">
+            <div class="day"><div class="w">L</div><div class="d done">12</div></div>
+            <div class="day"><div class="w">M</div><div class="d done">13</div></div>
+            <div class="day"><div class="w">M</div><div class="d rest">14</div></div>
+            <div class="day"><div class="w">J</div><div class="d on">15</div></div>
+            <div class="day"><div class="w">V</div><div class="d">16</div></div>
+            <div class="day"><div class="w">S</div><div class="d">17</div></div>
+            <div class="day"><div class="w">D</div><div class="d rest">18</div></div>
+          </div>
+          <p class="cap" style="margin-top:6px">RPE de la séance</p>
+          <div class="rpe"><span class="p">5</span><span class="p">6</span><span class="p on">7</span><span class="p">8</span><span class="p">9</span><span class="p">10</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sec">
+      <p class="lbl">Composants</p>
+      <h2>Feedback & données</h2>
+      <div class="grid2">
+        <div class="panel stack">
+          <div class="toast"><span class="ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span><span><b>Séance enregistrée.</b> Athlète notifié.</span></div>
+          <div class="banner"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:1px"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg><span>Charge élevée 3 jours d'affilée — prévoir une récupération.</span></div>
+        </div>
+        <div class="panel">
+          <p class="cap">Progression — réalisé vs objectif</p>
+          <svg width="100%" height="120" viewBox="0 0 320 120" preserveAspectRatio="none">
+            <line x1="0" y1="30" x2="320" y2="30" stroke="var(--tx-border)"/>
+            <line x1="0" y1="60" x2="320" y2="60" stroke="var(--tx-border)"/>
+            <line x1="0" y1="90" x2="320" y2="90" stroke="var(--tx-border)"/>
+            <polyline points="0,98 53,82 106,86 160,55 213,60 266,33 320,26" fill="none" stroke="var(--tx-accent)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+            <polyline points="0,104 53,100 106,92 160,94 213,82 266,80 320,72" fill="none" stroke="var(--tx-text-muted)" stroke-width="2.5" stroke-dasharray="5 5" stroke-linecap="round"/>
+          </svg>
+          <div class="legend"><span><i class="dotc" style="background:var(--tx-accent)"></i>Réalisé</span><span><i class="dotc" style="background:var(--tx-text-muted)"></i>Objectif</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+  const blue = [['50','#EBF3FF'],['100','#D6E7FF'],['200','#ADCFFF'],['300','#85B8FF'],['400','#5BAEFF'],['500','#2E7CF6'],['600','#1B5BE0'],['700','#1747B0'],['800','#143A8C'],['900','#102C66'],['navy','#1F4E79']];
+  const slate = [['0','#FFFFFF'],['50','#F4F6FA'],['100','#E7ECF3'],['200','#D3DAE6'],['300','#B6C0D0'],['400','#8A94A6'],['500','#5C6678'],['600','#434B5C'],['700','#2A3140'],['800','#161B27'],['ink','#0B0F17']];
+  const fill = (id, arr) => document.getElementById(id).innerHTML = arr.map(([k,v]) => `<div><div class="c" style="background:${v}"></div><div class="k">${k}</div></div>`).join('');
+  fill('blueRamp', blue); fill('slateRamp', slate);
+
+  function setTheme(t) {
+    document.documentElement.setAttribute('data-theme', t);
+    document.getElementById('bL').classList.toggle('on', t === 'light');
+    document.getElementById('bD').classList.toggle('on', t === 'dark');
+    document.getElementById('logo').src = t === 'light' ? 'assets/logo-wordmark-light.svg' : 'assets/logo-wordmark-dark.svg';
+  }
+</script>
+</body></html>

@@ -1,0 +1,46 @@
+<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="_components.css">
+<style>
+body { margin:0; font-family:var(--tx-font-primary); }
+.split { display:grid; grid-template-columns:1fr 1fr; }
+.pane { padding:18px; }
+.pane.l { background:#F4F6FA; }
+.pane.d { background:#0B0F17; }
+.cap { font-size:10px; font-weight:600; letter-spacing:.16em; text-transform:uppercase; color:var(--tx-text-muted); margin-bottom:10px; }
+.legend { display:flex; gap:14px; margin-top:10px; font-size:11px; color:var(--tx-text-secondary); }
+.legend span { display:flex; align-items:center; gap:5px; }
+.dotc { width:9px; height:9px; border-radius:3px; }
+text { font-family:var(--tx-font-primary); }
+</style></head>
+<body>
+<div class="split">
+  <div class="pane l demo">
+    <div class="cap">Progression — ligne</div>
+    <svg width="100%" height="120" viewBox="0 0 300 120" preserveAspectRatio="none">
+      <line x1="0" y1="30" x2="300" y2="30" stroke="rgba(11,15,23,.07)"/>
+      <line x1="0" y1="60" x2="300" y2="60" stroke="rgba(11,15,23,.07)"/>
+      <line x1="0" y1="90" x2="300" y2="90" stroke="rgba(11,15,23,.07)"/>
+      <polyline points="0,95 50,80 100,84 150,55 200,60 250,32 300,28" fill="none" stroke="#2E7CF6" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+      <polyline points="0,100 50,98 100,90 150,92 200,80 250,78 300,70" fill="none" stroke="#8A94A6" stroke-width="2.5" stroke-dasharray="5 5" stroke-linecap="round"/>
+    </svg>
+    <div class="legend"><span><i class="dotc" style="background:#2E7CF6"></i>Réalisé</span><span><i class="dotc" style="background:#8A94A6"></i>Objectif</span></div>
+  </div>
+  <div class="pane d demo" data-theme="dark">
+    <div class="cap">Volume — barres</div>
+    <svg width="100%" height="120" viewBox="0 0 300 120" preserveAspectRatio="none">
+      <line x1="0" y1="30" x2="300" y2="30" stroke="rgba(255,255,255,.06)"/>
+      <line x1="0" y1="60" x2="300" y2="60" stroke="rgba(255,255,255,.06)"/>
+      <line x1="0" y1="90" x2="300" y2="90" stroke="rgba(255,255,255,.06)"/>
+      <rect x="14" y="55" width="26" height="55" rx="4" fill="#2E7CF6"/>
+      <rect x="58" y="40" width="26" height="70" rx="4" fill="#2E7CF6"/>
+      <rect x="102" y="68" width="26" height="42" rx="4" fill="#2E7CF6"/>
+      <rect x="146" y="30" width="26" height="80" rx="4" fill="#5BAEFF"/>
+      <rect x="190" y="50" width="26" height="60" rx="4" fill="#2E7CF6"/>
+      <rect x="234" y="62" width="26" height="48" rx="4" fill="#2E7CF6"/>
+    </svg>
+    <div class="legend"><span><i class="dotc" style="background:#5BAEFF"></i>Pic</span><span><i class="dotc" style="background:#2E7CF6"></i>Hebdo</span></div>
+  </div>
+</div>
+</body></html>

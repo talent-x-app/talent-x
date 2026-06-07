@@ -1,0 +1,32 @@
+<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="_card.css">
+<style>
+body { padding:0; }
+.split { border:0; border-radius:0; }
+.lbl2 { font-size:10px; font-weight:600; letter-spacing:.18em; text-transform:uppercase; margin:0 0 16px; }
+.pane-light .lbl2 { color:#5C6678; } .pane-dark .lbl2 { color:#8A94A6; }
+.row { display:flex; gap:16px; }
+.e { width:64px; height:64px; border-radius:14px; display:flex; align-items:flex-end; justify-content:center; padding-bottom:6px; font-size:9px; font-weight:600; }
+.pane-light .e { background:#fff; color:#5C6678; }
+.pane-dark .e { background:#11151F; color:#8A94A6; }
+.el-sm { box-shadow: 0 1px 2px rgba(11,15,23,.08); }
+.el-md { box-shadow: 0 4px 12px rgba(11,15,23,.10); }
+.el-lg { box-shadow: 0 12px 32px rgba(11,15,23,.14); }
+.dk-sm { box-shadow: inset 0 0 0 1px rgba(255,255,255,.06); }
+.dk-md { box-shadow: 0 8px 24px rgba(0,0,0,.45); }
+.dk-glow { box-shadow: 0 0 24px rgba(46,124,246,.35); border:1px solid rgba(46,124,246,.4); }
+</style></head>
+<body>
+<div class="split">
+  <div class="pane pane-light">
+    <div class="lbl2">Light · ombres</div>
+    <div class="row"><div class="e el-sm">sm</div><div class="e el-md">md</div><div class="e el-lg">lg</div></div>
+  </div>
+  <div class="pane pane-dark">
+    <div class="lbl2">Dark · bord + halo</div>
+    <div class="row"><div class="e dk-sm">hairline</div><div class="e dk-md">md</div><div class="e dk-glow">glow</div></div>
+  </div>
+</div>
+</body></html>

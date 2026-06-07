@@ -1,0 +1,40 @@
+<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="_components.css">
+<style>
+body { margin:0; font-family:var(--tx-font-primary); }
+.split { display:grid; grid-template-columns:1fr 1fr; }
+.pane { padding:18px; display:flex; flex-direction:column; gap:10px; justify-content:center; }
+.pane.l { background:#F4F6FA; }
+.pane.d { background:#0B0F17; }
+.wcard { background:var(--tx-surface); border:1px solid var(--tx-border); border-radius:var(--tx-radius-md); overflow:hidden; box-shadow:var(--tx-shadow-sm); }
+.wcard .hd { display:flex; align-items:center; gap:11px; padding:13px 14px; }
+.wcard .tile { width:42px; height:42px; border-radius:11px; background:var(--tx-gradient-x); display:flex; align-items:center; justify-content:center; flex:none; }
+.wcard .tile svg { width:22px; height:22px; color:#fff; }
+.wcard .nm { font-size:15px; font-weight:600; }
+.wcard .mt { font-size:12px; color:var(--tx-text-muted); }
+.exr { display:flex; align-items:center; gap:11px; padding:10px 14px; border-top:1px solid var(--tx-border); font-size:13px; }
+.exr .n { flex:1; font-weight:500; }
+.exr .sets { color:var(--tx-text-muted); font-size:12px; }
+.exr .chk { width:20px; height:20px; border-radius:6px; background:var(--tx-accent); display:flex; align-items:center; justify-content:center; flex:none; }
+.exr.todo .chk { background:transparent; border:2px solid var(--tx-border-strong); }
+</style></head>
+<body>
+<div class="split">
+  <div class="pane l demo">
+    <div class="wcard">
+      <div class="hd"><span class="tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 6.5l11 11M3 8l3-3 2 2-3 3zM16 19l3-3 2 2-3 3z"/></svg></span><div><div class="nm">Haut du corps</div><div class="mt">6 exercices · ~50 min</div></div></div>
+      <div class="exr"><span class="chk"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span><span class="n">Développé couché</span><span class="sets">4 × 8</span></div>
+      <div class="exr todo"><span class="chk"></span><span class="n">Tractions</span><span class="sets">3 × max</span></div>
+    </div>
+  </div>
+  <div class="pane d demo" data-theme="dark">
+    <div class="wcard">
+      <div class="hd"><span class="tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 6.5l11 11M3 8l3-3 2 2-3 3zM16 19l3-3 2 2-3 3z"/></svg></span><div><div class="nm">Haut du corps</div><div class="mt">6 exercices · ~50 min</div></div></div>
+      <div class="exr"><span class="chk"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span><span class="n">Développé couché</span><span class="sets">4 × 8</span></div>
+      <div class="exr todo"><span class="chk"></span><span class="n">Tractions</span><span class="sets">3 × max</span></div>
+    </div>
+  </div>
+</div>
+</body></html>

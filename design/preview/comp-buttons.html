@@ -1,0 +1,41 @@
+<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="_components.css">
+<style>
+body { margin:0; font-family:var(--tx-font-primary); }
+.split { display:grid; grid-template-columns:1fr 1fr; }
+.pane { padding:20px; }
+.pane.l { background:#F4F6FA; }
+.pane.d { background:#0B0F17; }
+.grp { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px; }
+.grp:last-child { margin-bottom:0; }
+</style></head>
+<body>
+<div class="split">
+  <div class="pane l demo">
+    <div class="grp">
+      <button class="btn btn-primary">Démarrer</button>
+      <button class="btn btn-secondary">Détails</button>
+      <button class="btn btn-ghost">Annuler</button>
+    </div>
+    <div class="grp">
+      <button class="btn btn-danger">Supprimer</button>
+      <button class="btn btn-primary is-focus">Focus</button>
+      <button class="btn btn-primary is-disabled">Désactivé</button>
+    </div>
+  </div>
+  <div class="pane d demo" data-theme="dark">
+    <div class="grp">
+      <button class="btn btn-primary">Démarrer</button>
+      <button class="btn btn-secondary">Détails</button>
+      <button class="btn btn-ghost">Annuler</button>
+    </div>
+    <div class="grp">
+      <button class="btn btn-danger">Supprimer</button>
+      <button class="btn btn-primary is-pressed">Pressé</button>
+      <button class="btn btn-primary"><span class="spinner"></span>Chargement</button>
+    </div>
+  </div>
+</div>
+</body></html>

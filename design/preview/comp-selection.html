@@ -1,0 +1,27 @@
+<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="_components.css">
+<style>
+body { margin:0; font-family:var(--tx-font-primary); }
+.split { display:grid; grid-template-columns:1fr 1fr; }
+.pane { padding:20px; display:flex; flex-direction:column; gap:14px; }
+.pane.l { background:#F4F6FA; }
+.pane.d { background:#0B0F17; }
+</style></head>
+<body>
+<div class="split">
+  <div class="pane l demo">
+    <div class="ctl-row"><span class="check on"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span> Notifications</div>
+    <div class="ctl-row"><span class="check"></span> Partager les stats</div>
+    <div class="ctl-row"><span class="radio on"></span> Coach <span class="radio" style="margin-left:14px"></span> Athlète</div>
+    <div class="ctl-row"><span class="switch on"></span> Mode hors-ligne</div>
+  </div>
+  <div class="pane d demo" data-theme="dark">
+    <div class="ctl-row"><span class="check on"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span> Notifications</div>
+    <div class="ctl-row"><span class="check"></span> Partager les stats</div>
+    <div class="ctl-row"><span class="radio on"></span> Coach <span class="radio" style="margin-left:14px"></span> Athlète</div>
+    <div class="ctl-row"><span class="switch"></span> Mode hors-ligne</div>
+  </div>
+</div>
+</body></html>

@@ -1,0 +1,49 @@
+<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="_components.css">
+<style>
+body { margin:0; font-family:var(--tx-font-primary); }
+.split { display:grid; grid-template-columns:1fr 1fr; }
+.pane { padding:22px; display:flex; align-items:center; gap:22px; }
+.pane.l { background:#F4F6FA; }
+.pane.d { background:#0B0F17; }
+.bars { flex:1; display:flex; flex-direction:column; gap:12px; }
+.ring-wrap { text-align:center; }
+.ring-wrap .lab { font-size:11px; color:var(--tx-text-muted); margin-top:6px; }
+.ring-num { font-size:18px; font-weight:700; fill:var(--tx-text-primary); }
+.bar-lab { font-size:11px; color:var(--tx-text-secondary); margin-bottom:5px; display:flex; justify-content:space-between; }
+</style></head>
+<body>
+<div class="split">
+  <div class="pane l demo">
+    <div class="ring-wrap">
+      <svg width="86" height="86" viewBox="0 0 86 86">
+        <circle cx="43" cy="43" r="37" fill="none" stroke="#ECF0F6" stroke-width="9"/>
+        <circle cx="43" cy="43" r="37" fill="none" stroke="#2E7CF6" stroke-width="9" stroke-linecap="round" stroke-dasharray="232" stroke-dashoffset="58" transform="rotate(-90 43 43)"/>
+        <text x="43" y="49" text-anchor="middle" class="ring-num">75%</text>
+      </svg>
+      <div class="lab">Objectif</div>
+    </div>
+    <div class="bars">
+      <div><div class="bar-lab"><span>Volume</span><span>82%</span></div><div class="pbar"><div class="v" style="width:82%"></div></div></div>
+      <div><div class="bar-lab"><span>Assiduité</span><span>60%</span></div><div class="pbar"><div class="v" style="width:60%"></div></div></div>
+    </div>
+  </div>
+  <div class="pane d demo" data-theme="dark">
+    <div class="ring-wrap">
+      <svg width="86" height="86" viewBox="0 0 86 86">
+        <defs><linearGradient id="rg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5BAEFF"/><stop offset="1" stop-color="#1B5BE0"/></linearGradient></defs>
+        <circle cx="43" cy="43" r="37" fill="none" stroke="#1A2230" stroke-width="9"/>
+        <circle cx="43" cy="43" r="37" fill="none" stroke="url(#rg)" stroke-width="9" stroke-linecap="round" stroke-dasharray="232" stroke-dashoffset="35" transform="rotate(-90 43 43)"/>
+        <text x="43" y="49" text-anchor="middle" class="ring-num" style="fill:#E7ECF3">85%</text>
+      </svg>
+      <div class="lab">Semaine</div>
+    </div>
+    <div class="bars">
+      <div><div class="bar-lab"><span>Volume</span><span>92%</span></div><div class="pbar"><div class="v" style="width:92%"></div></div></div>
+      <div><div class="bar-lab"><span>Assiduité</span><span>74%</span></div><div class="pbar"><div class="v" style="width:74%"></div></div></div>
+    </div>
+  </div>
+</div>
+</body></html>

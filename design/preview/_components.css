@@ -1,0 +1,117 @@
+/* Token-driven component styles for preview cards.
+   Works in light (default :root) and dark (any ancestor [data-theme="dark"]). */
+@import url('../tokens.css');
+
+.demo { font-family: var(--tx-font-primary); color: var(--tx-text-primary); }
+
+/* ---------- Buttons ---------- */
+.btn {
+  font-family: var(--tx-font-primary); font-weight: 600; font-size: 15px;
+  border-radius: var(--tx-radius-sm); border: 1px solid transparent;
+  padding: 0 18px; height: 44px; min-width: 44px; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  transition: background var(--tx-dur-fast) var(--tx-ease-standard),
+              transform var(--tx-dur-fast) var(--tx-ease-standard),
+              border-color var(--tx-dur-fast) var(--tx-ease-standard);
+  white-space: nowrap;
+}
+.btn:active { transform: scale(0.97); }
+.btn-sm { height: 36px; font-size: 13px; padding: 0 14px; border-radius: var(--tx-radius-xs); }
+.btn-lg { height: 52px; font-size: 17px; padding: 0 24px; }
+
+.btn-primary { background: var(--tx-accent); color: var(--tx-text-on-accent); }
+.btn-primary:hover { background: var(--tx-accent-hover); }
+.btn-primary.is-pressed { background: var(--tx-accent-pressed); }
+
+.btn-secondary { background: transparent; color: var(--tx-text-primary); border-color: var(--tx-border-strong); }
+.btn-secondary:hover { background: var(--tx-surface-sunken); }
+
+.btn-ghost { background: transparent; color: var(--tx-accent-text); }
+.btn-ghost:hover { background: var(--tx-accent-subtle); }
+
+.btn-danger { background: var(--tx-danger); color: #fff; }
+.btn-danger:hover { filter: brightness(1.06); }
+
+.btn:disabled, .btn.is-disabled { opacity: var(--tx-opacity-disabled); pointer-events: none; }
+.btn.is-focus { outline: var(--tx-border-focus) solid var(--tx-focus-ring); outline-offset: 2px; }
+
+.spinner { width: 16px; height: 16px; border-radius: 50%; border: 2px solid rgba(255,255,255,.35); border-top-color: #fff; animation: spin .7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ---------- Inputs ---------- */
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field label { font-size: 12px; font-weight: 600; color: var(--tx-text-secondary); }
+.input, .textarea {
+  font-family: var(--tx-font-primary); font-size: 15px; color: var(--tx-text-primary);
+  background: var(--tx-surface); border: 1px solid var(--tx-border-strong);
+  border-radius: var(--tx-radius-sm); padding: 0 14px; height: 44px; width: 100%;
+  transition: border-color var(--tx-dur-fast) var(--tx-ease-standard), box-shadow var(--tx-dur-fast) var(--tx-ease-standard);
+}
+.textarea { height: auto; padding: 11px 14px; resize: none; line-height: 1.5; }
+.input::placeholder, .textarea::placeholder { color: var(--tx-text-muted); }
+.input:focus, .textarea:focus { outline: none; border-color: var(--tx-accent); box-shadow: 0 0 0 3px var(--tx-accent-subtle); }
+.input.is-error { border-color: var(--tx-danger); }
+.field .err { font-size: 12px; color: var(--tx-danger); }
+.field.is-disabled { opacity: var(--tx-opacity-disabled); }
+
+/* ---------- Selection controls ---------- */
+.check, .radio { width: 22px; height: 22px; border: 2px solid var(--tx-border-strong); background: var(--tx-surface); display: inline-flex; align-items: center; justify-content: center; flex: none; }
+.check { border-radius: 6px; }
+.radio { border-radius: 50%; }
+.check.on, .radio.on { background: var(--tx-accent); border-color: var(--tx-accent); }
+.check.on svg { display: block; }
+.radio.on::after { content: ""; width: 8px; height: 8px; border-radius: 50%; background: #fff; }
+
+.switch { width: 46px; height: 28px; border-radius: 999px; background: var(--tx-border-strong); position: relative; transition: background var(--tx-dur-base) var(--tx-ease-standard); flex: none; }
+.switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: #fff; transition: left var(--tx-dur-base) var(--tx-ease-spring); box-shadow: 0 1px 3px rgba(0,0,0,.3); }
+.switch.on { background: var(--tx-accent); }
+.switch.on::after { left: 21px; }
+
+.ctl-row { display: flex; align-items: center; gap: 10px; font-size: 14px; }
+
+/* ---------- Segmented ---------- */
+.segmented { display: inline-flex; background: var(--tx-surface-sunken); border-radius: var(--tx-radius-sm); padding: 3px; gap: 3px; }
+.segmented button { font-family: var(--tx-font-primary); border: 0; background: transparent; color: var(--tx-text-secondary); font-size: 13px; font-weight: 600; padding: 7px 16px; border-radius: 8px; cursor: pointer; }
+.segmented button.on { background: var(--tx-surface); color: var(--tx-text-primary); box-shadow: var(--tx-shadow-sm); }
+
+/* ---------- Chips ---------- */
+.chip-tag { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 13px; border-radius: 999px; font-size: 13px; font-weight: 500; background: var(--tx-surface-sunken); color: var(--tx-text-secondary); border: 1px solid transparent; cursor: pointer; }
+.chip-tag.on { background: var(--tx-accent-subtle); color: var(--tx-accent-text); border-color: var(--tx-accent); }
+
+/* ---------- Slider ---------- */
+.slider { position: relative; height: 6px; background: var(--tx-surface-sunken); border-radius: 999px; }
+.slider .fill { position: absolute; left: 0; top: 0; bottom: 0; background: var(--tx-accent); border-radius: 999px; }
+.slider .knob { position: absolute; top: 50%; width: 22px; height: 22px; border-radius: 50%; background: #fff; border: 2px solid var(--tx-accent); transform: translate(-50%, -50%); box-shadow: var(--tx-shadow-sm); }
+
+/* ---------- Card ---------- */
+.card { background: var(--tx-surface); border: 1px solid var(--tx-border); border-radius: var(--tx-radius-md); padding: 16px; box-shadow: var(--tx-shadow-sm); }
+
+/* ---------- List row ---------- */
+.lrow { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: var(--tx-radius-sm); }
+.lrow:hover { background: var(--tx-surface-sunken); }
+.lrow .meta { flex: 1; }
+.lrow .t1 { font-size: 15px; font-weight: 600; }
+.lrow .t2 { font-size: 13px; color: var(--tx-text-muted); }
+
+/* ---------- Badge ---------- */
+.badge { display: inline-flex; align-items: center; height: 22px; padding: 0 9px; border-radius: 999px; font-size: 11px; font-weight: 700; letter-spacing: .02em; }
+.badge-accent { background: var(--tx-accent-subtle); color: var(--tx-accent-text); }
+.badge-success { background: var(--tx-success-bg); color: var(--tx-success); }
+.badge-warning { background: var(--tx-warning-bg); color: var(--tx-warning); }
+.badge-danger { background: var(--tx-danger-bg); color: var(--tx-danger); }
+.badge-dot { width: 9px; height: 9px; border-radius: 50%; }
+
+/* ---------- Avatar ---------- */
+.avatar { width: 44px; height: 44px; border-radius: 50%; background: var(--tx-gradient-x); color: #fff; display: inline-flex; align-items: center; justify-content: center; font-weight: 700; font-size: 16px; position: relative; }
+.avatar .ring { position: absolute; inset: -3px; border-radius: 50%; border: 2px solid var(--tx-accent); }
+.avatar-role { position: absolute; bottom: -2px; right: -2px; width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--tx-surface); }
+
+/* ---------- Progress ---------- */
+.pbar { height: 8px; background: var(--tx-surface-sunken); border-radius: 999px; overflow: hidden; }
+.pbar .v { height: 100%; background: var(--tx-accent); border-radius: 999px; }
+
+/* ---------- Misc ---------- */
+.appbar { display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: var(--tx-surface); border-bottom: 1px solid var(--tx-border); }
+.appbar .title { font-size: 17px; font-weight: 600; flex: 1; }
+.iconbtn { width: 40px; height: 40px; border-radius: var(--tx-radius-sm); display: inline-flex; align-items: center; justify-content: center; color: var(--tx-text-secondary); }
+.iconbtn:hover { background: var(--tx-surface-sunken); }
