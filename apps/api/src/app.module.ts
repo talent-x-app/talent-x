@@ -1,3 +1,4 @@
+import { join } from 'node:path';
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { AssignmentsModule } from './assignments/assignments.module';
@@ -13,7 +14,13 @@ import { UsersModule } from './users/users.module';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
+    // envFilePath ancré sur la racine du package (apps/api), résolu depuis le
+    // fichier compilé (dist/) comme depuis les sources (ts-jest), pour rester
+    // correct quel que soit le cwd de lancement (racine du repo, CI, Docker).
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: join(__dirname, '..', '.env'),
+    }),
     PrismaModule,
     HealthModule,
     AuthModule,
