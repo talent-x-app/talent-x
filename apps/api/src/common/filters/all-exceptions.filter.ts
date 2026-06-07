@@ -7,6 +7,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
+import { getRequestId } from '../context/request-context';
 import type { ValidationDetailDto } from '../dto/error.dto';
 
 /** Codes d'erreur stables par défaut, dérivés du statut HTTP (cf. contrat OpenAPI). */
@@ -59,6 +60,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
       }
     }
 
+    const requestId = getRequestId();
     response.status(normalized.statusCode).json({
       statusCode: normalized.statusCode,
       error: normalized.error,
@@ -66,6 +68,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
       ...(normalized.details ? { details: normalized.details } : {}),
       timestamp: new Date().toISOString(),
       path: request.url,
+      ...(requestId ? { requestId } : {}),
     });
   }
 
