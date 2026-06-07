@@ -1,5 +1,6 @@
-// Design tokens partagés (RN + thème typé).
-// Stub de fondation (TLX-001) : le contenu réel — couleurs, espacements,
-// typographies dérivés de design/tokens.json — est livré en TLX-005.
-
-export const DESIGN_TOKENS_PLACEHOLDER = true;
+/* Point d'entrée public du design system Talent-X (React Native / Expo).
+   - Tokens & thème typé : ./tokens
+   - Contexte & hooks    : ./context
+   CSS web (react-native-web) : importer "@talent-x/design-tokens/css". */
+export * from './tokens';
+export * from './context';

@@ -1,8 +1,10 @@
 {
   "extends": "@talent-x/tsconfig/node.json",
   "compilerOptions": {
+    "jsx": "react-jsx",
     "outDir": "dist",
     "rootDir": "src"
   },
-  "include": ["src"]
+  "include": ["src"],
+  "exclude": ["**/*.test.ts", "dist"]
 }
