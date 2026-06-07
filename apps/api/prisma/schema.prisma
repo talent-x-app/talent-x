@@ -1,6 +1,15 @@
-// Schéma Prisma — squelette de fondation (TLX-001).
-// Le modèle de données réel et la migration initiale sont livrés en TLX-012,
-// dérivés de docs/Talent-X_06_Modele_de_donnees.md.
+// Schéma Prisma — Talent-X (TLX-012).
+// Dérivé de docs/Talent-X_06_Modele_de_donnees.md (TX-DATA-006), Annexe A (DDL de référence).
+//
+// Conventions (cf. §2 du doc) :
+//   - Tables/colonnes en snake_case (via @map / @@map), modèles PascalCase, champs camelCase.
+//   - Clés primaires UUID (gen_random_uuid()), sauf audit_log (bigint auto-incrément).
+//   - Énumérations = texte contraint par CHECK (PAS d'enum natif), pour faciliter l'évolution.
+//   - Suppression logique via deleted_at (NULL = actif) sur les entités métier/perso.
+//   - Données variables en JSONB versionné (exercises, results).
+//
+// Les contraintes que Prisma ne sait pas exprimer (CHECK, index uniques PARTIELS,
+// triggers set_updated_at) sont ajoutées à la main dans la migration SQL initiale.
 
 generator client {
   provider = "prisma-client-js"
@@ -11,10 +20,258 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-/// Modèle placeholder — uniquement pour permettre `prisma generate` au stade
-/// fondation (TLX-001). À SUPPRIMER et remplacer par le vrai modèle en TLX-012.
-/// Aucune migration n'est exécutée tant que TLX-012 n'est pas démarré.
-model HealthCheck {
-  id        String   @id @default(uuid())
-  createdAt DateTime @default(now())
+// ───────────────────────────── Identité & sécurité ─────────────────────────────
+
+/// Compte utilisateur (coach ou athlète).
+model User {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email            String
+  passwordHash     String    @map("password_hash")
+  /// 'coach' | 'athlete' (CHECK en base)
+  role             String
+  firstName        String    @map("first_name")
+  lastName         String    @map("last_name")
+  sport            String?
+  bio              String?
+  photoUrl         String?   @map("photo_url")
+  birthDate        DateTime? @map("birth_date") @db.Date
+  twoFactorEnabled Boolean   @default(false) @map("two_factor_enabled")
+  twoFactorSecret  String?   @map("two_factor_secret")
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt        DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  consents         Consent[]
+  refreshTokens    RefreshToken[]
+  deviceTokens     DeviceToken[]
+  coachedGroups    Group[]             @relation("GroupCoach")
+  groupMemberships GroupMember[]
+  coachLinks       CoachAthleteLink[]  @relation("LinkCoach")
+  athleteLinks     CoachAthleteLink[]  @relation("LinkAthlete")
+  coachedSessions  Session[]           @relation("SessionCoach")
+  assignments      SessionAssignment[]
+  performances     Performance[]
+  comments         Comment[]           @relation("CommentAuthor")
+  auditLogs        AuditLog[]
+
+  // Index unique PARTIEL sur lower(email) WHERE deleted_at IS NULL → migration SQL.
+  @@map("users")
+}
+
+/// Consentements RGPD (cf. §4.2, TX-SEC-003).
+model Consent {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId      String    @map("user_id") @db.Uuid
+  /// 'data_processing' | 'coach_access' | 'marketing' (CHECK en base)
+  type        String
+  granted     Boolean
+  textVersion String    @map("text_version")
+  grantedAt   DateTime? @map("granted_at") @db.Timestamptz(6)
+  revokedAt   DateTime? @map("revoked_at") @db.Timestamptz(6)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, type], map: "ix_consents_user_type")
+  @@map("consents")
+}
+
+/// Jetons de rafraîchissement (refresh rotatif, familles de jetons).
+model RefreshToken {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  tokenHash String    @map("token_hash")
+  familyId  String    @map("family_id") @db.Uuid
+  used      Boolean   @default(false)
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  revokedAt DateTime? @map("revoked_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId], map: "ix_refresh_user")
+  @@index([familyId], map: "ix_refresh_family")
+  @@map("refresh_tokens")
+}
+
+/// Jetons de notification push par appareil.
+model DeviceToken {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  token      String    @unique
+  /// 'apns' | 'fcm' (CHECK en base)
+  platform   String
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  lastSeenAt DateTime? @map("last_seen_at") @db.Timestamptz(6)
+  revokedAt  DateTime? @map("revoked_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId], map: "ix_device_user")
+  @@map("device_tokens")
+}
+
+// ──────────────────────────── Domaine d'entraînement ───────────────────────────
+
+/// Groupe d'entraînement géré par un coach.
+model Group {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  coachId     String    @map("coach_id") @db.Uuid
+  name        String
+  description String?
+  inviteCode  String    @unique @map("invite_code")
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  coach   User               @relation("GroupCoach", fields: [coachId], references: [id], onDelete: Restrict)
+  members GroupMember[]
+  links   CoachAthleteLink[]
+
+  // Index PARTIEL ix_groups_coach WHERE deleted_at IS NULL → migration SQL.
+  @@map("groups")
+}
+
+/// Appartenance d'un athlète à un groupe (historisée via left_at).
+model GroupMember {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  groupId   String    @map("group_id") @db.Uuid
+  athleteId String    @map("athlete_id") @db.Uuid
+  joinedAt  DateTime  @default(now()) @map("joined_at") @db.Timestamptz(6)
+  leftAt    DateTime? @map("left_at") @db.Timestamptz(6)
+
+  group   Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  athlete User  @relation(fields: [athleteId], references: [id], onDelete: Cascade)
+
+  // Unique PARTIEL (group_id, athlete_id) WHERE left_at IS NULL → migration SQL.
+  @@index([athleteId], map: "ix_group_members_athlete")
+  @@map("group_members")
+}
+
+/// Lien d'autorisation coach ↔ athlète (issu d'un groupe ou direct).
+model CoachAthleteLink {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  coachId   String    @map("coach_id") @db.Uuid
+  athleteId String    @map("athlete_id") @db.Uuid
+  /// 'group' | 'direct' (CHECK en base)
+  source    String
+  groupId   String?   @map("group_id") @db.Uuid
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  endedAt   DateTime? @map("ended_at") @db.Timestamptz(6)
+
+  coach   User   @relation("LinkCoach", fields: [coachId], references: [id], onDelete: Cascade)
+  athlete User   @relation("LinkAthlete", fields: [athleteId], references: [id], onDelete: Cascade)
+  group   Group? @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  // CHECK chk_link_distinct / chk_link_group + uniques PARTIELS → migration SQL.
+  @@map("coach_athlete_links")
+}
+
+/// Séance d'entraînement (contenu en JSONB versionné).
+model Session {
+  id                     String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  coachId                String    @map("coach_id") @db.Uuid
+  title                  String
+  description            String?
+  scheduledDate          DateTime? @map("scheduled_date") @db.Date
+  /// 'draft' | 'published' | 'archived' (CHECK en base)
+  status                 String    @default("draft")
+  exercises              Json      @default("{\"items\": []}")
+  exercisesSchemaVersion Int       @default(1) @map("exercises_schema_version")
+  createdAt              DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt              DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  coach       User                @relation("SessionCoach", fields: [coachId], references: [id], onDelete: Restrict)
+  assignments SessionAssignment[]
+  comments    Comment[]
+
+  // Index PARTIEL ix_sessions_coach WHERE deleted_at IS NULL → migration SQL.
+  @@index([scheduledDate], map: "ix_sessions_date")
+  @@map("sessions")
+}
+
+/// Affectation d'une séance à un athlète.
+model SessionAssignment {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sessionId  String    @map("session_id") @db.Uuid
+  athleteId  String    @map("athlete_id") @db.Uuid
+  /// 'assigned' | 'in_progress' | 'completed' | 'skipped' (CHECK en base)
+  status     String    @default("assigned")
+  assignedAt DateTime  @default(now()) @map("assigned_at") @db.Timestamptz(6)
+  dueDate    DateTime? @map("due_date") @db.Date
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt  DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  session     Session      @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  athlete     User         @relation(fields: [athleteId], references: [id], onDelete: Cascade)
+  performance Performance?
+
+  // Unique PARTIEL (session_id, athlete_id) WHERE deleted_at IS NULL → migration SQL.
+  @@index([athleteId], map: "ix_assignment_athlete")
+  @@map("session_assignments")
+}
+
+/// Performance saisie par l'athlète pour une affectation (1:1).
+model Performance {
+  id                   String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  assignmentId         String   @unique @map("assignment_id") @db.Uuid
+  athleteId            String   @map("athlete_id") @db.Uuid
+  results              Json     @default("{\"items\": []}")
+  resultsSchemaVersion Int      @default(1) @map("results_schema_version")
+  /// RPE 1..10 (CHECK en base)
+  rpe                  Int?     @db.SmallInt
+  notes                String?
+  submittedAt          DateTime @default(now()) @map("submitted_at") @db.Timestamptz(6)
+  createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  assignment SessionAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  athlete    User              @relation(fields: [athleteId], references: [id], onDelete: Cascade)
+  comments   Comment[]
+
+  @@index([athleteId], map: "ix_perf_athlete")
+  @@map("performances")
+}
+
+// ────────────────────────── Collaboration & journalisation ─────────────────────
+
+/// Commentaire rattaché soit à une séance, soit à une performance (exactement un).
+model Comment {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  authorId      String    @map("author_id") @db.Uuid
+  sessionId     String?   @map("session_id") @db.Uuid
+  performanceId String?   @map("performance_id") @db.Uuid
+  body          String
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt     DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  author      User         @relation("CommentAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  session     Session?     @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  performance Performance? @relation(fields: [performanceId], references: [id], onDelete: Cascade)
+
+  // CHECK chk_comment_one_target (exactement une cible) → migration SQL.
+  @@index([sessionId], map: "ix_comments_session")
+  @@index([performanceId], map: "ix_comments_performance")
+  @@map("comments")
+}
+
+/// Journal d'audit (append-only, clé entière auto-incrémentée).
+model AuditLog {
+  id         BigInt   @id @default(autoincrement())
+  actorId    String?  @map("actor_id") @db.Uuid
+  action     String
+  entityType String?  @map("entity_type")
+  entityId   String?  @map("entity_id") @db.Uuid
+  metadata   Json?
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  actor User? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([actorId], map: "ix_audit_actor")
+  @@index([entityType, entityId], map: "ix_audit_entity")
+  @@index([createdAt], map: "ix_audit_created")
+  @@map("audit_log")
 }
