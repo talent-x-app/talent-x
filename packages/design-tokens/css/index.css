@@ -1,0 +1,4 @@
+/* Talent-X — point d'entrée CSS (cibles web / react-native-web).
+   Importer ce fichier donne accès à tous les tokens, la police et les classes .tx-*. */
+@import url('./tokens.css');
+@import url('./colors_and_type.css');
