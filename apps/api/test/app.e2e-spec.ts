@@ -3,6 +3,7 @@ import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { AllExceptionsFilter } from '../src/common/filters/all-exceptions.filter';
+import { validationExceptionFactory } from '../src/common/validation/validation-exception.factory';
 
 /**
  * e2e du squelette (TLX-011) : valide les comportements transverses (préfixe,
@@ -25,6 +26,7 @@ describe('API skeleton (e2e)', () => {
         forbidNonWhitelisted: true,
         transform: true,
         errorHttpStatusCode: HttpStatus.UNPROCESSABLE_ENTITY,
+        exceptionFactory: validationExceptionFactory,
       }),
     );
     app.useGlobalFilters(new AllExceptionsFilter());
@@ -69,6 +71,10 @@ describe('API skeleton (e2e)', () => {
         expect(res.body.error).toBe('VALIDATION_FAILED');
         expect(Array.isArray(res.body.details)).toBe(true);
         expect(res.body.details.length).toBeGreaterThan(0);
+        // details structurés conformes au schéma ValidationDetail.
+        expect(res.body.details).toContainEqual(
+          expect.objectContaining({ field: 'email', constraint: expect.any(String) }),
+        );
       });
   });
 
