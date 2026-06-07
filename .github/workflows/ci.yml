@@ -39,6 +39,12 @@ jobs:
       - name: Generate Prisma client
         run: pnpm --filter @talent-x/api exec prisma generate
 
+      # Build en premier : les packages partagés (design-tokens, api-client)
+      # exposent leurs types via dist/, que leurs consommateurs (mobile) doivent
+      # pouvoir résoudre au typecheck. pnpm -r build respecte l'ordre topologique.
+      - name: Build
+        run: pnpm -r build
+
       # lint : à ajouter ici une fois ESLint configuré (TLX-002).
 
       - name: Typecheck
@@ -46,6 +52,3 @@ jobs:
 
       - name: Tests
         run: pnpm -r --if-present test
-
-      - name: Build
-        run: pnpm -r build
