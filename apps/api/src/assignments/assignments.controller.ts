@@ -1,11 +1,4 @@
-import {
-  Controller,
-  Get,
-  NotImplementedException,
-  Param,
-  Post,
-  Put,
-} from '@nestjs/common';
+import { Controller, Get, NotImplementedException, Param, Post, Put } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 /**
@@ -24,7 +17,7 @@ export class AssignmentsController {
   }
 
   @Get(':id')
-  @ApiOperation({ summary: 'Détail d\'une affectation', operationId: 'getAssignment' })
+  @ApiOperation({ summary: "Détail d'une affectation", operationId: 'getAssignment' })
   getAssignment(@Param('id') _id: string): never {
     throw new NotImplementedException('getAssignment');
   }

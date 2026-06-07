@@ -1,9 +1,4 @@
-import {
-  CanActivate,
-  ExecutionContext,
-  Injectable,
-  NotImplementedException,
-} from '@nestjs/common';
+import { CanActivate, ExecutionContext, Injectable, NotImplementedException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 
@@ -30,8 +25,6 @@ export class JwtAuthGuard implements CanActivate {
     if (isPublic) {
       return true;
     }
-    throw new NotImplementedException(
-      'Authentification JWT non encore implémentée (ticket Auth).',
-    );
+    throw new NotImplementedException('Authentification JWT non encore implémentée (ticket Auth).');
   }
 }

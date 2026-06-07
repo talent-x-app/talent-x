@@ -1,23 +1,27 @@
 # Talent-X — Guide pour Claude Code
 
 ## Le projet
+
 App mobile (iOS/Android) d'athlétisme reliant **coachs** et **athlètes** :
 séances d'entraînement, saisie de performances, progression, feedback, groupes.
 Mono-repo : `apps/mobile` (Expo / React Native) + `apps/api` (NestJS) + `packages/*` partagés.
 
 ## Stack
+
 - Frontend : React Native / Expo, expo-router, TanStack Query — TypeScript strict
-- Backend  : NestJS + Prisma + PostgreSQL + Redis (OVHcloud, UE)
-- Auth     : JWT RS256, refresh rotatif, RBAC + ownership + consentement
-- API      : REST `/api/v1` — contrat dans `docs/talent-x-openapi.yaml` (source de vérité)
+- Backend : NestJS + Prisma + PostgreSQL + Redis (OVHcloud, UE)
+- Auth : JWT RS256, refresh rotatif, RBAC + ownership + consentement
+- API : REST `/api/v1` — contrat dans `docs/talent-x-openapi.yaml` (source de vérité)
 
 ## Conventions
+
 - Commits : Conventional Commits + ID de ticket — `feat(TLX-052): ...`
 - Branches : `feature/TLX-052-...`
 - Tests obligatoires sur tout endpoint backend ; rendu + interactions clés côté front
 - Jamais de valeur en dur : config via `.env`, styles via les tokens du design system
 
 ## Où trouver quoi (À CONSULTER AVANT DE CODER)
+
 - Spécifications techniques : `docs/Talent-X_01_Architecture_v2.md`, `docs/Talent-X_03_Securite_RGPD_v2.md`,
   `docs/Talent-X_06_Modele_de_donnees.md`, `docs/Talent-X_04_Deploiement_exploitation_v2.md`,
   `docs/Talent-X_02_Specifications_fonctionnelles_et_API_v2.md`, `docs/Talent-X_07_DPIA_AIPD.md`
@@ -29,6 +33,7 @@ Mono-repo : `apps/mobile` (Expo / React Native) + `apps/api` (NestJS) + `package
 - Aperçus de composants (référence visuelle) : `design/preview/*.html`
 
 ## Règles de travail
+
 1. Lire `CURRENT_SPRINT.md` au démarrage de chaque session.
 2. Avant d'implémenter un **écran**, lire le code correspondant dans `design/ui_kits/talent-x-app/` et réutiliser le design system.
 3. Avant un **endpoint**, lire `docs/talent-x-openapi.yaml` + la règle métier concernée dans `docs/`.

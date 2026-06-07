@@ -5,7 +5,12 @@
    (line-height en px, letter-spacing em→points) sont volontairement hors test. */
 import tokensJson from './tokens.json';
 import {
-  palette, lightColors, darkColors, spacing, radius, typography,
+  palette,
+  lightColors,
+  darkColors,
+  spacing,
+  radius,
+  typography,
   type ThemeColors,
 } from './tokens';
 
@@ -22,7 +27,8 @@ function resolveColor(value: string): string {
   return (family as Record<string, { $value: string }>)[m[2]].$value;
 }
 
-const kebabToCamel = (k: string): string => k.replace(/-([a-z])/g, (_, c: string) => c.toUpperCase());
+const kebabToCamel = (k: string): string =>
+  k.replace(/-([a-z])/g, (_, c: string) => c.toUpperCase());
 
 describe('parité tokens.ts ↔ tokens.json', () => {
   it('rampes primitives (blue, slate, success, warning, danger, info)', () => {
@@ -70,11 +76,25 @@ describe('parité tokens.ts ↔ tokens.json', () => {
   });
 
   it('typographie — fontSize et fontWeight', () => {
-    const styles: Array<keyof typeof typography> = ['display', 'h1', 'h2', 'h3', 'title', 'bodyLg', 'body', 'bodySm', 'caption', 'overline'];
+    const styles: Array<keyof typeof typography> = [
+      'display',
+      'h1',
+      'h2',
+      'h3',
+      'title',
+      'bodyLg',
+      'body',
+      'bodySm',
+      'caption',
+      'overline',
+    ];
     const jsonKey: Record<string, string> = { bodyLg: 'body-lg', bodySm: 'body-sm' };
     for (const style of styles) {
       const key = jsonKey[style] ?? style;
-      const def = (tokensJson as Json).typography[key as keyof Json['typography']].$value as { fontSize: string; fontWeight: number };
+      const def = (tokensJson as Json).typography[key as keyof Json['typography']].$value as {
+        fontSize: string;
+        fontWeight: number;
+      };
       const ours = typography[style] as { fontSize: number; fontWeight: string };
       expect(ours.fontSize).toBe(parseInt(def.fontSize, 10));
       expect(Number(ours.fontWeight)).toBe(def.fontWeight);

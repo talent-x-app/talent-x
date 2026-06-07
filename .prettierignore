@@ -1,0 +1,15 @@
+# Artefacts & dépendances
+**/dist/**
+**/build/**
+**/coverage/**
+**/node_modules/**
+**/.expo/**
+
+# Généré
+pnpm-lock.yaml
+apps/api/prisma/migrations/**
+
+# Specs & design : non reformatés (source de vérité humaine)
+docs/**
+design/**
+Talent-X_structure-tickets_v2.md

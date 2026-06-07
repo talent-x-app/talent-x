@@ -1,9 +1,4 @@
-import {
-  Injectable,
-  Logger,
-  type OnModuleDestroy,
-  type OnModuleInit,
-} from '@nestjs/common';
+import { Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 
 /**
@@ -21,9 +16,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
     try {
       await this.$connect();
     } catch (error) {
-      this.logger.warn(
-        `Connexion Prisma indisponible au démarrage : ${(error as Error).message}`,
-      );
+      this.logger.warn(`Connexion Prisma indisponible au démarrage : ${(error as Error).message}`);
     }
   }
 

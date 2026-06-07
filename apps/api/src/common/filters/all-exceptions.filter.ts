@@ -92,8 +92,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
       // On ne conserve `body.error` que s'il s'agit d'un code stable (UPPER_SNAKE,
       // ex. TOKEN_REUSE_DETECTED) volontairement fourni ; sinon on ignore le texte
       // auto de Nest ("Not Implemented") au profit du code dérivé du statut.
-      const isStableCode =
-        typeof body.error === 'string' && /^[A-Z][A-Z0-9_]*$/.test(body.error);
+      const isStableCode = typeof body.error === 'string' && /^[A-Z][A-Z0-9_]*$/.test(body.error);
 
       return {
         statusCode,

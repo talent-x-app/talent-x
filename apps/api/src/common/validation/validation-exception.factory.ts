@@ -2,10 +2,7 @@ import { UnprocessableEntityException, type ValidationError } from '@nestjs/comm
 import type { ValidationDetailDto } from '../dto/error.dto';
 
 /** Aplatit récursivement les ValidationError (y compris objets imbriqués). */
-function toDetails(
-  errors: ValidationError[],
-  parentPath = '',
-): ValidationDetailDto[] {
+function toDetails(errors: ValidationError[], parentPath = ''): ValidationDetailDto[] {
   const details: ValidationDetailDto[] = [];
 
   for (const error of errors) {

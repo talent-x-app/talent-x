@@ -19,7 +19,7 @@ Ils sont écrits à la main dans la migration initiale
 
 ## Politique de migration : `migrate deploy`, JAMAIS `migrate dev`
 
-`prisma migrate dev` compare le `schema.prisma` à une *shadow DB* et génère des
+`prisma migrate dev` compare le `schema.prisma` à une _shadow DB_ et génère des
 migrations correctives. Comme les objets ci-dessus n'existent pas dans le
 datamodel, **`migrate dev` chercherait à les SUPPRIMER** (drift) — on perdrait
 les garanties d'unicité et d'intégrité.

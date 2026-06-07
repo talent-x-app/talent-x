@@ -6,7 +6,9 @@
 @import url('https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,400;0,500;0,600;0,700;1,400;1,600&display=swap');
 
 /* ---- Base ---- */
-html { -webkit-text-size-adjust: 100%; }
+html {
+  -webkit-text-size-adjust: 100%;
+}
 body {
   margin: 0;
   background: var(--tx-background);
@@ -19,37 +21,121 @@ body {
 }
 
 /* ---- Type scale (semantic) ---- */
-.tx-display  { font-family: var(--tx-font-primary); font-size: var(--tx-display-size); line-height: var(--tx-display-lh); font-weight: var(--tx-display-fw); letter-spacing: var(--tx-display-ls); }
-.tx-h1       { font-family: var(--tx-font-primary); font-size: var(--tx-h1-size);  line-height: var(--tx-h1-lh);  font-weight: var(--tx-h1-fw);  letter-spacing: var(--tx-h1-ls); }
-.tx-h2       { font-family: var(--tx-font-primary); font-size: var(--tx-h2-size);  line-height: var(--tx-h2-lh);  font-weight: var(--tx-h2-fw);  letter-spacing: var(--tx-h2-ls); }
-.tx-h3       { font-family: var(--tx-font-primary); font-size: var(--tx-h3-size);  line-height: var(--tx-h3-lh);  font-weight: var(--tx-h3-fw);  letter-spacing: var(--tx-h3-ls); }
-.tx-title    { font-family: var(--tx-font-primary); font-size: var(--tx-title-size); line-height: var(--tx-title-lh); font-weight: var(--tx-title-fw); }
-.tx-body-lg  { font-family: var(--tx-font-primary); font-size: var(--tx-body-lg-size); line-height: var(--tx-body-lg-lh); font-weight: var(--tx-fw-regular); }
-.tx-body     { font-family: var(--tx-font-primary); font-size: var(--tx-body-size); line-height: var(--tx-body-lh); font-weight: var(--tx-fw-regular); }
-.tx-body-sm  { font-family: var(--tx-font-primary); font-size: var(--tx-body-sm-size); line-height: var(--tx-body-sm-lh); font-weight: var(--tx-fw-regular); }
-.tx-caption  { font-family: var(--tx-font-primary); font-size: var(--tx-caption-size); line-height: var(--tx-caption-lh); font-weight: var(--tx-caption-fw); letter-spacing: var(--tx-caption-ls); }
-.tx-overline { font-family: var(--tx-font-primary); font-size: var(--tx-overline-size); line-height: var(--tx-overline-lh); font-weight: var(--tx-overline-fw); letter-spacing: var(--tx-overline-ls); text-transform: uppercase; }
+.tx-display {
+  font-family: var(--tx-font-primary);
+  font-size: var(--tx-display-size);
+  line-height: var(--tx-display-lh);
+  font-weight: var(--tx-display-fw);
+  letter-spacing: var(--tx-display-ls);
+}
+.tx-h1 {
+  font-family: var(--tx-font-primary);
+  font-size: var(--tx-h1-size);
+  line-height: var(--tx-h1-lh);
+  font-weight: var(--tx-h1-fw);
+  letter-spacing: var(--tx-h1-ls);
+}
+.tx-h2 {
+  font-family: var(--tx-font-primary);
+  font-size: var(--tx-h2-size);
+  line-height: var(--tx-h2-lh);
+  font-weight: var(--tx-h2-fw);
+  letter-spacing: var(--tx-h2-ls);
+}
+.tx-h3 {
+  font-family: var(--tx-font-primary);
+  font-size: var(--tx-h3-size);
+  line-height: var(--tx-h3-lh);
+  font-weight: var(--tx-h3-fw);
+  letter-spacing: var(--tx-h3-ls);
+}
+.tx-title {
+  font-family: var(--tx-font-primary);
+  font-size: var(--tx-title-size);
+  line-height: var(--tx-title-lh);
+  font-weight: var(--tx-title-fw);
+}
+.tx-body-lg {
+  font-family: var(--tx-font-primary);
+  font-size: var(--tx-body-lg-size);
+  line-height: var(--tx-body-lg-lh);
+  font-weight: var(--tx-fw-regular);
+}
+.tx-body {
+  font-family: var(--tx-font-primary);
+  font-size: var(--tx-body-size);
+  line-height: var(--tx-body-lh);
+  font-weight: var(--tx-fw-regular);
+}
+.tx-body-sm {
+  font-family: var(--tx-font-primary);
+  font-size: var(--tx-body-sm-size);
+  line-height: var(--tx-body-sm-lh);
+  font-weight: var(--tx-fw-regular);
+}
+.tx-caption {
+  font-family: var(--tx-font-primary);
+  font-size: var(--tx-caption-size);
+  line-height: var(--tx-caption-lh);
+  font-weight: var(--tx-caption-fw);
+  letter-spacing: var(--tx-caption-ls);
+}
+.tx-overline {
+  font-family: var(--tx-font-primary);
+  font-size: var(--tx-overline-size);
+  line-height: var(--tx-overline-lh);
+  font-weight: var(--tx-overline-fw);
+  letter-spacing: var(--tx-overline-ls);
+  text-transform: uppercase;
+}
 
 /* ---- Color utilities ---- */
-.tx-fg-primary   { color: var(--tx-text-primary); }
-.tx-fg-secondary { color: var(--tx-text-secondary); }
-.tx-fg-muted     { color: var(--tx-text-muted); }
-.tx-fg-accent    { color: var(--tx-accent-text); }
-.tx-fg-success   { color: var(--tx-success); }
-.tx-fg-warning   { color: var(--tx-warning); }
-.tx-fg-danger    { color: var(--tx-danger); }
+.tx-fg-primary {
+  color: var(--tx-text-primary);
+}
+.tx-fg-secondary {
+  color: var(--tx-text-secondary);
+}
+.tx-fg-muted {
+  color: var(--tx-text-muted);
+}
+.tx-fg-accent {
+  color: var(--tx-accent-text);
+}
+.tx-fg-success {
+  color: var(--tx-success);
+}
+.tx-fg-warning {
+  color: var(--tx-warning);
+}
+.tx-fg-danger {
+  color: var(--tx-danger);
+}
 
-.tx-bg-base      { background: var(--tx-background); }
-.tx-bg-surface   { background: var(--tx-surface); }
-.tx-bg-raised    { background: var(--tx-surface-raised); }
-.tx-bg-accent    { background: var(--tx-accent); color: var(--tx-text-on-accent); }
+.tx-bg-base {
+  background: var(--tx-background);
+}
+.tx-bg-surface {
+  background: var(--tx-surface);
+}
+.tx-bg-raised {
+  background: var(--tx-surface-raised);
+}
+.tx-bg-accent {
+  background: var(--tx-accent);
+  color: var(--tx-text-on-accent);
+}
 
 /* The signature gradient — brand mark / single hero accent ONLY. Never on running text. */
-.tx-gradient-x   { background: var(--tx-gradient-x); }
+.tx-gradient-x {
+  background: var(--tx-gradient-x);
+}
 .tx-gradient-text {
   background: var(--tx-gradient-x);
-  -webkit-background-clip: text; background-clip: text;
-  -webkit-text-fill-color: transparent; color: transparent;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
 }
 
 /* ---- Focus ring (visible, token-driven) ---- */

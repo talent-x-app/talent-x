@@ -1,12 +1,4 @@
-import {
-  Controller,
-  Delete,
-  Get,
-  NotImplementedException,
-  Param,
-  Post,
-  Put,
-} from '@nestjs/common';
+import { Controller, Delete, Get, NotImplementedException, Param, Post, Put } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 /**
@@ -30,7 +22,7 @@ export class SessionsController {
   }
 
   @Get(':id')
-  @ApiOperation({ summary: 'Détail d\'une séance', operationId: 'getSession' })
+  @ApiOperation({ summary: "Détail d'une séance", operationId: 'getSession' })
   getSession(@Param('id') _id: string): never {
     throw new NotImplementedException('getSession');
   }

@@ -36,6 +36,12 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Lint
+        run: pnpm lint
+
+      - name: Format check
+        run: pnpm format:check
+
       - name: Generate Prisma client
         run: pnpm --filter @talent-x/api exec prisma generate
 
@@ -44,8 +50,6 @@ jobs:
       # pouvoir résoudre au typecheck. pnpm -r build respecte l'ordre topologique.
       - name: Build
         run: pnpm -r build
-
-      # lint : à ajouter ici une fois ESLint configuré (TLX-002).
 
       - name: Typecheck
         run: pnpm -r typecheck

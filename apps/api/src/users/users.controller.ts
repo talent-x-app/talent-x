@@ -1,12 +1,4 @@
-import {
-  Controller,
-  Delete,
-  Get,
-  NotImplementedException,
-  Param,
-  Post,
-  Put,
-} from '@nestjs/common';
+import { Controller, Delete, Get, NotImplementedException, Param, Post, Put } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 /**
@@ -30,7 +22,7 @@ export class UsersController {
   }
 
   @Delete('users/me')
-  @ApiOperation({ summary: 'Supprimer le compte (droit à l\'effacement)', operationId: 'deleteMe' })
+  @ApiOperation({ summary: "Supprimer le compte (droit à l'effacement)", operationId: 'deleteMe' })
   deleteMe(): never {
     throw new NotImplementedException('deleteMe');
   }
@@ -54,7 +46,7 @@ export class UsersController {
   }
 
   @Get('users/me/export/:jobId')
-  @ApiOperation({ summary: "Récupérer un export", operationId: 'getExport' })
+  @ApiOperation({ summary: 'Récupérer un export', operationId: 'getExport' })
   getExport(@Param('jobId') _jobId: string): never {
     throw new NotImplementedException('getExport');
   }

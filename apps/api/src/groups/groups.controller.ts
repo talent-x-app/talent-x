@@ -1,12 +1,4 @@
-import {
-  Controller,
-  Delete,
-  Get,
-  NotImplementedException,
-  Param,
-  Post,
-  Put,
-} from '@nestjs/common';
+import { Controller, Delete, Get, NotImplementedException, Param, Post, Put } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 /**
@@ -36,7 +28,7 @@ export class GroupsController {
   }
 
   @Get(':id')
-  @ApiOperation({ summary: 'Détail d\'un groupe', operationId: 'getGroup' })
+  @ApiOperation({ summary: "Détail d'un groupe", operationId: 'getGroup' })
   getGroup(@Param('id') _id: string): never {
     throw new NotImplementedException('getGroup');
   }
@@ -61,15 +53,12 @@ export class GroupsController {
 
   @Delete(':id/members/:athleteId')
   @ApiOperation({ summary: 'Retirer un membre', operationId: 'removeGroupMember' })
-  removeGroupMember(
-    @Param('id') _id: string,
-    @Param('athleteId') _athleteId: string,
-  ): never {
+  removeGroupMember(@Param('id') _id: string, @Param('athleteId') _athleteId: string): never {
     throw new NotImplementedException('removeGroupMember');
   }
 
   @Post(':id/invite-code')
-  @ApiOperation({ summary: 'Gérer le code d\'invitation', operationId: 'manageInviteCode' })
+  @ApiOperation({ summary: "Gérer le code d'invitation", operationId: 'manageInviteCode' })
   manageInviteCode(@Param('id') _id: string): never {
     throw new NotImplementedException('manageInviteCode');
   }

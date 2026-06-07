@@ -1,12 +1,4 @@
-import {
-  Controller,
-  Delete,
-  Get,
-  NotImplementedException,
-  Param,
-  Post,
-  Put,
-} from '@nestjs/common';
+import { Controller, Delete, Get, NotImplementedException, Param, Post, Put } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 /**
@@ -36,7 +28,10 @@ export class NotificationsController {
   }
 
   @Put('preferences')
-  @ApiOperation({ summary: 'Mettre à jour les préférences', operationId: 'updateNotificationPreferences' })
+  @ApiOperation({
+    summary: 'Mettre à jour les préférences',
+    operationId: 'updateNotificationPreferences',
+  })
   updateNotificationPreferences(): never {
     throw new NotImplementedException('updateNotificationPreferences');
   }

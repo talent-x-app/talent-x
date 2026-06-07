@@ -1,9 +1,4 @@
-import {
-  Controller,
-  Get,
-  NotImplementedException,
-  Param,
-} from '@nestjs/common';
+import { Controller, Get, NotImplementedException, Param } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 /**
@@ -21,7 +16,7 @@ export class ProgressController {
   }
 
   @Get('athletes/:id/stats')
-  @ApiOperation({ summary: 'Statistiques d\'un athlète', operationId: 'getAthleteStats' })
+  @ApiOperation({ summary: "Statistiques d'un athlète", operationId: 'getAthleteStats' })
   getAthleteStats(@Param('id') _id: string): never {
     throw new NotImplementedException('getAthleteStats');
   }

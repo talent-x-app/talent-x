@@ -72,10 +72,7 @@ describe('AllExceptionsFilter', () => {
     const { host, captured } = mockHost();
 
     filter.catch(
-      new UnprocessableEntityException([
-        'email must be an email',
-        'password too short',
-      ]),
+      new UnprocessableEntityException(['email must be an email', 'password too short']),
       host,
     );
 

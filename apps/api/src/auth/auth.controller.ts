@@ -1,20 +1,6 @@
-import {
-  Body,
-  Controller,
-  HttpCode,
-  HttpStatus,
-  Post,
-} from '@nestjs/common';
-import {
-  ApiBearerAuth,
-  ApiOperation,
-  ApiResponse,
-  ApiTags,
-} from '@nestjs/swagger';
-import {
-  CurrentUser,
-  type AuthenticatedUser,
-} from '../common/decorators/current-user.decorator';
+import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { CurrentUser, type AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { Public } from '../common/decorators/public.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 import { ErrorDto } from '../common/dto/error.dto';
@@ -76,10 +62,7 @@ export class AuthController {
   @ApiOperation({ summary: 'Révoquer le refresh token courant', operationId: 'logout' })
   @ApiResponse({ status: 204, description: 'Session révoquée.' })
   @ApiResponse({ status: 401, description: 'Authentification requise.', type: ErrorDto })
-  logout(
-    @Body() dto: LogoutRequestDto,
-    @CurrentUser() user: AuthenticatedUser,
-  ): Promise<void> {
+  logout(@Body() dto: LogoutRequestDto, @CurrentUser() user: AuthenticatedUser): Promise<void> {
     return this.authService.logout(dto, user);
   }
 

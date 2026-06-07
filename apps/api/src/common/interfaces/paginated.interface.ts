@@ -10,12 +10,7 @@ export interface Paginated<T> {
 }
 
 /** Construit l'enveloppe paginée à partir d'un total et des paramètres de page. */
-export function paginate<T>(
-  data: T[],
-  total: number,
-  page: number,
-  limit: number,
-): Paginated<T> {
+export function paginate<T>(data: T[], total: number, page: number, limit: number): Paginated<T> {
   return {
     data,
     meta: { total, page, limit, hasNext: page * limit < total },

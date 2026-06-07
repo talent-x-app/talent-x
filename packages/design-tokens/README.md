@@ -43,8 +43,8 @@ Variables `--tx-*` sur `:root` (light) et `[data-theme="dark"]` (dark), plus les
 
 ## Scripts
 
-| Commande | Effet |
-|---|---|
-| `pnpm --filter @talent-x/design-tokens build` | Compile `src` → `dist` (JS + types) |
-| `pnpm --filter @talent-x/design-tokens typecheck` | Vérifie les types |
-| `pnpm --filter @talent-x/design-tokens test` | Test de parité avec `tokens.json` |
+| Commande                                          | Effet                               |
+| ------------------------------------------------- | ----------------------------------- |
+| `pnpm --filter @talent-x/design-tokens build`     | Compile `src` → `dist` (JS + types) |
+| `pnpm --filter @talent-x/design-tokens typecheck` | Vérifie les types                   |
+| `pnpm --filter @talent-x/design-tokens test`      | Test de parité avec `tokens.json`   |

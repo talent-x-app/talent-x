@@ -1,9 +1,4 @@
-import {
-  CanActivate,
-  ExecutionContext,
-  ForbiddenException,
-  Injectable,
-} from '@nestjs/common';
+import { CanActivate, ExecutionContext, ForbiddenException, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import type { AuthenticatedUser } from '../decorators/current-user.decorator';
 import { ROLES_KEY, type Role } from '../decorators/roles.decorator';
@@ -26,9 +21,7 @@ export class RolesGuard implements CanActivate {
       return true;
     }
 
-    const request = context
-      .switchToHttp()
-      .getRequest<{ user?: AuthenticatedUser }>();
+    const request = context.switchToHttp().getRequest<{ user?: AuthenticatedUser }>();
     const user = request.user;
     if (!user || !required.includes(user.role)) {
       throw new ForbiddenException('Rôle insuffisant pour cette ressource.');

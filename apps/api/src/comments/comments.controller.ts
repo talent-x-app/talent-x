@@ -1,11 +1,4 @@
-import {
-  Controller,
-  Delete,
-  Get,
-  NotImplementedException,
-  Param,
-  Post,
-} from '@nestjs/common';
+import { Controller, Delete, Get, NotImplementedException, Param, Post } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 /**

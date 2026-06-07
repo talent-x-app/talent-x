@@ -17,7 +17,11 @@ export class ReadinessController {
   @Get()
   @ApiOperation({ summary: 'Readiness (dépendances)', operationId: 'ready' })
   @ApiResponse({ status: 200, description: 'Prêt.', type: ReadinessDto })
-  @ApiResponse({ status: 503, description: "Une dépendance n'est pas disponible.", type: ReadinessDto })
+  @ApiResponse({
+    status: 503,
+    description: "Une dépendance n'est pas disponible.",
+    type: ReadinessDto,
+  })
   async ready(@Res({ passthrough: true }) res: Response): Promise<ReadinessDto> {
     const result = await this.readiness.check();
     res.status(result.status === 'ready' ? HttpStatus.OK : HttpStatus.SERVICE_UNAVAILABLE);
