@@ -1,0 +1,3 @@
+{
+  "extends": "@talent-x/tsconfig/base.json"
+}

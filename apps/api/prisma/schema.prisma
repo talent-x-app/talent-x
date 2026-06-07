@@ -1,0 +1,20 @@
+// Schéma Prisma — squelette de fondation (TLX-001).
+// Le modèle de données réel et la migration initiale sont livrés en TLX-012,
+// dérivés de docs/Talent-X_06_Modele_de_donnees.md.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// Modèle placeholder — uniquement pour permettre `prisma generate` au stade
+/// fondation (TLX-001). À SUPPRIMER et remplacer par le vrai modèle en TLX-012.
+/// Aucune migration n'est exécutée tant que TLX-012 n'est pas démarré.
+model HealthCheck {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+}
