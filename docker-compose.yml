@@ -1,0 +1,47 @@
+# Environnement de développement local (TLX-004).
+# Fournit les dépendances d'infrastructure de l'environnement « Développement »
+# décrit dans docs/Talent-X_04_Deploiement_exploitation_v2.md §2 : PostgreSQL + Redis.
+# L'API et le worker tournent côté hôte (pnpm dev) en se branchant sur ces services.
+#
+# Démarrage :  docker compose up -d
+# Puis :       cd apps/api && pnpm prisma migrate deploy
+#
+# Identifiants locaux NON secrets (dev uniquement). En staging/prod, la config
+# vient des secrets d'environnement — cf. README « Environnements & secrets ».
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: talentx-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: talentx
+      POSTGRES_PASSWORD: talentx
+      POSTGRES_DB: talentx
+    ports:
+      - '5432:5432'
+    volumes:
+      - talentx-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U talentx -d talentx']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: talentx-redis
+    restart: unless-stopped
+    ports:
+      - '6379:6379'
+    volumes:
+      - talentx-redisdata:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  talentx-pgdata:
+  talentx-redisdata:

@@ -1,6 +1,7 @@
 import { join } from 'node:path';
 import { type MiddlewareConsumer, Module, type NestModule } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { validateEnv } from './config/env.validation';
 import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
 import { AssignmentsModule } from './assignments/assignments.module';
 import { AuthModule } from './auth/auth.module';
@@ -21,6 +22,8 @@ import { UsersModule } from './users/users.module';
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: join(__dirname, '..', '.env'),
+      // Fail-fast : refuse de démarrer si la config d'environnement est invalide.
+      validate: validateEnv,
     }),
     PrismaModule,
     HealthModule,
