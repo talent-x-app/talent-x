@@ -37,18 +37,34 @@ describe('API skeleton (e2e)', () => {
     await app.close();
   });
 
-  it('GET /api/v1/health → 200', () => {
+  it('GET /api/v1/health → 200 + en-tête X-Request-Id', () => {
     return request(app.getHttpServer())
       .get('/api/v1/health')
       .expect(200)
-      .expect({ status: 'ok' });
+      .expect({ status: 'ok' })
+      .expect((res) => {
+        expect(res.headers['x-request-id']).toEqual(expect.any(String));
+      });
   });
 
-  it('GET /api/v1/ready → 200', () => {
+  it('GET /api/v1/ready (base indisponible en test) → 503 not_ready + checks', () => {
     return request(app.getHttpServer())
       .get('/api/v1/ready')
+      .expect(503)
+      .expect((res) => {
+        expect(res.body.status).toBe('not_ready');
+        expect(res.body.checks).toEqual({ database: false });
+      });
+  });
+
+  it('réutilise le X-Request-Id fourni par le client', () => {
+    return request(app.getHttpServer())
+      .get('/api/v1/health')
+      .set('X-Request-Id', 'corr-42')
       .expect(200)
-      .expect({ status: 'ready' });
+      .expect((res) => {
+        expect(res.headers['x-request-id']).toBe('corr-42');
+      });
   });
 
   it('POST /api/v1/auth/register (payload valide) → 501 NOT_IMPLEMENTED', () => {
@@ -101,6 +117,7 @@ describe('API skeleton (e2e)', () => {
       .expect((res) => {
         expect(res.body.error).toBe('NOT_FOUND');
         expect(res.body.statusCode).toBe(404);
+        expect(res.body.requestId).toEqual(expect.any(String));
       });
   });
 });

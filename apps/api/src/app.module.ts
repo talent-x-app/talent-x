@@ -1,6 +1,7 @@
 import { join } from 'node:path';
-import { Module } from '@nestjs/common';
+import { type MiddlewareConsumer, Module, type NestModule } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
 import { AssignmentsModule } from './assignments/assignments.module';
 import { AuthModule } from './auth/auth.module';
 import { CommentsModule } from './comments/comments.module';
@@ -33,4 +34,9 @@ import { UsersModule } from './users/users.module';
     NotificationsModule,
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  // Correlation ID sur toutes les routes, en amont des handlers.
+  configure(consumer: MiddlewareConsumer): void {
+    consumer.apply(RequestIdMiddleware).forRoutes('*');
+  }
+}

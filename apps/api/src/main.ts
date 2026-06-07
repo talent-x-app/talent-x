@@ -4,10 +4,14 @@ import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
+import { JsonLogger } from './common/logging/json-logger';
 import { validationExceptionFactory } from './common/validation/validation-exception.factory';
 
 async function bootstrap(): Promise<void> {
-  const app = await NestFactory.create(AppModule);
+  // Logs structurés JSON + correlation ID (§7 TX-OPS-004). bufferLogs : les logs
+  // de bootstrap sont rejoués via le logger JSON une fois celui-ci installé.
+  const app = await NestFactory.create(AppModule, { bufferLogs: true });
+  app.useLogger(new JsonLogger());
 
   // Contrat : toutes les routes sous /api/v1 (cf. docs/talent-x-openapi.yaml).
   app.setGlobalPrefix('api/v1');
