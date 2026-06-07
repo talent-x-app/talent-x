@@ -1,0 +1,16 @@
+{
+  "expo": {
+    "name": "Talent-X",
+    "slug": "talent-x",
+    "scheme": "talentx",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "platforms": ["ios", "android", "web"],
+    "plugins": ["expo-router"],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
