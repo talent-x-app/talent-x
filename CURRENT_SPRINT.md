@@ -4,7 +4,7 @@ Objectif de fin de cycle : l'app démarre avec le thème, la CI est verte, la ba
 
 ## À faire
 
-- **TLX-010** Gestion globale erreurs / toasts / bandeau hors-ligne (mobile)
+- _(rien)_
 
 ## En cours
 
@@ -12,6 +12,7 @@ Objectif de fin de cycle : l'app démarre avec le thème, la CI est verte, la ba
 
 ## Terminés ce sprint
 
+- **TLX-010** Gestion globale erreurs / toasts / bandeau hors-ligne (mobile) — branche `claude/happy-cannon-I6JP7`
 - **TLX-001** Initialiser le mono-repo (Expo + NestJS + Prisma, pnpm workspaces) — PR #1 mergée
 - **TLX-005** Design system en code : tokens RN + CSS + thème typé — PR #2 mergée
 - **TLX-012** Schéma Prisma depuis le modèle de données + migration initiale — PR #3 mergée

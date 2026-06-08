@@ -11,6 +11,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import { SessionProvider } from '../src/auth/SessionProvider';
 import { QueryProvider } from '../src/data/QueryProvider';
+import { ErrorBoundary, OfflineBanner, ToastProvider } from '../src/feedback';
 
 // Garde le splash visible tant que les polices ne sont pas chargées.
 void SplashScreen.preventAutoHideAsync();
@@ -35,12 +36,18 @@ export default function RootLayout() {
 
   // ThemeProvider sans prop = suit le schéma de couleurs de l'OS (dark-first).
   // QueryProvider initialise la couche données (cache serveur + auth/refresh).
+  // ErrorBoundary + ToastProvider + OfflineBanner : feedback global (TLX-010).
   return (
     <QueryProvider>
       <ThemeProvider>
-        <SessionProvider>
-          <Stack screenOptions={{ headerShown: false }} />
-        </SessionProvider>
+        <ErrorBoundary>
+          <ToastProvider>
+            <SessionProvider>
+              <Stack screenOptions={{ headerShown: false }} />
+              <OfflineBanner />
+            </SessionProvider>
+          </ToastProvider>
+        </ErrorBoundary>
       </ThemeProvider>
     </QueryProvider>
   );

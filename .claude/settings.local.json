@@ -82,7 +82,11 @@
       "Bash(cd \"C:\\\\Users\\\\idris\\\\Documents\\\\0001Talentx\\\\talent-x\"; git commit -F .git/COMMIT_TLX003.txt 2>&1 | grep -vE \"warning:\" | tail -3; rm -f .git/COMMIT_TLX003.txt; git push origin main 2>&1 | tail -4)",
       "Bash(gh run *)",
       "Bash(cd \"C:\\\\Users\\\\idris\\\\Documents\\\\0001Talentx\\\\talent-x\"; git commit -F .git/CF.txt 2>&1 | grep -vE \"warning:\" | tail -2; rm -f .git/CF.txt; git push origin main 2>&1 | tail -3)",
-      "Bash(pnpm exec *)"
+      "Bash(pnpm exec *)",
+      "mcp__Linear__list_issues",
+      "mcp__Linear__get_issue",
+      "mcp__Linear__save_issue",
+      "mcp__Linear__list_issue_statuses"
     ]
   }
 }
