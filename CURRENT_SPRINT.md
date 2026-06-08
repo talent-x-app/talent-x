@@ -10,7 +10,6 @@ refresh rotatif), son rôle/ownership est appliqué, et le socle RGPD
 - **TLX-026** Écrans Inscription + choix du rôle (O-03, O-04)
 - **TLX-027** Persistance de session + refresh silencieux (app)
 - **TLX-030** Écran Consentement (O-05, case non pré-cochée)
-- **TLX-031** POST /consents + versionnage du consentement
 - **TLX-032** Gating API CONSENT_REQUIRED (données de santé)
 - **TLX-033** GET /users/:id/data-export — export RGPD
 - **TLX-034** DELETE /users/:id — effacement + anonymisation
@@ -26,15 +25,17 @@ refresh rotatif), son rôle/ownership est appliqué, et le socle RGPD
 - **TLX-022** POST /auth/login + JwtAuthGuard global (routes protégées → 401) — mergé
 - **TLX-023** POST /auth/refresh — rotation + détection de réutilisation (révocation famille) — mergé
 - **TLX-024** Middleware RBAC + ownership — `RolesGuard` global + `OwnershipService` (appartenance coach↔athlète, ownership séance/groupe/compte) — mergé
+- **TLX-031** GET/PUT /users/me/consents — consentement append-only + versionnage (`CONSENT_TEXT_VERSION`) — mergé
 
 ## Notes / dépendances
 
 - Cœur auth backend en place : `PasswordService` (Argon2id), `TokenService`
   (access RS256 + refresh opaque rotatif), `JwtAuthGuard` global. Réutilisables
   pour la suite (RBAC, consentement…).
-- **TLX-79** : chemins nominaux register/login/refresh **et requêtes
-  d'ownership/appartenance** (`OwnershipService`, TLX-024) validés en unitaire
-  seulement (Prisma mocké) — validation en base réelle (Docker) suivie là-bas.
+- **TLX-79** : chemins nominaux register/login/refresh, requêtes
+  d'ownership/appartenance (`OwnershipService`, TLX-024) **et consentements**
+  (`ConsentsService` append-only, TLX-031) validés en unitaire seulement
+  (Prisma mocké) — validation en base réelle (Docker) suivie là-bas.
 - **RBAC/ownership prêts à câbler** : `@Roles('coach'|'athlete')` est désormais
   appliqué globalement ; les services métier injectent `OwnershipService` pour
   l'appartenance et la propriété. Les contrôleurs restent des squelettes (501) —
