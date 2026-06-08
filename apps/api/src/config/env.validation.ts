@@ -14,6 +14,20 @@ export interface EnvConfig {
   DATABASE_URL: string;
   /** Optionnel tant que le worker/cache Redis (BullMQ) n'est pas câblé. */
   REDIS_URL?: string;
+  /**
+   * Clé privée RS256 (PEM PKCS#8) de signature des access tokens (TLX-020).
+   * Requise en staging/production ; en dev/test, une clé éphémère est générée
+   * au démarrage si absente. Les sauts de ligne peuvent être échappés (\n).
+   */
+  JWT_PRIVATE_KEY?: string;
+  /** Identifiant de clé (kid) ; si absent, dérivé du thumbprint RFC 7638. */
+  JWT_KEY_ID?: string;
+  /**
+   * Clés publiques additionnelles acceptées en vérification pendant une rotation
+   * (JSON `[{ kid, publicKey }]`). Permet de valider les jetons signés par la
+   * clé précédente le temps de leur expiration. Validation fine dans KeyService.
+   */
+  JWT_ADDITIONAL_PUBLIC_KEYS?: string;
 }
 
 const NODE_ENVS: readonly NodeEnv[] = ['development', 'test', 'staging', 'production'];
@@ -44,6 +58,21 @@ export function validateEnv(raw: Record<string, unknown>): EnvConfig {
     errors.push('REDIS_URL, si défini, doit être une URL redis://');
   }
 
+  // Clé de signature RS256 (TLX-020). En staging/prod elle est obligatoire et ne
+  // doit jamais être une valeur en dur ; en dev/test une clé éphémère est générée
+  // par KeyService si absente. La validation cryptographique fine (RSA ≥ 2048,
+  // PEM lisible) est faite par KeyService au démarrage.
+  const jwtPrivateKey = (raw.JWT_PRIVATE_KEY as string)?.trim();
+  const isProdLike = nodeEnv === 'staging' || nodeEnv === 'production';
+  if (isProdLike && !jwtPrivateKey) {
+    errors.push(`JWT_PRIVATE_KEY est requis en ${nodeEnv} (clé de signature RS256)`);
+  }
+  if (jwtPrivateKey && !jwtPrivateKey.includes('-----BEGIN')) {
+    errors.push('JWT_PRIVATE_KEY doit être une clé PEM (bloc -----BEGIN ...-----)');
+  }
+  const jwtKeyId = (raw.JWT_KEY_ID as string)?.trim();
+  const jwtAdditionalPublicKeys = (raw.JWT_ADDITIONAL_PUBLIC_KEYS as string)?.trim();
+
   if (errors.length > 0) {
     throw new Error(`Configuration d'environnement invalide :\n- ${errors.join('\n- ')}`);
   }
@@ -53,5 +82,8 @@ export function validateEnv(raw: Record<string, unknown>): EnvConfig {
     PORT: port,
     DATABASE_URL: databaseUrl,
     ...(redisUrl ? { REDIS_URL: redisUrl } : {}),
+    ...(jwtPrivateKey ? { JWT_PRIVATE_KEY: jwtPrivateKey } : {}),
+    ...(jwtKeyId ? { JWT_KEY_ID: jwtKeyId } : {}),
+    ...(jwtAdditionalPublicKeys ? { JWT_ADDITIONAL_PUBLIC_KEYS: jwtAdditionalPublicKeys } : {}),
   };
 }

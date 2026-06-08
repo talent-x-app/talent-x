@@ -12,7 +12,8 @@
     "test:cov": "jest --coverage",
     "test:e2e": "jest --config test/jest-e2e.json",
     "prisma:generate": "prisma generate",
-    "seed": "prisma db seed"
+    "seed": "prisma db seed",
+    "keys:generate": "tsx scripts/generate-jwt-keys.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
