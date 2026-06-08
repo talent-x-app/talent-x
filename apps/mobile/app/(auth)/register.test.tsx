@@ -90,14 +90,19 @@ describe('RegisterScreen (TLX-026)', () => {
     expect(mockRegister).not.toHaveBeenCalled();
   });
 
-  it('inscription réussie : envoie le rôle, persiste les jetons, ouvre la session, redirige', async () => {
+  it('inscription réussie : persiste les jetons, redirige vers le consentement (session différée)', async () => {
     mockRegister.mockResolvedValue({ status: 201, data: SESSION });
     render(<RegisterScreen />, { wrapper: Wrapper });
 
     fillValidForm();
     fireEvent.press(screen.getByTestId('register-submit'));
 
-    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/'));
+    await waitFor(() =>
+      expect(mockReplace).toHaveBeenCalledWith({
+        pathname: '/(auth)/consent',
+        params: { role: 'coach' },
+      }),
+    );
     expect(mockRegister).toHaveBeenCalledWith({
       email: 'coach@example.com',
       password: 'SecureP@ss123',
@@ -109,7 +114,8 @@ describe('RegisterScreen (TLX-026)', () => {
       accessToken: 'access-1',
       refreshToken: 'refresh-1',
     });
-    expect(mockSignIn).toHaveBeenCalledWith('coach');
+    // La session n'est ouverte qu'après l'étape Consentement (O-05).
+    expect(mockSignIn).not.toHaveBeenCalled();
   });
 
   it('e-mail déjà utilisé (409) : message d’erreur, pas de redirection', async () => {

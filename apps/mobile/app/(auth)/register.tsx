@@ -13,7 +13,6 @@ import {
   Text,
   View,
 } from 'react-native';
-import { useSession } from '../../src/auth/SessionProvider';
 import { setTokens } from '../../src/auth/token-store';
 import { Button, Input } from '../../src/components/ui';
 import { toUserMessage, useToast } from '../../src/feedback';
@@ -41,7 +40,6 @@ export default function RegisterScreen() {
   const { colors, typography, spacing } = theme;
   const router = useRouter();
   const toast = useToast();
-  const { signIn } = useSession();
 
   const [role, setRole] = useState<Role | null>(null);
   const [firstName, setFirstName] = useState('');
@@ -68,8 +66,9 @@ export default function RegisterScreen() {
         accessToken: session.accessToken,
         refreshToken: session.refreshToken,
       });
-      await signIn(session.user.role);
-      router.replace('/');
+      // Jetons persistés (PUT /consents authentifié) ; la session n'est ouverte
+      // qu'après l'étape Consentement (O-05, TLX-030), qui appelle `signIn`.
+      router.replace({ pathname: '/(auth)/consent', params: { role: session.user.role } });
     },
     onError: (error: unknown) => {
       const status =
