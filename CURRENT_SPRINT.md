@@ -10,7 +10,6 @@ refresh rotatif), son rôle/ownership est appliqué, et le socle RGPD
 - **TLX-026** Écrans Inscription + choix du rôle (O-03, O-04)
 - **TLX-027** Persistance de session + refresh silencieux (app)
 - **TLX-030** Écran Consentement (O-05, case non pré-cochée)
-- **TLX-032** Gating API CONSENT_REQUIRED (données de santé)
 - **TLX-033** GET /users/:id/data-export — export RGPD
 - **TLX-034** DELETE /users/:id — effacement + anonymisation
 
@@ -26,6 +25,7 @@ refresh rotatif), son rôle/ownership est appliqué, et le socle RGPD
 - **TLX-023** POST /auth/refresh — rotation + détection de réutilisation (révocation famille) — mergé
 - **TLX-024** Middleware RBAC + ownership — `RolesGuard` global + `OwnershipService` (appartenance coach↔athlète, ownership séance/groupe/compte) — mergé
 - **TLX-031** GET/PUT /users/me/consents — consentement append-only + versionnage (`CONSENT_TEXT_VERSION`) — mergé
+- **TLX-032** Gating `CONSENT_REQUIRED` — `ConsentGate` (4ᵉ niveau d'autorisation, RB-08), réutilisable pour perfs/stats — mergé
 
 ## Notes / dépendances
 
@@ -36,10 +36,11 @@ refresh rotatif), son rôle/ownership est appliqué, et le socle RGPD
   d'ownership/appartenance (`OwnershipService`, TLX-024) **et consentements**
   (`ConsentsService` append-only, TLX-031) validés en unitaire seulement
   (Prisma mocké) — validation en base réelle (Docker) suivie là-bas.
-- **RBAC/ownership prêts à câbler** : `@Roles('coach'|'athlete')` est désormais
-  appliqué globalement ; les services métier injectent `OwnershipService` pour
-  l'appartenance et la propriété. Les contrôleurs restent des squelettes (501) —
-  câblage par ticket de ressource (sessions, groupes, perfs…).
+- **Autorisation prête à câbler** : `@Roles('coach'|'athlete')` appliqué
+  globalement ; les services métier injectent `OwnershipService` (appartenance/
+  propriété) et `ConsentGate` (`assertActiveConsent` → 403 `CONSENT_REQUIRED`).
+  Les contrôleurs perfs/stats ne sont pas encore scaffoldés (TLX-070, TLX-040/080) :
+  le gating sera branché à leur livraison. Câblage par ticket de ressource.
 - Base dev : `docker compose up -d` puis `prisma migrate deploy` puis `pnpm --filter @talent-x/api seed`.
 - Workflow distant : pousser sur une branche `claude/*` + PR (le push direct sur `main` échoue à distance).
 
