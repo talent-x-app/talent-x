@@ -85,7 +85,8 @@
       "Bash(pnpm exec *)",
       "mcp__Linear__list_issues",
       "mcp__Linear__get_issue",
-      "mcp__Linear__save_issue"
+      "mcp__Linear__save_issue",
+      "mcp__Linear__list_issue_statuses"
     ]
   }
 }
