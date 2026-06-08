@@ -6,7 +6,6 @@ refresh rotatif), son rôle/ownership est appliqué, et le socle RGPD
 
 ## À faire
 
-- **TLX-027** Persistance de session + refresh silencieux (app)
 - **TLX-033** GET /users/:id/data-export — export RGPD — ⛔ bloqué par **TLX-80**
 - **TLX-034** DELETE /users/:id — effacement + anonymisation — ⛔ bloqué par **TLX-80**
 
@@ -26,6 +25,7 @@ refresh rotatif), son rôle/ownership est appliqué, et le socle RGPD
 - **TLX-025** Écran Connexion (O-02) — login + persistance jetons + session + navigation, états gérés, tests — mergé
 - **TLX-026** Écrans Inscription + choix du rôle (O-03/O-04) — `register` + `RoleCard`, mêmes flux/états que login (409 e-mail pris, 422 validation), tests (6/6) — mergé
 - **TLX-030** Écran Consentement (O-05) — onboarding RGPD opt-in (sans case pré-cochée), `PUT /users/me/consents` par choix, flux register → consent → tabs (`signIn` différé), tests (4/4) — mergé
+- **TLX-027** Persistance de session + refresh silencieux — `restoreSession` (refresh silencieux au démarrage, présence des jetons = source de vérité : échec dur → logout, erreur réseau → reprise optimiste) ; `SessionProvider` propriétaire unique du bootstrap ; `QueryProvider` n'init. plus la couche données (corrige une race sur le cache de jetons). Tests (suite mobile 77/77) — mergé
 
 ## Notes / dépendances
 
@@ -51,8 +51,9 @@ refresh rotatif), son rôle/ownership est appliqué, et le socle RGPD
   `data_jobs` + worker) avant de livrer les endpoints.
 - **Front auth** : `login.tsx`, `register.tsx` (TLX-026) et `consent.tsx` (TLX-030)
   livrés. Onboarding : register → consent → tabs (la session n'est ouverte
-  qu'après l'étape consentement). Infra session déjà en place (token-store
-  trousseau, SessionProvider, intercepteur refresh single-flight de TLX-009).
+  qu'après l'étape consentement). Persistance/restauration de session au
+  démarrage + refresh silencieux (TLX-027) : `SessionProvider` → `setupApiClient`
+  puis `restoreSession`. Intercepteur refresh single-flight réactif (TLX-009).
 - Base dev : `docker compose up -d` puis `prisma migrate deploy` puis `pnpm --filter @talent-x/api seed`.
 - Workflow distant : push direct sur `main` (commits poussés directement, sans PR).
 
