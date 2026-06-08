@@ -51,4 +51,19 @@ describe('TokenService', () => {
     expect(data.familyId).toEqual(expect.any(String));
     expect(data.expiresAt).toBeInstanceOf(Date);
   });
+
+  it('vérifie un access token émis (sub + role)', () => {
+    const prisma = { refreshToken: { create: jest.fn() } } as unknown as PrismaService;
+    const service = new TokenService(keys, prisma);
+
+    const { token } = service.issueAccessToken({ id: 'u9', role: 'athlete' });
+    expect(service.verifyAccessToken(token)).toEqual({ id: 'u9', role: 'athlete' });
+  });
+
+  it('rejette un token malformé', () => {
+    const prisma = { refreshToken: { create: jest.fn() } } as unknown as PrismaService;
+    const service = new TokenService(keys, prisma);
+
+    expect(() => service.verifyAccessToken('pas.un.jwt')).toThrow();
+  });
 });

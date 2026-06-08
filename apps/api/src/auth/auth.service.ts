@@ -1,4 +1,10 @@
-import { ConflictException, Injectable, NotImplementedException } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
+import {
+  ConflictException,
+  Injectable,
+  NotImplementedException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { type AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { type Role } from '../common/decorators/roles.decorator';
@@ -58,6 +64,37 @@ export class AuthService {
     }
   }
 
+  /**
+   * Connexion (TLX-022) : vérifie les identifiants et ouvre une session. Réponse
+   * neutre (même 401 INVALID_CREDENTIALS si l'email est inconnu ou le mot de passe
+   * faux) et temps de réponse égalisé (vérification contre un hash factice quand
+   * l'utilisateur n'existe pas) pour limiter l'énumération de comptes.
+   */
+  async login(dto: LoginRequestDto): Promise<AuthSessionDto> {
+    const user = await this.prisma.user.findFirst({
+      where: { email: { equals: dto.email, mode: 'insensitive' }, deletedAt: null },
+    });
+    const passwordValid = await this.password.verify(
+      user?.passwordHash ?? (await this.getDecoyHash()),
+      dto.password,
+    );
+    if (!user || !passwordValid) {
+      throw new UnauthorizedException({
+        error: 'INVALID_CREDENTIALS',
+        message: 'Identifiants invalides.',
+      });
+    }
+    const tokens = await this.tokens.issueSession({ id: user.id, role: user.role as Role });
+    return { ...tokens, user: toUserDto(user) };
+  }
+
+  /** Hash factice (calculé une fois) pour égaliser le temps de `login`. */
+  private decoyHash?: Promise<string>;
+  private getDecoyHash(): Promise<string> {
+    this.decoyHash ??= this.password.hash(randomUUID());
+    return this.decoyHash;
+  }
+
   private throwEmailConflict(): never {
     throw new ConflictException({
       error: 'EMAIL_ALREADY_USED',
@@ -77,10 +114,6 @@ export class AuthService {
 
   private notImplemented(feature: string): never {
     throw new NotImplementedException(`${feature} — à implémenter (ticket Auth).`);
-  }
-
-  login(_dto: LoginRequestDto): Promise<AuthSessionDto> {
-    return this.notImplemented('login');
   }
 
   refresh(_dto: RefreshRequestDto): Promise<AuthTokensDto> {

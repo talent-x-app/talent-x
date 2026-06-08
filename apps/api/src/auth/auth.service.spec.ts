@@ -1,4 +1,4 @@
-import { ConflictException } from '@nestjs/common';
+import { ConflictException, UnauthorizedException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { type PrismaService } from '../prisma/prisma.service';
 import { AuthService } from './auth.service';
@@ -36,6 +36,7 @@ function make(userOverrides: Record<string, jest.Mock> = {}) {
   const prisma = { user } as unknown as PrismaService;
   const password = {
     hash: jest.fn().mockResolvedValue('argon$hash'),
+    verify: jest.fn().mockResolvedValue(true),
   } as unknown as PasswordService;
   const tokens = {
     issueSession: jest
@@ -83,5 +84,36 @@ describe('AuthService.register (TLX-021)', () => {
     });
     const { service } = make({ create: jest.fn().mockRejectedValue(p2002) });
     await expect(service.register(dto)).rejects.toBeInstanceOf(ConflictException);
+  });
+});
+
+describe('AuthService.login (TLX-022)', () => {
+  const loginUser = { ...createdUser, passwordHash: 'argon$stored' };
+  const creds = { email: dto.email, password: dto.password };
+
+  it('ouvre une session quand les identifiants sont valides', async () => {
+    const { service, password, tokens } = make({
+      findFirst: jest.fn().mockResolvedValue(loginUser),
+    });
+
+    const result = await service.login(creds);
+
+    expect(password.verify).toHaveBeenCalledWith('argon$stored', creds.password);
+    expect(tokens.issueSession).toHaveBeenCalledWith({ id: 'u1', role: 'coach' });
+    expect(result.accessToken).toBe('a');
+    expect(result.user).toEqual(expect.objectContaining({ id: 'u1', email: dto.email }));
+  });
+
+  it('401 quand le mot de passe est faux', async () => {
+    const { service, password } = make({ findFirst: jest.fn().mockResolvedValue(loginUser) });
+    (password.verify as jest.Mock).mockResolvedValue(false);
+    await expect(service.login(creds)).rejects.toBeInstanceOf(UnauthorizedException);
+  });
+
+  it('401 (réponse neutre) quand l’email est inconnu', async () => {
+    const { service, password } = make({ findFirst: jest.fn().mockResolvedValue(null) });
+    await expect(service.login(creds)).rejects.toBeInstanceOf(UnauthorizedException);
+    // timing égalisé : verify est tout de même appelé (contre un hash factice).
+    expect(password.verify).toHaveBeenCalled();
   });
 });

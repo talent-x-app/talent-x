@@ -98,8 +98,23 @@ describe('API skeleton (e2e)', () => {
       .expect(422);
   });
 
-  it('GET /api/v1/groups (stub protégé) → 501', () => {
-    return request(app.getHttpServer()).get('/api/v1/groups').expect(501);
+  it('GET /api/v1/groups (route protégée, sans token) → 401', () => {
+    return request(app.getHttpServer())
+      .get('/api/v1/groups')
+      .expect(401)
+      .expect((res) => {
+        expect(res.body.error).toBe('UNAUTHORIZED');
+      });
+  });
+
+  it('GET /api/v1/groups (Bearer invalide) → 401 INVALID_TOKEN', () => {
+    return request(app.getHttpServer())
+      .get('/api/v1/groups')
+      .set('Authorization', 'Bearer pas-un-vrai-jwt')
+      .expect(401)
+      .expect((res) => {
+        expect(res.body.error).toBe('INVALID_TOKEN');
+      });
   });
 
   it('GET /api/v1/inconnu → 404 enveloppe normalisée', () => {

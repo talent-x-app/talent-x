@@ -44,6 +44,30 @@ export class TokenService {
   }
 
   /**
+   * Vérifie un access token : résout la clé publique par `kid` (rotation),
+   * contrôle la signature RS256, l'émetteur et l'expiration. Lève sur tout
+   * problème (le guard mappe en 401). Retourne le sujet et le rôle.
+   */
+  verifyAccessToken(token: string): TokenSubject {
+    const decoded = jwt.decode(token, { complete: true });
+    const kid = typeof decoded === 'object' && decoded !== null ? decoded.header.kid : undefined;
+    const publicKey = kid ? this.keys.getVerificationKey(kid) : undefined;
+    if (!publicKey) {
+      throw new Error('Clé de vérification introuvable pour ce token (kid).');
+    }
+    const publicKeyPem = publicKey.export({ type: 'spki', format: 'pem' }).toString();
+    const payload = jwt.verify(token, publicKeyPem, {
+      algorithms: [this.keys.algorithm],
+      issuer: JWT_ISSUER,
+    }) as jwt.JwtPayload;
+
+    if (!payload.sub || (payload.role !== 'coach' && payload.role !== 'athlete')) {
+      throw new Error('Claims du token invalides.');
+    }
+    return { id: payload.sub, role: payload.role };
+  }
+
+  /**
    * Crée et persiste un refresh token opaque. `familyId` permet de chaîner les
    * rotations successives (toute la famille est révoquée en cas de réutilisation).
    * Retourne le jeton **en clair** (la seule fois où il est exposé).
