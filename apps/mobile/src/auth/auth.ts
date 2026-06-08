@@ -14,6 +14,7 @@
  */
 import type { AuthTokens } from '@talent-x/api-client';
 import { apiBaseUrl } from '../config/env';
+import { clearRole, loadRole, type UserRole } from './session-store';
 import { clearTokens, getTokens, setTokens } from './token-store';
 
 /** En-têtes d'auth pour la requête courante (vide si pas de session). */
@@ -56,4 +57,36 @@ export function refreshAuth(): Promise<boolean> {
     inFlight = null;
   });
   return inFlight;
+}
+
+/**
+ * Restaure la session au démarrage (TLX-027) — persistance + refresh silencieux.
+ *
+ * Présuppose que les jetons ont été hydratés (`loadTokens`, via `setupApiClient`).
+ * Logique :
+ *  - aucun jeton → pas de session ; on nettoie un rôle orphelin et on renvoie `null` ;
+ *  - jetons présents → **refresh silencieux** pour repartir d'un access token frais
+ *    et valider la session sans attendre un 401. La présence des jetons APRÈS la
+ *    tentative fait foi : `refreshAuth` les efface sur échec dur (401/409 → session
+ *    invalide, déconnexion) et les conserve sur erreur réseau (reprise optimiste,
+ *    l'intercepteur réactif réessaiera plus tard).
+ *
+ * Renvoie le rôle de la session restaurée, ou `null` si aucune session valide.
+ */
+export async function restoreSession(): Promise<UserRole | null> {
+  const role = await loadRole();
+
+  if (!getTokens()) {
+    if (role) await clearRole();
+    return null;
+  }
+
+  await refreshAuth();
+
+  if (!getTokens()) {
+    await clearRole();
+    return null;
+  }
+
+  return role;
 }

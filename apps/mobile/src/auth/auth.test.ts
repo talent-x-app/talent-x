@@ -1,4 +1,5 @@
-import { getAuthHeaders, refreshAuth } from './auth';
+import { getAuthHeaders, refreshAuth, restoreSession } from './auth';
+import { clearRole, getRole, loadRole, setRole } from './session-store';
 import { clearTokens, getTokens, loadTokens, setTokens } from './token-store';
 
 // URL de base fixe (pas de dépendance à l'environnement Expo en test).
@@ -96,6 +97,58 @@ describe('auth (intercepteur d’authentification)', () => {
       await clearTokens();
 
       expect(await refreshAuth()).toBe(false);
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('restoreSession (persistance + refresh silencieux)', () => {
+    beforeEach(async () => {
+      await clearRole();
+    });
+
+    it('jetons valides : refresh silencieux + restaure le rôle', async () => {
+      await setRole('coach');
+      fetchMock.mockResolvedValue(
+        jsonResponse({ accessToken: 'new-access', refreshToken: 'new-refresh', expiresIn: 900 }),
+      );
+
+      const restored = await restoreSession();
+
+      expect(restored).toBe('coach');
+      expect(getTokens()).toEqual({ accessToken: 'new-access', refreshToken: 'new-refresh' });
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('échec dur du refresh (401) : déconnexion (jetons + rôle effacés), renvoie null', async () => {
+      await setRole('athlete');
+      fetchMock.mockResolvedValue(jsonResponse({ error: 'UNAUTHORIZED' }, 401));
+
+      const restored = await restoreSession();
+
+      expect(restored).toBeNull();
+      expect(getTokens()).toBeNull();
+      expect(await loadRole()).toBeNull();
+    });
+
+    it('erreur réseau : conserve la session (reprise optimiste)', async () => {
+      await setRole('coach');
+      fetchMock.mockRejectedValue(new Error('network down'));
+
+      const restored = await restoreSession();
+
+      expect(restored).toBe('coach');
+      expect(getTokens()).toEqual({ accessToken: 'old-access', refreshToken: 'old-refresh' });
+      expect(getRole()).toBe('coach');
+    });
+
+    it('aucun jeton mais rôle orphelin : nettoie le rôle, renvoie null, aucun refresh', async () => {
+      await clearTokens();
+      await setRole('coach');
+
+      const restored = await restoreSession();
+
+      expect(restored).toBeNull();
+      expect(await loadRole()).toBeNull();
       expect(fetchMock).not.toHaveBeenCalled();
     });
   });

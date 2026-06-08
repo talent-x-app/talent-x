@@ -1,5 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
-import { clearRole, loadRole, setRole, type UserRole } from './session-store';
+import { setupApiClient } from '../data/setup';
+import { restoreSession } from './auth';
+import { clearRole, setRole, type UserRole } from './session-store';
 import { clearTokens } from './token-store';
 
 interface SessionState {
@@ -16,9 +18,21 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    loadRole()
-      .then(setRoleState)
-      .finally(() => setIsLoading(false));
+    let active = true;
+    void (async () => {
+      // Configure le client + hydrate les jetons AVANT de restaurer la session
+      // (refresh silencieux). `isLoading` reste vrai jusqu'à la fin : pas de
+      // redirection avant que les jetons soient prêts (TLX-027).
+      await setupApiClient();
+      const restored = await restoreSession();
+      if (active) {
+        setRoleState(restored);
+        setIsLoading(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
   }, []);
 
   const signIn = useCallback(async (r: UserRole) => {
