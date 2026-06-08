@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
+import { RolesGuard } from '../common/guards/roles.guard';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './jwt-auth.guard';
@@ -12,9 +13,14 @@ import { TokenService } from './token.service';
     AuthService,
     PasswordService,
     TokenService,
-    // Authentification appliquée globalement : toutes les routes non-@Public
-    // exigent un access token valide (vérifié par JwtAuthGuard).
+    // Chaîne de gardes globales, dans cet ordre (Nest exécute les APP_GUARD d'un
+    // même module dans l'ordre de déclaration) :
+    //   1) JwtAuthGuard — toute route non-@Public exige un access token valide ;
+    //      il attache l'utilisateur courant (id + rôle) à la requête.
+    //   2) RolesGuard (TLX-024) — applique le RBAC déclaratif (@Roles) à partir
+    //      de l'utilisateur attaché ; sans @Roles, laisse passer.
     { provide: APP_GUARD, useClass: JwtAuthGuard },
+    { provide: APP_GUARD, useClass: RolesGuard },
   ],
 })
 export class AuthModule {}

@@ -5,6 +5,7 @@ import { validateEnv } from './config/env.validation';
 import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
 import { AssignmentsModule } from './assignments/assignments.module';
 import { AuthModule } from './auth/auth.module';
+import { AuthorizationModule } from './common/authorization/authorization.module';
 import { CommentsModule } from './comments/comments.module';
 import { GroupsModule } from './groups/groups.module';
 import { HealthModule } from './health/health.module';
@@ -28,6 +29,7 @@ import { UsersModule } from './users/users.module';
     }),
     PrismaModule,
     KeysModule,
+    AuthorizationModule,
     HealthModule,
     AuthModule,
     UsersModule,
