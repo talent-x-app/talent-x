@@ -6,11 +6,10 @@ refresh rotatif), son rôle/ownership est appliqué, et le socle RGPD
 
 ## À faire
 
-- **TLX-035** Infra jobs asynchrones (worker + `export_jobs`) — décision d'archi **ADR-13** ; socle
-  data model + migration **mergé (PR #10)** et **appliqué en base réelle** (2026-06-09) ;
-  reste worker BullMQ/Redis + stockage OVH S3 + URL présignée
-- **TLX-033** GET /users/:id/data-export — export RGPD — ⛔ bloqué par **TLX-035**
-- **TLX-034** DELETE /users/:id — effacement + anonymisation — ⛔ bloqué par **TLX-035**
+- **TLX-033** GET /users/:id/data-export — export RGPD — ✅ **débloqué** (worker TLX-035 livré) ;
+  reste : implémenter le vrai `ExportArchiveBuilder` (collecte des données) + endpoints
+  `POST /users/me/export` & `GET /users/me/export/{jobId}` (URL présignée au GET)
+- **TLX-034** DELETE /users/:id — effacement + anonymisation — ✅ **débloqué** (worker TLX-035 livré)
 
 ## En cours
 
@@ -18,6 +17,16 @@ refresh rotatif), son rôle/ownership est appliqué, et le socle RGPD
 
 ## Terminés ce sprint
 
+- **TLX-035** Infra jobs asynchrones — **socle + couche worker livrés**. Socle data model
+  `export_jobs` (PR #10, ADR-13) appliqué en base réelle. Couche worker : file BullMQ
+  `data-export` + producteur `ExportQueueService` ; **process worker séparé** (`src/worker.ts`,
+  TX-ARCH-001 §4.5) consommant la file via `ExportProcessor` (transitions
+  `pending→processing→ready|failed`) ; `ObjectStorageService` S3 OVH (put / URL présignée au
+  GET / delete) ; nettoyage planifié des archives expirées (`ExportCleanupService`, `@Cron`,
+  worker only) ; point d'extension `ExportArchiveBuilder` (placeholder → contenu réel en TLX-033) ;
+  check Redis dans la readiness ; config S3/Redis/TTL dans `validateEnv`. Tests API 121/121.
+  **Plomberie validée bout en bout** (Redis Docker) : enqueue → worker → DB (`failed` placeholder).
+  Reste à valider en réel le chemin **S3** (put / URL présignée / cleanup) → **TLX-82**.
 - **TLX-020** Génération et rotation des clés RS256 (keystore) — PR #9 mergée
 - **TLX-021** POST /auth/register — Argon2id + émission access/refresh — mergé
 - **TLX-022** POST /auth/login + JwtAuthGuard global (routes protégées → 401) — mergé
