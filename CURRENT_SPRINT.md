@@ -6,12 +6,15 @@ refresh rotatif), son rôle/ownership est appliqué, et le socle RGPD
 
 ## À faire
 
-- **TLX-033** GET /users/:id/data-export — export RGPD — ⛔ bloqué par **TLX-80**
-- **TLX-034** DELETE /users/:id — effacement + anonymisation — ⛔ bloqué par **TLX-80**
+- **TLX-035** Infra jobs asynchrones (worker + `export_jobs`) — décision d'archi **ADR-13** ; socle
+  data model + migration en **PR #10** ; reste worker BullMQ/Redis + stockage OVH S3 + URL présignée
+- **TLX-033** GET /users/:id/data-export — export RGPD — ⛔ bloqué par **TLX-035**
+- **TLX-034** DELETE /users/:id — effacement + anonymisation — ⛔ bloqué par **TLX-035**
 
 ## En cours
 
-- _(rien)_
+- **TLX-035** (socle) — PR #10 `feat(TLX-035): socle jobs asynchrones — data model + migration`
+  (ADR-13 + `export_jobs` + migration ; **aucun endpoint**). En attente de revue/merge.
 
 ## Terminés ce sprint
 
@@ -45,10 +48,13 @@ refresh rotatif), son rôle/ownership est appliqué, et le socle RGPD
   propriété) et `ConsentGate` (`assertActiveConsent` → 403 `CONSENT_REQUIRED`).
   Les contrôleurs perfs/stats ne sont pas encore scaffoldés (TLX-070, TLX-040/080) :
   le gating sera branché à leur livraison. Câblage par ticket de ressource.
-- **TLX-80** (nouveau) : export/effacement RGPD (TLX-033/034) sont des opérations
-  **asynchrones** (202 + ressource `Job`). Bloqués : pas de worker (BullMQ/Redis)
-  ni de table de jobs au modèle de données. Décision d'archi requise (table
-  `data_jobs` + worker) avant de livrer les endpoints.
+- **TLX-035** (Linear TLX-80) : export/effacement RGPD (TLX-033/034) sont des
+  opérations **asynchrones** (202 + ressource `Job`). Décision tranchée par
+  **ADR-13** (raffine ADR-09) : table `export_jobs` pour l'export (état persistant),
+  suppression conservée sur soft-delete + purge planifiée (pas de table de jobs).
+  Socle data model + migration livré en **PR #10** ; reste worker BullMQ/Redis +
+  stockage OVH S3 + URL présignée avant de livrer les endpoints. Pose en bloqueur
+  de TLX-033 et TLX-034 dans Linear.
 - **Front auth** : `login.tsx`, `register.tsx` (TLX-026) et `consent.tsx` (TLX-030)
   livrés. Onboarding : register → consent → tabs (la session n'est ouverte
   qu'après l'étape consentement). Persistance/restauration de session au

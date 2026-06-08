@@ -40,3 +40,6 @@ Mono-repo : `apps/mobile` (Expo / React Native) + `apps/api` (NestJS) + `package
 4. Travailler dans l'ordre des **dépendances** des tickets (Fondations → Auth/RGPD → reste).
 5. Ne PAS modifier `docs/` ni `design/` sauf demande explicite : ce sont les spécifications.
 6. Specs lues par toi = texte (md/yaml/json). Les `.docx` (`docs/originals/`) et `.png` sont pour les humains.
+7. Si un ticket exige une **décision qui diverge des specs** (`docs/`) ou les complète sur un point
+   structurant, ne pas improviser : **s'arrêter**, expliciter la divergence, et proposer un **ADR**
+   (`docs/adr/`, indexé dans `docs/Talent-X_Journal_ADR.md`) à valider **avant** de coder.
