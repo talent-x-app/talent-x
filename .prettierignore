@@ -8,6 +8,7 @@
 # Généré
 pnpm-lock.yaml
 apps/api/prisma/migrations/**
+packages/api-client/src/generated/**
 
 # Specs & design : non reformatés (source de vérité humaine)
 docs/**

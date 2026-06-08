@@ -112,6 +112,31 @@ maestro test apps/mobile/.maestro/smoke.yaml         # joue le smoke test
 > le remplacer par l'identifiant de `apps/mobile/app.json` (`ios.bundleIdentifier` /
 > `android.package`).
 
+## Client API (généré)
+
+Le client TypeScript de l'app mobile est **généré** depuis le contrat OpenAPI
+(`docs/talent-x-openapi.yaml`, source de vérité) via [orval](https://orval.dev),
+dans `packages/api-client` (`@talent-x/api-client`).
+
+- Code généré : `packages/api-client/src/generated/**` — **ne pas éditer à la main**
+  (ni linté ni formaté). Après évolution du contrat, régénérer :
+
+  ```
+  pnpm --filter @talent-x/api-client generate
+  ```
+
+- Toutes les requêtes passent par le mutator `customFetch`
+  (`src/mutator/custom-fetch.ts`) : URL de base et en-têtes **configurables**, jamais
+  en dur. L'app configure le client au démarrage :
+
+  ```ts
+  import { configureApiClient } from '@talent-x/api-client';
+  configureApiClient({ baseUrl: process.env.EXPO_PUBLIC_API_URL ?? '' });
+  ```
+
+  Le câblage TanStack Query + auth/refresh (en-têtes `Authorization`) est l'objet de
+  TLX-009.
+
 ## Travailler avec Claude Code
 
 Voir `CLAUDE.md` (carte du projet) et `CURRENT_SPRINT.md` (cycle en cours).

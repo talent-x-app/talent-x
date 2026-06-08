@@ -6,10 +6,17 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.spec.json",
+    "generate": "orval --config orval.config.ts",
+    "test": "jest"
   },
   "devDependencies": {
     "@talent-x/tsconfig": "workspace:*",
+    "@types/jest": "^29.5.14",
+    "@types/node": "^22.19.20",
+    "jest": "^29.7.0",
+    "orval": "^8.15.0",
+    "ts-jest": "^29.4.11",
     "typescript": "~5.6.3"
   }
 }
