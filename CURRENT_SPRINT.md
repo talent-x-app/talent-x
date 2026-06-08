@@ -7,14 +7,13 @@ refresh rotatif), son rôle/ownership est appliqué, et le socle RGPD
 ## À faire
 
 - **TLX-035** Infra jobs asynchrones (worker + `export_jobs`) — décision d'archi **ADR-13** ; socle
-  data model + migration en **PR #10** ; reste worker BullMQ/Redis + stockage OVH S3 + URL présignée
+  data model + migration **mergé (PR #10)** ; reste worker BullMQ/Redis + stockage OVH S3 + URL présignée
 - **TLX-033** GET /users/:id/data-export — export RGPD — ⛔ bloqué par **TLX-035**
 - **TLX-034** DELETE /users/:id — effacement + anonymisation — ⛔ bloqué par **TLX-035**
 
 ## En cours
 
-- **TLX-035** (socle) — PR #10 `feat(TLX-035): socle jobs asynchrones — data model + migration`
-  (ADR-13 + `export_jobs` + migration ; **aucun endpoint**). En attente de revue/merge.
+- _(rien)_
 
 ## Terminés ce sprint
 
@@ -52,7 +51,7 @@ refresh rotatif), son rôle/ownership est appliqué, et le socle RGPD
   opérations **asynchrones** (202 + ressource `Job`). Décision tranchée par
   **ADR-13** (raffine ADR-09) : table `export_jobs` pour l'export (état persistant),
   suppression conservée sur soft-delete + purge planifiée (pas de table de jobs).
-  Socle data model + migration livré en **PR #10** ; reste worker BullMQ/Redis +
+  Socle data model + migration **mergé (PR #10)** ; reste worker BullMQ/Redis +
   stockage OVH S3 + URL présignée avant de livrer les endpoints. Pose en bloqueur
   de TLX-033 et TLX-034 dans Linear.
 - **Front auth** : `login.tsx`, `register.tsx` (TLX-026) et `consent.tsx` (TLX-030)
