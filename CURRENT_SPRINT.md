@@ -6,7 +6,6 @@ refresh rotatif), son rôle/ownership est appliqué, et le socle RGPD
 
 ## À faire
 
-- **TLX-024** Middleware RBAC + ownership (coach/athlète/groupe) — activer `RolesGuard`
 - **TLX-025** Écran Connexion (O-02)
 - **TLX-026** Écrans Inscription + choix du rôle (O-03, O-04)
 - **TLX-027** Persistance de session + refresh silencieux (app)
@@ -26,14 +25,20 @@ refresh rotatif), son rôle/ownership est appliqué, et le socle RGPD
 - **TLX-021** POST /auth/register — Argon2id + émission access/refresh — mergé
 - **TLX-022** POST /auth/login + JwtAuthGuard global (routes protégées → 401) — mergé
 - **TLX-023** POST /auth/refresh — rotation + détection de réutilisation (révocation famille) — mergé
+- **TLX-024** Middleware RBAC + ownership — `RolesGuard` global + `OwnershipService` (appartenance coach↔athlète, ownership séance/groupe/compte) — mergé
 
 ## Notes / dépendances
 
 - Cœur auth backend en place : `PasswordService` (Argon2id), `TokenService`
   (access RS256 + refresh opaque rotatif), `JwtAuthGuard` global. Réutilisables
   pour la suite (RBAC, consentement…).
-- **TLX-79** : chemins nominaux register/login/refresh validés en unitaire seulement
-  (Prisma mocké) — validation en base réelle (Docker) suivie là-bas.
+- **TLX-79** : chemins nominaux register/login/refresh **et requêtes
+  d'ownership/appartenance** (`OwnershipService`, TLX-024) validés en unitaire
+  seulement (Prisma mocké) — validation en base réelle (Docker) suivie là-bas.
+- **RBAC/ownership prêts à câbler** : `@Roles('coach'|'athlete')` est désormais
+  appliqué globalement ; les services métier injectent `OwnershipService` pour
+  l'appartenance et la propriété. Les contrôleurs restent des squelettes (501) —
+  câblage par ticket de ressource (sessions, groupes, perfs…).
 - Base dev : `docker compose up -d` puis `prisma migrate deploy` puis `pnpm --filter @talent-x/api seed`.
 - Workflow distant : pousser sur une branche `claude/*` + PR (le push direct sur `main` échoue à distance).
 
