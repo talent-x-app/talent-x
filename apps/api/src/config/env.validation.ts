@@ -28,6 +28,12 @@ export interface EnvConfig {
    * clé précédente le temps de leur expiration. Validation fine dans KeyService.
    */
   JWT_ADDITIONAL_PUBLIC_KEYS?: string;
+  /**
+   * Version courante des textes de consentement (TLX-031). Enregistrée avec chaque
+   * consentement quand le client ne précise pas la version qu'il a présentée. À
+   * incrémenter quand un texte change, pour tracer la base juridique (TX-SEC-003 §6).
+   */
+  CONSENT_TEXT_VERSION: string;
 }
 
 const NODE_ENVS: readonly NodeEnv[] = ['development', 'test', 'staging', 'production'];
@@ -73,6 +79,10 @@ export function validateEnv(raw: Record<string, unknown>): EnvConfig {
   const jwtKeyId = (raw.JWT_KEY_ID as string)?.trim();
   const jwtAdditionalPublicKeys = (raw.JWT_ADDITIONAL_PUBLIC_KEYS as string)?.trim();
 
+  // Version des textes de consentement (TLX-031). Défaut de config (non secret) ;
+  // surchargeable par environnement quand les textes évoluent.
+  const consentTextVersion = (raw.CONSENT_TEXT_VERSION as string)?.trim() || '2026-01';
+
   if (errors.length > 0) {
     throw new Error(`Configuration d'environnement invalide :\n- ${errors.join('\n- ')}`);
   }
@@ -85,5 +95,6 @@ export function validateEnv(raw: Record<string, unknown>): EnvConfig {
     ...(jwtPrivateKey ? { JWT_PRIVATE_KEY: jwtPrivateKey } : {}),
     ...(jwtKeyId ? { JWT_KEY_ID: jwtKeyId } : {}),
     ...(jwtAdditionalPublicKeys ? { JWT_ADDITIONAL_PUBLIC_KEYS: jwtAdditionalPublicKeys } : {}),
+    CONSENT_TEXT_VERSION: consentTextVersion,
   };
 }

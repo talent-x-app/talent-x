@@ -12,7 +12,15 @@ describe('validateEnv', () => {
       NODE_ENV: 'test',
       PORT: 3000,
       DATABASE_URL: base.DATABASE_URL,
+      CONSENT_TEXT_VERSION: '2026-01',
     });
+  });
+
+  it('applique la version de consentement par défaut, surchargeable', () => {
+    expect(validateEnv(base).CONSENT_TEXT_VERSION).toBe('2026-01');
+    expect(validateEnv({ ...base, CONSENT_TEXT_VERSION: '2027-03' }).CONSENT_TEXT_VERSION).toBe(
+      '2027-03',
+    );
   });
 
   it('applique les valeurs par défaut (NODE_ENV=development, PORT=3000)', () => {
