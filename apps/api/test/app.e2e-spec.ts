@@ -67,17 +67,9 @@ describe('API skeleton (e2e)', () => {
       });
   });
 
-  it('POST /api/v1/auth/register (payload valide) → 501 NOT_IMPLEMENTED', () => {
-    return request(app.getHttpServer())
-      .post('/api/v1/auth/register')
-      .send({ email: 'coach@example.com', password: 'SecureP@ss123', role: 'coach' })
-      .expect(501)
-      .expect((res) => {
-        expect(res.body.error).toBe('NOT_IMPLEMENTED');
-        expect(res.body.path).toBe('/api/v1/auth/register');
-      });
-  });
-
+  // register (TLX-021) est implémenté : le chemin nominal écrit en base et est
+  // couvert par les tests unitaires (auth.service.spec). Ici, sans base, on
+  // vérifie seulement la validation transverse (ne nécessite pas de DB).
   it('POST /api/v1/auth/register (payload invalide) → 422 + details', () => {
     return request(app.getHttpServer())
       .post('/api/v1/auth/register')
