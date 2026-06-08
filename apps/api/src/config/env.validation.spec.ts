@@ -45,4 +45,38 @@ describe('validateEnv', () => {
   it('échoue si REDIS_URL est défini mais invalide', () => {
     expect(() => validateEnv({ ...base, REDIS_URL: 'http://x' })).toThrow(/REDIS_URL/);
   });
+
+  it('n’exige pas JWT_PRIVATE_KEY en dev/test (clé éphémère possible)', () => {
+    expect(() => validateEnv({ ...base, NODE_ENV: 'development' })).not.toThrow();
+  });
+
+  it('exige JWT_PRIVATE_KEY en production', () => {
+    expect(() => validateEnv({ ...base, NODE_ENV: 'production' })).toThrow(
+      /JWT_PRIVATE_KEY est requis en production/,
+    );
+  });
+
+  it('exige JWT_PRIVATE_KEY en staging', () => {
+    expect(() => validateEnv({ ...base, NODE_ENV: 'staging' })).toThrow(
+      /JWT_PRIVATE_KEY est requis/,
+    );
+  });
+
+  it('rejette une JWT_PRIVATE_KEY qui n’est pas un PEM', () => {
+    expect(() => validateEnv({ ...base, JWT_PRIVATE_KEY: 'secret-en-dur' })).toThrow(
+      /JWT_PRIVATE_KEY doit être une clé PEM/,
+    );
+  });
+
+  it('passe through les variables JWT quand présentes et bien formées', () => {
+    const cfg = validateEnv({
+      ...base,
+      JWT_PRIVATE_KEY: '-----BEGIN PRIVATE KEY-----\\nabc\\n-----END PRIVATE KEY-----',
+      JWT_KEY_ID: 'k-1',
+      JWT_ADDITIONAL_PUBLIC_KEYS: '[]',
+    });
+    expect(cfg.JWT_KEY_ID).toBe('k-1');
+    expect(cfg.JWT_ADDITIONAL_PUBLIC_KEYS).toBe('[]');
+    expect(cfg.JWT_PRIVATE_KEY).toContain('BEGIN PRIVATE KEY');
+  });
 });
