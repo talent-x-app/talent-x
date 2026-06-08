@@ -1,4 +1,3 @@
-import '@testing-library/react-native/extend-expect';
 import { type ReactNode } from 'react';
 import { Text } from 'react-native';
 import { fireEvent, render, screen } from '@testing-library/react-native';

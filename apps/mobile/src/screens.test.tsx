@@ -1,4 +1,4 @@
-import '@testing-library/react-native/extend-expect';
+import { type ReactNode } from 'react';
 import { render, screen } from '@testing-library/react-native';
 import { ThemeProvider } from '@talent-x/design-tokens';
 
@@ -12,11 +12,11 @@ jest.mock('expo-secure-store', () => {
   };
 });
 
-import { SessionProvider } from '../src/auth/SessionProvider';
-import CoachHomeScreen from './(coach)/index';
-import AthleteHomeScreen from './(athlete)/index';
+import { SessionProvider } from './auth/SessionProvider';
+import CoachHomeScreen from '../app/(coach)/index';
+import AthleteHomeScreen from '../app/(athlete)/index';
 
-function Wrapper({ children }: { children: React.ReactNode }) {
+function Wrapper({ children }: { children: ReactNode }) {
   return (
     <ThemeProvider>
       <SessionProvider>{children}</SessionProvider>

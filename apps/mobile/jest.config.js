@@ -4,7 +4,8 @@
 // multi-plateforme. `@testing-library/react-native` fournit le rendu + matchers.
 module.exports = {
   preset: 'jest-expo',
-  setupFilesAfterEnv: ['@testing-library/react-native/extend-expect'],
+  // RNTL v13 : les matchers Jest sont auto-enregistrés à l'import du module
+  // (plus de point d'entrée /extend-expect).
   // Les paquets de l'espace de travail (@talent-x/*) sont publiés en JS compilé
   // (dist/) : on les exclut comme les modules natifs déjà gérés par le preset.
   transformIgnorePatterns: [

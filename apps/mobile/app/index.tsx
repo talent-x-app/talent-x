@@ -11,7 +11,7 @@ export default function RootIndex() {
     return <View style={{ flex: 1 }} />;
   }
 
-  if (role === 'coach') return <Redirect href="/(coach)/" />;
-  if (role === 'athlete') return <Redirect href="/(athlete)/" />;
+  if (role === 'coach') return <Redirect href="/(coach)" />;
+  if (role === 'athlete') return <Redirect href="/(athlete)" />;
   return <Redirect href="/(auth)/login" />;
 }

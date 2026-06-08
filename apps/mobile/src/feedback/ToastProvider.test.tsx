@@ -1,4 +1,3 @@
-import '@testing-library/react-native/extend-expect';
 import { Text } from 'react-native';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { ThemeProvider } from '@talent-x/design-tokens';
