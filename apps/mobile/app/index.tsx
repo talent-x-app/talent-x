@@ -1,44 +1,17 @@
-import { useTheme } from '@talent-x/design-tokens';
-import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View } from 'react-native';
+import { useSession } from '../src/auth/SessionProvider';
+import { Redirect } from 'expo-router';
+import { View } from 'react-native';
 
-export default function HomeScreen() {
-  const theme = useTheme();
-  const { colors, typography, spacing } = theme;
+// Point d'entrée : redirige vers les tabs du rôle ou vers la connexion.
+export default function RootIndex() {
+  const { role, isLoading } = useSession();
 
-  return (
-    <View style={[styles.container, { backgroundColor: colors.background, padding: spacing[6] }]}>
-      <StatusBar style={theme.name === 'dark' ? 'light' : 'dark'} />
-      <Text
-        style={{
-          color: colors.textPrimary,
-          fontFamily: typography.fontFamily.bold,
-          fontSize: typography.h1.fontSize,
-          lineHeight: typography.h1.lineHeight,
-          letterSpacing: typography.h1.letterSpacing,
-        }}
-      >
-        Talent-X
-      </Text>
-      <Text
-        style={{
-          marginTop: spacing[2],
-          color: colors.textMuted,
-          fontFamily: typography.fontFamily.regular,
-          fontSize: typography.body.fontSize,
-          lineHeight: typography.body.lineHeight,
-        }}
-      >
-        Fondations — design system
-      </Text>
-    </View>
-  );
+  if (isLoading) {
+    // Splash toujours visible pendant le chargement — pas d'écran intermédiaire.
+    return <View style={{ flex: 1 }} />;
+  }
+
+  if (role === 'coach') return <Redirect href="/(coach)/" />;
+  if (role === 'athlete') return <Redirect href="/(athlete)/" />;
+  return <Redirect href="/(auth)/login" />;
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});

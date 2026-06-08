@@ -1,19 +1,39 @@
 import '@testing-library/react-native/extend-expect';
-import { ThemeProvider } from '@talent-x/design-tokens';
 import { render, screen } from '@testing-library/react-native';
-import HomeScreen from './index';
+import { ThemeProvider } from '@talent-x/design-tokens';
 
-// Test de rendu de l'écran d'accueil (TLX-015) : valide que le harnais mobile
-// (jest-expo + Testing Library) rend un écran réel câblé au design system.
-describe('HomeScreen', () => {
-  it('affiche le titre et le sous-titre Fondations', () => {
-    render(
-      <ThemeProvider>
-        <HomeScreen />
-      </ThemeProvider>,
-    );
+jest.mock('expo-router', () => ({ Redirect: () => null }));
+jest.mock('expo-secure-store', () => {
+  const store = new Map<string, string>();
+  return {
+    getItemAsync: jest.fn(async (k: string) => store.get(k) ?? null),
+    setItemAsync: jest.fn(async (k: string, v: string) => void store.set(k, v)),
+    deleteItemAsync: jest.fn(async (k: string) => void store.delete(k)),
+  };
+});
 
-    expect(screen.getByText('Talent-X')).toBeOnTheScreen();
-    expect(screen.getByText('Fondations — design system')).toBeOnTheScreen();
+import { SessionProvider } from '../src/auth/SessionProvider';
+import CoachHomeScreen from './(coach)/index';
+import AthleteHomeScreen from './(athlete)/index';
+
+function Wrapper({ children }: { children: React.ReactNode }) {
+  return (
+    <ThemeProvider>
+      <SessionProvider>{children}</SessionProvider>
+    </ThemeProvider>
+  );
+}
+
+describe('CoachHomeScreen (TLX-007)', () => {
+  it('affiche le titre Accueil Coach', () => {
+    render(<CoachHomeScreen />, { wrapper: Wrapper });
+    expect(screen.getByText('Accueil Coach')).toBeOnTheScreen();
+  });
+});
+
+describe('AthleteHomeScreen (TLX-007)', () => {
+  it('affiche le titre Accueil', () => {
+    render(<AthleteHomeScreen />, { wrapper: Wrapper });
+    expect(screen.getByText('Accueil')).toBeOnTheScreen();
   });
 });
