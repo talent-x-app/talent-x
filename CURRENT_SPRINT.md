@@ -37,8 +37,7 @@ refresh rotatif), son rôle/ownership est appliqué, et le socle RGPD
 
 ## Jalon précédent — S-00 Fondations : ✅ 15/15 (clos)
 
-TLX-001 → 015 tous mergés : mono-repo, design system + composants UI, navigation,
-client API généré + couche données, squelette API + logs/readiness, schéma Prisma
-
-- migration + seed, CI, qualité (ESLint/Prettier/Husky), environnements/secrets,
-  harnais de tests, gestion erreurs/toasts/offline.
+TLX-001 → 015 tous mergés : mono-repo, design system et composants UI, navigation,
+client API généré et couche données, squelette API avec logs/readiness, schéma
+Prisma avec migration et seed, CI, qualité (ESLint/Prettier/Husky),
+environnements/secrets, harnais de tests, gestion erreurs/toasts/offline.
