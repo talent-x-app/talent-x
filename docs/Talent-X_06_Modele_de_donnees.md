@@ -1439,6 +1439,31 @@ Les entités porteuses de données personnelles ou métier utilisent une suppres
 - Anonymisation plutôt que suppression lorsque la donnée doit être conservée pour l'intégrité \(ex\. audit\_log : actor\_id passé à NULL à la suppression du compte\)\.
 - Rectification par correction horodatée et auditée, jamais par modification silencieuse \(règle RB\-06\)\.
 
+## 12\.1 Jobs d'export RGPD — table `export_jobs` \(ADR\-13\)
+
+L'export RGPD est une **opération asynchrone à état persistant** \(POST→jobId→GET, cf\. `talent-x-openapi.yaml`\) : il faut donc mémoriser le cycle de vie du job\. La **suppression** de compte ne crée **pas** de table de jobs — elle reste couverte par le soft\-delete immédiat \(§12\) puis la purge planifiée \(le 202 + jobId est un simple accusé de réception\)\.
+
+La table `export_jobs` matérialise l'état d'un export demandé par une personne :
+
+| Colonne | Type | Notes |
+|---|---|---|
+| `id` | uuid \(pk, `gen_random_uuid()`\) | identifiant `jobId` exposé par l'API |
+| `user_id` | uuid \(fk `users.id`, `ON DELETE CASCADE`\) | propriétaire de l'export |
+| `status` | text, NOT NULL, défaut `pending` | CHECK `IN ('pending','processing','ready','failed','expired')` |
+| `object_key` | text, nullable | clé de l'archive sur le stockage objet \(OVH S3\), renseignée quand `ready` |
+| `expires_at` | timestamptz, nullable | expiration de l'archive téléchargeable |
+| `error` | text, nullable | message d'erreur si `failed` |
+| `created_at` / `updated_at` | timestamptz, NOT NULL | horodatage \(trigger `set_updated_at` sur update\) |
+
+Règles d'intégrité :
+
+- Index `ix_export_jobs_user_status` sur \(`user_id`, `status`\)\.
+- Unicité **partielle** « un seul export actif par utilisateur » \(idempotence / anti\-abus\) : `UNIQUE (user_id) WHERE status IN ('pending','processing')`\.
+- L'**URL présignée n'est jamais stockée** : seule `object_key` est persistée ; l'URL \(TTL court\) est générée au moment du `GET /users/me/export/{jobId}`\.
+- Une tâche planifiée nettoie les archives expirées et passe les jobs correspondants à `expired`\.
+
+Conformément à la convention du schéma \(§2\), `status` est un **texte contraint par CHECK** et non un type enum natif\.
+
 # 13\. Stratégie de migration de schéma
 
 - Migrations versionnées, ordonnées et réversibles, exécutées en intégration continue avant le déploiement applicatif\.
