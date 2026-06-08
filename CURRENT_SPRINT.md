@@ -7,7 +7,6 @@ refresh rotatif), son rôle/ownership est appliqué, et le socle RGPD
 ## À faire
 
 - **TLX-027** Persistance de session + refresh silencieux (app)
-- **TLX-030** Écran Consentement (O-05, case non pré-cochée)
 - **TLX-033** GET /users/:id/data-export — export RGPD — ⛔ bloqué par **TLX-80**
 - **TLX-034** DELETE /users/:id — effacement + anonymisation — ⛔ bloqué par **TLX-80**
 
@@ -26,6 +25,7 @@ refresh rotatif), son rôle/ownership est appliqué, et le socle RGPD
 - **TLX-032** Gating `CONSENT_REQUIRED` — `ConsentGate` (4ᵉ niveau d'autorisation, RB-08), réutilisable pour perfs/stats — mergé
 - **TLX-025** Écran Connexion (O-02) — login + persistance jetons + session + navigation, états gérés, tests — mergé
 - **TLX-026** Écrans Inscription + choix du rôle (O-03/O-04) — `register` + `RoleCard`, mêmes flux/états que login (409 e-mail pris, 422 validation), tests (6/6) — mergé
+- **TLX-030** Écran Consentement (O-05) — onboarding RGPD opt-in (sans case pré-cochée), `PUT /users/me/consents` par choix, flux register → consent → tabs (`signIn` différé), tests (4/4) — mergé
 
 ## Notes / dépendances
 
@@ -45,9 +45,10 @@ refresh rotatif), son rôle/ownership est appliqué, et le socle RGPD
   **asynchrones** (202 + ressource `Job`). Bloqués : pas de worker (BullMQ/Redis)
   ni de table de jobs au modèle de données. Décision d'archi requise (table
   `data_jobs` + worker) avant de livrer les endpoints.
-- **Front auth** : `app/(auth)/login.tsx` et `register.tsx` (TLX-026) livrés.
-  Infra session déjà en place (token-store trousseau, SessionProvider,
-  intercepteur refresh single-flight de TLX-009).
+- **Front auth** : `login.tsx`, `register.tsx` (TLX-026) et `consent.tsx` (TLX-030)
+  livrés. Onboarding : register → consent → tabs (la session n'est ouverte
+  qu'après l'étape consentement). Infra session déjà en place (token-store
+  trousseau, SessionProvider, intercepteur refresh single-flight de TLX-009).
 - Base dev : `docker compose up -d` puis `prisma migrate deploy` puis `pnpm --filter @talent-x/api seed`.
 - Workflow distant : push direct sur `main` (commits poussés directement, sans PR).
 
