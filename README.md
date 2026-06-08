@@ -148,6 +148,25 @@ dans `packages/api-client` (`@talent-x/api-client`).
 EXPO_PUBLIC_API_URL=http://localhost:3000/api/v1
 ```
 
+## Composants UI (design system)
+
+Bibliothèque de composants de base (TLX-006) dans `apps/mobile/src/components/ui`,
+entièrement dérivée des tokens (`@talent-x/design-tokens`, `useTheme()`) — aucune
+valeur en dur :
+
+| Composant | Rôle                                                                               |
+| --------- | ---------------------------------------------------------------------------------- |
+| `Button`  | variantes primary/secondary/ghost/danger, tailles sm/md/lg, états loading/disabled |
+| `Input`   | champ texte (label, erreur, focus), relaie les props de `TextInput`                |
+| `Card`    | surface + bordure + élévation ; pressable optionnel                                |
+| `Chip`    | filtre sélectionnable (pill)                                                       |
+| `Slider`  | curseur au geste (ex. RPE 1..10), accessible (adjustable)                          |
+| `TabBar`  | barre d'onglets de bas d'écran, présentationnelle                                  |
+
+```tsx
+import { Button, Input, Card } from '@/src/components/ui';
+```
+
 ## Travailler avec Claude Code
 
 Voir `CLAUDE.md` (carte du projet) et `CURRENT_SPRINT.md` (cycle en cours).
