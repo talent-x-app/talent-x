@@ -1,10 +1,23 @@
-# Sprint courant : S-00 — Fondations
+# Sprint courant : S-01 — Auth & RGPD
 
-Objectif de fin de cycle : l'app démarre avec le thème, la CI est verte, la base est seedée.
+Objectif de fin de cycle : un utilisateur s'inscrit, se connecte (JWT RS256 +
+refresh rotatif), son rôle/ownership est appliqué, et le socle RGPD
+(consentement, export, effacement) est en place.
 
 ## À faire
 
-- _(rien)_
+- **TLX-021** POST /auth/register — inscription + choix du rôle
+- **TLX-022** POST /auth/login — JWT access + refresh (enregistrer le `JwtAuthGuard` global)
+- **TLX-023** POST /auth/refresh — rotation du refresh token + détection de réutilisation
+- **TLX-024** Middleware RBAC + ownership (coach/athlète/groupe)
+- **TLX-025** Écran Connexion (O-02)
+- **TLX-026** Écrans Inscription + choix du rôle (O-03, O-04)
+- **TLX-027** Persistance de session + refresh silencieux (app)
+- **TLX-030** Écran Consentement (O-05, case non pré-cochée)
+- **TLX-031** POST /consents + versionnage du consentement
+- **TLX-032** Gating API CONSENT_REQUIRED (données de santé)
+- **TLX-033** GET /users/:id/data-export — export RGPD
+- **TLX-034** DELETE /users/:id — effacement + anonymisation
 
 ## En cours
 
@@ -12,24 +25,20 @@ Objectif de fin de cycle : l'app démarre avec le thème, la CI est verte, la ba
 
 ## Terminés ce sprint
 
-- **TLX-010** Gestion globale erreurs / toasts / bandeau hors-ligne (mobile) — branche `claude/happy-cannon-I6JP7`
-- **TLX-001** Initialiser le mono-repo (Expo + NestJS + Prisma, pnpm workspaces) — PR #1 mergée
-- **TLX-005** Design system en code : tokens RN + CSS + thème typé — PR #2 mergée
-- **TLX-012** Schéma Prisma depuis le modèle de données + migration initiale — PR #3 mergée
-- **TLX-011** Squelette NestJS + DTO/contrôleurs depuis l'OpenAPI — PR #4 mergée
-- **TLX-013** Journalisation JSON + correlation ID + readiness — PR #6 mergée
-- **TLX-003** Pipeline CI (lint, format, typecheck, tests, build) — mergé
-- **TLX-002** Config qualité : ESLint + Prettier + Husky/lint-staged (TS strict déjà actif) — mergé
-- **TLX-004** Environnements dev/staging/prod + secrets : docker-compose (PostgreSQL + Redis) + validation d'env fail-fast — mergé
-- **TLX-014** Seed de la base de dev depuis talent-x-sample-data.json + validation du jeu — mergé
-- **TLX-015** Harnais de tests : Jest (unit) + e2e API (Supertest) + Maestro (mobile) — intégré
-- **TLX-008** Client API typé généré depuis l'OpenAPI (orval) — intégré
-- **TLX-009** Couche données mobile : TanStack Query + intercepteur auth/refresh — intégré
-- **TLX-007** Navigation expo-router + tab bars coach/athlète — intégré
-- **TLX-006** Bibliothèque de composants de base (Button, Input, Card, Chip, Slider, TabBar) + tests — mergé
+- **TLX-020** Génération et rotation des clés RS256 (keystore) — PR #9 mergée
 
 ## Notes / dépendances
 
-- Base dev : `docker compose up -d` puis `pnpm --filter @talent-x/api prisma migrate deploy` puis `pnpm --filter @talent-x/api seed`.
-- Seed non exécuté de bout en bout en CI/cet environnement (pas de Docker/DB) : le jeu livré est validé par test unitaire, et seed.ts est typé contre le client Prisma généré.
-- Le `JwtAuthGuard` (TLX-011) n'est pas enregistré globalement : à brancher avec la stratégie JWT RS256 dans le ticket Auth.
+- Clés JWT RS256 disponibles (TLX-020) : `pnpm --filter @talent-x/api keys:generate` ;
+  config via `src/auth/keys/`. Le `JwtAuthGuard` (TLX-011) reste à enregistrer
+  globalement lors de TLX-022/024.
+- Base dev : `docker compose up -d` puis `prisma migrate deploy` puis `pnpm --filter @talent-x/api seed`.
+- Workflow distant : pousser sur une branche `claude/*` + PR (le push direct sur `main` échoue à distance).
+
+## Jalon précédent — S-00 Fondations : ✅ 15/15 (clos)
+
+TLX-001 → 015 tous mergés : mono-repo, design system + composants UI, navigation,
+client API généré + couche données, squelette API + logs/readiness, schéma Prisma
+
+- migration + seed, CI, qualité (ESLint/Prettier/Husky), environnements/secrets,
+  harnais de tests, gestion erreurs/toasts/offline.
