@@ -7,7 +7,8 @@ refresh rotatif), son rôle/ownership est appliqué, et le socle RGPD
 ## À faire
 
 - **TLX-035** Infra jobs asynchrones (worker + `export_jobs`) — décision d'archi **ADR-13** ; socle
-  data model + migration **mergé (PR #10)** ; reste worker BullMQ/Redis + stockage OVH S3 + URL présignée
+  data model + migration **mergé (PR #10)** et **appliqué en base réelle** (2026-06-09) ;
+  reste worker BullMQ/Redis + stockage OVH S3 + URL présignée
 - **TLX-033** GET /users/:id/data-export — export RGPD — ⛔ bloqué par **TLX-035**
 - **TLX-034** DELETE /users/:id — effacement + anonymisation — ⛔ bloqué par **TLX-035**
 
@@ -38,6 +39,9 @@ refresh rotatif), son rôle/ownership est appliqué, et le socle RGPD
   d'ownership/appartenance (`OwnershipService`, TLX-024) **et consentements**
   (`ConsentsService` append-only, TLX-031) validés en unitaire seulement
   (Prisma mocké) — validation en base réelle (Docker) suivie là-bas.
+  _Maj 2026-06-09_ : le **schéma** est désormais déployé sur base réelle
+  (migrations appliquées + seed), mais les **endpoints** n'ont pas encore été
+  exercés contre cette base — la validation fonctionnelle bout en bout reste due.
 - **TLX-81** (nouveau) : pendant **frontend** de TLX-79. Les écrans onboarding
   (login O-02, inscription O-03/O-04, consentement O-05) et le flux
   `register → consent → tabs` sont validés en Jest seulement (client/router/
@@ -51,9 +55,11 @@ refresh rotatif), son rôle/ownership est appliqué, et le socle RGPD
   opérations **asynchrones** (202 + ressource `Job`). Décision tranchée par
   **ADR-13** (raffine ADR-09) : table `export_jobs` pour l'export (état persistant),
   suppression conservée sur soft-delete + purge planifiée (pas de table de jobs).
-  Socle data model + migration **mergé (PR #10)** ; reste worker BullMQ/Redis +
-  stockage OVH S3 + URL présignée avant de livrer les endpoints. Pose en bloqueur
-  de TLX-033 et TLX-034 dans Linear.
+  Socle data model + migration **mergé (PR #10)** et **appliqué sur base réelle**
+  (Docker, 2026-06-09 : migrations `init` + `export_jobs` déployées, table vérifiée —
+  CHECK statut, index unique partiel « un seul export actif », FK CASCADE, trigger
+  `updated_at` ; seed OK). Reste worker BullMQ/Redis + stockage OVH S3 + URL présignée
+  avant de livrer les endpoints. Pose en bloqueur de TLX-033 et TLX-034 dans Linear.
 - **Front auth** : `login.tsx`, `register.tsx` (TLX-026) et `consent.tsx` (TLX-030)
   livrés. Onboarding : register → consent → tabs (la session n'est ouverte
   qu'après l'étape consentement). Persistance/restauration de session au
