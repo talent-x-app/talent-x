@@ -117,3 +117,108 @@ describe('AuthService.login (TLX-022)', () => {
     expect(password.verify).toHaveBeenCalled();
   });
 });
+
+interface RefreshRecord {
+  id: string;
+  userId: string;
+  familyId: string;
+  used: boolean;
+  revokedAt: Date | null;
+  expiresAt: Date;
+}
+
+function makeRefresh(opts: { record?: RefreshRecord | null; updateCount?: number } = {}) {
+  const record: RefreshRecord | null =
+    opts.record === undefined
+      ? {
+          id: 'rt1',
+          userId: 'u1',
+          familyId: 'fam1',
+          used: false,
+          revokedAt: null,
+          expiresAt: new Date(Date.now() + 100_000),
+        }
+      : opts.record;
+  const refreshToken = {
+    findFirst: jest.fn().mockResolvedValue(record),
+    updateMany: jest.fn().mockResolvedValue({ count: opts.updateCount ?? 1 }),
+  };
+  const prisma = {
+    refreshToken,
+    user: { findFirst: jest.fn().mockResolvedValue({ id: 'u1', role: 'coach' }) },
+  } as unknown as PrismaService;
+  const password = {} as unknown as PasswordService;
+  const tokens = {
+    issueAccessToken: jest.fn().mockReturnValue({ token: 'newA', expiresIn: 900 }),
+    issueRefreshToken: jest.fn().mockResolvedValue('newR'),
+  } as unknown as TokenService;
+  return { service: new AuthService(prisma, password, tokens), refreshToken, tokens };
+}
+
+describe('AuthService.refresh (TLX-023)', () => {
+  it('rotation : émet de nouveaux jetons dans la même famille et consomme l’ancien', async () => {
+    const { service, refreshToken, tokens } = makeRefresh();
+
+    const result = await service.refresh({ refreshToken: 'opaque' });
+
+    expect(result).toEqual({ accessToken: 'newA', refreshToken: 'newR', expiresIn: 900 });
+    expect(refreshToken.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ id: 'rt1', used: false }),
+        data: { used: true },
+      }),
+    );
+    expect(tokens.issueRefreshToken).toHaveBeenCalledWith('u1', 'fam1');
+  });
+
+  it('réutilisation d’un jeton consommé → 409 + révocation de la famille', async () => {
+    const { service, refreshToken } = makeRefresh({
+      record: {
+        id: 'rt1',
+        userId: 'u1',
+        familyId: 'fam1',
+        used: true,
+        revokedAt: null,
+        expiresAt: new Date(Date.now() + 100_000),
+      },
+    });
+
+    await expect(service.refresh({ refreshToken: 'opaque' })).rejects.toBeInstanceOf(
+      ConflictException,
+    );
+    expect(refreshToken.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ familyId: 'fam1' }),
+        data: expect.objectContaining({ revokedAt: expect.any(Date) }),
+      }),
+    );
+  });
+
+  it('jeton inconnu → 401', async () => {
+    const { service } = makeRefresh({ record: null });
+    await expect(service.refresh({ refreshToken: 'x' })).rejects.toBeInstanceOf(
+      UnauthorizedException,
+    );
+  });
+
+  it('jeton expiré → 401', async () => {
+    const { service } = makeRefresh({
+      record: {
+        id: 'rt1',
+        userId: 'u1',
+        familyId: 'fam1',
+        used: false,
+        revokedAt: null,
+        expiresAt: new Date(Date.now() - 1000),
+      },
+    });
+    await expect(service.refresh({ refreshToken: 'x' })).rejects.toBeInstanceOf(
+      UnauthorizedException,
+    );
+  });
+
+  it('course : consommation déjà faite (count=0) → 409', async () => {
+    const { service } = makeRefresh({ updateCount: 0 });
+    await expect(service.refresh({ refreshToken: 'x' })).rejects.toBeInstanceOf(ConflictException);
+  });
+});

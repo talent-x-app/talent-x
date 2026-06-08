@@ -20,7 +20,7 @@ import { type ResetPasswordRequestDto } from './dto/reset-password-request.dto';
 import { type TwoFactorSetupDto } from './dto/two-factor-setup.dto';
 import { type TwoFactorVerifyDto } from './dto/two-factor-verify.dto';
 import { PasswordService } from './password.service';
-import { TokenService } from './token.service';
+import { hashRefreshToken, TokenService } from './token.service';
 import { toUserDto } from './user.mapper';
 
 @Injectable()
@@ -116,8 +116,70 @@ export class AuthService {
     throw new NotImplementedException(`${feature} — à implémenter (ticket Auth).`);
   }
 
-  refresh(_dto: RefreshRequestDto): Promise<AuthTokensDto> {
-    return this.notImplemented('refresh');
+  /**
+   * Renouvellement (TLX-023) : le refresh token est à usage unique et tourne à
+   * chaque appel (nouveau jeton dans la même famille). La réutilisation d'un
+   * jeton déjà consommé (vol présumé) révoque toute la famille et renvoie
+   * 409 TOKEN_REUSE_DETECTED.
+   */
+  async refresh(dto: RefreshRequestDto): Promise<AuthTokensDto> {
+    const tokenHash = hashRefreshToken(dto.refreshToken);
+    const record = await this.prisma.refreshToken.findFirst({ where: { tokenHash } });
+    if (!record) {
+      throw this.invalidRefreshToken();
+    }
+
+    // Jeton déjà consommé ou révoqué → réutilisation : on coupe toute la famille.
+    if (record.used || record.revokedAt) {
+      await this.revokeFamily(record.familyId);
+      throw this.reuseDetected();
+    }
+    if (record.expiresAt.getTime() <= Date.now()) {
+      throw this.invalidRefreshToken();
+    }
+
+    // Consommation atomique : si une course a déjà marqué le jeton, count=0 → réutilisation.
+    const consumed = await this.prisma.refreshToken.updateMany({
+      where: { id: record.id, used: false, revokedAt: null },
+      data: { used: true },
+    });
+    if (consumed.count === 0) {
+      await this.revokeFamily(record.familyId);
+      throw this.reuseDetected();
+    }
+
+    const user = await this.prisma.user.findFirst({
+      where: { id: record.userId, deletedAt: null },
+      select: { id: true, role: true },
+    });
+    if (!user) {
+      throw this.invalidRefreshToken();
+    }
+
+    const access = this.tokens.issueAccessToken({ id: user.id, role: user.role as Role });
+    const refreshToken = await this.tokens.issueRefreshToken(user.id, record.familyId);
+    return { accessToken: access.token, refreshToken, expiresIn: access.expiresIn };
+  }
+
+  private revokeFamily(familyId: string): Promise<unknown> {
+    return this.prisma.refreshToken.updateMany({
+      where: { familyId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+  }
+
+  private invalidRefreshToken(): never {
+    throw new UnauthorizedException({
+      error: 'INVALID_REFRESH_TOKEN',
+      message: 'Refresh token invalide ou expiré.',
+    });
+  }
+
+  private reuseDetected(): never {
+    throw new ConflictException({
+      error: 'TOKEN_REUSE_DETECTED',
+      message: 'Réutilisation de refresh token détectée ; sessions révoquées.',
+    });
   }
 
   logout(_dto: LogoutRequestDto, _user: AuthenticatedUser): Promise<void> {

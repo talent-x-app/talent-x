@@ -98,6 +98,16 @@ describe('API skeleton (e2e)', () => {
       .expect(422);
   });
 
+  it('POST /api/v1/auth/refresh (sans refreshToken) → 422', () => {
+    return request(app.getHttpServer())
+      .post('/api/v1/auth/refresh')
+      .send({})
+      .expect(422)
+      .expect((res) => {
+        expect(res.body.error).toBe('VALIDATION_FAILED');
+      });
+  });
+
   it('GET /api/v1/groups (route protégée, sans token) → 401', () => {
     return request(app.getHttpServer())
       .get('/api/v1/groups')
