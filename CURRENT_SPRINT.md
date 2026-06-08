@@ -6,10 +6,9 @@ refresh rotatif), son rôle/ownership est appliqué, et le socle RGPD
 
 ## À faire
 
-- **TLX-033** GET /users/:id/data-export — export RGPD — ✅ **débloqué** (worker TLX-035 livré) ;
-  reste : implémenter le vrai `ExportArchiveBuilder` (collecte des données) + endpoints
-  `POST /users/me/export` & `GET /users/me/export/{jobId}` (URL présignée au GET)
-- **TLX-034** DELETE /users/:id — effacement + anonymisation — ✅ **débloqué** (worker TLX-035 livré)
+- **TLX-034** DELETE /users/:id — effacement + anonymisation — ✅ **débloqué** (worker TLX-035 livré).
+  Soft-delete immédiat (`deleted_at`, révocation sessions) + 202 ; purge/anonymisation planifiée
+  (ADR-13 §2). Dernier ticket du sprint.
 
 ## En cours
 
@@ -17,6 +16,14 @@ refresh rotatif), son rôle/ownership est appliqué, et le socle RGPD
 
 ## Terminés ce sprint
 
+- **TLX-033** Export RGPD — **endpoints + contenu réel livrés**. `POST /users/me/export` (202,
+  idempotent sur l'export actif) et `GET /users/me/export/{jobId}` (URL présignée au GET, 404
+  hors-propriétaire, 400 jobId malformé) ; `ExportService` + `ExportJobDto`/`JobDto`.
+  Vrai `DataExportArchiveBuilder` câblé dans le worker — manifeste par rôle, **sans secrets ni
+  données de tiers**, acté en **ADR-14** (feedbacks reçus exclus ; identités d'athlètes exclues de
+  l'export coach). Audit `data.export` écrit à la demande. Tests API 129/129. **Validé bout en bout**
+  (register → POST → worker → builder réel → GET) : le builder produit l'archive ; seul le dépôt S3
+  manque (→ **TLX-82**). Câblage RGPD du `ConsentGate` non requis sur ces routes (droit d'accès).
 - **TLX-035** Infra jobs asynchrones — **socle + couche worker livrés**. Socle data model
   `export_jobs` (PR #10, ADR-13) appliqué en base réelle. Couche worker : file BullMQ
   `data-export` + producteur `ExportQueueService` ; **process worker séparé** (`src/worker.ts`,

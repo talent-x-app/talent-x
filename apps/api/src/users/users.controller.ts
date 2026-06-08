@@ -3,8 +3,10 @@ import {
   Controller,
   Delete,
   Get,
+  HttpCode,
   NotImplementedException,
   Param,
+  ParseUUIDPipe,
   Post,
   Put,
 } from '@nestjs/common';
@@ -13,6 +15,8 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { ConsentsService } from './consents.service';
 import { ConsentDto, ConsentListDto } from './dto/consent.dto';
 import { ConsentUpdateDto } from './dto/consent-update.dto';
+import { ExportJobDto, JobDto } from './dto/export.dto';
+import { ExportService } from './export.service';
 
 /**
  * Profil & RGPD — SQUELETTE (TLX-011).
@@ -23,7 +27,10 @@ import { ConsentUpdateDto } from './dto/consent-update.dto';
 @ApiBearerAuth()
 @Controller()
 export class UsersController {
-  constructor(private readonly consents: ConsentsService) {}
+  constructor(
+    private readonly consents: ConsentsService,
+    private readonly exports: ExportService,
+  ) {}
   @Get('users/me')
   @ApiOperation({ summary: 'Profil courant', operationId: 'getMe' })
   getMe(): never {
@@ -60,14 +67,21 @@ export class UsersController {
   }
 
   @Post('users/me/export')
+  @HttpCode(202)
   @ApiOperation({ summary: 'Demander un export des données', operationId: 'requestExport' })
-  requestExport(): never {
-    throw new NotImplementedException('requestExport');
+  @ApiResponse({ status: 202, description: 'Export en cours de préparation.', type: JobDto })
+  requestExport(@CurrentUser('id') userId: string): Promise<JobDto> {
+    return this.exports.requestExport(userId);
   }
 
   @Get('users/me/export/:jobId')
   @ApiOperation({ summary: 'Récupérer un export', operationId: 'getExport' })
-  getExport(@Param('jobId') _jobId: string): never {
-    throw new NotImplementedException('getExport');
+  @ApiResponse({ status: 200, description: "Statut de l'export.", type: ExportJobDto })
+  @ApiResponse({ status: 404, description: 'Export introuvable.' })
+  getExport(
+    @CurrentUser('id') userId: string,
+    @Param('jobId', new ParseUUIDPipe()) jobId: string,
+  ): Promise<ExportJobDto> {
+    return this.exports.getExport(userId, jobId);
   }
 }

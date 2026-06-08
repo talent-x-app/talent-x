@@ -27,6 +27,7 @@ Chaque décision suit le format **ADR** : Statut, Date, Contexte, Décision, Con
 | ADR-11 | Observabilité managée au MVP, internalisée ensuite | Accepté |
 | ADR-12 | Migrations de schéma rétrocompatibles (expand-contract), gatées dans le pipeline | Accepté |
 | ADR-13 | Jobs asynchrones RGPD : table `export_jobs` + split export/suppression (raffine ADR-09) | Accepté |
+| ADR-14 | Manifeste d'export RGPD & frontière des données de tiers (complète ADR-05/13) | Accepté |
 
 ---
 
@@ -254,6 +255,14 @@ Chaque décision suit le format **ADR** : Statut, Date, Contexte, Décision, Con
 
 Premier ADR **externalisé** dans `docs/adr/` (emplacement conseillé en tête de ce journal).
 Texte complet : [`docs/adr/ADR-13-jobs-asynchrones-rgpd.md`](adr/ADR-13-jobs-asynchrones-rgpd.md).
+
+## ADR-14 — Manifeste d'export RGPD & frontière des données de tiers
+
+- **Statut :** Accepté · **Date :** 2026-06-09 · **Complète :** ADR-05, ADR-13
+
+Fige le contenu de l'export RGPD (sections par rôle, exclusions des secrets/tiers) et la frontière
+des données de tiers, pour TLX-033. Texte complet :
+[`docs/adr/ADR-14-manifeste-export-rgpd.md`](adr/ADR-14-manifeste-export-rgpd.md).
 
 **En bref.** L'export RGPD devient un job asynchrone à **état persistant** (nouvelle table `export_jobs`,
 worker BullMQ/Redis, archive sur stockage objet OVH S3, URL présignée générée au GET). La **suppression**

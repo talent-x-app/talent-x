@@ -7,10 +7,8 @@ import { PrismaModule } from './prisma/prisma.module';
 import { StorageModule } from './storage/storage.module';
 import { ExportProcessor } from './jobs/export.processor';
 import { ExportCleanupService } from './jobs/export-cleanup.service';
-import {
-  ExportArchiveBuilder,
-  PlaceholderExportArchiveBuilder,
-} from './jobs/export-archive-builder';
+import { ExportArchiveBuilder } from './jobs/export-archive-builder';
+import { DataExportArchiveBuilder } from './jobs/data-export-archive-builder';
 
 /**
  * Contexte d'exécution du worker (process séparé de l'API — TX-ARCH-001 §4.5).
@@ -32,7 +30,7 @@ import {
   providers: [
     ExportProcessor,
     ExportCleanupService,
-    { provide: ExportArchiveBuilder, useClass: PlaceholderExportArchiveBuilder },
+    { provide: ExportArchiveBuilder, useClass: DataExportArchiveBuilder },
   ],
 })
 export class WorkerModule {}
