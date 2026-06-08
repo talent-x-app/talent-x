@@ -127,15 +127,26 @@ dans `packages/api-client` (`@talent-x/api-client`).
 
 - Toutes les requêtes passent par le mutator `customFetch`
   (`src/mutator/custom-fetch.ts`) : URL de base et en-têtes **configurables**, jamais
-  en dur. L'app configure le client au démarrage :
+  en dur. Le câblage concret (URL, auth/refresh) est fait par la couche données.
 
-  ```ts
-  import { configureApiClient } from '@talent-x/api-client';
-  configureApiClient({ baseUrl: process.env.EXPO_PUBLIC_API_URL ?? '' });
-  ```
+## Couche données mobile (TanStack Query + auth)
 
-  Le câblage TanStack Query + auth/refresh (en-têtes `Authorization`) est l'objet de
-  TLX-009.
+`apps/mobile/src/` câble le client API généré à l'app (TLX-009, cf. TX-ARCH-001 §6.1/§8) :
+
+- **`data/QueryProvider.tsx`** : fournit le cache [TanStack Query](https://tanstack.com/query)
+  (état serveur) et initialise la couche au montage (`data/setup.ts`).
+- **`auth/token-store.ts`** : jetons stockés dans le **trousseau OS** (expo-secure-store —
+  Keychain/Keystore), avec cache mémoire hydraté au démarrage.
+- **`auth/auth.ts`** : intercepteur d'auth — injecte `Authorization: Bearer <token>` et,
+  sur `401`, rafraîchit la session (refresh **rotatif à usage unique**, single-flight ;
+  `401/409` → déconnexion). Branché via le seam `refreshAuth`/`getHeaders` du client.
+
+**Configuration** : l'URL de l'API vient de la variable **publique** Expo
+`EXPO_PUBLIC_API_URL` (URL, pas un secret — cf. `apps/mobile/.env.example`) :
+
+```
+EXPO_PUBLIC_API_URL=http://localhost:3000/api/v1
+```
 
 ## Travailler avec Claude Code
 

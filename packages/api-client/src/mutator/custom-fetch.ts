@@ -22,6 +22,13 @@ export interface ApiClientConfig {
    * appel pour suivre la rotation des jetons. Branché en TLX-009.
    */
   getHeaders?: () => HeadersInit | Promise<HeadersInit>;
+  /**
+   * Tentative de rafraîchissement de la session sur réponse 401. Si elle
+   * renvoie `true`, la requête initiale est rejouée **une seule fois** avec des
+   * en-têtes frais. L'implémentation (rotation du refresh token, single-flight,
+   * déconnexion en cas d'échec) vit côté app — TLX-009. Ce module reste agnostique.
+   */
+  refreshAuth?: () => Promise<boolean>;
 }
 
 let config: ApiClientConfig = { baseUrl: '' };
@@ -49,16 +56,29 @@ async function parseBody(response: Response): Promise<unknown> {
   return contentType.includes('application/json') ? JSON.parse(text) : text;
 }
 
-export const customFetch = async <T>(url: string, init: RequestInit = {}): Promise<T> => {
+async function sendOnce(url: string, init: RequestInit): Promise<Response> {
   const dynamicHeaders = (await config.getHeaders?.()) ?? {};
-
-  const response = await fetch(joinUrl(config.baseUrl, url), {
+  return fetch(joinUrl(config.baseUrl, url), {
     ...init,
     headers: {
       ...dynamicHeaders,
       ...init.headers,
     },
   });
+}
+
+export const customFetch = async <T>(url: string, init: RequestInit = {}): Promise<T> => {
+  let response = await sendOnce(url, init);
+
+  // Intercepteur d'auth : un 401 déclenche un rafraîchissement (fourni par l'app)
+  // puis un unique rejeu avec les nouveaux en-têtes. `refreshAuth` est responsable
+  // d'être single-flight et de ne pas repasser par cet intercepteur (cf. TLX-009).
+  if (response.status === 401 && config.refreshAuth) {
+    const refreshed = await config.refreshAuth();
+    if (refreshed) {
+      response = await sendOnce(url, init);
+    }
+  }
 
   const data = await parseBody(response);
 

@@ -78,4 +78,49 @@ describe('customFetch (mutator du client API)', () => {
     expect(res.status).toBe(204);
     expect(res.data).toBeUndefined();
   });
+
+  it('rejoue une fois la requête après un 401 si le refresh réussit', async () => {
+    const refreshAuth = jest.fn().mockResolvedValue(true);
+    configureApiClient({ baseUrl: 'https://api.test', refreshAuth });
+    fetchMock
+      .mockResolvedValueOnce(
+        mockResponse('{"error":"UNAUTHORIZED"}', { status: 401, contentType: 'application/json' }),
+      )
+      .mockResolvedValueOnce(
+        mockResponse('{"id":"u1"}', { status: 200, contentType: 'application/json' }),
+      );
+
+    const res = await customFetch<{ status: number; data: { id: string } }>('/users/me');
+
+    expect(refreshAuth).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(res.status).toBe(200);
+    expect(res.data).toEqual({ id: 'u1' });
+  });
+
+  it('ne rejoue pas si le refresh échoue (renvoie le 401)', async () => {
+    const refreshAuth = jest.fn().mockResolvedValue(false);
+    configureApiClient({ baseUrl: 'https://api.test', refreshAuth });
+    fetchMock.mockResolvedValue(
+      mockResponse('{"error":"UNAUTHORIZED"}', { status: 401, contentType: 'application/json' }),
+    );
+
+    const res = await customFetch<{ status: number; data: unknown }>('/users/me');
+
+    expect(refreshAuth).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(res.status).toBe(401);
+  });
+
+  it('ne tente pas de refresh sans hook refreshAuth configuré', async () => {
+    configureApiClient({ baseUrl: 'https://api.test' });
+    fetchMock.mockResolvedValue(
+      mockResponse('{"error":"UNAUTHORIZED"}', { status: 401, contentType: 'application/json' }),
+    );
+
+    const res = await customFetch<{ status: number; data: unknown }>('/users/me');
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(res.status).toBe(401);
+  });
 });
