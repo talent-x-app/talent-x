@@ -26,6 +26,7 @@ Chaque décision suit le format **ADR** : Statut, Date, Contexte, Décision, Con
 | ADR-10 | Contrat JSONB versionné pour les exercices et les résultats | Accepté |
 | ADR-11 | Observabilité managée au MVP, internalisée ensuite | Accepté |
 | ADR-12 | Migrations de schéma rétrocompatibles (expand-contract), gatées dans le pipeline | Accepté |
+| ADR-13 | Jobs asynchrones RGPD : table `export_jobs` + split export/suppression (raffine ADR-09) | Accepté |
 
 ---
 
@@ -244,6 +245,20 @@ Chaque décision suit le format **ADR** : Statut, Date, Contexte, Décision, Con
 **Point ouvert.** Choix de l'outil de migration (Prisma ou TypeORM) à arrêter (cf. TX-OPS-004 §15). La décision ci-dessus est indépendante de l'outil retenu.
 
 **Alternatives considérées.** Migrations directes non rétrocompatibles — simples mais imposent une fenêtre d'indisponibilité et cassent le zéro-downtime ; migrations manuelles hors pipeline — non reproductibles et risquées.
+
+---
+
+## ADR-13 — Jobs asynchrones RGPD : table `export_jobs` + split export/suppression
+
+- **Statut :** Accepté · **Date :** 2026-06-08 · **Raffine :** ADR-09
+
+Premier ADR **externalisé** dans `docs/adr/` (emplacement conseillé en tête de ce journal).
+Texte complet : [`docs/adr/ADR-13-jobs-asynchrones-rgpd.md`](adr/ADR-13-jobs-asynchrones-rgpd.md).
+
+**En bref.** L'export RGPD devient un job asynchrone à **état persistant** (nouvelle table `export_jobs`,
+worker BullMQ/Redis, archive sur stockage objet OVH S3, URL présignée générée au GET). La **suppression**
+reste conforme à TX-DATA-006 §12 (soft-delete immédiat + purge planifiée, **sans** table de jobs). Débloque
+TLX-033 puis TLX-034 ; socle livré par TLX-035.
 
 ---
 

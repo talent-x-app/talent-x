@@ -44,6 +44,7 @@ model User {
   consents         Consent[]
   refreshTokens    RefreshToken[]
   deviceTokens     DeviceToken[]
+  exportJobs       ExportJob[]
   coachedGroups    Group[]             @relation("GroupCoach")
   groupMemberships GroupMember[]
   coachLinks       CoachAthleteLink[]  @relation("LinkCoach")
@@ -109,6 +110,27 @@ model DeviceToken {
 
   @@index([userId], map: "ix_device_user")
   @@map("device_tokens")
+}
+
+/// Job d'export RGPD asynchrone (ADR-13, TX-DATA-006 §12.1).
+/// État persistant du flux POST→jobId→GET ; l'URL de téléchargement n'est jamais
+/// stockée (générée au GET à partir de object_key).
+model ExportJob {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  /// 'pending' | 'processing' | 'ready' | 'failed' | 'expired' (CHECK en base)
+  status    String    @default("pending")
+  objectKey String?   @map("object_key")
+  expiresAt DateTime? @map("expires_at") @db.Timestamptz(6)
+  error     String?
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Unique PARTIEL « un seul export actif » (status pending|processing) → migration SQL.
+  @@index([userId, status], map: "ix_export_jobs_user_status")
+  @@map("export_jobs")
 }
 
 // ──────────────────────────── Domaine d'entraînement ───────────────────────────
