@@ -36,6 +36,10 @@ refresh rotatif), son rôle/ownership est appliqué, et le socle RGPD
   d'ownership/appartenance (`OwnershipService`, TLX-024) **et consentements**
   (`ConsentsService` append-only, TLX-031) validés en unitaire seulement
   (Prisma mocké) — validation en base réelle (Docker) suivie là-bas.
+- **TLX-81** (nouveau) : pendant **frontend** de TLX-79. Les écrans onboarding
+  (login O-02, inscription O-03/O-04, consentement O-05) et le flux
+  `register → consent → tabs` sont validés en Jest seulement (client/router/
+  session mockés) — jamais exécutés sur app Expo réelle contre une API live.
 - **Autorisation prête à câbler** : `@Roles('coach'|'athlete')` appliqué
   globalement ; les services métier injectent `OwnershipService` (appartenance/
   propriété) et `ConsentGate` (`assertActiveConsent` → 403 `CONSENT_REQUIRED`).
