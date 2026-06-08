@@ -54,5 +54,13 @@ jobs:
       - name: Typecheck
         run: pnpm -r typecheck
 
-      - name: Tests
+      # Tests unitaires de tous les paquets (api, mobile, design-tokens).
+      - name: Tests unitaires
         run: pnpm -r --if-present test
+
+      # Tests e2e/intégration API (Jest + Supertest). Config dédiée, base factice
+      # (cf. DATABASE_URL ci-dessus) : valide les comportements transverses sans
+      # base réelle. Les e2e mobile (Maestro) nécessitent un émulateur et sont
+      # joués en staging/manuellement (cf. README §Tests, TX-OPS-004 §6).
+      - name: Tests e2e API
+        run: pnpm --filter @talent-x/api test:e2e

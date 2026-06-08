@@ -69,7 +69,48 @@ pnpm -r build
 ```
 
 La CI (GitHub Actions, `.github/workflows/ci.yml`) rejoue ces contrôles sur chaque
-push `main` et chaque pull request : **lint → format → build → typecheck → tests**.
+push `main` et chaque pull request : **lint → format → build → typecheck → tests
+unitaires → e2e API**.
+
+## Tests
+
+Harnais aligné sur la stratégie de test (`docs/Talent-X_04_Deploiement_exploitation_v2.md` §6).
+
+| Niveau                | Outils                             | Emplacement                            |
+| --------------------- | ---------------------------------- | -------------------------------------- |
+| Unitaire backend      | Jest + ts-jest                     | `apps/api/src/**/*.spec.ts`            |
+| Intégration / e2e API | Jest + Supertest                   | `apps/api/test/*.e2e-spec.ts`          |
+| Unitaire mobile       | Jest (jest-expo) + Testing Library | `apps/mobile/**/*.test.tsx`            |
+| Design system         | Jest + ts-jest                     | `packages/design-tokens/src/*.test.ts` |
+| E2E mobile            | Maestro                            | `apps/mobile/.maestro/*.yaml`          |
+
+```
+pnpm -r --if-present test                 # tous les tests unitaires (api, mobile, design-tokens)
+pnpm --filter @talent-x/api test          # unitaires backend
+pnpm --filter @talent-x/api test:e2e      # e2e API (Supertest, base factice)
+pnpm --filter @talent-x/api test:cov      # + couverture
+pnpm --filter @talent-x/mobile test       # unitaires mobile
+```
+
+Les tests unitaires et e2e API ne requièrent **aucune base réelle** : la validation
+d'environnement passe avec une base factice et les tests vérifient le comportement
+« base indisponible » (readiness → 503), comme en CI.
+
+### E2E mobile (Maestro)
+
+Les parcours critiques mobiles sont décrits en flux [Maestro](https://maestro.mobile.dev)
+(`apps/mobile/.maestro/`). Ils nécessitent un **simulateur/appareil** avec l'app
+installée — non joués en CI (cf. §6, joués en staging ou manuellement) :
+
+```
+curl -Ls "https://get.maestro.mobile.dev" | bash    # installe Maestro (une fois)
+pnpm --filter @talent-x/mobile start                 # démarre l'app (Expo Go / dev build)
+maestro test apps/mobile/.maestro/smoke.yaml         # joue le smoke test
+```
+
+> `appId` dans les flux cible Expo Go (`host.exp.Exponent`) ; en build native/EAS,
+> le remplacer par l'identifiant de `apps/mobile/app.json` (`ios.bundleIdentifier` /
+> `android.package`).
 
 ## Travailler avec Claude Code
 

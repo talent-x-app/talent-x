@@ -1,0 +1,13 @@
+# Flux Maestro — smoke test du démarrage (TLX-015).
+# Parcours critique minimal : l'app démarre et affiche l'écran Fondations.
+# Lancer avec : maestro test apps/mobile/.maestro/smoke.yaml
+# (l'app doit être installée sur un simulateur/appareil — cf. README §Tests).
+#
+# appId = bundle identifier de la build de développement Expo. `host.exp.Exponent`
+# cible le client Expo Go (dev). En build native/EAS, remplacer par l'identifiant
+# défini dans app.json (ios.bundleIdentifier / android.package).
+appId: host.exp.Exponent
+---
+- launchApp
+- assertVisible: 'Talent-X'
+- assertVisible: 'Fondations — design system'
