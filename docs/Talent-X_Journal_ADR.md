@@ -31,6 +31,7 @@ Chaque décision suit le format **ADR** : Statut, Date, Contexte, Décision, Con
 | ADR-15 | Manifeste d'effacement / anonymisation RGPD (complète ADR-05/13) | Accepté |
 | ADR-16 | Révocation du code d'invitation de groupe : colonne `invite_code_revoked_at` (complète TX-DATA-006 §5.1) | Accepté |
 | ADR-17 | Contrat explicite des dérivations de pilotage coach (`Dashboard`/`Stats`) (complète OpenAPI · Carte C-01 §8) | Accepté |
+| ADR-18 | Schéma `exercises` v2 : blocs typés par discipline, union discriminée (raffine ADR-10 · complète TX-DATA-006 §9.1) | Proposé |
 
 ---
 
@@ -292,6 +293,23 @@ statut par athlète (`up_to_date`/`late`/`pending_review`), compteurs, état `co
 agrégats (`toReview`, `today`, alertes) et métriques athlète typées. Permet un client
 `@talent-x/api-client` **typé de bout en bout** pour le tableau de bord C-01 (TLX-081).
 Rétrocompatible (champs ajoutés, aucun retiré) ; OpenAPI ↔ DTOs Nest alignés.
+
+---
+
+## ADR-18 — Schéma `exercises` v2 : blocs typés par discipline (union discriminée)
+
+Décision complète : [`docs/adr/ADR-18-schema-exercises-v2-blocs-types.md`](adr/ADR-18-schema-exercises-v2-blocs-types.md).
+
+**Statut : Proposé** (à valider avant de coder TLX-053→061).
+
+**En bref.** Le contrat `exercises` v1 (TX-DATA-006 §9.1, ADR-10) décrit des blocs
+**génériques** sans `type` ; les éditeurs typés C-05 (haies, sauts, intervalles…)
+exigent des champs absents, rejetés par le backend (`forbidNonWhitelisted` → 400).
+Proposition : **v2 en union discriminée additive** — champ `type` (`BlockType`), base
+commune = champs v1, objet `params` validé selon `type` pour les champs propres à la
+discipline, `schemaVersion: 2`. **Rétro-compatible** (un bloc sans `type` = `custom`) :
+l'éditeur générique livré par TLX-052 devient une variante, **zéro rework**. Débloque le
+pré-remplissage A-04 (TLX-062) que le texte libre `notes` ne permettait pas.
 
 ---
 

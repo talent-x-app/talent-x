@@ -50,6 +50,9 @@ export default function CoachLayout() {
       <Tabs.Screen name="athlete/[id]" options={{ href: null }} />
       {/* Revue de perf (C-08) : routable mais masquée du tab bar. */}
       <Tabs.Screen name="review/[id]" options={{ href: null }} />
+      {/* Constructeur de séance (C-05) : routable mais masqué du tab bar. */}
+      <Tabs.Screen name="session/new" options={{ href: null }} />
+      <Tabs.Screen name="session/[id]" options={{ href: null }} />
     </Tabs>
   );
 }

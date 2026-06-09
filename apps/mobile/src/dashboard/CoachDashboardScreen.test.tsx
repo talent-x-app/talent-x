@@ -101,6 +101,17 @@ describe('CoachDashboardScreen (TLX-081)', () => {
     );
   });
 
+  it('ouvre le constructeur de séance (C-05) au tap sur « Nouvelle séance »', async () => {
+    mockGetCoachDashboard.mockResolvedValue({ status: 200, data: DASHBOARD });
+    render(<CoachDashboardScreen />, { wrapper: Wrapper });
+
+    await waitFor(() =>
+      expect(screen.getByTestId('coach-dashboard-new-session')).toBeOnTheScreen(),
+    );
+    fireEvent.press(screen.getByTestId('coach-dashboard-new-session'));
+    expect(mockPush).toHaveBeenCalledWith('/(coach)/session/new');
+  });
+
   it('affiche le bandeau d’alertes quand retards ou consentements manquants', async () => {
     mockGetCoachDashboard.mockResolvedValue({ status: 200, data: DASHBOARD });
     render(<CoachDashboardScreen />, { wrapper: Wrapper });

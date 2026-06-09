@@ -1,6 +1,7 @@
 import { getCoachDashboard, type Dashboard } from '@talent-x/api-client';
 import { useTheme } from '@talent-x/design-tokens';
 import { useQuery } from '@tanstack/react-query';
+import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import {
   ActivityIndicator,
@@ -108,6 +109,16 @@ export function CoachDashboardScreen() {
           {summary.athleteCount > 1 ? 's' : ''}
         </Text>
       </View>
+
+      {/* Entrée vers le constructeur de séance (C-05 — TLX-052). */}
+      <Button
+        testID="coach-dashboard-new-session"
+        fullWidth
+        leftIcon={<Feather name="plus" size={18} color={colors.textOnAccent} />}
+        onPress={() => router.push('/(coach)/session/new')}
+      >
+        Nouvelle séance
+      </Button>
 
       {/* KPIs (Carte C-01 §4). */}
       <View style={{ flexDirection: 'row', gap: spacing[3] }}>
