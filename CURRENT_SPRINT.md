@@ -9,9 +9,9 @@ de débloquer les écrans coach C-01/C-02/C-03.
 
 ## À faire (frontend)
 
-- **TLX-053→061** Sélecteur de type de bloc + 8 éditeurs typés par discipline
-  (C-05 §6). **Débloqués** : ADR-18 accepté + cadre contrat v2 livré (`type`/`params`).
-  Chaque éditeur fixe la forme de son `params` à son tour.
+- **TLX-055→061** 7 éditeurs typés restants (sprints, course, haies, sauts, lancers,
+  gainage…). Pattern établi par TLX-054 : ajouter une entrée `BLOCK_TYPE_SPECS` avec ses
+  `paramFields`. Chaque éditeur fixe la forme de son `params`.
 - **TLX-062** Cibles de bloc → pré-remplissage saisie perf (A-04) — débloqué par le v2.
 - **TLX-063** Écran Assignation (C-06) + Confirmation (C-07) — débloqué par TLX-052.
 - **TLX-082/083** Sections « À revoir » / « Aujourd'hui » (enfants de C-01) — listes
@@ -64,6 +64,18 @@ Total : **+52 tests API** (168 → 220). Tout poussé sur `main`.
   régénéré ; frontend tague en v2. **+7 tests** (3 service + 4 ValidationPipe : `type`/
   `params` acceptés, type hors enum / champ inconnu rejetés). **API 241/241**, mobile
   **127/127**. `params` par discipline = fixé par chaque éditeur (TLX-054→061).
+
+## Terminés ce sprint — C-05 Blocs typés : sélecteur + Intervalles (TLX-053/054)
+
+- **TLX-053** (sélecteur de type) + **TLX-054** (éditeur Intervalles) — premier usage du
+  cadre v2. Registre extensible `BLOCK_TYPE_SPECS` : chips des 11 `BlockType` + éditeur de
+  `params` rendu selon le type. `interval` = `{ reps, workSeconds, recoverySeconds }`.
+  Bloc `custom` byte-identique au v1. +3 tests ; **mobile 130/130** ; lint/typecheck clean.
+  Commit `f880c42`. Linear **TLX-38 / TLX-39 Done**.
+- **Validé en réel** (Expo web + API v2 redémarrée sur :3000) : type Intervalles →
+  reps 6 / 75 s / 120 s → **`POST /sessions` 201**, persisté `{ type:"interval",
+params:{reps:6, workSeconds:75, recoverySeconds:120} }`, `schemaVersion 2`. Round-trip
+  UI → client orval → backend v2 → DB confirmé.
 
 ## Terminés ce sprint — A-09 Fil de feedback athlète (TLX-092)
 
@@ -151,8 +163,7 @@ athlete-session-ui.tsx`. 10 tests ; **suite mobile 108/108**. **Validé en réel
 
 ## Prochaine étape (proposition)
 
-1. **TLX-053** (sélecteur de type de bloc) + premiers éditeurs typés par priorité
-   (Urgent : intervalles/sprints) — chaque éditeur ajoute sa section `params` sur le
-   cadre v2 désormais en place.
+1. **TLX-055/056** (sprints, course/tempo) puis le reste des éditeurs typés — pattern
+   `BLOCK_TYPE_SPECS` établi par TLX-054, à répliquer par discipline.
 2. **TLX-063** (Assignation C-06 + Confirmation C-07) — débloqué par TLX-052 : assigner
    une séance créée à un·e athlète, refermant le cycle création → affectation côté coach.
