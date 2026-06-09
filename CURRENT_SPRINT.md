@@ -164,6 +164,33 @@ rythme 3`, jumps `élan 30m · 6 complets · 40 contacts`, throws `7.26 kg · 10
 - **Vérif** : tests rendant le **vrai** `CoachDashboardScreen` (sections À revoir/Aujourd'hui,
   états positif/vide) + helpers unitaires. Live e2e non rejoué (API locale non démarrée).
 
+## Validation réelle groupée — cycle coach↔athlète complet (2026-06-09)
+
+**Parcours intégral rejoué en réel** (Docker Postgres :5433 + API `nest start` :3000 + Expo web),
+comptes neufs créés via API (coach Karim Diallo / athlète Awa Traoré, groupe « Sprint élite »,
+consentements accordés) :
+
+1. **Coach** : login → dashboard **« Tout est à jour »** (TLX-085) avec 1 athlète.
+2. **C-05** : « Nouvelle séance » → bloc typé **Sprints** (reps 8 / 60 m / récup 180 s,
+   TLX-055) + statut Publiée → `POST /sessions` 201 → **bascule auto sur `/assign/:id`**
+   (TLX-063, câblage création→assignation).
+3. **C-06/C-07** : sélection d'Awa + échéance du jour → `POST /sessions/:id/assign` 201 →
+   **écran de confirmation** (récap athlète) → retour dashboard.
+4. **C-01** : KPI Aujourd'hui **1** + section **« Aujourd'hui »** (« Vitesse — 60m départs ·
+   Awa Traoré · À faire », TLX-083) + état positif **« Rien à revoir »** (TLX-082) —
+   KPIs et listes cohérents.
+5. **Athlète** : login Awa → séance « À faire » → détail : **cible typée « 8 × 60m · récup
+   180s » dérivée des params du coach (TLX-062 round-trip complet)** → exercice coché +
+   notes → perf soumise 201 → affectation « Réalisée ».
+6. **Coach** : KPI À revoir **1**, section « À revoir » → **« Awa Traoré · 1 perf à revoir »**
+   cliquable → détail C-03 (stats 1/1, 100 %, RPE 7) → revue **C-08** (RPE, exercices, ressenti
+   de l'athlète) → **feedback posté** (fil horodaté).
+7. **Retour « Tout est à jour »** — la boucle création → assignation → exécution → revue est
+   close, KPIs 0/0, Awa « À jour ».
+
+Non rejoué en réel : lignes d'alertes (retard / consentement manquant, TLX-084) — nécessitent
+des données en retard ; couvertes par tests composant sur le même chemin de données.
+
 ## Terminés ce sprint — C-01 Alertes détaillées + états (TLX-084/085) — **clôt C-01**
 
 - **TLX-084 « Alertes & signaux »** (Carte C-01 §5) — le bandeau agrégé devient une **section
