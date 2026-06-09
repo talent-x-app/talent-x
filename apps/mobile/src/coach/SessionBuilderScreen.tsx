@@ -24,6 +24,7 @@ import {
   makeEmptyBlock,
   type EditableBlock,
 } from './session-builder-ui';
+import { assignSessionHref } from './navigation';
 
 /** Version courante du contrat JSONB des séances (schéma exercises v2, TX-DATA-006 · ADR-18). */
 const EXERCISES_SCHEMA_VERSION = 2;
@@ -101,14 +102,17 @@ export function SessionBuilderScreen({ sessionId }: { sessionId?: string }) {
       if (response.status === 201) return response.data;
       throw response;
     },
-    onSuccess: () => {
+    onSuccess: (session) => {
       void queryClient.invalidateQueries({ queryKey: ['sessions'] });
       if (isEdit) void queryClient.invalidateQueries({ queryKey: ['session', sessionId] });
       toast.show({
         title: isEdit ? 'Séance mise à jour' : 'Séance créée',
         variant: 'success',
       });
-      router.back();
+      // Création : enchaîne sur l'assignation (C-06) — referme le cycle création → affectation
+      // (la séance n'est pas listée ailleurs). `replace` pour que « retour » ramène au dashboard.
+      if (isEdit) router.back();
+      else router.replace(assignSessionHref(session.id, session.title));
     },
     onError: () => {
       toast.show({ title: "Échec de l'enregistrement", variant: 'danger' });
@@ -347,6 +351,20 @@ export function SessionBuilderScreen({ sessionId }: { sessionId?: string }) {
       >
         {isEdit ? 'Enregistrer les modifications' : 'Créer la séance'}
       </Button>
+
+      {/* Mode édition : assigner la séance existante à des athlètes (C-06, TLX-063). */}
+      {isEdit ? (
+        <Button
+          testID="session-assign"
+          variant="secondary"
+          size="lg"
+          fullWidth
+          leftIcon={<Feather name="send" size={18} color={colors.textPrimary} />}
+          onPress={() => router.push(assignSessionHref(sessionId as string, title))}
+        >
+          Assigner à des athlètes
+        </Button>
+      ) : null}
     </ScrollView>
   );
 }

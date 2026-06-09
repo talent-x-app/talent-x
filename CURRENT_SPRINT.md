@@ -10,7 +10,6 @@ de débloquer les écrans coach C-01/C-02/C-03.
 ## À faire (frontend)
 
 - _(éditeurs typés terminés — TLX-054→061 livrés ↓)_
-- **TLX-063** Écran Assignation (C-06) + Confirmation (C-07) — débloqué par TLX-052.
 - **TLX-082/083** Sections « À revoir » / « Aujourd'hui » (enfants de C-01) — listes
   détaillées au-delà des KPIs livrés.
 - **TLX-084/085** Alertes détaillées & états première utilisation (enfants de C-01).
@@ -126,6 +125,24 @@ rythme 3`, jumps `élan 30m · 6 complets · 40 contacts`, throws `7.26 kg · 10
   (limité à sets/reps/durée) par le formateur partagé : l'athlète voit la cible **de chaque
   discipline** en regard de l'exercice. +15 tests (14 formateur exhaustif + 1 rendu écran sur bloc
   typé) ; **mobile 152/152** ; lint/typecheck clean. Linear **TLX-47**.
+
+## Terminés ce sprint — C-06/C-07 Assignation + Confirmation (TLX-063)
+
+- **(UI) Écran `CoachAssignScreen`** (`src/coach/CoachAssignScreen.tsx`) — route empilée
+  `(coach)/assign/[id]` : sélection multi-athlètes parmi les athlètes liés
+  (`GET /coach/dashboard`, **cache partagé** avec C-01/C-02), échéance optionnelle, envoi
+  `POST /sessions/:id/assign` (TLX-051) avec en-tête `Idempotency-Key` (clé stable = séance +
+  sélection triée). **Confirmation (C-07)** au succès : récap des athlètes affectés + « Terminé ».
+  États chargement / erreur / **vide** (aucun athlète lié). Helper de nav `assignSessionHref`.
+- **Câblage création → assignation** — le constructeur (C-05) **bascule** sur l'écran d'assignation
+  après création d'une séance (`router.replace`, la séance n'étant listée nulle part ailleurs) ;
+  en mode édition, bouton « Assigner à des athlètes ». **Referme le cycle création → affectation
+  côté coach.** +7 tests écran + builder adapté ; **mobile 159/159** ; lint/typecheck clean
+  (types de routes expo-router régénérés). Linear **TLX-48**.
+- **Vérif** : tests rendant le **vrai** `CoachAssignScreen` (sélection, `Idempotency-Key`, `dueDate`,
+  confirmation, états vide/erreur) + nav création→assign assertée dans le test builder ; smoke live
+  (Expo web) de la route `/assign/[id]` (montage écran + titre de séance via param). E2e complet
+  non rejoué (API locale non démarrée) — l'endpoint `assign` était déjà validé réel (TLX-051 12/12).
 
 ## Terminés ce sprint — A-09 Fil de feedback athlète (TLX-092)
 

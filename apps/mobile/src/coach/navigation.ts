@@ -17,3 +17,14 @@ export function athleteDetailHref(athlete: DashboardAthlete) {
     },
   };
 }
+
+/**
+ * Cible de navigation vers l'écran d'assignation (C-06/C-07, TLX-063). Le titre de la séance
+ * est passé en paramètre pour un rendu immédiat (l'écran ne recharge pas la séance).
+ */
+export function assignSessionHref(sessionId: string, sessionTitle?: string) {
+  return {
+    pathname: '/(coach)/assign/[id]' as const,
+    params: { id: sessionId, title: sessionTitle ?? '' },
+  };
+}

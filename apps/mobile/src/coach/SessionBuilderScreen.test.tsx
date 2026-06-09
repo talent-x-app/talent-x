@@ -7,6 +7,8 @@ const mockCreateSession = jest.fn();
 const mockGetSession = jest.fn();
 const mockUpdateSession = jest.fn();
 const mockBack = jest.fn();
+const mockReplace = jest.fn();
+const mockPush = jest.fn();
 const mockShow = jest.fn();
 
 jest.mock('@talent-x/api-client', () => ({
@@ -15,6 +17,8 @@ jest.mock('@talent-x/api-client', () => ({
   updateSession: (...a: unknown[]) => mockUpdateSession(...a),
   SessionStatus: { draft: 'draft', published: 'published', archived: 'archived' },
   LoadUnit: { kg: 'kg', lb: 'lb', percent_1rm: 'percent_1rm', bodyweight: 'bodyweight' },
+  // Importé transitivement via navigation.ts → athlete-ui (helper assignSessionHref).
+  AthleteStatus: { up_to_date: 'up_to_date', late: 'late', pending_review: 'pending_review' },
   BlockType: {
     strength: 'strength',
     interval: 'interval',
@@ -30,7 +34,7 @@ jest.mock('@talent-x/api-client', () => ({
   },
 }));
 jest.mock('expo-router', () => ({
-  useRouter: () => ({ back: mockBack, push: jest.fn() }),
+  useRouter: () => ({ back: mockBack, replace: mockReplace, push: mockPush }),
 }));
 jest.mock('../feedback', () => ({ useToast: () => ({ show: mockShow, dismiss: jest.fn() }) }));
 
@@ -114,7 +118,14 @@ describe('SessionBuilderScreen (TLX-052 — C-05)', () => {
     await waitFor(() =>
       expect(mockShow).toHaveBeenCalledWith(expect.objectContaining({ variant: 'success' })),
     );
-    expect(mockBack).toHaveBeenCalled();
+    // Création → bascule sur l'écran d'assignation de la séance créée (C-06, TLX-063).
+    expect(mockReplace).toHaveBeenCalledWith(
+      expect.objectContaining({
+        pathname: '/(coach)/assign/[id]',
+        params: expect.objectContaining({ id: 's-new' }),
+      }),
+    );
+    expect(mockBack).not.toHaveBeenCalled();
   });
 
   it("n'attache pas de charge si l'unité n'est pas choisie", async () => {
