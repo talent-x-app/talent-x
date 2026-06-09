@@ -9,6 +9,7 @@ import { SessionUpdateDto } from './dto/session-update.dto';
 import { SessionQueryDto } from './dto/session-query.dto';
 import { SessionDto, SessionPageDto } from './dto/session.dto';
 import type { ExercisesDocDto } from './dto/exercises.dto';
+import { toSessionDto } from './session.mapper';
 
 const SESSION_SORTABLE = ['createdAt', 'updatedAt', 'scheduledDate', 'title'] as const;
 
@@ -163,24 +164,4 @@ function definedScalars(dto: SessionUpdateDto): Prisma.SessionUpdateInput {
   if (dto.description !== undefined) out.description = dto.description;
   if (dto.status !== undefined) out.status = dto.status;
   return out;
-}
-
-function toSessionDto(session: Session): SessionDto {
-  const exercises = (session.exercises as { schemaVersion?: number; items?: unknown[] }) ?? {};
-  return {
-    id: session.id,
-    title: session.title,
-    description: session.description ?? undefined,
-    scheduledDate: session.scheduledDate
-      ? session.scheduledDate.toISOString().slice(0, 10)
-      : undefined,
-    status: session.status as SessionStatus,
-    coachId: session.coachId,
-    exercises: {
-      schemaVersion: exercises.schemaVersion ?? session.exercisesSchemaVersion,
-      items: (exercises.items ?? []) as ExercisesDocDto['items'],
-    },
-    createdAt: session.createdAt.toISOString(),
-    updatedAt: session.updatedAt.toISOString(),
-  };
 }

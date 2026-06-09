@@ -1,19 +1,23 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
   Get,
   HttpCode,
-  NotImplementedException,
+  Headers,
   Param,
   ParseUUIDPipe,
   Post,
   Put,
   Query,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiHeader, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { CurrentUser, type AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
+import { AssignmentsService } from '../assignments/assignments.service';
+import { AssignRequestDto } from '../assignments/dto/assign-request.dto';
+import { AssignmentListDto } from '../assignments/dto/assignment.dto';
 import { SessionCreateDto } from './dto/session-create.dto';
 import { SessionUpdateDto } from './dto/session-update.dto';
 import { SessionQueryDto } from './dto/session-query.dto';
@@ -29,7 +33,10 @@ import { SessionsService } from './sessions.service';
 @ApiBearerAuth()
 @Controller('sessions')
 export class SessionsController {
-  constructor(private readonly sessions: SessionsService) {}
+  constructor(
+    private readonly sessions: SessionsService,
+    private readonly assignments: AssignmentsService,
+  ) {}
 
   @Post()
   @Roles('coach')
@@ -116,9 +123,21 @@ export class SessionsController {
 
   @Post(':id/assign')
   @Roles('coach')
+  @HttpCode(201)
   @ApiOperation({ summary: 'Affecter une séance à des athlètes', operationId: 'assignSession' })
-  assignSession(@Param('id') _id: string): never {
-    // Livré par TLX-051 (affectations).
-    throw new NotImplementedException('assignSession');
+  @ApiHeader({ name: 'Idempotency-Key', required: true, description: "Clé d'idempotence client." })
+  @ApiResponse({ status: 201, description: 'Affectations créées.', type: AssignmentListDto })
+  assignSession(
+    @CurrentUser('id') coachId: string,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: AssignRequestDto,
+    @Headers('Idempotency-Key') idempotencyKey?: string,
+  ): Promise<AssignmentListDto> {
+    // Contrat : en-tête requis (côté client). L'idempotence effective est assurée par
+    // l'index unique partiel (séance, athlète) au niveau du service.
+    if (!idempotencyKey?.trim()) {
+      throw new BadRequestException('En-tête Idempotency-Key requis.');
+    }
+    return this.assignments.assignSession(coachId, id, dto);
   }
 }
