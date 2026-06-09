@@ -25,6 +25,7 @@ import {
 import { Button, Card, Slider } from '../components/ui';
 import { useToast } from '../feedback';
 import { FeedbackThread } from '../comments/FeedbackThread';
+import { formatExerciseTarget } from '../sessions/exercise-target';
 import { formatSessionDate, sessionTitle } from './athlete-session-ui';
 
 /** Réponse 403 dont le code métier indique un consentement manquant. */
@@ -294,13 +295,14 @@ export function SessionDetailScreen() {
                         {ex.name}
                       </Text>
                       <Text
+                        testID={`exercise-${i}-target`}
                         style={{
                           color: colors.textMuted,
                           fontFamily: typography.fontFamily.regular,
                           fontSize: typography.bodySm.fontSize,
                         }}
                       >
-                        {exerciseTarget(ex)}
+                        {formatExerciseTarget(ex)}
                       </Text>
                     </Pressable>
                   );
@@ -390,15 +392,6 @@ export function SessionDetailScreen() {
       )}
     </ScrollView>
   );
-}
-
-/** Cible lisible d'un exercice (séries × reps, durée, charge) pour l'affichage. */
-function exerciseTarget(ex: { sets?: number; reps?: number; durationSeconds?: number }): string {
-  if (ex.sets && ex.reps) return `${ex.sets} × ${ex.reps}`;
-  if (ex.sets && ex.durationSeconds) return `${ex.sets} × ${ex.durationSeconds}s`;
-  if (ex.durationSeconds) return `${ex.durationSeconds}s`;
-  if (ex.reps) return `${ex.reps} reps`;
-  return '—';
 }
 
 function SectionTitle({ children }: { children: ReactNode }) {

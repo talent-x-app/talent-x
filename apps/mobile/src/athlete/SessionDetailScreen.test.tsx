@@ -26,6 +26,20 @@ jest.mock('@talent-x/api-client', () => ({
     skipped: 'skipped',
   },
   AthleteStatus: { up_to_date: 'up_to_date', late: 'late', pending_review: 'pending_review' },
+  BlockType: {
+    strength: 'strength',
+    interval: 'interval',
+    sprint: 'sprint',
+    endurance: 'endurance',
+    hurdles: 'hurdles',
+    jumps: 'jumps',
+    throws: 'throws',
+    core: 'core',
+    warmup: 'warmup',
+    cooldown: 'cooldown',
+    custom: 'custom',
+  },
+  LoadUnit: { kg: 'kg', lb: 'lb', percent_1rm: 'percent_1rm', bodyweight: 'bodyweight' },
 }));
 jest.mock('expo-router', () => ({
   useRouter: () => ({ back: mockBack }),
@@ -84,6 +98,41 @@ describe('SessionDetailScreen (TLX-065/071 — A-03/A-04)', () => {
     expect(screen.getByTestId('exercise-0')).toHaveTextContent(/Développé couché/);
     expect(screen.getByTestId('exercise-1')).toHaveTextContent(/Tractions/);
     expect(screen.getByTestId('submit-performance')).toHaveTextContent('Enregistrer ma perf');
+  });
+
+  it('affiche la cible dérivée des params typés d’un bloc (TLX-062)', async () => {
+    mockGetAssignment.mockResolvedValue({
+      status: 200,
+      data: {
+        ...ASSIGNMENT,
+        session: {
+          ...ASSIGNMENT.session,
+          exercises: {
+            schemaVersion: 2,
+            items: [
+              {
+                name: '6 × 400m',
+                order: 0,
+                type: 'interval',
+                params: { reps: 6, workSeconds: 90, recoverySeconds: 120 },
+              },
+              {
+                name: 'Gainage',
+                order: 1,
+                type: 'core',
+                params: { rounds: 3, stationSeconds: 45 },
+              },
+            ],
+          },
+        },
+      },
+    });
+    mockGetPerformance.mockResolvedValue({ status: 404, data: { error: 'NOT_FOUND' } });
+    render(<SessionDetailScreen />, { wrapper: Wrapper });
+
+    await waitFor(() => expect(screen.getByTestId('exercise-0-target')).toBeOnTheScreen());
+    expect(screen.getByTestId('exercise-0-target')).toHaveTextContent('6 × 90s · récup 120s');
+    expect(screen.getByTestId('exercise-1-target')).toHaveTextContent('3 tours × 45s');
   });
 
   it('soumet la perf avec en-tête Idempotency-Key et résultats par exercice', async () => {

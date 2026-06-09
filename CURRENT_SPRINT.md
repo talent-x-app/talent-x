@@ -10,7 +10,6 @@ de débloquer les écrans coach C-01/C-02/C-03.
 ## À faire (frontend)
 
 - _(éditeurs typés terminés — TLX-054→061 livrés ↓)_
-- **TLX-062** Cibles de bloc → pré-remplissage saisie perf (A-04) — débloqué par le v2.
 - **TLX-063** Écran Assignation (C-06) + Confirmation (C-07) — débloqué par TLX-052.
 - **TLX-082/083** Sections « À revoir » / « Aujourd'hui » (enfants de C-01) — listes
   détaillées au-delà des KPIs livrés.
@@ -112,6 +111,21 @@ plyoContacts }` (élan décimal). +2 tests (payload v2 sérialisé asserté, don
 - **Validé en réel** (Expo web, HMR) : « Lancers » → `implementKg`/`techniqueThrows`/`fullThrows` ;
   « Musculation » → **aucune section params** (base v1) ; « Gainage / Circuit » → `rounds`/
   `stationSeconds`. **Les 11 `BlockType` ont désormais leur éditeur.**
+
+## Terminés ce sprint — C-05 Cibles de bloc → saisie de perf (TLX-062)
+
+- **Module partagé `src/sessions/exercise-target.ts`** — `formatExerciseTarget(ex)` traduit les
+  `params` typés (TLX-054→061) en **cible lisible** côté athlète : interval `6 × 90s · récup 120s`,
+  sprint `8 × 60m · récup 180s`, endurance `5000m · 5:00/km · D+120m`, hurdles `h 84cm · esp. 8.5m ·
+rythme 3`, jumps `élan 30m · 6 complets · 40 contacts`, throws `7.26 kg · 10 tech + 6 complets`,
+  circuit `3 tours × 45s`, strength/custom = base v1 (`5 × 3 · 80 kg`). Lecture **défensive** du
+  conteneur libre `params` (param manquant/non numérique → ignoré, repli sur la base, jamais
+  d'exception). Concrétise l'ADR-18 §« Cibles → pré-remplissage » ; **aucun changement backend ni
+  de contrat** (les params round-trip déjà, `results` v1 inchangé).
+- **(UI) Saisie de perf (A-04)** — `SessionDetailScreen` remplace son `exerciseTarget` local
+  (limité à sets/reps/durée) par le formateur partagé : l'athlète voit la cible **de chaque
+  discipline** en regard de l'exercice. +15 tests (14 formateur exhaustif + 1 rendu écran sur bloc
+  typé) ; **mobile 152/152** ; lint/typecheck clean. Linear **TLX-47**.
 
 ## Terminés ce sprint — A-09 Fil de feedback athlète (TLX-092)
 
