@@ -142,6 +142,9 @@ model Group {
   name        String
   description String?
   inviteCode  String    @unique @map("invite_code")
+  /// Horodatage de révocation du code (ADR-16). NULL = code actif ; sinon le
+  /// code reste stocké (NOT NULL préservé) mais l'API le masque et refuse le join.
+  inviteCodeRevokedAt DateTime? @map("invite_code_revoked_at") @db.Timestamptz(6)
   createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt   DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(6)

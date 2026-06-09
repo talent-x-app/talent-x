@@ -8,9 +8,6 @@ Milestone Linear : **Profils & Groupes** (suite de Auth & RGPD, 100 % clos).
 
 ## À faire
 
-- **TLX-041** (API) `GET/POST /groups` + `GET/PUT /groups/{id}` + gestion des membres
-  (`PUT/DELETE /groups/{id}/members/{athleteId}`). RBAC coach + ownership du groupe,
-  consentement `coach_access` pour lier un athlète. — 5 pts
 - **TLX-042** (UI) Écran Profil athlète (A-10) — lecture/édition via `/users/me`.
 - **TLX-043** (UI) Écran Profil coach (C-11) — lecture/édition via `/users/me`.
 - **TLX-044** (UI) Écran Athlètes (C-02) — liste des athlètes du coach.
@@ -22,6 +19,20 @@ Milestone Linear : **Profils & Groupes** (suite de Auth & RGPD, 100 % clos).
 
 ## Terminés ce sprint
 
+- **TLX-041** (API) Groupes + membres — **10 endpoints livrés** conformes au contrat :
+  `createGroup` (201, code d'invitation CSPRNG unique), `listGroups`/`listGroupMembers`
+  (paginés + tri), `getGroup`/`updateGroup` (PATCH), `deleteGroup` (soft + clôture
+  appartenances/liens), `removeGroupMember`, `manageInviteCode` (regenerate/revoke),
+  `joinGroup` (200, code valide, idempotent), `leaveGroup` (204). RBAC par endpoint
+  (coach hors join/leave ; athlète pour join/leave) + ownership via `OwnershipService`.
+  **Lien `coach_athlete_links`** géré au niveau coach↔athlète (source `group`) : créé
+  au 1ᵉʳ groupe, terminé au départ du **dernier** groupe du coach. **ADR-16** acté
+  (révocation du code via `invite_code_revoked_at`, `invite_code` reste NOT NULL ;
+  migration `20260609130000_group_invite_revoked` appliquée). Tests API **168/168**
+  (+17). **Validé en réel** (DB Docker) : create → join (200, **lien créé=1**) →
+  membres → leave (204, **lien terminé=0**) → revoke (`inviteCode:null`) → join
+  révoqué **404** → regenerate → RBAC **403** (athlète crée / coach join) → ownership
+  **403** (groupe d'autrui) → delete **204** → GET **404** → name vide **422**.
 - **TLX-040** (API) Profil — **`GET/PUT /users/me` livrés** (`getMe`/`updateMe`,
   remplacent les stubs `NotImplementedException`). `ProfileService` : `getMe`
   (projection `users` → DTO `User`, **404** si introuvable/soft-deleted) ;
@@ -48,7 +59,12 @@ Milestone Linear : **Profils & Groupes** (suite de Auth & RGPD, 100 % clos).
 - **Socle réutilisable (S-01).** `JwtAuthGuard` + `RolesGuard` globaux,
   `@Roles('coach'|'athlete')`, `OwnershipService` (appartenance coach↔athlète,
   ownership groupe/séance/compte), `ConsentGate` (`assertActiveConsent` → 403
-  `CONSENT_REQUIRED`). À câbler sur les endpoints groupes (TLX-041).
+  `CONSENT_REQUIRED`).
+- **Règle consentement (clarifiée sur TLX-041).** Rejoindre un groupe est autorisé
+  par un **code d'invitation valide** (matrice §6) ; le consentement `coach_access`
+  ne gate **pas** l'appartenance mais l'accès du coach aux **perfs/stats** (lignes
+  201/345 — `ConsentGate` à câbler sur TLX-070/080, pas sur les groupes). Le lien
+  coach↔athlète (`source='group'`) se crée au join.
 - **Stubs de contrat (TLX-011).** Contrôleurs `groups`/`sessions`/… déjà
   scaffoldés (routes câblées, handlers `NotImplementedException`) — à remplir.
   `users.controller` : `getMe`/`updateMe` étaient des stubs (TLX-040 les remplit).
