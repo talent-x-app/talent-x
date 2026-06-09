@@ -90,8 +90,8 @@ describe('CoachDashboardScreen (TLX-081)', () => {
     expect(screen.getByTestId('coach-dashboard-kpi-today-value')).toHaveTextContent('0');
     // Sous-titre : nombre d'athlètes
     expect(screen.getByTestId('coach-dashboard-subtitle')).toHaveTextContent('2 athlètes suivis');
-    // Athlètes + statuts (Tom apparaît aussi dans la section « À revoir » → getAllByText).
-    expect(screen.getByText('Léa Dubois')).toBeOnTheScreen();
+    // Athlètes + statuts (chacun peut aussi apparaître dans Alertes / À revoir → getAllByText).
+    expect(screen.getAllByText('Léa Dubois').length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText('Tom Petit').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByTestId('status-badge-late')).toHaveTextContent('En retard');
     expect(screen.getByTestId('status-badge-pending_review')).toHaveTextContent('À revoir');
@@ -133,6 +133,56 @@ describe('CoachDashboardScreen (TLX-081)', () => {
     await waitFor(() => expect(screen.getByTestId('coach-dashboard-today-as-1')).toBeOnTheScreen());
     expect(screen.getByTestId('coach-dashboard-today-as-1')).toHaveTextContent(/Fractionné/);
     expect(screen.getByTestId('coach-dashboard-today-as-1')).toHaveTextContent(/Léa Dubois/);
+  });
+
+  it('alertes détaillées par athlète, cliquables vers le détail (TLX-084)', async () => {
+    mockGetCoachDashboard.mockResolvedValue({ status: 200, data: DASHBOARD });
+    render(<CoachDashboardScreen />, { wrapper: Wrapper });
+
+    // Léa : 1 séance manquée + consentement d'accès manquant → deux lignes dédiées.
+    await waitFor(() =>
+      expect(screen.getByTestId('coach-dashboard-alert-overdue-a-1')).toBeOnTheScreen(),
+    );
+    expect(screen.getByTestId('coach-dashboard-alert-overdue-a-1')).toHaveTextContent(/Léa Dubois/);
+    expect(screen.getByTestId('coach-dashboard-alert-overdue-a-1')).toHaveTextContent(
+      /1 séance manquée/,
+    );
+    expect(screen.getByTestId('coach-dashboard-alert-consent-a-1')).toHaveTextContent(
+      /Consentement d'accès manquant/,
+    );
+
+    fireEvent.press(screen.getByTestId('coach-dashboard-alert-overdue-a-1'));
+    expect(mockPush).toHaveBeenCalledWith(
+      expect.objectContaining({
+        pathname: '/(coach)/athlete/[id]',
+        params: expect.objectContaining({ id: 'a-1' }),
+      }),
+    );
+  });
+
+  it('« Tout est à jour » remplace les sections quand aucun signal (TLX-085)', async () => {
+    mockGetCoachDashboard.mockResolvedValue({
+      status: 200,
+      data: {
+        athletes: [
+          { ...DASHBOARD.athletes[1], status: 'up_to_date', toReviewCount: 0, overdueCount: 0 },
+        ],
+        summary: {
+          athleteCount: 1,
+          toReview: 0,
+          today: 0,
+          alerts: { missedSessions: 0, consentMissing: 0 },
+        },
+      },
+    });
+    render(<CoachDashboardScreen />, { wrapper: Wrapper });
+
+    await waitFor(() => expect(screen.getByTestId('coach-dashboard-all-clear')).toBeOnTheScreen());
+    expect(screen.getByTestId('coach-dashboard-all-clear')).toHaveTextContent(/Tout est à jour/);
+    // Les sections (et leurs états vides) sont remplacées par l'état global.
+    expect(screen.queryByTestId('coach-dashboard-toreview-empty')).toBeNull();
+    expect(screen.queryByTestId('coach-dashboard-today-empty')).toBeNull();
+    expect(screen.queryByTestId('coach-dashboard-alerts')).toBeNull();
   });
 
   it('états positif/vide des sections quand rien à revoir ni prévu', async () => {
@@ -238,6 +288,9 @@ describe('CoachDashboardScreen (TLX-081)', () => {
 
     await waitFor(() => expect(screen.getByTestId('coach-dashboard-empty')).toBeOnTheScreen());
     expect(screen.getByTestId('coach-dashboard-subtitle')).toHaveTextContent('0 athlète suivi');
+    // Première utilisation (TLX-085) : carte d'accueil enrichie.
+    expect(screen.getByTestId('coach-dashboard-empty')).toHaveTextContent(/Bienvenue/);
+    expect(screen.queryByTestId('coach-dashboard-all-clear')).toBeNull();
   });
 
   it('état erreur : message + réessai relance la requête', async () => {

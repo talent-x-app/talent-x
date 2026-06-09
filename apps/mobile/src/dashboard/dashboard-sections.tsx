@@ -46,6 +46,16 @@ export function athletesToReview(athletes: DashboardAthlete[]): DashboardAthlete
     .sort((x, y) => y.toReviewCount - x.toReviewCount);
 }
 
+/** Athlètes en retard (affectations échues non réalisées), tri décroissant. */
+export function athletesWithOverdue(athletes: DashboardAthlete[]): DashboardAthlete[] {
+  return athletes.filter((a) => a.overdueCount > 0).sort((x, y) => y.overdueCount - x.overdueCount);
+}
+
+/** Athlètes dont le consentement `coach_access` manque (champ explicitement `false`). */
+export function athletesMissingConsent(athletes: DashboardAthlete[]): DashboardAthlete[] {
+  return athletes.filter((a) => a.coachAccessGranted === false);
+}
+
 /** Intitulé de section (uppercase, tokenisé) — partagé par les deux sections. */
 function SectionTitle({ children }: { children: string }) {
   const { colors, typography } = useTheme();
@@ -132,6 +142,163 @@ export function ToReviewSection({
         </View>
       )}
     </View>
+  );
+}
+
+/**
+ * Section « Alertes » (TLX-084, Carte C-01 §5) : au-delà du compteur agrégé, liste les signaux
+ * **par athlète** — séances manquées (`overdueCount`) et consentement d'accès manquant
+ * (`coachAccessGranted === false`) — chacun cliquable vers le détail (C-03). Dérivée du
+ * dashboard (ADR-17), donc cohérente avec `summary.alerts`. Rendue `null` sans signal.
+ */
+export function AlertsSection({
+  athletes,
+  onPressAthlete,
+}: {
+  athletes: DashboardAthlete[];
+  onPressAthlete: (athlete: DashboardAthlete) => void;
+}) {
+  const { colors, typography, spacing } = useTheme();
+  const overdue = athletesWithOverdue(athletes);
+  const consentMissing = athletesMissingConsent(athletes);
+  if (overdue.length === 0 && consentMissing.length === 0) return null;
+
+  const missedSessions = overdue.reduce((sum, a) => sum + a.overdueCount, 0);
+  const messages: string[] = [];
+  if (missedSessions > 0) {
+    messages.push(`${missedSessions} séance${missedSessions > 1 ? 's' : ''} en retard`);
+  }
+  if (consentMissing.length > 0) {
+    messages.push(
+      `${consentMissing.length} consentement${consentMissing.length > 1 ? 's' : ''} d'accès manquant${
+        consentMissing.length > 1 ? 's' : ''
+      }`,
+    );
+  }
+
+  return (
+    <View style={{ gap: spacing[3] }}>
+      <SectionTitle>Alertes</SectionTitle>
+      {/* Résumé agrégé (bandeau historique TLX-081), même testID pour la continuité. */}
+      <Card
+        testID="coach-dashboard-alerts"
+        style={{ backgroundColor: colors.warningBg, borderColor: colors.warning }}
+      >
+        <Text
+          style={{
+            color: colors.textPrimary,
+            fontFamily: typography.fontFamily.medium,
+            fontSize: typography.bodySm.fontSize,
+          }}
+        >
+          {messages.join(' · ')}
+        </Text>
+      </Card>
+      {/* Signaux détaillés par athlète, actionnables. */}
+      <View style={{ gap: spacing[2] }}>
+        {overdue.map((athlete) => (
+          <AlertRow
+            key={`overdue-${athlete.id}`}
+            testID={`coach-dashboard-alert-overdue-${athlete.id}`}
+            icon="clock"
+            name={athleteFullName(athlete)}
+            detail={`${athlete.overdueCount} séance${athlete.overdueCount > 1 ? 's' : ''} manquée${
+              athlete.overdueCount > 1 ? 's' : ''
+            }`}
+            onPress={() => onPressAthlete(athlete)}
+          />
+        ))}
+        {consentMissing.map((athlete) => (
+          <AlertRow
+            key={`consent-${athlete.id}`}
+            testID={`coach-dashboard-alert-consent-${athlete.id}`}
+            icon="shield-off"
+            name={athleteFullName(athlete)}
+            detail="Consentement d'accès manquant"
+            onPress={() => onPressAthlete(athlete)}
+          />
+        ))}
+      </View>
+    </View>
+  );
+}
+
+/** Ligne d'alerte actionnable : icône signal + athlète + détail + chevron. */
+function AlertRow({
+  testID,
+  icon,
+  name,
+  detail,
+  onPress,
+}: {
+  testID: string;
+  icon: keyof typeof Feather.glyphMap;
+  name: string;
+  detail: string;
+  onPress: () => void;
+}) {
+  const { colors, typography, spacing } = useTheme();
+  return (
+    <Card testID={testID} onPress={onPress}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[3] }}>
+        <Feather name={icon} size={18} color={colors.warning} />
+        <View style={{ flex: 1, gap: 2 }}>
+          <Text
+            style={{
+              color: colors.textPrimary,
+              fontFamily: typography.fontFamily.medium,
+              fontSize: typography.body.fontSize,
+            }}
+          >
+            {name}
+          </Text>
+          <Text
+            style={{
+              color: colors.textMuted,
+              fontFamily: typography.fontFamily.regular,
+              fontSize: typography.bodySm.fontSize,
+            }}
+          >
+            {detail}
+          </Text>
+        </View>
+        <Feather name="chevron-right" size={20} color={colors.textMuted} />
+      </View>
+    </Card>
+  );
+}
+
+/**
+ * Carte « Tout est à jour » (TLX-085, Carte C-01 §6) : état positif global affiché à la place
+ * des sections quand il n'y a **ni** alerte, **ni** perf à revoir, **ni** séance prévue ce jour.
+ */
+export function AllClearCard() {
+  const { colors, typography, spacing } = useTheme();
+  return (
+    <Card testID="coach-dashboard-all-clear" style={{ backgroundColor: colors.successBg }}>
+      <View style={{ alignItems: 'center', gap: spacing[2], paddingVertical: spacing[2] }}>
+        <Feather name="check-circle" size={28} color={colors.success} />
+        <Text
+          style={{
+            color: colors.success,
+            fontFamily: typography.fontFamily.bold,
+            fontSize: typography.body.fontSize,
+          }}
+        >
+          Tout est à jour
+        </Text>
+        <Text
+          style={{
+            color: colors.textSecondary,
+            fontFamily: typography.fontFamily.regular,
+            fontSize: typography.bodySm.fontSize,
+            textAlign: 'center',
+          }}
+        >
+          Aucune alerte, rien à revoir et rien de prévu aujourd'hui.
+        </Text>
+      </View>
+    </Card>
   );
 }
 

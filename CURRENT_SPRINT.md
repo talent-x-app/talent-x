@@ -10,7 +10,7 @@ de débloquer les écrans coach C-01/C-02/C-03.
 ## À faire (frontend)
 
 - _(éditeurs typés terminés — TLX-054→061 livrés ↓)_
-- **TLX-084/085** Alertes détaillées & états première utilisation (enfants de C-01).
+- _(C-01 complet — TLX-081→085 livrés ↓)_
 
 ## En cours
 
@@ -163,6 +163,21 @@ rythme 3`, jumps `élan 30m · 6 complets · 40 contacts`, throws `7.26 kg · 10
   (sections → `athlete-session-ui` → enum runtime) et cassait 5 suites de test au chargement. Réglé.
 - **Vérif** : tests rendant le **vrai** `CoachDashboardScreen` (sections À revoir/Aujourd'hui,
   états positif/vide) + helpers unitaires. Live e2e non rejoué (API locale non démarrée).
+
+## Terminés ce sprint — C-01 Alertes détaillées + états (TLX-084/085) — **clôt C-01**
+
+- **TLX-084 « Alertes & signaux »** (Carte C-01 §5) — le bandeau agrégé devient une **section
+  Alertes** : résumé (mêmes libellés) + **lignes par athlète** cliquables vers C-03 — séances
+  manquées (`overdueCount`) et consentement d'accès manquant (`coachAccessGranted === false`).
+  Dérivé du contrat ADR-17 existant → **frontend pur** (le ticket prévoyait du backend, mais
+  TLX-080 expose déjà les signaux par athlète). Masquée sans signal.
+- **TLX-085 « États »** (Carte C-01 §6) — **première utilisation** : carte d'accueil enrichie
+  (« Bienvenue sur Talent-X », inviter via code de groupe, préparer ses séances) quand 0 athlète ;
+  **« Tout est à jour »** : carte positive globale remplaçant les trois sections quand aucune
+  alerte, rien à revoir et rien de prévu (les états vides par section restent pour les cas mixtes).
+- +7 tests (helpers `athletesWithOverdue`/`athletesMissingConsent`, `AlertsSection`, `AllClearCard`,
+  écran) ; **mobile 177/177** ; lint/typecheck clean. Linear **TLX-64 / TLX-65**.
+  **C-01 est complet** (TLX-081 vue principale + 082/083/084/085).
 
 ## Terminés ce sprint — A-09 Fil de feedback athlète (TLX-092)
 

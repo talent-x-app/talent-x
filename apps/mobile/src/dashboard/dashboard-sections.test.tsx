@@ -3,9 +3,13 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 import { type ReactNode } from 'react';
 
 import {
+  AlertsSection,
+  AllClearCard,
   ToReviewSection,
   TodaySection,
+  athletesMissingConsent,
   athletesToReview,
+  athletesWithOverdue,
   isDueToday,
   selectTodayAssignments,
 } from './dashboard-sections';
@@ -60,6 +64,83 @@ describe('helpers de sections dashboard (TLX-082/083)', () => {
       athlete({ id: 'z', toReviewCount: 3 }),
     ];
     expect(athletesToReview(list).map((a) => a.id)).toEqual(['z', 'x']);
+  });
+
+  it('athletesWithOverdue : filtre overdueCount>0, tri décroissant', () => {
+    const list = [
+      athlete({ id: 'x', overdueCount: 2 }),
+      athlete({ id: 'y', overdueCount: 0 }),
+      athlete({ id: 'z', overdueCount: 5 }),
+    ];
+    expect(athletesWithOverdue(list).map((a) => a.id)).toEqual(['z', 'x']);
+  });
+
+  it('athletesMissingConsent : seulement coachAccessGranted === false', () => {
+    const list = [
+      athlete({ id: 'x', coachAccessGranted: false }),
+      athlete({ id: 'y', coachAccessGranted: true }),
+      athlete({ id: 'z' }), // champ absent → non signalé
+    ];
+    expect(athletesMissingConsent(list).map((a) => a.id)).toEqual(['x']);
+  });
+});
+
+describe('AlertsSection (TLX-084)', () => {
+  it('résumé agrégé + lignes par athlète (retard, consentement), cliquables', () => {
+    const onPress = jest.fn();
+    render(
+      <AlertsSection
+        athletes={[
+          athlete({
+            id: 'a-1',
+            firstName: 'Léa',
+            lastName: 'Dubois',
+            overdueCount: 2,
+            coachAccessGranted: true,
+          }),
+          athlete({
+            id: 'a-2',
+            firstName: 'Tom',
+            lastName: 'Bah',
+            overdueCount: 0,
+            coachAccessGranted: false,
+          }),
+        ]}
+        onPressAthlete={onPress}
+      />,
+      { wrapper: Wrapper },
+    );
+    expect(screen.getByTestId('coach-dashboard-alerts')).toHaveTextContent(/2 séances en retard/);
+    expect(screen.getByTestId('coach-dashboard-alerts')).toHaveTextContent(
+      /1 consentement d'accès manquant/,
+    );
+    expect(screen.getByTestId('coach-dashboard-alert-overdue-a-1')).toHaveTextContent(/Léa Dubois/);
+    expect(screen.getByTestId('coach-dashboard-alert-overdue-a-1')).toHaveTextContent(
+      /2 séances manquées/,
+    );
+    expect(screen.getByTestId('coach-dashboard-alert-consent-a-2')).toHaveTextContent(
+      /Consentement d'accès manquant/,
+    );
+    fireEvent.press(screen.getByTestId('coach-dashboard-alert-consent-a-2'));
+    expect(onPress).toHaveBeenCalledWith(expect.objectContaining({ id: 'a-2' }));
+  });
+
+  it('rendue null sans signal', () => {
+    render(
+      <AlertsSection
+        athletes={[athlete({ id: 'a-1', overdueCount: 0, coachAccessGranted: true })]}
+        onPressAthlete={jest.fn()}
+      />,
+      { wrapper: Wrapper },
+    );
+    expect(screen.queryByTestId('coach-dashboard-alerts')).toBeNull();
+  });
+});
+
+describe('AllClearCard (TLX-085)', () => {
+  it('affiche l’état positif global', () => {
+    render(<AllClearCard />, { wrapper: Wrapper });
+    expect(screen.getByTestId('coach-dashboard-all-clear')).toHaveTextContent(/Tout est à jour/);
   });
 });
 

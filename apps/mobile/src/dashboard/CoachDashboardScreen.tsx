@@ -20,7 +20,16 @@ import {
 import { Button, Card } from '../components/ui';
 import { AthleteListItem, athleteFullName } from '../coach/athlete-ui';
 import { athleteDetailHref } from '../coach/navigation';
-import { ToReviewSection, TodaySection, selectTodayAssignments } from './dashboard-sections';
+import {
+  AlertsSection,
+  AllClearCard,
+  ToReviewSection,
+  TodaySection,
+  athletesMissingConsent,
+  athletesToReview,
+  athletesWithOverdue,
+  selectTodayAssignments,
+} from './dashboard-sections';
 import { COACH_DASHBOARD_QUERY_KEY } from './dashboard-query';
 
 // Ré-exporté pour compat : la source unique est `dashboard-query` (sans dépendance UI).
@@ -102,6 +111,16 @@ export function CoachDashboardScreen() {
 
   const { athletes, summary } = dashboard.data;
 
+  // « Tout est à jour » (TLX-085) : aucun signal d'aucune section, affectations chargées.
+  const allClear =
+    athletes.length > 0 &&
+    athletesToReview(athletes).length === 0 &&
+    athletesWithOverdue(athletes).length === 0 &&
+    athletesMissingConsent(athletes).length === 0 &&
+    todayAssignments.length === 0 &&
+    !assignments.isLoading &&
+    !assignments.isError;
+
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: colors.background }}
@@ -158,27 +177,31 @@ export function CoachDashboardScreen() {
         <MetricCard testID="coach-dashboard-kpi-today" label="Aujourd'hui" value={summary.today} />
       </View>
 
-      {/* Alertes (Carte C-01 §5) — affichées seulement si un signal est présent. */}
-      <AlertsBanner
-        missedSessions={summary.alerts.missedSessions}
-        consentMissing={summary.alerts.consentMissing}
-      />
-
-      {/* Sections détaillées (Carte C-01 §4) — au-delà des KPIs (TLX-082/083). */}
+      {/* Sections (Carte C-01 §4/§5/§6) : « Tout est à jour » remplace les sections quand
+          aucun signal (TLX-085) ; sinon alertes détaillées (TLX-084) + À revoir / Aujourd'hui
+          (TLX-082/083). */}
       {athletes.length > 0 ? (
-        <>
-          <ToReviewSection
-            athletes={athletes}
-            onPressAthlete={(athlete) => router.push(athleteDetailHref(athlete))}
-          />
-          <TodaySection
-            assignments={todayAssignments}
-            nameById={athleteNameById}
-            isLoading={assignments.isLoading}
-            isError={assignments.isError}
-            onRetry={() => void assignments.refetch()}
-          />
-        </>
+        allClear ? (
+          <AllClearCard />
+        ) : (
+          <>
+            <AlertsSection
+              athletes={athletes}
+              onPressAthlete={(athlete) => router.push(athleteDetailHref(athlete))}
+            />
+            <ToReviewSection
+              athletes={athletes}
+              onPressAthlete={(athlete) => router.push(athleteDetailHref(athlete))}
+            />
+            <TodaySection
+              assignments={todayAssignments}
+              nameById={athleteNameById}
+              isLoading={assignments.isLoading}
+              isError={assignments.isError}
+              onRetry={() => void assignments.refetch()}
+            />
+          </>
+        )
       ) : null}
 
       {/* Tes athlètes (Carte C-01 §7). */}
@@ -196,18 +219,31 @@ export function CoachDashboardScreen() {
         </Text>
 
         {athletes.length === 0 ? (
+          // Première utilisation (TLX-085, Carte C-01 §6) : accueil + comment lier un athlète.
           <Card testID="coach-dashboard-empty">
-            <Text
-              style={{
-                color: colors.textSecondary,
-                fontFamily: typography.fontFamily.regular,
-                fontSize: typography.body.fontSize,
-                textAlign: 'center',
-              }}
-            >
-              Aucun athlète lié pour l'instant. Partage un code de groupe pour qu'un athlète te
-              rejoigne.
-            </Text>
+            <View style={{ alignItems: 'center', gap: spacing[2], paddingVertical: spacing[2] }}>
+              <Feather name="users" size={28} color={colors.accentText} />
+              <Text
+                style={{
+                  color: colors.textPrimary,
+                  fontFamily: typography.fontFamily.bold,
+                  fontSize: typography.body.fontSize,
+                }}
+              >
+                Bienvenue sur Talent-X
+              </Text>
+              <Text
+                style={{
+                  color: colors.textSecondary,
+                  fontFamily: typography.fontFamily.regular,
+                  fontSize: typography.bodySm.fontSize,
+                  textAlign: 'center',
+                }}
+              >
+                Aucun athlète lié pour l'instant. Partage un code de groupe pour qu'un athlète te
+                rejoigne — tu peux déjà préparer tes séances avec « Nouvelle séance ».
+              </Text>
+            </View>
           </Card>
         ) : (
           <View style={{ gap: spacing[2] }}>
@@ -252,47 +288,6 @@ function MetricCard({ label, value, testID }: { label: string; value: number; te
           {label}
         </Text>
       </View>
-    </Card>
-  );
-}
-
-/** Bandeau d'alertes ; ne s'affiche que si au moins un signal est non nul. */
-function AlertsBanner({
-  missedSessions,
-  consentMissing,
-}: {
-  missedSessions: number;
-  consentMissing: number;
-}) {
-  const { colors, typography } = useTheme();
-  if (missedSessions === 0 && consentMissing === 0) return null;
-
-  const messages: string[] = [];
-  if (missedSessions > 0) {
-    messages.push(`${missedSessions} séance${missedSessions > 1 ? 's' : ''} en retard`);
-  }
-  if (consentMissing > 0) {
-    messages.push(
-      `${consentMissing} consentement${consentMissing > 1 ? 's' : ''} d'accès manquant${
-        consentMissing > 1 ? 's' : ''
-      }`,
-    );
-  }
-
-  return (
-    <Card
-      testID="coach-dashboard-alerts"
-      style={{ backgroundColor: colors.warningBg, borderColor: colors.warning }}
-    >
-      <Text
-        style={{
-          color: colors.textPrimary,
-          fontFamily: typography.fontFamily.medium,
-          fontSize: typography.bodySm.fontSize,
-        }}
-      >
-        {messages.join(' · ')}
-      </Text>
     </Card>
   );
 }
