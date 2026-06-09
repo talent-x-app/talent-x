@@ -111,8 +111,8 @@ export class AssignmentsService {
 }
 
 /**
- * Crée l'affectation active (séance, athlète) ou renvoie l'existante (idempotence).
- * Met à jour `dueDate` si fournie et l'affectation existait déjà sans échéance fixée.
+ * Crée l'affectation active (séance, athlète) ou renvoie l'existante telle quelle
+ * (idempotence : une ré-affectation ne modifie pas une affectation déjà en cours).
  */
 async function upsertActiveAssignment(
   tx: Prisma.TransactionClient,
