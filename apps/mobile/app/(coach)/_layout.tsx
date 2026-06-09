@@ -46,6 +46,8 @@ export default function CoachLayout() {
           tabBarIcon: ({ color, size }) => <Feather name="user" color={color} size={size} />,
         }}
       />
+      {/* Détail athlète (C-03) : routable mais masqué du tab bar. */}
+      <Tabs.Screen name="athlete/[id]" options={{ href: null }} />
     </Tabs>
   );
 }
