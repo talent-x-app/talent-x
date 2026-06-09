@@ -1,4 +1,4 @@
-import * as SecureStore from 'expo-secure-store';
+import { secureDelete, secureGet, secureSet } from './secure-storage';
 
 export type UserRole = 'coach' | 'athlete';
 
@@ -7,7 +7,7 @@ const ROLE_KEY = 'talentx.userRole';
 let cached: UserRole | null = null;
 
 export async function loadRole(): Promise<UserRole | null> {
-  const val = await SecureStore.getItemAsync(ROLE_KEY);
+  const val = await secureGet(ROLE_KEY);
   cached = val === 'coach' || val === 'athlete' ? val : null;
   return cached;
 }
@@ -18,10 +18,10 @@ export function getRole(): UserRole | null {
 
 export async function setRole(role: UserRole): Promise<void> {
   cached = role;
-  await SecureStore.setItemAsync(ROLE_KEY, role);
+  await secureSet(ROLE_KEY, role);
 }
 
 export async function clearRole(): Promise<void> {
   cached = null;
-  await SecureStore.deleteItemAsync(ROLE_KEY);
+  await secureDelete(ROLE_KEY);
 }

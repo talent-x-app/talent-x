@@ -20,4 +20,12 @@ config.resolver.nodeModulesPaths = [
   path.resolve(workspaceRoot, 'node_modules'),
 ];
 
+// Exclut les fichiers de tests du bundle. expo-router transforme TOUT fichier de
+// `app/` en route via require.context ; sans cette exclusion, les `*.test.tsx`
+// colocalisés (login/register/consent) sont chargés comme routes et tirent
+// `@testing-library/react-native` → `react-test-renderer` dans le bundle réel
+// (erreur au runtime). Jest n'utilise pas le resolver Metro : ses tests restent
+// découverts normalement.
+config.resolver.blockList = [/.*\.(test|spec)\.[jt]sx?$/, /.*\/__tests__\/.*/];
+
 module.exports = config;

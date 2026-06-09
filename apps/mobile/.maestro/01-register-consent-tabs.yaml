@@ -1,0 +1,36 @@
+# TLX-81 — Onboarding bout-en-bout : inscription → consentement → tabs (rôle athlète).
+# Exécute le chemin nominal contre l'API live (Docker + seed). Voir README.md.
+appId: ${APP_ID}
+---
+- launchApp:
+    clearState: true
+- tapOn: 'Créer un compte'
+- assertVisible: 'Créer un compte'
+- tapOn:
+    id: 'register-role-athlete'
+- tapOn:
+    id: 'register-firstName'
+- inputText: 'Maestro'
+- tapOn:
+    id: 'register-lastName'
+- inputText: 'Athlete'
+- tapOn:
+    id: 'register-email'
+# E-mail unique par exécution (évite le 409 sur re-run).
+- inputText: 'maestro-${Math.floor(Math.random() * 1000000)}@ex.test'
+- tapOn:
+    id: 'register-password'
+- inputText: 'Sup3rSecret!'
+- tapOn:
+    id: 'register-submit'
+# Redirection vers l'écran Consentement (O-05).
+- assertVisible: 'Tes consentements'
+- tapOn:
+    id: 'consent-switch-data_processing'
+- tapOn:
+    id: 'consent-switch-coach_access'
+- tapOn:
+    id: 'consent-submit'
+# Session ouverte → tabs athlète (Accueil A-01).
+- assertVisible: 'Accueil'
+- assertVisible: 'Séances'

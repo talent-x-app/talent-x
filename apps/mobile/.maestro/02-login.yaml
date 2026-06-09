@@ -1,0 +1,25 @@
+# TLX-81 — Connexion (O-02) : 401 (mauvais mot de passe) puis 200 → tabs.
+# Pré-requis : un compte connu existe. Crée-le d'abord (flow 01) ou via l'API,
+# puis renseigne APP_ID, LOGIN_EMAIL et LOGIN_PASSWORD (voir README.md).
+appId: ${APP_ID}
+---
+- launchApp:
+    clearState: true
+- assertVisible: 'Se connecter'
+- tapOn:
+    id: 'login-email'
+- inputText: '${LOGIN_EMAIL}'
+- tapOn:
+    id: 'login-password'
+- inputText: 'mauvais-mot-de-passe'
+- tapOn:
+    id: 'login-submit'
+# 401 → erreur inline, on reste sur l'écran.
+- assertVisible: 'E-mail ou mot de passe incorrect.'
+# Bon mot de passe → 200 → tabs.
+- tapOn:
+    id: 'login-password'
+- inputText: '${LOGIN_PASSWORD}'
+- tapOn:
+    id: 'login-submit'
+- assertVisible: 'Accueil'

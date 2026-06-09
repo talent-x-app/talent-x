@@ -1,0 +1,19 @@
+# TLX-81 — Inscription : e-mail déjà utilisé → 409 (erreur inline).
+# Pré-requis : un compte existe déjà avec EXISTING_EMAIL (voir README.md).
+appId: ${APP_ID}
+---
+- launchApp:
+    clearState: true
+- tapOn: 'Créer un compte'
+- tapOn:
+    id: 'register-role-athlete'
+- tapOn:
+    id: 'register-email'
+- inputText: '${EXISTING_EMAIL}'
+- tapOn:
+    id: 'register-password'
+- inputText: 'Sup3rSecret!'
+- tapOn:
+    id: 'register-submit'
+# 409 renvoyé par l'API réelle → message inline.
+- assertVisible: 'Un compte existe déjà avec cet e-mail.'

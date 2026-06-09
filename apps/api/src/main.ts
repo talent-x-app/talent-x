@@ -16,6 +16,19 @@ async function bootstrap(): Promise<void> {
   // Contrat : toutes les routes sous /api/v1 (cf. docs/talent-x-openapi.yaml).
   app.setGlobalPrefix('api/v1');
 
+  // CORS : l'API est consommée par l'app Expo (natif ET cible web/PWA). Le natif
+  // n'est pas soumis au CORS, mais le navigateur (Expo web) l'exige. L'auth étant
+  // par Bearer (pas de cookie), refléter l'origine ne crée pas de risque CSRF.
+  // Production : liste blanche EXPLICITE via CORS_ORIGINS (à défaut, on n'autorise
+  // aucune origine cross-site). Dev/test : permissif pour la cible web locale.
+  const corsOrigins = process.env.CORS_ORIGINS?.trim();
+  const isProd = process.env.NODE_ENV === 'production';
+  app.enableCors({
+    origin: corsOrigins ? corsOrigins.split(',').map((o) => o.trim()) : !isProd,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-Id'],
+  });
+
   // Validation des DTO : rejette les champs inconnus, transforme les types,
   // et renvoie 422 VALIDATION_FAILED conforme au contrat.
   app.useGlobalPipes(

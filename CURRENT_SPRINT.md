@@ -72,10 +72,17 @@ refresh rotatif), son rôle/ownership est appliqué, et le socle RGPD
   (dernière ligne fait foi, 403 `CONSENT_REQUIRED`), `OwnershipService` (appartenance,
   404/403, soft-delete). **CI** : service `postgres` + `migrate deploy` + `test:int`.
   Tests auto-suffisants (fixtures créées/nettoyées). 11/11 verts en local.
-- **TLX-81** (nouveau) : pendant **frontend** de TLX-79. Les écrans onboarding
-  (login O-02, inscription O-03/O-04, consentement O-05) et le flux
-  `register → consent → tabs` sont validés en Jest seulement (client/router/
-  session mockés) — jamais exécutés sur app Expo réelle contre une API live.
+- **TLX-81** ✅ **fait** : onboarding validé sur **app Expo réelle (cible web)**
+  contre l'**API live** + base réelle. Parcours pilotés bout en bout : `register →
+consent → tabs` (POST register 201, **3× PUT consents 200 via l'intercepteur
+  d'auth**, consentements persistés en base), restauration de session au reload,
+  login 401 (inline) puis 200, register 409 (inline). **2 défauts corrigés** que
+  seul le bundle réel révélait : (a) expo-router transformait les `*.test.tsx`
+  colocalisés en routes → `resolver.blockList` Metro ; (b) `expo-secure-store` sans
+  implémentation web (crash bootstrap) → adaptateur `secure-storage` (trousseau natif
+  iOS/Android, repli `localStorage` web). CORS dev activé côté API. **Suite Maestro**
+  (`apps/mobile/.maestro/`, 3 flows + runbook) pour l'exécution sur simulateur natif
+  (couvre le trousseau natif, non exerçable en web). Tests mobiles 77/77 inchangés.
 - **Autorisation prête à câbler** : `@Roles('coach'|'athlete')` appliqué
   globalement ; les services métier injectent `OwnershipService` (appartenance/
   propriété) et `ConsentGate` (`assertActiveConsent` → 403 `CONSENT_REQUIRED`).
