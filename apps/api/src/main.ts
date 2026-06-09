@@ -28,7 +28,7 @@ async function bootstrap(): Promise<void> {
   app.enableCors({
     origin: corsOrigins ? corsOrigins.split(',').map((o) => o.trim()) : !isProd,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-Id'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-Id', 'Idempotency-Key'],
   });
 
   // Validation des DTO : rejette les champs inconnus, transforme les types,
