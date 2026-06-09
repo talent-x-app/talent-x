@@ -1,69 +1,72 @@
-# Sprint courant : S-02 — Profils & Groupes ✅ clos
+# Sprint courant : Pilotage coach — couche données + dérivations (backend ✅)
 
-Objectif atteint : profil consultable/éditable (coach & athlète) et gestion
-complète des groupes côté API. Milestone Linear **Profils & Groupes** à 100 %.
+Objectif : construire la **fondation données** du volet coach (séances → affectations →
+performances) puis les **dérivations** (`/coach/dashboard`, `/athletes/{id}/stats`), afin
+de débloquer les écrans coach C-01/C-02/C-03.
 
-> Les 2 écrans coach **C-02 (liste athlètes)** et **C-03 (détail + stats)** ont été
-> **sortis du périmètre** : ils dépendent de dérivations non encore livrées
-> (`/coach/dashboard`, `/athletes/{id}/stats` → **TLX-080**). Déplacés vers le
-> milestone **Pilotage coach** et marqués **bloqués par TLX-080** dans Linear.
+> Ordre choisi : **construire la couche d'abord** (dépendances honnêtes). TLX-080
+> dépendait de TLX-070 + TLX-051, eux-mêmes de TLX-050 — tous étaient des stubs `501`.
 
-## À faire
+## À faire (frontend — débloqué)
 
-- _(rien — prochain sprint à ouvrir)_
+- **TLX-081** Tableau de bord coach (C-01) — vue principale [PARENT] (dépend de TLX-080 ✅).
+- **TLX-044** (C-02) Écran Athlètes — **débloqué** : source « tous mes athlètes » via
+  `GET /coach/dashboard` → `athletes[]`.
+- **TLX-045** (C-03) Détail athlète — **débloqué** : `GET /athletes/{id}/stats` opérationnel.
+- **TLX-052** Constructeur de séance (C-05) [PARENT] + éditeurs de blocs (TLX-053…).
+- **TLX-086** Revue de performance + feedback (C-08) — pose le commentaire coach qui sort
+  une perf de « à revoir ».
 
 ## En cours
 
-- _(rien)_
+- _(rien — backend du sprint terminé)_
 
-## Terminés ce sprint
+## Terminés ce sprint (backend)
 
-- **TLX-040** (API) Profil — `GET/PUT /users/me` (`getMe`/`updateMe`). Conforme au
-  contrat (`/users/me`, pas `/athletes/{id}` — le titre était un raccourci).
-  `ProfileService` (404 si supprimé), `UserUpdateDto` (PATCH). Tests 151/151 à la livraison.
-- **TLX-041** (API) Groupes + membres — **10 endpoints** : CRUD groupes (soft-delete),
-  membres (liste paginée, retrait), `manageInviteCode` (regenerate/revoke), `joinGroup`
-  (code valide, idempotent), `leaveGroup`. RBAC + ownership ; lien `coach_athlete_links`
-  géré au niveau coach↔athlète. **ADR-16** (révocation via `invite_code_revoked_at`).
-  Tests API 168/168. Validé en réel (cycle join→lien créé / leave→lien terminé).
-- **TLX-042** (UI) Profil athlète (A-10) — composant **réutilisable** `ProfileScreen`
-  (lecture/édition `/users/me`, états chargement/erreur/édition/succès, déconnexion).
-  100 % design system. **Validé en réel sur Expo web** (login → édition → persistance
-  base → toast).
-- **TLX-043** (UI) Profil coach (C-11) — route `(coach)/profile.tsx` branchée sur
-  `ProfileScreen` (libellé « Coach »). Tests mobile 82/82.
+- **TLX-050** (API) Séances — **8 endpoints** : CRUD `/sessions` (create/list/get/update/
+  delete soft) + `duplicate` + `archive`. Blocs typés JSONB (`ExercisesDoc`), list role-aware
+  (coach = siennes / athlète = affectées), ownership via `assertSessionOwnedByCoach`.
+  16 tests. **Validé réel (DB)** 14/14. Commit `bfba0ee`.
+- **TLX-051** (API) Affectations — `POST /sessions/:id/assign` (coach → athlètes liés,
+  idempotent via `ux_assignment_active`) + `GET /assignments` (role-aware) + `GET
+/assignments/:id`. En-tête `Idempotency-Key` requis. 13 tests. **Validé réel** 12/12.
+  Commits `5573610`, `b1db7f0`.
+- **TLX-070** (API) Performances — `POST/GET/PUT /assignments/:id/performance`. 1:1 avec
+  l'affectation, idempotent (unicité `assignment_id`), consent-gated (`data_processing` à
+  la saisie, `coach_access` à la lecture coach), soumission → affectation `completed`.
+  12 tests. **Validé réel** 10/10. Commit `bc7f85e`.
+- **TLX-080** (API) Dérivations pilotage coach — `GET /coach/dashboard` (athlètes liés +
+  statuts dérivés `late`/`pending_review`/`up_to_date`, KPIs `toReview`/`today`, alertes
+  `missedSessions`/`consentMissing`) + `GET /athletes/:id/stats` (consent-gated).
+  11 tests. **Validé réel** (dashboard + stats 7/7). Commit `782de28`. **Débloque C-02/C-03.**
 
-## Reporté → milestone « Pilotage coach » (bloqué par TLX-080)
-
-- **TLX-044** (UI) Écran Athlètes (C-02) — liste des athlètes du coach. Pas de source
-  « tous mes athlètes » au contrat hors `/coach/dashboard` (TLX-080) ; les membres de
-  groupe seuls sont incomplets (athlètes liés en `direct` exclus).
-- **TLX-045** (UI) Détail athlète (C-03) — affiche les stats via `/athletes/{id}/stats`
-  (stub `NotImplementedException`, logique = TLX-080, consent-gated).
+Total : **+52 tests API** (168 → 220). Tout poussé sur `main`.
 
 ## Notes / dépendances (réutilisables)
 
-- **Socle autorisation (S-01).** `JwtAuthGuard` + `RolesGuard` globaux, `@Roles`,
-  `OwnershipService` (appartenance + ownership groupe/séance/compte), `ConsentGate`
-  (`assertActiveConsent` → 403 `CONSENT_REQUIRED`).
-- **Règle consentement.** Rejoindre un groupe = **code valide** (matrice §6) ; le
-  consentement `coach_access` gate les **perfs/stats** (TLX-070/080), pas l'appartenance.
-- **Pagination commune** : `src/common/pagination/` (`PaginationQueryDto`, `buildPageMeta`,
-  `parseSort`) — réutilisable par les prochains endpoints paginés.
-- **`ProfileScreen`** (`apps/mobile/src/profile/`) : écran profil partagé, role-aware.
-- Base dev : `docker compose up -d` → `prisma migrate deploy` → `pnpm --filter @talent-x/api seed`.
-- Workflow distant : push direct sur `main` (sans PR).
+- **Mapper séance partagé** : `sessions/session.mapper.ts` (`toSessionDto`).
+- **Idempotence sans key-store** : assurée structurellement par les index uniques partiels
+  (`ux_assignment_active`, `performances.assignment_id`) — l'en-tête `Idempotency-Key` est
+  exigé côté contrat (400 si absent) mais l'effet idempotent vient des clés naturelles.
+- **« À revoir »** = perf soumise **sans commentaire du coach** (la revue = TLX-086).
+- **« Réalisée »** = affectation `completed`, posée à la soumission de la perf (TLX-070).
+- **Portes consentement** (rappel) : `data_processing` (saisie perf athlète),
+  `coach_access` (lecture perf + stats côté coach), en plus du lien coach↔athlète actif.
+- Base dev : `docker compose up -d` → `prisma migrate deploy` → seed. Port Postgres **5433**.
+- Validation réelle : register coach/athlète → join groupe (crée le lien) → assign → perf.
+  L'API `pnpm start` sert un `dist/` figé ; pour tester du code frais lancer
+  `PORT=3001 nest start` (clé RS256 éphémère → re-login après redémarrage).
 
 ## Jalons
 
-- **S-00 Fondations** : ✅ 15/15 (clos).
-- **S-01 Auth & RGPD** : ✅ clos (auth JWT, RBAC/ownership/consentement, RGPD export/
-  effacement, observabilité file `/metrics`). Validé en réel.
-- **S-02 Profils & Groupes** : ✅ clos — TLX-040/041/042/043. C-02/C-03 reportés
-  (bloqués par TLX-080).
+- **S-00 Fondations** : ✅ 15/15.
+- **S-01 Auth & RGPD** : ✅ clos.
+- **S-02 Profils & Groupes** : ✅ clos (TLX-040/041/042/043).
+- **Pilotage coach (backend)** : ✅ TLX-050/051/070/080. Reste le frontend
+  (C-01/C-02/C-03, constructeur de séance, revue C-08).
 
-## Prochain sprint (proposition)
+## Prochaine étape (proposition)
 
-Milestone suivant = **Sessions** (séances) : `POST/GET /sessions` (TLX-050),
-`POST /assignments` (TLX-051) puis constructeur de séance + éditeurs de blocs.
-Alternative : **Pilotage coach** (TLX-080 dérivations → débloque C-02/C-03 + dashboard).
+Frontend coach : **TLX-081** (tableau de bord C-01) en s'appuyant sur `/coach/dashboard`,
+puis **TLX-044/045** (C-02/C-03) désormais débloqués. Alternative : **TLX-052**
+(constructeur de séance C-05) pour compléter le cycle de création côté coach.
