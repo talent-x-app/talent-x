@@ -85,8 +85,31 @@ export const BLOCK_TYPE_SPECS: BlockTypeSpec[] = [
       { key: 'elevationMeters', label: 'Dénivelé D+ (m)', placeholder: 'Ex. 120' },
     ],
   },
-  { type: BlockType.hurdles, label: 'Haies' },
-  { type: BlockType.jumps, label: 'Sauts' },
+  {
+    type: BlockType.hurdles,
+    label: 'Haies',
+    // TLX-057 — Haies : rythme (appuis entre haies), hauteur, espacement.
+    paramFields: [
+      { key: 'heightCm', label: 'Hauteur (cm)', placeholder: 'Ex. 84', kind: 'number' },
+      { key: 'spacingMeters', label: 'Espacement (m)', placeholder: 'Ex. 8.5', kind: 'number' },
+      { key: 'rhythmSteps', label: 'Rythme (appuis entre haies)', placeholder: 'Ex. 3' },
+    ],
+  },
+  {
+    type: BlockType.jumps,
+    label: 'Sauts',
+    // TLX-058 — Sauts : longueur d'élan, sauts complets, contacts pliométriques.
+    paramFields: [
+      {
+        key: 'approachMeters',
+        label: 'Longueur d’élan (m)',
+        placeholder: 'Ex. 30',
+        kind: 'number',
+      },
+      { key: 'fullJumps', label: 'Sauts complets (nombre)', placeholder: 'Ex. 6' },
+      { key: 'plyoContacts', label: 'Contacts pliométriques (nombre)', placeholder: 'Ex. 40' },
+    ],
+  },
   { type: BlockType.throws, label: 'Lancers' },
   { type: BlockType.core, label: 'Gainage / Circuit' },
   { type: BlockType.warmup, label: 'Échauffement' },

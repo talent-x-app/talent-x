@@ -9,9 +9,10 @@ de débloquer les écrans coach C-01/C-02/C-03.
 
 ## À faire (frontend)
 
-- **TLX-057→061** 5 éditeurs typés restants (haies, sauts, lancers, musculation, gainage…).
+- **TLX-059→061** 3 éditeurs typés restants (lancers, musculation, gainage/circuit…).
   Pattern établi par TLX-054 : ajouter une entrée `BLOCK_TYPE_SPECS` avec ses
-  `paramFields`. Chaque éditeur fixe la forme de son `params`. (TLX-055/056 livrés ↓.)
+  `paramFields`. Chaque éditeur fixe la forme de son `params`. (TLX-055→058 livrés ↓.)
+  Note : `strength`/musculation (TLX-060) = base v1 générique (déjà fonctionnel) → trivial.
 - **TLX-062** Cibles de bloc → pré-remplissage saisie perf (A-04) — débloqué par le v2.
 - **TLX-063** Écran Assignation (C-06) + Confirmation (C-07) — débloqué par TLX-052.
 - **TLX-082/083** Sections « À revoir » / « Aujourd'hui » (enfants de C-01) — listes
@@ -89,6 +90,18 @@ paceSecondsPerKm, elevationMeters }`. +2 tests (payload v2 sérialisé asserté 
   `reps`/`distanceMeters`/`recoverySeconds` ; sélection « Course / Endurance » → champs
   `distanceMeters`/`paceSecondsPerKm`/`elevationMeters`. Round-trip sérialisation identique au
   chemin Intervalles déjà validé (UI → orval → backend v2 → DB), `params` stocké en JSON libre.
+
+## Terminés ce sprint — C-05 Blocs typés : Haies + Sauts (TLX-057/058)
+
+- **TLX-057** (Haies) + **TLX-058** (Sauts) — deux entrées `paramFields` au registre
+  `BLOCK_TYPE_SPECS` (pattern TLX-054, frontend-only, `params` libre côté backend v2).
+  Premiers params **décimaux** (`kind: 'number'`) : `hurdles` = `{ heightCm, spacingMeters,
+rhythmSteps }` (hauteur/espacement décimaux) ; `jumps` = `{ approachMeters, fullJumps,
+plyoContacts }` (élan décimal). +2 tests (payload v2 sérialisé asserté, dont décimaux) ;
+  **mobile 134/134** ; lint/typecheck clean. Linear **TLX-42 / TLX-43**.
+- **Validé en réel** (Expo web, HMR) : sur `/session/new`, « Haies » → champs
+  `heightCm`/`spacingMeters`/`rhythmSteps` ; « Sauts » → `approachMeters`/`fullJumps`/
+  `plyoContacts`. Sérialisation identique au chemin Intervalles déjà validé end-to-end.
 
 ## Terminés ce sprint — A-09 Fil de feedback athlète (TLX-092)
 

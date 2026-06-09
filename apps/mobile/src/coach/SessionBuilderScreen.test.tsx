@@ -209,6 +209,54 @@ describe('SessionBuilderScreen (TLX-052 — C-05)', () => {
     });
   });
 
+  it('sélectionne Haies → sérialise type + params (hauteur décimale, espacement, rythme) (TLX-057)', async () => {
+    mockCreateSession.mockResolvedValue({ status: 201, data: { id: 's-hur' } });
+    render(<SessionBuilderScreen />, { wrapper: Wrapper });
+
+    fireEvent.changeText(screen.getByTestId('session-field-title'), 'Haies');
+    fireEvent.changeText(screen.getByTestId('block-0-name'), '5 haies rythme 3');
+    fireEvent.press(screen.getByTestId('block-0-type-hurdles'));
+
+    expect(screen.getByTestId('block-0-params')).toBeOnTheScreen();
+    fireEvent.changeText(screen.getByTestId('block-0-param-heightCm'), '84');
+    fireEvent.changeText(screen.getByTestId('block-0-param-spacingMeters'), '8.5');
+    fireEvent.changeText(screen.getByTestId('block-0-param-rhythmSteps'), '3');
+    fireEvent.press(screen.getByTestId('session-save'));
+
+    await waitFor(() => expect(mockCreateSession).toHaveBeenCalled());
+    const item = mockCreateSession.mock.calls[0][0].exercises.items[0];
+    expect(item).toMatchObject({
+      name: '5 haies rythme 3',
+      order: 1,
+      type: 'hurdles',
+      params: { heightCm: 84, spacingMeters: 8.5, rhythmSteps: 3 },
+    });
+  });
+
+  it('sélectionne Sauts → sérialise type + params (élan décimal, complets, pliométrie) (TLX-058)', async () => {
+    mockCreateSession.mockResolvedValue({ status: 201, data: { id: 's-jmp' } });
+    render(<SessionBuilderScreen />, { wrapper: Wrapper });
+
+    fireEvent.changeText(screen.getByTestId('session-field-title'), 'Sauts');
+    fireEvent.changeText(screen.getByTestId('block-0-name'), 'Longueur — élan complet');
+    fireEvent.press(screen.getByTestId('block-0-type-jumps'));
+
+    expect(screen.getByTestId('block-0-params')).toBeOnTheScreen();
+    fireEvent.changeText(screen.getByTestId('block-0-param-approachMeters'), '30.5');
+    fireEvent.changeText(screen.getByTestId('block-0-param-fullJumps'), '6');
+    fireEvent.changeText(screen.getByTestId('block-0-param-plyoContacts'), '40');
+    fireEvent.press(screen.getByTestId('session-save'));
+
+    await waitFor(() => expect(mockCreateSession).toHaveBeenCalled());
+    const item = mockCreateSession.mock.calls[0][0].exercises.items[0];
+    expect(item).toMatchObject({
+      name: 'Longueur — élan complet',
+      order: 1,
+      type: 'jumps',
+      params: { approachMeters: 30.5, fullJumps: 6, plyoContacts: 40 },
+    });
+  });
+
   it('édition : hydrate type et params d’un bloc intervalle', async () => {
     mockGetSession.mockResolvedValue({
       status: 200,
