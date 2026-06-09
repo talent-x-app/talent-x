@@ -11,23 +11,30 @@ jest.mock('expo-secure-store', () => {
     deleteItemAsync: jest.fn(async (k: string) => void store.delete(k)),
   };
 });
+// L'accueil coach rend désormais le tableau de bord (C-01, TLX-081) — couvert en
+// détail par CoachDashboardScreen.test.tsx ; ici on évite l'appel réseau réel.
+jest.mock('@talent-x/api-client', () => ({
+  getCoachDashboard: () => new Promise(() => {}),
+  AthleteStatus: { up_to_date: 'up_to_date', late: 'late', pending_review: 'pending_review' },
+}));
 
-import { SessionProvider } from './auth/SessionProvider';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import CoachHomeScreen from '../app/(coach)/index';
 import AthleteHomeScreen from '../app/(athlete)/index';
 
 function Wrapper({ children }: { children: ReactNode }) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return (
-    <ThemeProvider>
-      <SessionProvider>{children}</SessionProvider>
-    </ThemeProvider>
+    <QueryClientProvider client={client}>
+      <ThemeProvider>{children}</ThemeProvider>
+    </QueryClientProvider>
   );
 }
 
-describe('CoachHomeScreen (TLX-007)', () => {
-  it('affiche le titre Accueil Coach', () => {
+describe('CoachHomeScreen (TLX-081)', () => {
+  it('rend le tableau de bord coach (état de chargement)', () => {
     render(<CoachHomeScreen />, { wrapper: Wrapper });
-    expect(screen.getByText('Accueil Coach')).toBeOnTheScreen();
+    expect(screen.getByTestId('coach-dashboard-loading')).toBeOnTheScreen();
   });
 });
 
