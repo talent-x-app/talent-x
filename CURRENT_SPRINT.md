@@ -267,6 +267,40 @@ athlete-session-ui.tsx`. 10 tests ; **suite mobile 108/108**. **Validé en réel
   Linear **TLX-34 Done**. `788b5d1`. **Suite mobile 98/98**. Validé en réel (Expo web) :
   liste, message consentement (Lea), stats peuplées (Tom 1/1, 100 %, RPE 7).
 
+## Terminés ce sprint — A-04 Saisie typée : Temps / Intervalles / Essais distance (TLX-072/073/074)
+
+- **ADR-19 (Accepté)** — schéma **results v2** : `timeSeconds` (chrono décimal),
+  `distanceMeters`, `failed` (essai mordu) optionnels sur `SetResult` ; `schemaVersion: 2` ;
+  extension additive (méthode ADR-18), v1 reste valide. Touche TX-DATA-006 §9.2 + OpenAPI +
+  DTO Nest (+17 tests ValidationPipe) ; client orval régénéré ; l'API persiste
+  `results_schema_version`. **Pas de discriminant dans `results`** : le mode de saisie dérive
+  du `type` du bloc (ADR-18).
+- **Module pur `src/athlete/perf-entry.ts`** — mode par `BlockType` (time / distance /
+  checklist v1), lignes pré-remplies depuis `params.reps` / `fullJumps` / `fullThrows`
+  (TLX-062), parse `7.45` / `7,45` / `1:15.3`, sérialisation v2, réhydratation rétro-compat,
+  `formatMeasures` (libellés revue). `SessionDetailScreen` rend les 3 modes ;
+  `CoachReviewScreen` (C-08) affiche les mesures. +37 tests mobile.
+- **Validé en réel** (Expo web + API locale) : séance VMA (`interval`, reps 6) + Longueur
+  (`jumps`, fullJumps 4) → 6 lignes + 4 essais pré-affichés → saisie « 1:12.4 … » + « 5.82 ·
+  6.05 · mordu · 6,12 » → doc v2 persisté exact → revue coach « 5.82 m · 6.05 m · mordu ·
+  6.12 m » → feedback. Commit `2198203`. Linear **TLX-53/54/55 Done**.
+- **Hors périmètre assumé** : TLX-075 (grille de barres) — convention hauteur/tentatives à
+  trancher avec l'ADR (cf. ADR-19 §Conséquences).
+
+## Terminés ce sprint — A-05 Confirmation de perf (TLX-078)
+
+- **Écran `PerfConfirmationScreen`** — route empilée `(athlete)/perf/[id]` (hors tab bar) :
+  après la **1re soumission**, le détail séance bascule (`router.replace`) sur la
+  confirmation — « Performance envoyée ! », récap (RPE, exercices réalisés, **mesures v2**
+  via `formatMeasures`, ressenti, date), CTA « Retour aux séances » / « Revoir ma saisie ».
+  Cache TanStack préchauffé (`setQueryData`) → aucun appel réseau supplémentaire dans le
+  parcours nominal. La **mise à jour** d'une perf garde toast + retour (pas de re-célébration).
+  Helpers `src/athlete/navigation.ts` (hrefs typés). +3 tests, nav 1re soumission assertée ;
+  **suite mobile 206/206** ; typecheck clean.
+- **Validé en réel** (Expo web) : séance Sprint 3×60 m → saisie `7.45 / 7.52 / 7,38` + ressenti
+  → redirection `/perf/:id`, récap « 7.45 s · 7.52 s · 7.38 s », « Revoir ma saisie » →
+  retour détail réhydraté. Zéro erreur console.
+
 ## Notes / dépendances (réutilisables)
 
 - **Mapper séance partagé** : `sessions/session.mapper.ts` (`toSessionDto`).
@@ -292,7 +326,10 @@ athlete-session-ui.tsx`. 10 tests ; **suite mobile 108/108**. **Validé en réel
 
 ## Prochaine étape (proposition)
 
-1. **TLX-055/056** (sprints, course/tempo) puis le reste des éditeurs typés — pattern
-   `BLOCK_TYPE_SPECS` établi par TLX-054, à répliquer par discipline.
-2. **TLX-063** (Assignation C-06 + Confirmation C-07) — débloqué par TLX-052 : assigner
-   une séance créée à un·e athlète, refermant le cycle création → affectation côté coach.
+1. **TLX-076** (détection de record PB, High) — **nécessite une décision de modèle** : aucune
+   table records dans TX-DATA-006 ni dans l'OpenAPI. Proposer un **ADR** (records dérivés des
+   perfs v2 à la lecture vs table `personal_records` matérialisée — TLX-091 « Records
+   personnels A-07 » en dépend) avant de coder.
+2. **TLX-075** (grille de barres hauteur/perche, Medium) — convention essais × tentatives à
+   trancher (complément ADR-19).
+3. **TLX-077** (brouillon auto-save + hors-ligne, Medium 8 pts) — TX-ARCH-001 §4.

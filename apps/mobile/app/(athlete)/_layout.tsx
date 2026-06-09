@@ -48,6 +48,8 @@ export default function AthleteLayout() {
       />
       {/* Détail séance + saisie de perf (A-03/A-04) : routable mais masqué du tab bar. */}
       <Tabs.Screen name="session/[id]" options={{ href: null }} />
+      {/* Confirmation de perf (A-05) : routable mais masquée du tab bar. */}
+      <Tabs.Screen name="perf/[id]" options={{ href: null }} />
     </Tabs>
   );
 }

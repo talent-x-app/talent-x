@@ -27,6 +27,7 @@ import { useToast } from '../feedback';
 import { FeedbackThread } from '../comments/FeedbackThread';
 import { formatExerciseTarget } from '../sessions/exercise-target';
 import { formatSessionDate, sessionTitle } from './athlete-session-ui';
+import { perfConfirmationHref } from './navigation';
 import {
   entryFromResult,
   entryIsCompleted,
@@ -132,14 +133,17 @@ export function SessionDetailScreen() {
       if (response.status === 200 || response.status === 201) return response.data;
       throw response;
     },
-    onSuccess: () => {
+    onSuccess: (perf) => {
       void queryClient.invalidateQueries({ queryKey: ['assignments'] });
       void queryClient.invalidateQueries({ queryKey: ['assignment', id] });
-      toast.show({
-        title: alreadySaved ? 'Performance mise à jour' : 'Performance enregistrée',
-        variant: 'success',
-      });
-      router.back();
+      // Préchauffe le cache de la confirmation (A-05) — pas d'appel réseau supplémentaire.
+      queryClient.setQueryData(['assignment', id, 'performance'], perf);
+      if (alreadySaved) {
+        toast.show({ title: 'Performance mise à jour', variant: 'success' });
+        router.back();
+        return;
+      }
+      router.replace(perfConfirmationHref(id));
     },
     onError: (error) => {
       toast.show({

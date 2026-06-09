@@ -9,6 +9,7 @@ const mockSubmitPerformance = jest.fn();
 const mockUpdatePerformance = jest.fn();
 const mockListComments = jest.fn();
 const mockBack = jest.fn();
+const mockReplace = jest.fn();
 const mockShow = jest.fn();
 
 jest.mock('@talent-x/api-client', () => ({
@@ -42,7 +43,7 @@ jest.mock('@talent-x/api-client', () => ({
   LoadUnit: { kg: 'kg', lb: 'lb', percent_1rm: 'percent_1rm', bodyweight: 'bodyweight' },
 }));
 jest.mock('expo-router', () => ({
-  useRouter: () => ({ back: mockBack }),
+  useRouter: () => ({ back: mockBack, replace: mockReplace }),
   useLocalSearchParams: () => ({ id: 'as-1' }),
 }));
 jest.mock('../feedback', () => ({ useToast: () => ({ show: mockShow, dismiss: jest.fn() }) }));
@@ -270,7 +271,13 @@ describe('SessionDetailScreen (TLX-065/071 — A-03/A-04)', () => {
       setResults: [{ set: 1, completed: true }],
     });
     expect(body.results.items[1].setResults[0].completed).toBe(false);
-    await waitFor(() => expect(mockBack).toHaveBeenCalled());
+    // 1re soumission → bascule sur la confirmation A-05 (TLX-078).
+    await waitFor(() =>
+      expect(mockReplace).toHaveBeenCalledWith({
+        pathname: '/(athlete)/perf/[id]',
+        params: { id: 'as-1' },
+      }),
+    );
   });
 
   it('affiche un message dédié quand le consentement manque', async () => {
