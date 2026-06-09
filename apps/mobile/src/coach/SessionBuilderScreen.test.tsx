@@ -15,6 +15,19 @@ jest.mock('@talent-x/api-client', () => ({
   updateSession: (...a: unknown[]) => mockUpdateSession(...a),
   SessionStatus: { draft: 'draft', published: 'published', archived: 'archived' },
   LoadUnit: { kg: 'kg', lb: 'lb', percent_1rm: 'percent_1rm', bodyweight: 'bodyweight' },
+  BlockType: {
+    strength: 'strength',
+    interval: 'interval',
+    sprint: 'sprint',
+    endurance: 'endurance',
+    hurdles: 'hurdles',
+    jumps: 'jumps',
+    throws: 'throws',
+    core: 'core',
+    warmup: 'warmup',
+    cooldown: 'cooldown',
+    custom: 'custom',
+  },
 }));
 jest.mock('expo-router', () => ({
   useRouter: () => ({ back: mockBack, push: jest.fn() }),
@@ -116,6 +129,59 @@ describe('SessionBuilderScreen (TLX-052 — C-05)', () => {
     await waitFor(() => expect(mockCreateSession).toHaveBeenCalled());
     const body = mockCreateSession.mock.calls[0][0];
     expect(body.exercises.items[0]).not.toHaveProperty('load');
+  });
+
+  it('bloc custom par défaut : pas de section params', () => {
+    render(<SessionBuilderScreen />, { wrapper: Wrapper });
+    expect(screen.queryByTestId('block-0-params')).toBeNull();
+  });
+
+  it('sélectionne Intervalles → affiche les params et sérialise type + params (TLX-053/054)', async () => {
+    mockCreateSession.mockResolvedValue({ status: 201, data: { id: 's-int' } });
+    render(<SessionBuilderScreen />, { wrapper: Wrapper });
+
+    fireEvent.changeText(screen.getByTestId('session-field-title'), 'Fractionné');
+    fireEvent.changeText(screen.getByTestId('block-0-name'), '6 × 400m');
+    fireEvent.press(screen.getByTestId('block-0-type-interval'));
+
+    // L'éditeur de params propre à « Intervalles » apparaît.
+    expect(screen.getByTestId('block-0-params')).toBeOnTheScreen();
+    fireEvent.changeText(screen.getByTestId('block-0-param-reps'), '6');
+    fireEvent.changeText(screen.getByTestId('block-0-param-workSeconds'), '90');
+    fireEvent.changeText(screen.getByTestId('block-0-param-recoverySeconds'), '120');
+    fireEvent.press(screen.getByTestId('session-save'));
+
+    await waitFor(() => expect(mockCreateSession).toHaveBeenCalled());
+    const item = mockCreateSession.mock.calls[0][0].exercises.items[0];
+    expect(item).toMatchObject({
+      name: '6 × 400m',
+      order: 1,
+      type: 'interval',
+      params: { reps: 6, workSeconds: 90, recoverySeconds: 120 },
+    });
+  });
+
+  it('édition : hydrate type et params d’un bloc intervalle', async () => {
+    mockGetSession.mockResolvedValue({
+      status: 200,
+      data: {
+        id: 's-2',
+        title: 'Piste',
+        status: 'draft',
+        coachId: 'c-1',
+        exercises: {
+          schemaVersion: 2,
+          items: [
+            { name: '5 × 200m', order: 1, type: 'interval', params: { reps: 5, workSeconds: 30 } },
+          ],
+        },
+      },
+    });
+    render(<SessionBuilderScreen sessionId="s-2" />, { wrapper: Wrapper });
+
+    await waitFor(() => expect(screen.getByTestId('block-0-params')).toBeOnTheScreen());
+    expect(screen.getByTestId('block-0-param-reps').props.value).toBe('5');
+    expect(screen.getByTestId('block-0-param-workSeconds').props.value).toBe('30');
   });
 
   it('charge une séance existante puis la met à jour (PUT)', async () => {

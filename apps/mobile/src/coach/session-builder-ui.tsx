@@ -1,16 +1,16 @@
-import { LoadUnit, type Exercise } from '@talent-x/api-client';
+import { BlockType, LoadUnit, type Exercise } from '@talent-x/api-client';
 import { useTheme } from '@talent-x/design-tokens';
 import { Feather } from '@expo/vector-icons';
 import { Pressable, Text, TextInput, View } from 'react-native';
 import { Card, Chip } from '../components/ui';
 
 /**
- * Couche UI partagée du constructeur de séance (C-05 — TLX-052). Le backend TLX-050
- * accepte un document `ExercisesDoc` **générique** (schéma exercises v1, cf. TX-DATA-006) :
- * blocs plats `{ name, order, sets?, reps?, durationSeconds?, restSeconds?, load?, notes? }`.
- * Cet éditeur reste donc générique et calé sur ce contrat. Les éditeurs **typés** par
- * discipline (haies, sauts…) supposent un schéma v2 typé → ADR-18 à valider avant de coder
- * (TLX-053→061).
+ * Couche UI partagée du constructeur de séance (C-05). Le backend accepte le contrat
+ * `exercises` **v2** (ADR-18) : base commune `{ name, order, sets?, reps?, durationSeconds?,
+ * restSeconds?, load?, notes? }` + discriminant `type` (`BlockType`) + conteneur `params`
+ * propre au type. Le **sélecteur de type** (TLX-053) et les **éditeurs de params** par
+ * discipline (TLX-054→061) sont pilotés par le registre `BLOCK_TYPE_SPECS` : ajouter une
+ * discipline = ajouter une entrée (libellé + `paramFields`), aucun autre câblage.
  */
 
 /** Bloc en cours d'édition : tous les champs numériques sont des chaînes (saisie libre). */
@@ -18,6 +18,8 @@ export interface EditableBlock {
   /** Clé stable côté client pour le rendu de liste (préservée au réordonnancement). */
   key: string;
   name: string;
+  /** Discipline du bloc (défaut `custom` = bloc générique, cf. ADR-18). */
+  type: BlockType;
   sets: string;
   reps: string;
   durationSeconds: string;
@@ -25,6 +27,57 @@ export interface EditableBlock {
   loadValue: string;
   loadUnit: LoadUnit | null;
   notes: string;
+  /** Saisie brute des `params` propres au type, indexée par clé de champ. */
+  params: Record<string, string>;
+}
+
+/** Champ de `params` propre à un type de bloc (saisie numérique). */
+export interface BlockParamField {
+  key: string;
+  label: string;
+  placeholder?: string;
+  /** `int` (défaut) ou `number` (décimal autorisé, ex. espacement en m). */
+  kind?: 'int' | 'number';
+}
+
+/** Spécification d'un type de bloc : libellé FR + champs `params` (le cas échéant). */
+export interface BlockTypeSpec {
+  type: BlockType;
+  label: string;
+  paramFields?: BlockParamField[];
+}
+
+/**
+ * Registre des types de bloc (TLX-053). Chaque éditeur typé (TLX-054→061) renseigne ses
+ * `paramFields` ici — le sélecteur et l'éditeur de params s'en déduisent automatiquement.
+ * `custom` (défaut) et les types sans `paramFields` n'utilisent que la base commune.
+ */
+export const BLOCK_TYPE_SPECS: BlockTypeSpec[] = [
+  { type: BlockType.custom, label: 'Personnalisé' },
+  { type: BlockType.strength, label: 'Musculation' },
+  {
+    type: BlockType.interval,
+    label: 'Intervalles',
+    // TLX-054 — Fractionné / Intervalles.
+    paramFields: [
+      { key: 'reps', label: 'Répétitions (nombre d’intervalles)', placeholder: 'Ex. 6' },
+      { key: 'workSeconds', label: 'Effort (s)', placeholder: 'Ex. 90' },
+      { key: 'recoverySeconds', label: 'Récupération (s)', placeholder: 'Ex. 120' },
+    ],
+  },
+  { type: BlockType.sprint, label: 'Sprints' },
+  { type: BlockType.endurance, label: 'Course / Endurance' },
+  { type: BlockType.hurdles, label: 'Haies' },
+  { type: BlockType.jumps, label: 'Sauts' },
+  { type: BlockType.throws, label: 'Lancers' },
+  { type: BlockType.core, label: 'Gainage / Circuit' },
+  { type: BlockType.warmup, label: 'Échauffement' },
+  { type: BlockType.cooldown, label: 'Retour au calme' },
+];
+
+/** Spécification d'un type (repli sur la première entrée, `custom`). */
+export function specForType(type: BlockType): BlockTypeSpec {
+  return BLOCK_TYPE_SPECS.find((s) => s.type === type) ?? BLOCK_TYPE_SPECS[0];
 }
 
 /** Libellés FR des unités de charge (schéma `Load.unit`). */
@@ -42,11 +95,12 @@ export function nextBlockKey(): string {
   return `block-${blockKeyCounter}`;
 }
 
-/** Nouveau bloc vide. */
+/** Nouveau bloc vide (type `custom` par défaut). */
 export function makeEmptyBlock(): EditableBlock {
   return {
     key: nextBlockKey(),
     name: '',
+    type: BlockType.custom,
     sets: '',
     reps: '',
     durationSeconds: '',
@@ -54,6 +108,7 @@ export function makeEmptyBlock(): EditableBlock {
     loadValue: '',
     loadUnit: null,
     notes: '',
+    params: {},
   };
 }
 
@@ -61,17 +116,27 @@ export function makeEmptyBlock(): EditableBlock {
 export function blocksFromExercises(items: Exercise[]): EditableBlock[] {
   return [...items]
     .sort((a, b) => a.order - b.order)
-    .map((ex) => ({
-      key: nextBlockKey(),
-      name: ex.name,
-      sets: ex.sets != null ? String(ex.sets) : '',
-      reps: ex.reps != null ? String(ex.reps) : '',
-      durationSeconds: ex.durationSeconds != null ? String(ex.durationSeconds) : '',
-      restSeconds: ex.restSeconds != null ? String(ex.restSeconds) : '',
-      loadValue: ex.load != null ? String(ex.load.value) : '',
-      loadUnit: ex.load?.unit ?? null,
-      notes: ex.notes ?? '',
-    }));
+    .map((ex) => {
+      const type = (ex.type ?? BlockType.custom) as BlockType;
+      const src = (ex.params ?? {}) as Record<string, unknown>;
+      const params: Record<string, string> = {};
+      specForType(type).paramFields?.forEach((f) => {
+        if (src[f.key] != null) params[f.key] = String(src[f.key]);
+      });
+      return {
+        key: nextBlockKey(),
+        name: ex.name,
+        type,
+        sets: ex.sets != null ? String(ex.sets) : '',
+        reps: ex.reps != null ? String(ex.reps) : '',
+        durationSeconds: ex.durationSeconds != null ? String(ex.durationSeconds) : '',
+        restSeconds: ex.restSeconds != null ? String(ex.restSeconds) : '',
+        loadValue: ex.load != null ? String(ex.load.value) : '',
+        loadUnit: ex.load?.unit ?? null,
+        notes: ex.notes ?? '',
+        params,
+      };
+    });
 }
 
 /** Entier positif depuis une chaîne, ou `undefined` si vide/invalide. */
@@ -94,6 +159,8 @@ function toPositiveNumber(raw: string): number | undefined {
 export function blockToExercise(block: EditableBlock, order: number): Exercise {
   const loadValue = toPositiveNumber(block.loadValue);
   const exercise: Exercise = { name: block.name.trim(), order };
+  // `type` n'est posé que pour une discipline (un bloc `custom` reste byte-identique au v1).
+  if (block.type !== BlockType.custom) exercise.type = block.type;
   const sets = toPositiveInt(block.sets);
   const reps = toPositiveInt(block.reps);
   const durationSeconds = toPositiveInt(block.durationSeconds);
@@ -108,6 +175,17 @@ export function blockToExercise(block: EditableBlock, order: number): Exercise {
   }
   const notes = block.notes.trim();
   if (notes !== '') exercise.notes = notes;
+  // `params` propres au type : champs parsés, attachés seulement si au moins un est rempli.
+  const paramFields = specForType(block.type).paramFields;
+  if (paramFields?.length) {
+    const params: Record<string, number> = {};
+    paramFields.forEach((f) => {
+      const raw = block.params[f.key] ?? '';
+      const n = f.kind === 'number' ? toPositiveNumber(raw) : toPositiveInt(raw);
+      if (n != null) params[f.key] = n;
+    });
+    if (Object.keys(params).length > 0) exercise.params = params;
+  }
   return exercise;
 }
 
@@ -184,6 +262,12 @@ export function BlockCard({
           placeholder="Ex. Squat arrière, 60m départ…"
         />
 
+        <BlockTypeSelector
+          index={index}
+          value={block.type}
+          onChange={(type) => onChange({ type })}
+        />
+
         <View style={{ flexDirection: 'row', gap: spacing[3] }}>
           <FieldInput
             testID={`block-${index}-sets`}
@@ -250,6 +334,8 @@ export function BlockCard({
           </View>
         </View>
 
+        <BlockParamsEditor index={index} block={block} onChange={onChange} />
+
         <FieldInput
           testID={`block-${index}-notes`}
           label="Notes (optionnel)"
@@ -260,6 +346,88 @@ export function BlockCard({
         />
       </View>
     </Card>
+  );
+}
+
+/** Sélecteur du type de bloc (TLX-053) : chips déduits de `BLOCK_TYPE_SPECS`. */
+function BlockTypeSelector({
+  index,
+  value,
+  onChange,
+}: {
+  index: number;
+  value: BlockType;
+  onChange: (type: BlockType) => void;
+}) {
+  const { colors, typography, spacing } = useTheme();
+  return (
+    <View style={{ gap: spacing[2] }}>
+      <Text
+        style={{
+          color: colors.textSecondary,
+          fontFamily: typography.fontFamily.medium,
+          fontSize: typography.bodySm.fontSize,
+        }}
+      >
+        Type de bloc
+      </Text>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] }}>
+        {BLOCK_TYPE_SPECS.map((spec) => (
+          <Chip
+            key={spec.type}
+            testID={`block-${index}-type-${spec.type}`}
+            selected={value === spec.type}
+            onPress={() => onChange(spec.type)}
+          >
+            {spec.label}
+          </Chip>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+/**
+ * Éditeur des `params` propres au type sélectionné (TLX-054→061). Rendu uniquement si le
+ * type courant déclare des `paramFields` ; sinon `null` (types génériques sans params).
+ */
+function BlockParamsEditor({
+  index,
+  block,
+  onChange,
+}: {
+  index: number;
+  block: EditableBlock;
+  onChange: (patch: Partial<EditableBlock>) => void;
+}) {
+  const { colors, typography, spacing } = useTheme();
+  const spec = specForType(block.type);
+  if (!spec.paramFields?.length) return null;
+  return (
+    <View testID={`block-${index}-params`} style={{ gap: spacing[3] }}>
+      <Text
+        style={{
+          color: colors.textSecondary,
+          fontFamily: typography.fontFamily.medium,
+          fontSize: typography.bodySm.fontSize,
+          textTransform: 'uppercase',
+          letterSpacing: 0.6,
+        }}
+      >
+        Paramètres — {spec.label}
+      </Text>
+      {spec.paramFields.map((field) => (
+        <FieldInput
+          key={field.key}
+          testID={`block-${index}-param-${field.key}`}
+          label={field.label}
+          value={block.params[field.key] ?? ''}
+          onChangeText={(v) => onChange({ params: { ...block.params, [field.key]: v } })}
+          keyboardType={field.kind === 'number' ? 'numeric' : 'number-pad'}
+          placeholder={field.placeholder}
+        />
+      ))}
+    </View>
   );
 }
 
