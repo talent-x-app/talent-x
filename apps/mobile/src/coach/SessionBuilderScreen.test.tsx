@@ -161,6 +161,54 @@ describe('SessionBuilderScreen (TLX-052 — C-05)', () => {
     });
   });
 
+  it('sélectionne Sprints → sérialise type + params (distance, reps, récup) (TLX-055)', async () => {
+    mockCreateSession.mockResolvedValue({ status: 201, data: { id: 's-spr' } });
+    render(<SessionBuilderScreen />, { wrapper: Wrapper });
+
+    fireEvent.changeText(screen.getByTestId('session-field-title'), 'Vitesse');
+    fireEvent.changeText(screen.getByTestId('block-0-name'), '8 × 60m départ');
+    fireEvent.press(screen.getByTestId('block-0-type-sprint'));
+
+    expect(screen.getByTestId('block-0-params')).toBeOnTheScreen();
+    fireEvent.changeText(screen.getByTestId('block-0-param-reps'), '8');
+    fireEvent.changeText(screen.getByTestId('block-0-param-distanceMeters'), '60');
+    fireEvent.changeText(screen.getByTestId('block-0-param-recoverySeconds'), '180');
+    fireEvent.press(screen.getByTestId('session-save'));
+
+    await waitFor(() => expect(mockCreateSession).toHaveBeenCalled());
+    const item = mockCreateSession.mock.calls[0][0].exercises.items[0];
+    expect(item).toMatchObject({
+      name: '8 × 60m départ',
+      order: 1,
+      type: 'sprint',
+      params: { reps: 8, distanceMeters: 60, recoverySeconds: 180 },
+    });
+  });
+
+  it('sélectionne Course → sérialise type + params (distance, allure, dénivelé) (TLX-056)', async () => {
+    mockCreateSession.mockResolvedValue({ status: 201, data: { id: 's-end' } });
+    render(<SessionBuilderScreen />, { wrapper: Wrapper });
+
+    fireEvent.changeText(screen.getByTestId('session-field-title'), 'Tempo');
+    fireEvent.changeText(screen.getByTestId('block-0-name'), 'Tempo 5 km');
+    fireEvent.press(screen.getByTestId('block-0-type-endurance'));
+
+    expect(screen.getByTestId('block-0-params')).toBeOnTheScreen();
+    fireEvent.changeText(screen.getByTestId('block-0-param-distanceMeters'), '5000');
+    fireEvent.changeText(screen.getByTestId('block-0-param-paceSecondsPerKm'), '300');
+    fireEvent.changeText(screen.getByTestId('block-0-param-elevationMeters'), '120');
+    fireEvent.press(screen.getByTestId('session-save'));
+
+    await waitFor(() => expect(mockCreateSession).toHaveBeenCalled());
+    const item = mockCreateSession.mock.calls[0][0].exercises.items[0];
+    expect(item).toMatchObject({
+      name: 'Tempo 5 km',
+      order: 1,
+      type: 'endurance',
+      params: { distanceMeters: 5000, paceSecondsPerKm: 300, elevationMeters: 120 },
+    });
+  });
+
   it('édition : hydrate type et params d’un bloc intervalle', async () => {
     mockGetSession.mockResolvedValue({
       status: 200,

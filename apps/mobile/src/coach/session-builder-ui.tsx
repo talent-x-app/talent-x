@@ -65,8 +65,26 @@ export const BLOCK_TYPE_SPECS: BlockTypeSpec[] = [
       { key: 'recoverySeconds', label: 'Récupération (s)', placeholder: 'Ex. 120' },
     ],
   },
-  { type: BlockType.sprint, label: 'Sprints' },
-  { type: BlockType.endurance, label: 'Course / Endurance' },
+  {
+    type: BlockType.sprint,
+    label: 'Sprints',
+    // TLX-055 — Répétitions de vitesse / Sprints : distances, répétitions, récupération.
+    paramFields: [
+      { key: 'reps', label: 'Répétitions (nombre de sprints)', placeholder: 'Ex. 8' },
+      { key: 'distanceMeters', label: 'Distance (m)', placeholder: 'Ex. 60' },
+      { key: 'recoverySeconds', label: 'Récupération (s)', placeholder: 'Ex. 180' },
+    ],
+  },
+  {
+    type: BlockType.endurance,
+    label: 'Course / Endurance',
+    // TLX-056 — Course continue / Tempo / Côtes / Fartlek : allure cible, dénivelé.
+    paramFields: [
+      { key: 'distanceMeters', label: 'Distance (m)', placeholder: 'Ex. 5000' },
+      { key: 'paceSecondsPerKm', label: 'Allure cible (s/km)', placeholder: 'Ex. 300' },
+      { key: 'elevationMeters', label: 'Dénivelé D+ (m)', placeholder: 'Ex. 120' },
+    ],
+  },
   { type: BlockType.hurdles, label: 'Haies' },
   { type: BlockType.jumps, label: 'Sauts' },
   { type: BlockType.throws, label: 'Lancers' },

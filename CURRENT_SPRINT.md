@@ -9,9 +9,9 @@ de débloquer les écrans coach C-01/C-02/C-03.
 
 ## À faire (frontend)
 
-- **TLX-055→061** 7 éditeurs typés restants (sprints, course, haies, sauts, lancers,
-  gainage…). Pattern établi par TLX-054 : ajouter une entrée `BLOCK_TYPE_SPECS` avec ses
-  `paramFields`. Chaque éditeur fixe la forme de son `params`.
+- **TLX-057→061** 5 éditeurs typés restants (haies, sauts, lancers, musculation, gainage…).
+  Pattern établi par TLX-054 : ajouter une entrée `BLOCK_TYPE_SPECS` avec ses
+  `paramFields`. Chaque éditeur fixe la forme de son `params`. (TLX-055/056 livrés ↓.)
 - **TLX-062** Cibles de bloc → pré-remplissage saisie perf (A-04) — débloqué par le v2.
 - **TLX-063** Écran Assignation (C-06) + Confirmation (C-07) — débloqué par TLX-052.
 - **TLX-082/083** Sections « À revoir » / « Aujourd'hui » (enfants de C-01) — listes
@@ -76,6 +76,19 @@ Total : **+52 tests API** (168 → 220). Tout poussé sur `main`.
   reps 6 / 75 s / 120 s → **`POST /sessions` 201**, persisté `{ type:"interval",
 params:{reps:6, workSeconds:75, recoverySeconds:120} }`, `schemaVersion 2`. Round-trip
   UI → client orval → backend v2 → DB confirmé.
+
+## Terminés ce sprint — C-05 Blocs typés : Sprints + Course/Endurance (TLX-055/056)
+
+- **TLX-055** (Sprints / répétitions de vitesse) + **TLX-056** (Course continue / Tempo /
+  Côtes / Fartlek) — deux nouvelles entrées `paramFields` au registre `BLOCK_TYPE_SPECS`,
+  pattern TLX-054 répliqué (frontend-only, `params` libre côté backend v2). `sprint` =
+  `{ reps, distanceMeters, recoverySeconds }` ; `endurance` = `{ distanceMeters,
+paceSecondsPerKm, elevationMeters }`. +2 tests (payload v2 sérialisé asserté par discipline) ;
+  **mobile 132/132** ; lint/typecheck clean. Linear **TLX-40 / TLX-41**.
+- **Validé en réel** (Expo web, HMR) : sur `/session/new`, sélection « Sprints » → champs
+  `reps`/`distanceMeters`/`recoverySeconds` ; sélection « Course / Endurance » → champs
+  `distanceMeters`/`paceSecondsPerKm`/`elevationMeters`. Round-trip sérialisation identique au
+  chemin Intervalles déjà validé (UI → orval → backend v2 → DB), `params` stocké en JSON libre.
 
 ## Terminés ce sprint — A-09 Fil de feedback athlète (TLX-092)
 
