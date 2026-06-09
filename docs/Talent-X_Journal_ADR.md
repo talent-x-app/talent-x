@@ -32,6 +32,7 @@ Chaque décision suit le format **ADR** : Statut, Date, Contexte, Décision, Con
 | ADR-16 | Révocation du code d'invitation de groupe : colonne `invite_code_revoked_at` (complète TX-DATA-006 §5.1) | Accepté |
 | ADR-17 | Contrat explicite des dérivations de pilotage coach (`Dashboard`/`Stats`) (complète OpenAPI · Carte C-01 §8) | Accepté |
 | ADR-18 | Schéma `exercises` v2 : blocs typés par discipline, union discriminée (raffine ADR-10 · complète TX-DATA-006 §9.1) | Accepté |
+| ADR-19 | Schéma `results` v2 : mesures chronométriques et de distance par essai (méthode ADR-18 · complète TX-DATA-006 §9.2) | Proposé |
 
 ---
 
@@ -310,6 +311,24 @@ commune = champs v1, objet `params` validé selon `type` pour les champs propres
 discipline, `schemaVersion: 2`. **Rétro-compatible** (un bloc sans `type` = `custom`) :
 l'éditeur générique livré par TLX-052 devient une variante, **zéro rework**. Débloque le
 pré-remplissage A-04 (TLX-062) que le texte libre `notes` ne permettait pas.
+
+---
+
+## ADR-19 — Schéma `results` v2 : mesures chronométriques et de distance par essai
+
+Décision complète : [`docs/adr/ADR-19-schema-results-v2-mesures-typees.md`](adr/ADR-19-schema-results-v2-mesures-typees.md).
+
+**Statut : Proposé** (bloque TLX-072/073/074 — modes de saisie A-04 §4).
+
+**En bref.** Le contrat `results` v1 (TX-DATA-006 §9.2) ne porte que `reps`/`load`/
+`durationSeconds` (entier)/`completed` par série : impossible d'y saisir un chrono décimal
+(7.45 s) ou une distance d'essai (6.42 m), rejetés par le backend (`forbidNonWhitelisted`).
+Proposition : **v2 additif** sur `SetResult` — `timeSeconds?` (décimal, temps mesuré),
+`distanceMeters?` (décimal), `failed?` (essai raté/mordu), `schemaVersion: 2`. Pas de
+discriminant dans `results` : le mode de saisie dérive du `type` du bloc (ADR-18) côté
+client. **Rétro-compatible** (aucun champ v1 modifié — `durationSeconds` garde sa sémantique
+de durée tenue). Symétrie cibles (ADR-18) ↔ mesures ; la grille de barres (TLX-075) reste à
+trancher.
 
 ---
 
