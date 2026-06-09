@@ -64,13 +64,14 @@ refresh rotatif), son rôle/ownership est appliqué, et le socle RGPD
 - Cœur auth backend en place : `PasswordService` (Argon2id), `TokenService`
   (access RS256 + refresh opaque rotatif), `JwtAuthGuard` global. Réutilisables
   pour la suite (RBAC, consentement…).
-- **TLX-79** : chemins nominaux register/login/refresh, requêtes
-  d'ownership/appartenance (`OwnershipService`, TLX-024) **et consentements**
-  (`ConsentsService` append-only, TLX-031) validés en unitaire seulement
-  (Prisma mocké) — validation en base réelle (Docker) suivie là-bas.
-  _Maj 2026-06-09_ : le **schéma** est désormais déployé sur base réelle
-  (migrations appliquées + seed), mais les **endpoints** n'ont pas encore été
-  exercés contre cette base — la validation fonctionnelle bout en bout reste due.
+- **TLX-79** ✅ **fait** : suite d'**intégration DB-backed** ajoutée
+  (`apps/api/test/auth-rgpd.int-spec.ts`, config `jest-integration.json`, script
+  `test:int`). Valide contre une **vraie base** : register (compte + refresh haché +
+  409 e-mail casse-insensible), login (200 / 401), refresh (rotation + réutilisation
+  → 409 + famille révoquée), consents append-only + CHECK `type`, `ConsentGate`
+  (dernière ligne fait foi, 403 `CONSENT_REQUIRED`), `OwnershipService` (appartenance,
+  404/403, soft-delete). **CI** : service `postgres` + `migrate deploy` + `test:int`.
+  Tests auto-suffisants (fixtures créées/nettoyées). 11/11 verts en local.
 - **TLX-81** (nouveau) : pendant **frontend** de TLX-79. Les écrans onboarding
   (login O-02, inscription O-03/O-04, consentement O-05) et le flux
   `register → consent → tabs` sont validés en Jest seulement (client/router/

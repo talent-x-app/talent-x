@@ -18,8 +18,24 @@ jobs:
       # Aucune base réelle en CI : Prisma se construit avec cette URL factice et
       # les tests qui touchent la base la voient indisponible (readiness → 503).
       # Pas un secret : pointe une base inexistante. La vraie config vit dans
-      # les secrets d'environnement (cf. TLX-004).
+      # les secrets d'environnement (cf. TLX-004). Les tests d'INTÉGRATION
+      # (test:int) surchargent DATABASE_URL vers le service `postgres` ci-dessous.
       DATABASE_URL: postgresql://ci:ci@localhost:5432/ci?schema=public
+    # Base réelle dédiée aux tests d'intégration DB-backed (TLX-79).
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: talentx
+          POSTGRES_PASSWORD: talentx
+          POSTGRES_DB: talentx
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U talentx -d talentx"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -58,9 +74,22 @@ jobs:
       - name: Tests unitaires
         run: pnpm -r --if-present test
 
-      # Tests e2e/intégration API (Jest + Supertest). Config dédiée, base factice
+      # Tests e2e API « sans base » (Jest + Supertest). Config dédiée, base factice
       # (cf. DATABASE_URL ci-dessus) : valide les comportements transverses sans
       # base réelle. Les e2e mobile (Maestro) nécessitent un émulateur et sont
       # joués en staging/manuellement (cf. README §Tests, TX-OPS-004 §6).
       - name: Tests e2e API
         run: pnpm --filter @talent-x/api test:e2e
+
+      # Tests d'INTÉGRATION DB-backed (TLX-79) : chemins nominaux contre une vraie
+      # base Postgres (service ci-dessus). On applique les migrations puis on joue
+      # la suite *.int-spec. DATABASE_URL surchargé vers le service `postgres`.
+      - name: Migrations (base d'intégration)
+        run: pnpm --filter @talent-x/api exec prisma migrate deploy
+        env:
+          DATABASE_URL: postgresql://talentx:talentx@localhost:5432/talentx?schema=public
+
+      - name: Tests d'intégration API (DB)
+        run: pnpm --filter @talent-x/api test:int
+        env:
+          DATABASE_URL: postgresql://talentx:talentx@localhost:5432/talentx?schema=public

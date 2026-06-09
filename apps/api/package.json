@@ -13,6 +13,7 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:e2e": "jest --config test/jest-e2e.json",
+    "test:int": "jest --config test/jest-integration.json --runInBand",
     "prisma:generate": "prisma generate",
     "seed": "prisma db seed",
     "keys:generate": "tsx scripts/generate-jwt-keys.ts"
