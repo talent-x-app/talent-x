@@ -10,8 +10,9 @@ de débloquer les écrans coach C-01/C-02/C-03.
 ## À faire (frontend)
 
 - **TLX-053→061** Sélecteur de type de bloc + 8 éditeurs typés par discipline
-  (C-05 §6). **Bloqués par ADR-18** (schéma exercises v2) — à valider avant de coder.
-- **TLX-062** Cibles de bloc → pré-remplissage saisie perf (A-04) — dépend du v2.
+  (C-05 §6). **Débloqués** : ADR-18 accepté + cadre contrat v2 livré (`type`/`params`).
+  Chaque éditeur fixe la forme de son `params` à son tour.
+- **TLX-062** Cibles de bloc → pré-remplissage saisie perf (A-04) — débloqué par le v2.
 - **TLX-063** Écran Assignation (C-06) + Confirmation (C-07) — débloqué par TLX-052.
 - **TLX-082/083** Sections « À revoir » / « Aujourd'hui » (enfants de C-01) — listes
   détaillées au-delà des KPIs livrés.
@@ -55,10 +56,14 @@ Total : **+52 tests API** (168 → 220). Tout poussé sur `main`.
   2 blocs (Squat arrière 5×3 @80 kg, Gainage 45 s) + statut Publiée → **`POST /sessions`
   201**, payload `schemaVersion 1`, `order` 1/2, charge `{80,kg}` persistés ; retour
   dashboard. **Le coach crée ses séances dans l'app (plus de seed via API).**
-- **ADR-18 (Proposé)** — schéma exercises **v2** en union discriminée (blocs typés par
-  discipline) : la coquille générique livrée est une variante de v2 (zéro rework). Les
-  éditeurs typés **TLX-053→061 attendent la validation de l'ADR** (règle #7). Indexé au
-  Journal ADR.
+- **ADR-18 (Accepté)** — schéma exercises **v2** en union discriminée (blocs typés par
+  discipline). La coquille générique livrée est une variante de v2 (zéro rework).
+- **Cadre contrat v2 livré** (commit `239f546`) — enum `BlockType` + `Exercise.type?` +
+  `Exercise.params?` (libre), `schemaVersion` 2 par défaut, rétro-compat (bloc sans
+  `type` lu en `custom`). Touche TX-DATA-006 §9.1 + OpenAPI + DTO Nest ; client orval
+  régénéré ; frontend tague en v2. **+7 tests** (3 service + 4 ValidationPipe : `type`/
+  `params` acceptés, type hors enum / champ inconnu rejetés). **API 241/241**, mobile
+  **127/127**. `params` par discipline = fixé par chaque éditeur (TLX-054→061).
 
 ## Terminés ce sprint — A-09 Fil de feedback athlète (TLX-092)
 
@@ -146,7 +151,8 @@ athlete-session-ui.tsx`. 10 tests ; **suite mobile 108/108**. **Validé en réel
 
 ## Prochaine étape (proposition)
 
-1. **Valider l'ADR-18** (schéma exercises v2) — débloque les éditeurs typés C-05
-   (TLX-053→061) et le pré-remplissage A-04 (TLX-062). Décision structurante en attente.
+1. **TLX-053** (sélecteur de type de bloc) + premiers éditeurs typés par priorité
+   (Urgent : intervalles/sprints) — chaque éditeur ajoute sa section `params` sur le
+   cadre v2 désormais en place.
 2. **TLX-063** (Assignation C-06 + Confirmation C-07) — débloqué par TLX-052 : assigner
    une séance créée à un·e athlète, refermant le cycle création → affectation côté coach.
