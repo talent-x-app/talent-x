@@ -1,18 +1,23 @@
 import {
+  BadRequestException,
+  Body,
   Controller,
   Get,
-  NotImplementedException,
+  Headers,
+  HttpCode,
   Param,
   ParseUUIDPipe,
   Post,
   Put,
   Query,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiHeader, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { CurrentUser, type AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { AssignmentsService } from './assignments.service';
+import { PerformancesService } from './performances.service';
 import { AssignmentQueryDto } from './dto/assignment-query.dto';
 import { AssignmentDto, AssignmentPageDto } from './dto/assignment.dto';
+import { PerformanceCreateDto, PerformanceDto } from './dto/performance.dto';
 
 /**
  * Affectations & performances. Affectations livrées par TLX-051 (liste/détail
@@ -22,7 +27,10 @@ import { AssignmentDto, AssignmentPageDto } from './dto/assignment.dto';
 @ApiBearerAuth()
 @Controller('assignments')
 export class AssignmentsController {
-  constructor(private readonly assignments: AssignmentsService) {}
+  constructor(
+    private readonly assignments: AssignmentsService,
+    private readonly performances: PerformancesService,
+  ) {}
 
   @Get()
   @ApiOperation({ summary: 'Lister ses affectations', operationId: 'listAssignments' })
@@ -49,20 +57,41 @@ export class AssignmentsController {
   }
 
   @Post(':id/performance')
-  @ApiOperation({ summary: 'Saisir une performance', operationId: 'submitPerformance' })
-  submitPerformance(@Param('id') _id: string): never {
-    throw new NotImplementedException('submitPerformance');
+  @HttpCode(201)
+  @ApiOperation({ summary: 'Soumettre la performance', operationId: 'submitPerformance' })
+  @ApiHeader({ name: 'Idempotency-Key', required: true, description: "Clé d'idempotence client." })
+  @ApiResponse({ status: 201, description: 'Performance enregistrée.', type: PerformanceDto })
+  submitPerformance(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: PerformanceCreateDto,
+    @Headers('Idempotency-Key') idempotencyKey?: string,
+  ): Promise<PerformanceDto> {
+    // Contrat : en-tête requis. Idempotence effective via l'unicité de assignment_id.
+    if (!idempotencyKey?.trim()) {
+      throw new BadRequestException('En-tête Idempotency-Key requis.');
+    }
+    return this.performances.submitPerformance(user, id, dto);
   }
 
   @Get(':id/performance')
-  @ApiOperation({ summary: 'Récupérer la performance', operationId: 'getPerformance' })
-  getPerformance(@Param('id') _id: string): never {
-    throw new NotImplementedException('getPerformance');
+  @ApiOperation({ summary: 'Lire la performance', operationId: 'getPerformance' })
+  @ApiResponse({ status: 200, description: 'Performance.', type: PerformanceDto })
+  getPerformance(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', new ParseUUIDPipe()) id: string,
+  ): Promise<PerformanceDto> {
+    return this.performances.getPerformance(user, id);
   }
 
   @Put(':id/performance')
   @ApiOperation({ summary: 'Mettre à jour la performance', operationId: 'updatePerformance' })
-  updatePerformance(@Param('id') _id: string): never {
-    throw new NotImplementedException('updatePerformance');
+  @ApiResponse({ status: 200, description: 'Performance mise à jour.', type: PerformanceDto })
+  updatePerformance(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: PerformanceCreateDto,
+  ): Promise<PerformanceDto> {
+    return this.performances.updatePerformance(user, id, dto);
   }
 }
