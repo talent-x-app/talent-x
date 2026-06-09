@@ -25,8 +25,8 @@ import {
   type EditableBlock,
 } from './session-builder-ui';
 
-/** Version courante du contrat JSONB des séances (schéma exercises v1, TX-DATA-006). */
-const EXERCISES_SCHEMA_VERSION = 1;
+/** Version courante du contrat JSONB des séances (schéma exercises v2, TX-DATA-006 · ADR-18). */
+const EXERCISES_SCHEMA_VERSION = 2;
 
 /**
  * Constructeur de séance (C-05 — TLX-052). En-tête (titre, description, date, statut) +

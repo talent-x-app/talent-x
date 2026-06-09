@@ -77,8 +77,30 @@ describe('SessionsService', () => {
       const arg = prisma.session.create.mock.calls[0][0];
       expect(arg.data.coachId).toBe('c-1');
       expect(arg.data.status).toBe(SessionStatus.Draft);
-      expect(arg.data.exercises).toEqual({ schemaVersion: 1, items: [{ name: '60m', order: 0 }] });
+      expect(arg.data.exercises).toEqual({ schemaVersion: 2, items: [{ name: '60m', order: 0 }] });
       expect(result).toMatchObject({ id: 's-1', coachId: 'c-1', status: 'draft' });
+    });
+
+    it('préserve type et params des blocs typés (contrat v2, ADR-18)', async () => {
+      const prisma = prismaMock();
+      prisma.session.create.mockResolvedValue(sessionRow());
+      await service(prisma).createSession('c-1', {
+        title: 'Haies',
+        exercises: {
+          schemaVersion: 2,
+          items: [
+            {
+              name: 'Passage 5 haies',
+              order: 1,
+              type: 'hurdles',
+              params: { height: 84, spacing: 8.5 },
+            } as never,
+          ],
+        },
+      });
+      const doc = prisma.session.create.mock.calls[0][0].data.exercises;
+      expect(doc.schemaVersion).toBe(2);
+      expect(doc.items[0]).toMatchObject({ type: 'hurdles', params: { height: 84, spacing: 8.5 } });
     });
 
     it('convertit scheduledDate (YYYY-MM-DD) en Date', async () => {
@@ -147,6 +169,24 @@ describe('SessionsService', () => {
       prisma.session.findFirst.mockResolvedValue(sessionRow());
       const res = await service(prisma).getSession(COACH, 's-1');
       expect(res.id).toBe('s-1');
+    });
+
+    it('lecture : un bloc v1 sans type est exposé comme custom (ADR-18)', async () => {
+      const prisma = prismaMock();
+      prisma.session.findFirst.mockResolvedValue(sessionRow());
+      const res = await service(prisma).getSession(COACH, 's-1');
+      expect(res.exercises.items[0]).toMatchObject({ name: '60m', type: 'custom' });
+    });
+
+    it('lecture : un bloc déjà typé conserve son type (ADR-18)', async () => {
+      const prisma = prismaMock();
+      prisma.session.findFirst.mockResolvedValue(
+        sessionRow({
+          exercises: { schemaVersion: 2, items: [{ name: 'Saut', order: 1, type: 'jumps' }] },
+        }),
+      );
+      const res = await service(prisma).getSession(COACH, 's-1');
+      expect(res.exercises.items[0]).toMatchObject({ type: 'jumps' });
     });
 
     it('coach non propriétaire : 403', async () => {

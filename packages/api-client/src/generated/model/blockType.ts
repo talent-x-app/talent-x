@@ -7,20 +7,23 @@
  * Conventions transverses : préfixe /api/v1 ; jeton d'accès JWT (RS256) via en-tête Authorization ; pagination par enveloppe { data, meta } ; idempotence des écritures sensibles via Idempotency-Key ; opérations longues asynchrones (202 + ressource de statut) ; rate limiting signalé par les en-têtes RateLimit-*. L'autorisation combine rôle, appartenance (lien coach↔athlète), propriété et consentement ; voir TX-SPEC-002 §6.
  * OpenAPI spec version: 1.0.0
  */
-import type { BlockType } from './blockType';
-import type { ExerciseParams } from './exerciseParams';
-import type { Load } from './load';
 
-export interface Exercise {
-  name: string;
-  order: number;
-  type?: BlockType;
-  sets?: number;
-  reps?: number;
-  durationSeconds?: number;
-  restSeconds?: number;
-  load?: Load;
-  notes?: string;
-  /** Paramètres propres au `type` (cadre libre au niveau du contrat — la forme par discipline est fixée par le ticket de l'éditeur correspondant, TLX-054…061, cf. ADR-18). */
-  params?: ExerciseParams;
-}
+/**
+ * Type de bloc par discipline (contrat v2, cf. ADR-18). Un bloc sans `type` est interprété comme `custom` (variante générique, rétro-compat v1).
+ */
+export type BlockType = typeof BlockType[keyof typeof BlockType];
+
+
+export const BlockType = {
+  strength: 'strength',
+  interval: 'interval',
+  sprint: 'sprint',
+  endurance: 'endurance',
+  hurdles: 'hurdles',
+  jumps: 'jumps',
+  throws: 'throws',
+  core: 'core',
+  warmup: 'warmup',
+  cooldown: 'cooldown',
+  custom: 'custom',
+} as const;

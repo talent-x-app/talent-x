@@ -149,10 +149,13 @@ export class SessionsService {
   }
 }
 
-/** Sérialise un `ExercisesDoc` en JSON Prisma (schemaVersion par défaut 1). */
+/** Version courante du contrat JSONB des séances (cf. TX-DATA-006 §9.1, ADR-18). */
+const EXERCISES_SCHEMA_VERSION = 2;
+
+/** Sérialise un `ExercisesDoc` en JSON Prisma (schemaVersion v2 par défaut, cf. ADR-18). */
 function toExercisesJson(doc: ExercisesDocDto): Prisma.InputJsonValue {
   return {
-    schemaVersion: doc.schemaVersion ?? 1,
+    schemaVersion: doc.schemaVersion ?? EXERCISES_SCHEMA_VERSION,
     items: doc.items as unknown as Prisma.InputJsonValue[],
   };
 }

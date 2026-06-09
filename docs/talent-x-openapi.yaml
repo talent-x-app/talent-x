@@ -2089,6 +2089,23 @@ components:
       required:
       - value
       - unit
+    BlockType:
+      type: string
+      description: >-
+        Type de bloc par discipline (contrat v2, cf. ADR-18). Un bloc sans `type`
+        est interprété comme `custom` (variante générique, rétro-compat v1).
+      enum:
+      - strength
+      - interval
+      - sprint
+      - endurance
+      - hurdles
+      - jumps
+      - throws
+      - core
+      - warmup
+      - cooldown
+      - custom
     Exercise:
       type: object
       properties:
@@ -2096,6 +2113,8 @@ components:
           type: string
         order:
           type: integer
+        type:
+          $ref: '#/components/schemas/BlockType'
         sets:
           type: integer
         reps:
@@ -2108,6 +2127,13 @@ components:
           $ref: '#/components/schemas/Load'
         notes:
           type: string
+        params:
+          type: object
+          additionalProperties: true
+          description: >-
+            Paramètres propres au `type` (cadre libre au niveau du contrat — la forme
+            par discipline est fixée par le ticket de l'éditeur correspondant,
+            TLX-054…061, cf. ADR-18).
       required:
       - name
       - order

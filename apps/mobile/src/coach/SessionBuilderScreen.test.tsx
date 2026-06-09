@@ -86,7 +86,7 @@ describe('SessionBuilderScreen (TLX-052 — C-05)', () => {
       scheduledDate: undefined,
       status: 'draft',
       exercises: {
-        schemaVersion: 1,
+        schemaVersion: 2,
         items: [
           {
             name: 'Squat arrière',

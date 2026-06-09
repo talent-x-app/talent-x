@@ -1,7 +1,7 @@
 # ADR-18 — Schéma `exercises` v2 : blocs typés par discipline (union discriminée)
 
-- **Statut :** Proposé
-- **Date :** 2026-06-09
+- **Statut :** Accepté
+- **Date :** 2026-06-09 (validé 2026-06-09)
 - **Complète :** `Talent-X_06_Modele_de_donnees.md` §9.1 (contrat `exercises`),
   `talent-x-openapi.yaml` (schémas `Exercise`, `ExercisesDoc`)
 - **Tickets liés :** TLX-052 (constructeur C-05, coquille générique — livré),
@@ -62,8 +62,20 @@ générique v1 devient **une variante parmi d'autres** :
 - Bumper **`schemaVersion: 2`** et `exercises_schema_version` par défaut à `2` pour les
   nouvelles séances.
 
+**Portée de cet ADR (cadre, pas détail).** Cet ADR fige uniquement le **cadre** v2 :
+existence de `type` (enum `BlockType`), base commune = champs v1, présence d'un conteneur
+`params` discriminé par `type`, et `schemaVersion: 2`. Au stade du cadre, `params` est un
+objet **libre** (`additionalProperties`) — la **forme précise de `params` pour chaque
+discipline est définie par le ticket de l'éditeur correspondant** (TLX-054…061), qui
+resserre la validation backend de sa variante au moment où il est implémenté. On évite
+ainsi de trancher les 8 disciplines en amont ; le contrat s'étend variante par variante.
+
+**Défaut legacy.** Un bloc hérité v1 sans `type` est lu comme **`type: "custom"`**
+(variante générique neutre, sans sémantique de discipline) — c'est aussi le type de
+sortie de l'éditeur générique livré par TLX-052 tant qu'aucune discipline n'est choisie.
+
 **Rétro-compatibilité (clé de l'ADR).** Toute séance v1 reste valide : un bloc sans
-`type` est lu comme **`type: "custom"`** (ou `strength`), `params` absent. Aucune
+`type` est lu comme **`type: "custom"`**, `params` absent. Aucune
 migration de données obligatoire ; la lecture tolère v1 et v2 (cf. §9.3 versionnement).
 Conséquence directe : **l'éditeur générique livré par TLX-052 n'est pas jeté** — il
 devient l'éditeur de la variante `custom`/`strength`, et les éditeurs typés ajoutent

@@ -31,7 +31,7 @@ Chaque décision suit le format **ADR** : Statut, Date, Contexte, Décision, Con
 | ADR-15 | Manifeste d'effacement / anonymisation RGPD (complète ADR-05/13) | Accepté |
 | ADR-16 | Révocation du code d'invitation de groupe : colonne `invite_code_revoked_at` (complète TX-DATA-006 §5.1) | Accepté |
 | ADR-17 | Contrat explicite des dérivations de pilotage coach (`Dashboard`/`Stats`) (complète OpenAPI · Carte C-01 §8) | Accepté |
-| ADR-18 | Schéma `exercises` v2 : blocs typés par discipline, union discriminée (raffine ADR-10 · complète TX-DATA-006 §9.1) | Proposé |
+| ADR-18 | Schéma `exercises` v2 : blocs typés par discipline, union discriminée (raffine ADR-10 · complète TX-DATA-006 §9.1) | Accepté |
 
 ---
 
@@ -300,7 +300,7 @@ Rétrocompatible (champs ajoutés, aucun retiré) ; OpenAPI ↔ DTOs Nest align�
 
 Décision complète : [`docs/adr/ADR-18-schema-exercises-v2-blocs-types.md`](adr/ADR-18-schema-exercises-v2-blocs-types.md).
 
-**Statut : Proposé** (à valider avant de coder TLX-053→061).
+**Statut : Accepté** (validé 2026-06-09 — débloque TLX-053→061 et TLX-062).
 
 **En bref.** Le contrat `exercises` v1 (TX-DATA-006 §9.1, ADR-10) décrit des blocs
 **génériques** sans `type` ; les éditeurs typés C-05 (haies, sauts, intervalles…)

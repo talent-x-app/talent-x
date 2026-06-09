@@ -1228,9 +1228,13 @@ Origine du lien d'autorisation\.
 
 Les champs exercises \(séances\) et results \(performances\) sont en JSONB pour absorber la variabilité entre disciplines\. Pour éviter une hétérogénéité ingérable, leur structure est régie par un schéma versionné, validé à l'écriture côté backend \(JSON Schema ou équivalent Zod\)\. La version courante est portée par la colonne …\_schema\_version de l'entité\.
 
-## 9\.1 Contrat exercises \(schéma v1\)
+## 9\.1 Contrat exercises \(schéma v2 — cf\. ADR\-18\)
 
-Objet contenant un tableau items d'exercices ordonnés\.
+Objet contenant un tableau items d'exercices ordonnés\. **v2** \(ADR\-18\) ajoute, sur chaque
+bloc, un discriminant `type` \(enum `BlockType`\) et un conteneur `params` propre au type\.
+Le **cadre** v2 laisse `params` libre \(`additionalProperties`\) ; la forme par discipline est
+fixée par le ticket de l'éditeur correspondant \(TLX\-054…061\)\. **Rétro\-compatible** : un bloc
+v1 sans `type` est lu comme `type: "custom"`\. `type` et `params` sont optionnels\.
 
 \{
 
@@ -1258,6 +1262,8 @@ Objet contenant un tableau items d'exercices ordonnés\.
 
           "order":       \{ "type": "integer", "minimum": 1 \},
 
+          "type":        \{ "type": "string", "enum": \["strength", "interval", "sprint", "endurance", "hurdles", "jumps", "throws", "core", "warmup", "cooldown", "custom"\] \},
+
           "sets":        \{ "type": "integer", "minimum": 0 \},
 
           "reps":        \{ "type": "integer", "minimum": 0 \},
@@ -1278,7 +1284,9 @@ Objet contenant un tableau items d'exercices ordonnés\.
 
           "restSeconds": \{ "type": "integer", "minimum": 0 \},
 
-          "notes":       \{ "type": "string" \}
+          "notes":       \{ "type": "string" \},
+
+          "params":      \{ "type": "object", "additionalProperties": true \}
 
         \}
 

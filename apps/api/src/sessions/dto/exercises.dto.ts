@@ -5,6 +5,7 @@ import {
   IsEnum,
   IsInt,
   IsNumber,
+  IsObject,
   IsOptional,
   IsString,
   Min,
@@ -19,6 +20,24 @@ export enum LoadUnit {
   Bodyweight = 'bodyweight',
 }
 
+/**
+ * Type de bloc par discipline — schéma `BlockType` (cf. ADR-18, contrat v2).
+ * Un bloc sans `type` est lu comme `custom` (variante générique, rétro-compat v1).
+ */
+export enum BlockType {
+  Strength = 'strength',
+  Interval = 'interval',
+  Sprint = 'sprint',
+  Endurance = 'endurance',
+  Hurdles = 'hurdles',
+  Jumps = 'jumps',
+  Throws = 'throws',
+  Core = 'core',
+  Warmup = 'warmup',
+  Cooldown = 'cooldown',
+  Custom = 'custom',
+}
+
 /** Charge prescrite d'un exercice — schéma `Load`. */
 export class LoadDto {
   @ApiProperty()
@@ -30,7 +49,7 @@ export class LoadDto {
   unit!: LoadUnit;
 }
 
-/** Bloc/exercice typé d'une séance — schéma `Exercise`. */
+/** Bloc/exercice typé d'une séance — schéma `Exercise` (contrat v2, cf. ADR-18). */
 export class ExerciseDto {
   @ApiProperty()
   @IsString()
@@ -40,6 +59,14 @@ export class ExerciseDto {
   @IsInt()
   @Min(0)
   order!: number;
+
+  @ApiPropertyOptional({
+    enum: BlockType,
+    description: 'Type de bloc par discipline (absent = `custom`, cf. ADR-18).',
+  })
+  @IsOptional()
+  @IsEnum(BlockType)
+  type?: BlockType;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -75,6 +102,17 @@ export class ExerciseDto {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  @ApiPropertyOptional({
+    type: 'object',
+    additionalProperties: true,
+    description:
+      'Paramètres propres au `type` (cadre libre — la forme par discipline est ' +
+      'fixée par le ticket de l’éditeur correspondant, TLX-054…061, cf. ADR-18).',
+  })
+  @IsOptional()
+  @IsObject()
+  params?: Record<string, unknown>;
 }
 
 /** Document JSONB des blocs d'une séance — schéma `ExercisesDoc` (cf. TX-DATA-006). */
