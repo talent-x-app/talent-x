@@ -12,9 +12,6 @@ de débloquer les écrans coach C-01/C-02/C-03.
 - **TLX-082/083** Sections « À revoir » / « Aujourd'hui » (enfants de C-01) — listes
   détaillées au-delà des KPIs livrés.
 - **TLX-084/085** Alertes détaillées & états première utilisation (enfants de C-01).
-- **TLX-044** (C-02) Écran Athlètes — **débloqué** : source « tous mes athlètes » via
-  `GET /coach/dashboard` → `athletes[]` (statut dérivé déjà fourni).
-- **TLX-045** (C-03) Détail athlète — **débloqué** : `GET /athletes/{id}/stats` opérationnel.
 - **TLX-052** Constructeur de séance (C-05) [PARENT] + éditeurs de blocs (TLX-053…).
 - **TLX-086** Revue de performance + feedback (C-08) — pose le commentaire coach qui sort
   une perf de « à revoir ».
@@ -54,6 +51,13 @@ Total : **+52 tests API** (168 → 220). Tout poussé sur `main`.
   consentements manquants), liste « Tes athlètes » + badge de statut dérivé, états
   chargement/erreur/vide, pull-to-refresh. 6 tests ; **suite mobile 88/88**. Commit `65ef052`.
   Linear **TLX-61 Done** (vue principale ; sous-sections = TLX-082/083/084/085).
+- **TLX-044** (UI) Écran Athlètes (C-02) — onglet `(coach)/athletes` : liste des athlètes
+  liés via `/coach/dashboard` (cache partagé avec C-01), statut dérivé, lignes cliquables.
+  Composants partagés extraits (`src/coach/athlete-ui.tsx`). Linear **TLX-33 Done**. `f013994`.
+- **TLX-045** (UI) Détail athlète (C-03) — route `(coach)/athlete/[id]` (hors tab bar) :
+  identité (params) + stats `/athletes/:id/stats`, consent-gated (403 → message dédié).
+  Linear **TLX-34 Done**. `788b5d1`. **Suite mobile 98/98**. Validé en réel (Expo web) :
+  liste, message consentement (Lea), stats peuplées (Tom 1/1, 100 %, RPE 7).
 
 ## Notes / dépendances (réutilisables)
 
