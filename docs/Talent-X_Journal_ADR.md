@@ -32,7 +32,7 @@ Chaque décision suit le format **ADR** : Statut, Date, Contexte, Décision, Con
 | ADR-16 | Révocation du code d'invitation de groupe : colonne `invite_code_revoked_at` (complète TX-DATA-006 §5.1) | Accepté |
 | ADR-17 | Contrat explicite des dérivations de pilotage coach (`Dashboard`/`Stats`) (complète OpenAPI · Carte C-01 §8) | Accepté |
 | ADR-18 | Schéma `exercises` v2 : blocs typés par discipline, union discriminée (raffine ADR-10 · complète TX-DATA-006 §9.1) | Accepté |
-| ADR-19 | Schéma `results` v2 : mesures chronométriques et de distance par essai (méthode ADR-18 · complète TX-DATA-006 §9.2) | Proposé |
+| ADR-19 | Schéma `results` v2 : mesures chronométriques et de distance par essai (méthode ADR-18 · complète TX-DATA-006 §9.2) | Accepté |
 
 ---
 
@@ -318,7 +318,7 @@ pré-remplissage A-04 (TLX-062) que le texte libre `notes` ne permettait pas.
 
 Décision complète : [`docs/adr/ADR-19-schema-results-v2-mesures-typees.md`](adr/ADR-19-schema-results-v2-mesures-typees.md).
 
-**Statut : Proposé** (bloque TLX-072/073/074 — modes de saisie A-04 §4).
+**Statut : Accepté** (validé 2026-06-10 — débloque TLX-072/073/074, modes de saisie A-04 §4).
 
 **En bref.** Le contrat `results` v1 (TX-DATA-006 §9.2) ne porte que `reps`/`load`/
 `durationSeconds` (entier)/`completed` par série : impossible d'y saisir un chrono décimal

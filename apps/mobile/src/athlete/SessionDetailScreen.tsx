@@ -22,11 +22,18 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { Button, Card, Slider } from '../components/ui';
+import { Button, Card, Chip, Slider } from '../components/ui';
 import { useToast } from '../feedback';
 import { FeedbackThread } from '../comments/FeedbackThread';
 import { formatExerciseTarget } from '../sessions/exercise-target';
 import { formatSessionDate, sessionTitle } from './athlete-session-ui';
+import {
+  entryFromResult,
+  entryIsCompleted,
+  entryToResult,
+  makeEmptyEntry,
+  type ExerciseEntry,
+} from './perf-entry';
 
 /** Réponse 403 dont le code métier indique un consentement manquant. */
 function isConsentRequired(error: unknown): boolean {
@@ -35,6 +42,9 @@ function isConsentRequired(error: unknown): boolean {
 }
 
 const DEFAULT_RPE = 7;
+
+/** Version courante du contrat JSONB des résultats (schéma results v2, TX-DATA-006 · ADR-19). */
+const RESULTS_SCHEMA_VERSION = 2;
 
 /**
  * Écran Détail séance + saisie de perf (A-03/A-04 — TLX-065/071). Consomme
@@ -78,35 +88,42 @@ export function SessionDetailScreen() {
     [assignment.data],
   );
 
-  // État de saisie local, réhydraté depuis la perf existante quand elle arrive.
-  const [done, setDone] = useState<Record<number, boolean>>({});
+  // État de saisie local par exercice (mode dérivé du type de bloc — TLX-072/073/074),
+  // dimensionné sur la cible (TLX-062) puis réhydraté depuis la perf existante.
+  const [entries, setEntries] = useState<ExerciseEntry[]>([]);
   const [rpe, setRpe] = useState(DEFAULT_RPE);
   const [notes, setNotes] = useState('');
 
   useEffect(() => {
+    setEntries(exercises.map((ex) => makeEmptyEntry(ex)));
+  }, [exercises]);
+
+  useEffect(() => {
     const perf = existing.data;
     if (!perf) return;
-    const flags: Record<number, boolean> = {};
-    exercises.forEach((ex, i) => {
-      const result = perf.results.items.find((r) => r.exerciseName === ex.name);
-      flags[i] = result?.setResults?.some((s) => s.completed) ?? false;
-    });
-    setDone(flags);
+    setEntries(
+      exercises.map((ex) =>
+        entryFromResult(
+          ex,
+          perf.results.items.find((r) => r.exerciseName === ex.name),
+        ),
+      ),
+    );
     if (perf.rpe != null) setRpe(perf.rpe);
     if (perf.notes != null) setNotes(perf.notes);
   }, [existing.data, exercises]);
+
+  function updateEntry(index: number, updater: (entry: ExerciseEntry) => ExerciseEntry) {
+    setEntries((prev) => prev.map((e, i) => (i === index ? updater(e) : e)));
+  }
 
   const alreadySaved = existing.data != null;
 
   const mutation = useMutation({
     mutationFn: async (): Promise<Performance> => {
       const results: ResultsDoc = {
-        schemaVersion: 1,
-        items: exercises.map((ex, i) => ({
-          exerciseName: ex.name,
-          order: ex.order,
-          setResults: [{ set: 1, completed: !!done[i] }],
-        })),
+        schemaVersion: RESULTS_SCHEMA_VERSION,
+        items: exercises.map((ex, i) => entryToResult(ex, entries[i] ?? makeEmptyEntry(ex))),
       };
       const body: PerformanceCreate = { results, rpe, notes: notes.trim() || undefined };
       const response = alreadySaved
@@ -135,8 +152,7 @@ export function SessionDetailScreen() {
     },
   });
 
-  const toggle = (i: number) => setDone((d) => ({ ...d, [i]: !d[i] }));
-  const completedCount = exercises.filter((_, i) => done[i]).length;
+  const completedCount = entries.filter(entryIsCompleted).length;
 
   return (
     <ScrollView
@@ -259,12 +275,69 @@ export function SessionDetailScreen() {
             ) : (
               <Card padded={false}>
                 {exercises.map((ex, i) => {
-                  const on = !!done[i];
+                  const entry = entries[i];
+                  if (entry && entry.mode !== 'checklist') {
+                    // Modes mesurés (TLX-072/073/074) : temps par course / distance par essai.
+                    return (
+                      <View
+                        key={`${ex.name}-${i}`}
+                        testID={`exercise-${i}`}
+                        style={[
+                          styles.measuredBlock,
+                          { borderTopColor: colors.border, borderTopWidth: i ? 1 : 0 },
+                        ]}
+                      >
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                          <Text
+                            style={{
+                              flex: 1,
+                              color: colors.textPrimary,
+                              fontFamily: typography.fontFamily.medium,
+                              fontSize: typography.body.fontSize,
+                            }}
+                          >
+                            {ex.name}
+                          </Text>
+                          <Text
+                            testID={`exercise-${i}-target`}
+                            style={{
+                              color: colors.textMuted,
+                              fontFamily: typography.fontFamily.regular,
+                              fontSize: typography.bodySm.fontSize,
+                            }}
+                          >
+                            {formatExerciseTarget(ex)}
+                          </Text>
+                        </View>
+                        {entry.mode === 'time' ? (
+                          <TimeEntryRows
+                            index={i}
+                            times={entry.times}
+                            onChange={(times) => updateEntry(i, () => ({ mode: 'time', times }))}
+                          />
+                        ) : (
+                          <DistanceEntryRows
+                            index={i}
+                            attempts={entry.attempts}
+                            onChange={(attempts) =>
+                              updateEntry(i, () => ({ mode: 'distance', attempts }))
+                            }
+                          />
+                        )}
+                      </View>
+                    );
+                  }
+                  // Mode checklist (base v1) : réalisé / non réalisé.
+                  const on = entry?.mode === 'checklist' && entry.done;
                   return (
                     <Pressable
                       key={`${ex.name}-${i}`}
                       testID={`exercise-${i}`}
-                      onPress={() => toggle(i)}
+                      onPress={() =>
+                        updateEntry(i, (e) =>
+                          e.mode === 'checklist' ? { mode: 'checklist', done: !e.done } : e,
+                        )
+                      }
                       accessibilityRole="checkbox"
                       accessibilityState={{ checked: on }}
                       style={[
@@ -394,6 +467,133 @@ export function SessionDetailScreen() {
   );
 }
 
+/** Lignes de temps (mode Temps / Intervalles — TLX-072/073). Saisie « 7.45 » ou « 1:15.3 ». */
+function TimeEntryRows({
+  index,
+  times,
+  onChange,
+}: {
+  index: number;
+  times: string[];
+  onChange: (times: string[]) => void;
+}) {
+  const { colors, typography, spacing } = useTheme();
+  return (
+    <View style={{ gap: spacing[2] }}>
+      {times.map((value, j) => (
+        <View key={j} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[2] }}>
+          <Text
+            style={{
+              width: 56,
+              color: colors.textMuted,
+              fontFamily: typography.fontFamily.regular,
+              fontSize: typography.bodySm.fontSize,
+            }}
+          >
+            N° {j + 1}
+          </Text>
+          <TextInput
+            testID={`exercise-${index}-time-${j}`}
+            value={value}
+            onChangeText={(v) => onChange(times.map((t, k) => (k === j ? v : t)))}
+            placeholder="Temps (s) — ex. 7.45 ou 1:15.3"
+            placeholderTextColor={colors.textMuted}
+            keyboardType="numbers-and-punctuation"
+            style={[
+              styles.measureInput,
+              {
+                borderColor: colors.borderStrong,
+                backgroundColor: colors.surface,
+                color: colors.textPrimary,
+                fontFamily: typography.fontFamily.regular,
+                fontSize: typography.body.fontSize,
+              },
+            ]}
+          />
+        </View>
+      ))}
+      <Button
+        testID={`exercise-${index}-add-row`}
+        variant="ghost"
+        size="sm"
+        onPress={() => onChange([...times, ''])}
+      >
+        + Ajouter un temps
+      </Button>
+    </View>
+  );
+}
+
+/** Lignes d'essais (mode Essais distance — TLX-074) : distance (m) + essai mordu. */
+function DistanceEntryRows({
+  index,
+  attempts,
+  onChange,
+}: {
+  index: number;
+  attempts: { distance: string; failed: boolean }[];
+  onChange: (attempts: { distance: string; failed: boolean }[]) => void;
+}) {
+  const { colors, typography, spacing } = useTheme();
+  return (
+    <View style={{ gap: spacing[2] }}>
+      {attempts.map((attempt, j) => (
+        <View key={j} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[2] }}>
+          <Text
+            style={{
+              width: 56,
+              color: colors.textMuted,
+              fontFamily: typography.fontFamily.regular,
+              fontSize: typography.bodySm.fontSize,
+            }}
+          >
+            Essai {j + 1}
+          </Text>
+          <TextInput
+            testID={`exercise-${index}-distance-${j}`}
+            value={attempt.distance}
+            onChangeText={(v) =>
+              onChange(attempts.map((a, k) => (k === j ? { ...a, distance: v } : a)))
+            }
+            placeholder="Distance (m) — ex. 6.42"
+            placeholderTextColor={colors.textMuted}
+            keyboardType="numeric"
+            editable={!attempt.failed}
+            style={[
+              styles.measureInput,
+              {
+                borderColor: colors.borderStrong,
+                backgroundColor: colors.surface,
+                color: colors.textPrimary,
+                fontFamily: typography.fontFamily.regular,
+                fontSize: typography.body.fontSize,
+                opacity: attempt.failed ? 0.5 : 1,
+              },
+            ]}
+          />
+          <Chip
+            testID={`exercise-${index}-failed-${j}`}
+            selected={attempt.failed}
+            onPress={() =>
+              onChange(attempts.map((a, k) => (k === j ? { ...a, failed: !a.failed } : a)))
+            }
+          >
+            Mordu
+          </Chip>
+        </View>
+      ))}
+      <Button
+        testID={`exercise-${index}-add-row`}
+        variant="ghost"
+        size="sm"
+        onPress={() => onChange([...attempts, { distance: '', failed: false }])}
+      >
+        + Ajouter un essai
+      </Button>
+    </View>
+  );
+}
+
 function SectionTitle({ children }: { children: ReactNode }) {
   const { colors, typography } = useTheme();
   return (
@@ -418,6 +618,18 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingVertical: 13,
     paddingHorizontal: 14,
+  },
+  measuredBlock: {
+    gap: 10,
+    paddingVertical: 13,
+    paddingHorizontal: 14,
+  },
+  measureInput: {
+    flex: 1,
+    height: 42,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    borderWidth: 1,
   },
   checkbox: {
     width: 22,

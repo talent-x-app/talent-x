@@ -1,7 +1,7 @@
 # ADR-19 — Schéma `results` v2 : mesures chronométriques et de distance par essai
 
-- **Statut :** Proposé
-- **Date :** 2026-06-10
+- **Statut :** Accepté
+- **Date :** 2026-06-10 (validé 2026-06-10)
 - **Complète :** `Talent-X_06_Modele_de_donnees.md` §9.2 (contrat `results`),
   `talent-x-openapi.yaml` (schémas `SetResult`, `ExerciseResult`, `ResultsDoc`)
 - **Tickets liés :** TLX-072 (saisie mode Temps, A-04 §4.1), TLX-073 (mode Intervalles,

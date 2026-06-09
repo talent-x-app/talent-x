@@ -9,6 +9,9 @@
  */
 import type { ExerciseResult } from './exerciseResult';
 
+/**
+ * Document JSONB des résultats (TX-DATA-006 §9.2). v2 (ADR-19) ajoute les mesures par essai sur `SetResult` ; tout document v1 reste valide.
+ */
 export interface ResultsDoc {
   schemaVersion?: number;
   items: ExerciseResult[];

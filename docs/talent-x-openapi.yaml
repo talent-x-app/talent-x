@@ -2274,6 +2274,7 @@ components:
       - data
     SetResult:
       type: object
+      description: Résultat d'une série / d'un essai. Les mesures `timeSeconds`, `distanceMeters` et `failed` relèvent du contrat v2 (ADR-19) ; le mode de saisie dérive du `type` du bloc de séance (ADR-18), sans discriminant ici.
       properties:
         set:
           type: integer
@@ -2283,8 +2284,20 @@ components:
           $ref: '#/components/schemas/Load'
         durationSeconds:
           type: integer
+          description: Durée tenue (s, entier) — sémantique v1 inchangée (ex. gainage).
         completed:
           type: boolean
+        timeSeconds:
+          type: number
+          minimum: 0
+          description: Temps mesuré de la course / répétition (s, décimal — v2, ADR-19).
+        distanceMeters:
+          type: number
+          minimum: 0
+          description: Distance mesurée de l'essai (m, décimal — v2, ADR-19).
+        failed:
+          type: boolean
+          description: Essai raté / mordu (v2, ADR-19).
       required:
       - set
     ExerciseResult:
@@ -2302,6 +2315,7 @@ components:
       - exerciseName
     ResultsDoc:
       type: object
+      description: Document JSONB des résultats (TX-DATA-006 §9.2). v2 (ADR-19) ajoute les mesures par essai sur `SetResult` ; tout document v1 reste valide.
       properties:
         schemaVersion:
           type: integer

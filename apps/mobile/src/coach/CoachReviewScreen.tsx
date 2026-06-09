@@ -6,6 +6,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { Button, Card } from '../components/ui';
 import { FeedbackThread } from '../comments/FeedbackThread';
+import { formatMeasures } from '../athlete/perf-entry';
 
 /** Réponse 403 dont le code métier indique un consentement manquant. */
 function isConsentRequired(error: unknown): boolean {
@@ -139,6 +140,37 @@ function PerformanceSummary({ performance }: { performance: Performance }) {
               value={`${items.filter((i) => i.setResults?.some((s) => s.completed)).length}/${items.length}`}
             />
           </View>
+          {/* Mesures v2 (ADR-19) : temps / distances par exercice, quand présentes. */}
+          {items.some((i) => formatMeasures(i.setResults)) ? (
+            <View style={{ gap: spacing[1] }}>
+              <Text
+                style={{
+                  color: colors.textSecondary,
+                  fontFamily: typography.fontFamily.medium,
+                  fontSize: typography.bodySm.fontSize,
+                }}
+              >
+                Mesures
+              </Text>
+              {items.map((item, idx) => {
+                const measures = formatMeasures(item.setResults);
+                if (!measures) return null;
+                return (
+                  <Text
+                    key={`${item.exerciseName}-${idx}`}
+                    testID={`review-measures-${idx}`}
+                    style={{
+                      color: colors.textPrimary,
+                      fontFamily: typography.fontFamily.regular,
+                      fontSize: typography.body.fontSize,
+                    }}
+                  >
+                    {item.exerciseName} — {measures}
+                  </Text>
+                );
+              })}
+            </View>
+          ) : null}
           {performance.notes ? (
             <View style={{ gap: spacing[1] }}>
               <Text

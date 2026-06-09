@@ -135,6 +135,120 @@ describe('SessionDetailScreen (TLX-065/071 — A-03/A-04)', () => {
     expect(screen.getByTestId('exercise-1-target')).toHaveTextContent('3 tours × 45s');
   });
 
+  it('mode Temps : lignes pré-remplies depuis params.reps, sérialise timeSeconds v2 (TLX-072/073)', async () => {
+    mockGetAssignment.mockResolvedValue({
+      status: 200,
+      data: {
+        ...ASSIGNMENT,
+        session: {
+          ...ASSIGNMENT.session,
+          exercises: {
+            schemaVersion: 2,
+            items: [
+              {
+                name: '3 × 400m',
+                order: 1,
+                type: 'interval',
+                params: { reps: 3, workSeconds: 75 },
+              },
+            ],
+          },
+        },
+      },
+    });
+    mockGetPerformance.mockResolvedValue({ status: 404, data: { error: 'NOT_FOUND' } });
+    mockSubmitPerformance.mockResolvedValue({ status: 201, data: { id: 'p-1' } });
+    render(<SessionDetailScreen />, { wrapper: Wrapper });
+
+    // 3 lignes de temps pré-créées depuis la cible (params.reps).
+    await waitFor(() => expect(screen.getByTestId('exercise-0-time-0')).toBeOnTheScreen());
+    expect(screen.getByTestId('exercise-0-time-2')).toBeOnTheScreen();
+    expect(screen.queryByTestId('exercise-0-time-3')).toBeNull();
+
+    fireEvent.changeText(screen.getByTestId('exercise-0-time-0'), '1:15.3');
+    fireEvent.changeText(screen.getByTestId('exercise-0-time-1'), '76,1');
+    fireEvent.press(screen.getByTestId('submit-performance'));
+
+    await waitFor(() => expect(mockSubmitPerformance).toHaveBeenCalled());
+    const body = mockSubmitPerformance.mock.calls[0][1];
+    expect(body.results.schemaVersion).toBe(2);
+    expect(body.results.items[0].setResults).toEqual([
+      { set: 1, timeSeconds: 75.3, completed: true },
+      { set: 2, timeSeconds: 76.1, completed: true },
+    ]);
+  });
+
+  it('mode Essais distance : distance + mordu, sérialise distanceMeters/failed v2 (TLX-074)', async () => {
+    mockGetAssignment.mockResolvedValue({
+      status: 200,
+      data: {
+        ...ASSIGNMENT,
+        session: {
+          ...ASSIGNMENT.session,
+          exercises: {
+            schemaVersion: 2,
+            items: [{ name: 'Longueur', order: 1, type: 'jumps', params: { fullJumps: 2 } }],
+          },
+        },
+      },
+    });
+    mockGetPerformance.mockResolvedValue({ status: 404, data: { error: 'NOT_FOUND' } });
+    mockSubmitPerformance.mockResolvedValue({ status: 201, data: { id: 'p-1' } });
+    render(<SessionDetailScreen />, { wrapper: Wrapper });
+
+    await waitFor(() => expect(screen.getByTestId('exercise-0-distance-0')).toBeOnTheScreen());
+    fireEvent.changeText(screen.getByTestId('exercise-0-distance-0'), '6.42');
+    fireEvent.press(screen.getByTestId('exercise-0-failed-1')); // essai 2 mordu
+    fireEvent.press(screen.getByTestId('submit-performance'));
+
+    await waitFor(() => expect(mockSubmitPerformance).toHaveBeenCalled());
+    const body = mockSubmitPerformance.mock.calls[0][1];
+    expect(body.results.items[0].setResults).toEqual([
+      { set: 1, distanceMeters: 6.42, completed: true },
+      { set: 2, failed: true, completed: true },
+    ]);
+  });
+
+  it('réhydrate les temps mesurés d’une perf existante (mise à jour)', async () => {
+    mockGetAssignment.mockResolvedValue({
+      status: 200,
+      data: {
+        ...ASSIGNMENT,
+        session: {
+          ...ASSIGNMENT.session,
+          exercises: {
+            schemaVersion: 2,
+            items: [{ name: '60m', order: 1, type: 'sprint', params: { reps: 2 } }],
+          },
+        },
+      },
+    });
+    mockGetPerformance.mockResolvedValue({
+      status: 200,
+      data: {
+        id: 'p-1',
+        assignmentId: 'as-1',
+        athleteId: 'me',
+        rpe: 8,
+        submittedAt: '2026-06-10T10:00:00.000Z',
+        results: {
+          schemaVersion: 2,
+          items: [
+            {
+              exerciseName: '60m',
+              order: 1,
+              setResults: [{ set: 1, timeSeconds: 7.45, completed: true }],
+            },
+          ],
+        },
+      },
+    });
+    render(<SessionDetailScreen />, { wrapper: Wrapper });
+
+    await waitFor(() => expect(screen.getByTestId('session-detail-saved')).toBeOnTheScreen());
+    expect(screen.getByTestId('exercise-0-time-0').props.value).toBe('7.45');
+  });
+
   it('soumet la perf avec en-tête Idempotency-Key et résultats par exercice', async () => {
     mockGetAssignment.mockResolvedValue({ status: 200, data: ASSIGNMENT });
     mockGetPerformance.mockResolvedValue({ status: 404, data: { error: 'NOT_FOUND' } });

@@ -1318,9 +1318,14 @@ Exemple d'instance :
 
 \}
 
-## 9\.2 Contrat results \(schéma v1\)
+## 9\.2 Contrat results \(schéma v2 — ADR\-19\)
 
-Résultats par exercice, alignés sur l'ordre des exercices de la séance\.
+Résultats par exercice, alignés sur l'ordre des exercices de la séance\. Le schéma v2
+\(ADR\-19\) ajoute des **mesures optionnelles par série/essai** — `timeSeconds` \(temps mesuré,
+décimal\), `distanceMeters` \(distance mesurée, décimale\), `failed` \(essai raté/mordu\) — sans
+modifier aucun champ v1 \(`durationSeconds` reste une durée *tenue*, entière\)\. Tout document
+v1 est valide en v2\. Le mode de saisie dérive du `type` du bloc \(§9\.1, ADR\-18\) : aucun
+discriminant dans `results`\.
 
 \{
 
@@ -1374,7 +1379,13 @@ Résultats par exercice, alignés sur l'ordre des exercices de la séance\.
 
                   \}
 
-                \}
+                \},
+
+                "timeSeconds":    \{ "type": "number", "minimum": 0 \},
+
+                "distanceMeters": \{ "type": "number", "minimum": 0 \},
+
+                "failed":         \{ "type": "boolean" \}
 
               \}
 

@@ -65,6 +65,42 @@ describe('CoachReviewScreen (TLX-086 — C-08)', () => {
     expect(screen.getByTestId('review-athlete-notes')).toHaveTextContent('Bonnes sensations.');
   });
 
+  it('affiche les mesures v2 (temps / distance) quand présentes (ADR-19)', async () => {
+    mockGetPerformance.mockResolvedValue({
+      status: 200,
+      data: {
+        ...PERF,
+        results: {
+          schemaVersion: 2,
+          items: [
+            {
+              exerciseName: '60m',
+              order: 1,
+              setResults: [
+                { set: 1, timeSeconds: 7.45, completed: true },
+                { set: 2, timeSeconds: 7.62, completed: true },
+              ],
+            },
+            {
+              exerciseName: 'Longueur',
+              order: 2,
+              setResults: [
+                { set: 1, distanceMeters: 6.42, completed: true },
+                { set: 2, failed: true, completed: true },
+              ],
+            },
+          ],
+        },
+      },
+    });
+    mockListComments.mockResolvedValue(emptyComments);
+    render(<CoachReviewScreen />, { wrapper: Wrapper });
+
+    await waitFor(() => expect(screen.getByTestId('review-measures-0')).toBeOnTheScreen());
+    expect(screen.getByTestId('review-measures-0')).toHaveTextContent('60m — 7.45 s · 7.62 s');
+    expect(screen.getByTestId('review-measures-1')).toHaveTextContent('Longueur — 6.42 m · mordu');
+  });
+
   it('affiche le fil de feedback existant', async () => {
     mockGetPerformance.mockResolvedValue({ status: 200, data: PERF });
     mockListComments.mockResolvedValue({

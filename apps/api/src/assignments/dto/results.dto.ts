@@ -4,6 +4,7 @@ import {
   IsArray,
   IsBoolean,
   IsInt,
+  IsNumber,
   IsOptional,
   IsString,
   Min,
@@ -11,7 +12,11 @@ import {
 } from 'class-validator';
 import { LoadDto } from '../../sessions/dto/exercises.dto';
 
-/** Résultat d'une série — schéma `SetResult`. */
+/**
+ * Résultat d'une série / d'un essai — schéma `SetResult`. Les mesures `timeSeconds`,
+ * `distanceMeters` et `failed` relèvent du contrat v2 (ADR-19) ; `durationSeconds` garde
+ * sa sémantique v1 de durée *tenue* (entier).
+ */
 export class SetResultDto {
   @ApiProperty()
   @IsInt()
@@ -40,6 +45,23 @@ export class SetResultDto {
   @IsOptional()
   @IsBoolean()
   completed?: boolean;
+
+  @ApiPropertyOptional({ description: 'Temps mesuré (s, décimal — v2, ADR-19).' })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  timeSeconds?: number;
+
+  @ApiPropertyOptional({ description: "Distance mesurée de l'essai (m, décimal — v2, ADR-19)." })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  distanceMeters?: number;
+
+  @ApiPropertyOptional({ description: 'Essai raté / mordu (v2, ADR-19).' })
+  @IsOptional()
+  @IsBoolean()
+  failed?: boolean;
 }
 
 /** Résultats d'un exercice — schéma `ExerciseResult`. */

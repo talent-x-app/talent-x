@@ -48,6 +48,7 @@ export class PerformancesService {
           assignmentId,
           athleteId: user.id,
           results: toResultsJson(dto.results),
+          resultsSchemaVersion: dto.results.schemaVersion ?? 1,
           rpe: dto.rpe ?? null,
           notes: dto.notes,
         },
@@ -102,6 +103,7 @@ export class PerformancesService {
       where: { assignmentId },
       data: {
         results: toResultsJson(dto.results),
+        resultsSchemaVersion: dto.results.schemaVersion ?? 1,
         rpe: dto.rpe ?? null,
         notes: dto.notes ?? null,
       },

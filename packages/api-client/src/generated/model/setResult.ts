@@ -9,10 +9,26 @@
  */
 import type { Load } from './load';
 
+/**
+ * Résultat d'une série / d'un essai. Les mesures `timeSeconds`, `distanceMeters` et `failed` relèvent du contrat v2 (ADR-19) ; le mode de saisie dérive du `type` du bloc de séance (ADR-18), sans discriminant ici.
+ */
 export interface SetResult {
   set: number;
   reps?: number;
   load?: Load;
+  /** Durée tenue (s, entier) — sémantique v1 inchangée (ex. gainage). */
   durationSeconds?: number;
   completed?: boolean;
+  /**
+     * Temps mesuré de la course / répétition (s, décimal — v2, ADR-19).
+     * @minimum 0
+     */
+  timeSeconds?: number;
+  /**
+     * Distance mesurée de l'essai (m, décimal — v2, ADR-19).
+     * @minimum 0
+     */
+  distanceMeters?: number;
+  /** Essai raté / mordu (v2, ADR-19). */
+  failed?: boolean;
 }
