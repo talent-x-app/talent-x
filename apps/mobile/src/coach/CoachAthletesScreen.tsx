@@ -11,7 +11,7 @@ import {
   View,
 } from 'react-native';
 import { Button, Card } from '../components/ui';
-import { COACH_DASHBOARD_QUERY_KEY } from '../dashboard/CoachDashboardScreen';
+import { COACH_DASHBOARD_QUERY_KEY } from '../dashboard/dashboard-query';
 import { AthleteListItem } from './athlete-ui';
 import { athleteDetailHref } from './navigation';
 

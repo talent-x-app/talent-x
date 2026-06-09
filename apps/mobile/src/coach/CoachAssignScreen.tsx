@@ -13,7 +13,7 @@ import { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { Button, Card } from '../components/ui';
 import { useToast } from '../feedback';
-import { COACH_DASHBOARD_QUERY_KEY } from '../dashboard/CoachDashboardScreen';
+import { COACH_DASHBOARD_QUERY_KEY } from '../dashboard/dashboard-query';
 import { AthleteStatusBadge, athleteFullName, athleteInitials } from './athlete-ui';
 
 /**

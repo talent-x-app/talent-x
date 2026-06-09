@@ -4,12 +4,20 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react-nativ
 import { type ReactNode, useState } from 'react';
 
 const mockGetCoachDashboard = jest.fn();
+const mockListAssignments = jest.fn();
 const mockPush = jest.fn();
 
 jest.mock('@talent-x/api-client', () => ({
   getCoachDashboard: (...args: unknown[]) => mockGetCoachDashboard(...args),
-  // Enum orval réexporté tel quel (valeurs littérales).
+  listAssignments: (...args: unknown[]) => mockListAssignments(...args),
+  // Enums orval réexportés tels quels (valeurs littérales).
   AthleteStatus: { up_to_date: 'up_to_date', late: 'late', pending_review: 'pending_review' },
+  AssignmentStatus: {
+    assigned: 'assigned',
+    in_progress: 'in_progress',
+    completed: 'completed',
+    skipped: 'skipped',
+  },
 }));
 jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush }) }));
 
@@ -57,7 +65,11 @@ const DASHBOARD = {
   },
 };
 
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => {
+  jest.clearAllMocks();
+  // Par défaut : pas d'affectation (les tests qui ciblent « Aujourd'hui » surchargent).
+  mockListAssignments.mockResolvedValue({ status: 200, data: { data: [], meta: {} } });
+});
 
 describe('CoachDashboardScreen (TLX-081)', () => {
   it('affiche le spinner pendant le chargement', () => {
@@ -78,11 +90,76 @@ describe('CoachDashboardScreen (TLX-081)', () => {
     expect(screen.getByTestId('coach-dashboard-kpi-today-value')).toHaveTextContent('0');
     // Sous-titre : nombre d'athlètes
     expect(screen.getByTestId('coach-dashboard-subtitle')).toHaveTextContent('2 athlètes suivis');
-    // Athlètes + statuts
+    // Athlètes + statuts (Tom apparaît aussi dans la section « À revoir » → getAllByText).
     expect(screen.getByText('Léa Dubois')).toBeOnTheScreen();
-    expect(screen.getByText('Tom Petit')).toBeOnTheScreen();
+    expect(screen.getAllByText('Tom Petit').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByTestId('status-badge-late')).toHaveTextContent('En retard');
     expect(screen.getByTestId('status-badge-pending_review')).toHaveTextContent('À revoir');
+  });
+
+  it('affiche les sections « À revoir » et « Aujourd’hui » (TLX-082/083)', async () => {
+    mockGetCoachDashboard.mockResolvedValue({ status: 200, data: DASHBOARD });
+    // Une affectation à échéance aujourd'hui (UTC) pour l'athlète a-1, statut « assigned ».
+    const today = new Date();
+    const todayIso = new Date(
+      Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()),
+    ).toISOString();
+    mockListAssignments.mockResolvedValue({
+      status: 200,
+      data: {
+        data: [
+          {
+            id: 'as-1',
+            sessionId: 's-1',
+            athleteId: 'a-1',
+            status: 'assigned',
+            dueDate: todayIso,
+            session: { id: 's-1', title: 'Fractionné', status: 'published', coachId: 'c-1' },
+          },
+        ],
+        meta: {},
+      },
+    });
+    render(<CoachDashboardScreen />, { wrapper: Wrapper });
+
+    // « À revoir » : Tom Petit a toReviewCount 1 → ligne cliquable.
+    await waitFor(() =>
+      expect(screen.getByTestId('coach-dashboard-toreview-a-2')).toBeOnTheScreen(),
+    );
+    expect(screen.getByTestId('coach-dashboard-toreview-a-2')).toHaveTextContent(/Tom Petit/);
+    expect(screen.getByTestId('coach-dashboard-toreview-a-2')).toHaveTextContent(/1 perf à revoir/);
+
+    // « Aujourd'hui » : l'affectation du jour de Léa apparaît avec son statut.
+    await waitFor(() => expect(screen.getByTestId('coach-dashboard-today-as-1')).toBeOnTheScreen());
+    expect(screen.getByTestId('coach-dashboard-today-as-1')).toHaveTextContent(/Fractionné/);
+    expect(screen.getByTestId('coach-dashboard-today-as-1')).toHaveTextContent(/Léa Dubois/);
+  });
+
+  it('états positif/vide des sections quand rien à revoir ni prévu', async () => {
+    mockGetCoachDashboard.mockResolvedValue({
+      status: 200,
+      data: {
+        athletes: [
+          { ...DASHBOARD.athletes[0], status: 'up_to_date', overdueCount: 0, toReviewCount: 0 },
+        ],
+        summary: {
+          athleteCount: 1,
+          toReview: 0,
+          today: 0,
+          alerts: { missedSessions: 0, consentMissing: 0 },
+        },
+      },
+    });
+    render(<CoachDashboardScreen />, { wrapper: Wrapper });
+
+    await waitFor(() =>
+      expect(screen.getByTestId('coach-dashboard-toreview-empty')).toBeOnTheScreen(),
+    );
+    expect(screen.getByTestId('coach-dashboard-toreview-empty')).toHaveTextContent(/Rien à revoir/);
+    await waitFor(() =>
+      expect(screen.getByTestId('coach-dashboard-today-empty')).toBeOnTheScreen(),
+    );
+    expect(screen.getByTestId('coach-dashboard-today-empty')).toHaveTextContent(/Rien de prévu/);
   });
 
   it('ouvre le détail athlète au tap sur une carte', async () => {
@@ -128,7 +205,7 @@ describe('CoachDashboardScreen (TLX-081)', () => {
     mockGetCoachDashboard.mockResolvedValue({
       status: 200,
       data: {
-        athletes: [{ ...DASHBOARD.athletes[1], status: 'up_to_date' }],
+        athletes: [{ ...DASHBOARD.athletes[1], status: 'up_to_date', toReviewCount: 0 }],
         summary: {
           athleteCount: 1,
           toReview: 0,

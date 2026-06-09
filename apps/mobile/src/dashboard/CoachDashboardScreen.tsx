@@ -1,8 +1,14 @@
-import { getCoachDashboard, type Dashboard } from '@talent-x/api-client';
+import {
+  getCoachDashboard,
+  listAssignments,
+  type Assignment,
+  type Dashboard,
+} from '@talent-x/api-client';
 import { useTheme } from '@talent-x/design-tokens';
 import { useQuery } from '@tanstack/react-query';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { useMemo } from 'react';
 import {
   ActivityIndicator,
   RefreshControl,
@@ -12,11 +18,13 @@ import {
   View,
 } from 'react-native';
 import { Button, Card } from '../components/ui';
-import { AthleteListItem } from '../coach/athlete-ui';
+import { AthleteListItem, athleteFullName } from '../coach/athlete-ui';
 import { athleteDetailHref } from '../coach/navigation';
+import { ToReviewSection, TodaySection, selectTodayAssignments } from './dashboard-sections';
+import { COACH_DASHBOARD_QUERY_KEY } from './dashboard-query';
 
-/** Clé de cache du tableau de bord coach. */
-export const COACH_DASHBOARD_QUERY_KEY = ['coach', 'dashboard'] as const;
+// Ré-exporté pour compat : la source unique est `dashboard-query` (sans dépendance UI).
+export { COACH_DASHBOARD_QUERY_KEY };
 
 /**
  * Tableau de bord coach (C-01 — TLX-081). Consomme `GET /coach/dashboard` (dérivations
@@ -36,6 +44,26 @@ export function CoachDashboardScreen() {
       throw response;
     },
   });
+
+  // Affectations du coach (role-aware) → section « Aujourd'hui » (TLX-083). Cache partagé
+  // avec l'écran athlète et invalidé à l'assignation (TLX-063).
+  const assignments = useQuery({
+    queryKey: ['assignments'],
+    queryFn: async (): Promise<Assignment[]> => {
+      const response = await listAssignments();
+      if (response.status === 200) return response.data.data;
+      throw response;
+    },
+  });
+
+  const todayAssignments = useMemo(
+    () => selectTodayAssignments(assignments.data ?? [], new Date()),
+    [assignments.data],
+  );
+  const athleteNameById = useMemo(
+    () => new Map((dashboard.data?.athletes ?? []).map((a) => [a.id, athleteFullName(a)])),
+    [dashboard.data],
+  );
 
   if (dashboard.isLoading) {
     return (
@@ -135,6 +163,23 @@ export function CoachDashboardScreen() {
         missedSessions={summary.alerts.missedSessions}
         consentMissing={summary.alerts.consentMissing}
       />
+
+      {/* Sections détaillées (Carte C-01 §4) — au-delà des KPIs (TLX-082/083). */}
+      {athletes.length > 0 ? (
+        <>
+          <ToReviewSection
+            athletes={athletes}
+            onPressAthlete={(athlete) => router.push(athleteDetailHref(athlete))}
+          />
+          <TodaySection
+            assignments={todayAssignments}
+            nameById={athleteNameById}
+            isLoading={assignments.isLoading}
+            isError={assignments.isError}
+            onRetry={() => void assignments.refetch()}
+          />
+        </>
+      ) : null}
 
       {/* Tes athlètes (Carte C-01 §7). */}
       <View style={{ gap: spacing[3] }}>

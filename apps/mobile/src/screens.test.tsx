@@ -15,7 +15,14 @@ jest.mock('expo-secure-store', () => {
 // détail par CoachDashboardScreen.test.tsx ; ici on évite l'appel réseau réel.
 jest.mock('@talent-x/api-client', () => ({
   getCoachDashboard: () => new Promise(() => {}),
+  listAssignments: () => new Promise(() => {}),
   AthleteStatus: { up_to_date: 'up_to_date', late: 'late', pending_review: 'pending_review' },
+  AssignmentStatus: {
+    assigned: 'assigned',
+    in_progress: 'in_progress',
+    completed: 'completed',
+    skipped: 'skipped',
+  },
 }));
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';

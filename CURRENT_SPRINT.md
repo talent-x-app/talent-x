@@ -10,8 +10,6 @@ de débloquer les écrans coach C-01/C-02/C-03.
 ## À faire (frontend)
 
 - _(éditeurs typés terminés — TLX-054→061 livrés ↓)_
-- **TLX-082/083** Sections « À revoir » / « Aujourd'hui » (enfants de C-01) — listes
-  détaillées au-delà des KPIs livrés.
 - **TLX-084/085** Alertes détaillées & états première utilisation (enfants de C-01).
 
 ## En cours
@@ -143,6 +141,28 @@ rythme 3`, jumps `élan 30m · 6 complets · 40 contacts`, throws `7.26 kg · 10
   confirmation, états vide/erreur) + nav création→assign assertée dans le test builder ; smoke live
   (Expo web) de la route `/assign/[id]` (montage écran + titre de séance via param). E2e complet
   non rejoué (API locale non démarrée) — l'endpoint `assign` était déjà validé réel (TLX-051 12/12).
+
+## Terminés ce sprint — C-01 Sections « À revoir » / « Aujourd'hui » (TLX-082/083)
+
+- **Module `src/dashboard/dashboard-sections.tsx`** (helpers purs + composants) ajouté **sous les
+  KPIs** du tableau de bord coach (C-01 §4) :
+  - **TLX-082 « À revoir »** : athlètes avec `toReviewCount > 0` (dérivé du dashboard, **cohérent
+    avec `summary.toReview`**), cliquables vers le détail (C-03) ; **état positif « Rien à revoir »**
+    sinon.
+  - **TLX-083 « Aujourd'hui »** : affectations à échéance ce jour + statut, via `GET /assignments`
+    (role-aware coach) **filtré côté front avec la même borne de jour UTC que le backend**
+    (`isDueToday`, statuts `assigned`/`in_progress`) → cohérent avec `summary.today`. Nom d'athlète
+    joint depuis le dashboard. États chargement / erreur / vide.
+- **Zéro changement backend ni de contrat** — les deux sections dérivent des endpoints existants
+  (`/coach/dashboard` + `/assignments`). Helpers purs testés (`isDueToday`, `selectTodayAssignments`,
+  `athletesToReview`). +11 tests (helpers + composants + écran) ; **mobile 170/170** ; lint/typecheck
+  clean. Linear **TLX-62 / TLX-63**.
+- **Refactor de découplage** : `COACH_DASHBOARD_QUERY_KEY` extrait dans `src/dashboard/dashboard-query.ts`
+  (sans dépendance UI). Les écrans qui partageaient le cache (C-02, fil de feedback, assignation)
+  importaient la constante depuis `CoachDashboardScreen`, ce qui tirait désormais tout son graphe
+  (sections → `athlete-session-ui` → enum runtime) et cassait 5 suites de test au chargement. Réglé.
+- **Vérif** : tests rendant le **vrai** `CoachDashboardScreen` (sections À revoir/Aujourd'hui,
+  états positif/vide) + helpers unitaires. Live e2e non rejoué (API locale non démarrée).
 
 ## Terminés ce sprint — A-09 Fil de feedback athlète (TLX-092)
 
