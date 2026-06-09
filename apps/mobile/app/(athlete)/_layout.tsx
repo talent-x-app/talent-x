@@ -46,6 +46,8 @@ export default function AthleteLayout() {
           tabBarIcon: ({ color, size }) => <Feather name="user" color={color} size={size} />,
         }}
       />
+      {/* Détail séance + saisie de perf (A-03/A-04) : routable mais masqué du tab bar. */}
+      <Tabs.Screen name="session/[id]" options={{ href: null }} />
     </Tabs>
   );
 }

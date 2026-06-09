@@ -54,6 +54,18 @@ Total : **+52 tests API** (168 → 220). Tout poussé sur `main`.
 - **TLX-044** (UI) Écran Athlètes (C-02) — onglet `(coach)/athletes` : liste des athlètes
   liés via `/coach/dashboard` (cache partagé avec C-01), statut dérivé, lignes cliquables.
   Composants partagés extraits (`src/coach/athlete-ui.tsx`). Linear **TLX-33 Done**. `f013994`.
+- **TLX-065** (UI) Boucle athlète — Séances (A-02) + Détail/saisie (A-03/A-04) — onglet
+  `(athlete)/sessions` (liste des affectations via `GET /assignments`, statut, tri à-faire
+  d'abord) + route empilée `(athlete)/session/[id]` (séance embarquée, checklist d'exercices,
+  RPE slider, notes, soumission `POST /assignments/:id/performance` avec `Idempotency-Key`,
+  `PUT` si déjà saisie ; porte `data_processing`). Composants partagés `src/athlete/
+athlete-session-ui.tsx`. 10 tests ; **suite mobile 108/108**. **Validé en réel** (Expo web) :
+  athlète Nina Koné voit sa séance « À faire », coche 3/4 exercices + RPE 7 + notes → perf
+  créée (201) → côté coach l'athlète bascule **« à revoir »** (`pending_review`, `toReview: 1`)
+  et l'affectation passe `completed`. **Ferme la boucle de données dans l'app** (plus de curl).
+- **Fix CORS (api)** — `Idempotency-Key` ajouté à `allowedHeaders` (`main.ts`) : sans lui, le
+  préflight bloquait `POST /assignments/:id/performance` et `/sessions/:id/assign` depuis tout
+  client web (Expo web). Bug découvert en vérification réelle.
 - **TLX-045** (UI) Détail athlète (C-03) — route `(coach)/athlete/[id]` (hors tab bar) :
   identité (params) + stats `/athletes/:id/stats`, consent-gated (403 → message dédié).
   Linear **TLX-34 Done**. `788b5d1`. **Suite mobile 98/98**. Validé en réel (Expo web) :
