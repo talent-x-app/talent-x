@@ -6,9 +6,7 @@ refresh rotatif), son rôle/ownership est appliqué, et le socle RGPD
 
 ## À faire
 
-- **TLX-034** DELETE /users/:id — effacement + anonymisation — ✅ **débloqué** (worker TLX-035 livré).
-  Soft-delete immédiat (`deleted_at`, révocation sessions) + 202 ; purge/anonymisation planifiée
-  (ADR-13 §2). Dernier ticket du sprint.
+- _(rien — objectif du sprint atteint)_ ✅
 
 ## En cours
 
@@ -16,6 +14,15 @@ refresh rotatif), son rôle/ownership est appliqué, et le socle RGPD
 
 ## Terminés ce sprint
 
+- **TLX-034** Effacement RGPD — **endpoint + purge planifiée livrés**. `DELETE /users/me` →
+  soft-delete immédiat (`deleted_at`), révocation refresh+device tokens, audit `account.deletion`,
+  **202** `{ jobId, status }` (accusé non persisté, ADR-13 §2 ; idempotent). Purge/anonymisation
+  différée (`AccountPurgeService`, `@Cron`, worker only) après `ACCOUNT_PURGE_RETENTION_DAYS` (30 j) :
+  anonymise la ligne `users` + purge perfs/tokens/links/exports, scrub des commentaires, conserve
+  consents/audit/groupes-séances (intégrité), marqueur e-mail `@anonymized.invalid` (idempotent, sans
+  migration). Manifeste acté en **ADR-15**. Tests API 135/135. **Validé bout en bout** : register →
+  DELETE (202) → login bloqué → tokens révoqués ; purge (deleted_at antidaté) → ligne anonymisée +
+  sous-données purgées + 2ᵉ passage no-op.
 - **TLX-033** Export RGPD — **endpoints + contenu réel livrés**. `POST /users/me/export` (202,
   idempotent sur l'export actif) et `GET /users/me/export/{jobId}` (URL présignée au GET, 404
   hors-propriétaire, 400 jobId malformé) ; `ExportService` + `ExportJobDto`/`JobDto`.

@@ -28,6 +28,7 @@ Chaque décision suit le format **ADR** : Statut, Date, Contexte, Décision, Con
 | ADR-12 | Migrations de schéma rétrocompatibles (expand-contract), gatées dans le pipeline | Accepté |
 | ADR-13 | Jobs asynchrones RGPD : table `export_jobs` + split export/suppression (raffine ADR-09) | Accepté |
 | ADR-14 | Manifeste d'export RGPD & frontière des données de tiers (complète ADR-05/13) | Accepté |
+| ADR-15 | Manifeste d'effacement / anonymisation RGPD (complète ADR-05/13) | Accepté |
 
 ---
 
@@ -263,6 +264,14 @@ Texte complet : [`docs/adr/ADR-13-jobs-asynchrones-rgpd.md`](adr/ADR-13-jobs-asy
 Fige le contenu de l'export RGPD (sections par rôle, exclusions des secrets/tiers) et la frontière
 des données de tiers, pour TLX-033. Texte complet :
 [`docs/adr/ADR-14-manifeste-export-rgpd.md`](adr/ADR-14-manifeste-export-rgpd.md).
+
+## ADR-15 — Manifeste d'effacement / anonymisation RGPD
+
+- **Statut :** Accepté · **Date :** 2026-06-09 · **Complète :** ADR-05, ADR-13 (§2)
+
+Fige le manifeste d'effacement (soft-delete immédiat + purge/anonymisation différée), la frontière
+effacement-vs-anonymisation et la rétention, pour TLX-034. Texte complet :
+[`docs/adr/ADR-15-effacement-anonymisation-rgpd.md`](adr/ADR-15-effacement-anonymisation-rgpd.md).
 
 **En bref.** L'export RGPD devient un job asynchrone à **état persistant** (nouvelle table `export_jobs`,
 worker BullMQ/Redis, archive sur stockage objet OVH S3, URL présignée générée au GET). La **suppression**

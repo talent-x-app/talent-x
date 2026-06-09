@@ -12,6 +12,7 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { AccountDeletionService } from './account-deletion.service';
 import { ConsentsService } from './consents.service';
 import { ConsentDto, ConsentListDto } from './dto/consent.dto';
 import { ConsentUpdateDto } from './dto/consent-update.dto';
@@ -30,6 +31,7 @@ export class UsersController {
   constructor(
     private readonly consents: ConsentsService,
     private readonly exports: ExportService,
+    private readonly accountDeletion: AccountDeletionService,
   ) {}
   @Get('users/me')
   @ApiOperation({ summary: 'Profil courant', operationId: 'getMe' })
@@ -44,9 +46,11 @@ export class UsersController {
   }
 
   @Delete('users/me')
+  @HttpCode(202)
   @ApiOperation({ summary: "Supprimer le compte (droit à l'effacement)", operationId: 'deleteMe' })
-  deleteMe(): never {
-    throw new NotImplementedException('deleteMe');
+  @ApiResponse({ status: 202, description: 'Suppression planifiée.', type: JobDto })
+  deleteMe(@CurrentUser('id') userId: string): Promise<JobDto> {
+    return this.accountDeletion.requestDeletion(userId);
   }
 
   @Get('users/me/consents')

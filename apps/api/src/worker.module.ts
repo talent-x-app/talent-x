@@ -9,6 +9,7 @@ import { ExportProcessor } from './jobs/export.processor';
 import { ExportCleanupService } from './jobs/export-cleanup.service';
 import { ExportArchiveBuilder } from './jobs/export-archive-builder';
 import { DataExportArchiveBuilder } from './jobs/data-export-archive-builder';
+import { AccountPurgeService } from './jobs/account-purge.service';
 
 /**
  * Contexte d'exécution du worker (process séparé de l'API — TX-ARCH-001 §4.5).
@@ -30,6 +31,7 @@ import { DataExportArchiveBuilder } from './jobs/data-export-archive-builder';
   providers: [
     ExportProcessor,
     ExportCleanupService,
+    AccountPurgeService,
     { provide: ExportArchiveBuilder, useClass: DataExportArchiveBuilder },
   ],
 })

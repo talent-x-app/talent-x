@@ -33,6 +33,11 @@ export interface EnvConfig {
   /** TTL de l'URL présignée de téléchargement, en secondes. Défaut 86400 (24 h). */
   EXPORT_URL_TTL_SECONDS: number;
   /**
+   * Délai de rétention avant purge/anonymisation définitive d'un compte supprimé,
+   * en jours (TLX-034 / ADR-15). Défaut 30 (rétention des sauvegardes, TX-SEC-003 §9.2).
+   */
+  ACCOUNT_PURGE_RETENTION_DAYS: number;
+  /**
    * Clé privée RS256 (PEM PKCS#8) de signature des access tokens (TLX-020).
    * Requise en staging/production ; en dev/test, une clé éphémère est générée
    * au démarrage si absente. Les sauts de ligne peuvent être échappés (\n).
@@ -123,6 +128,11 @@ export function validateEnv(raw: Record<string, unknown>): EnvConfig {
   if (!Number.isInteger(urlTtlSeconds) || urlTtlSeconds <= 0) {
     errors.push(`EXPORT_URL_TTL_SECONDS doit être un entier > 0 (reçu : "${urlTtlRaw}")`);
   }
+  const purgeDaysRaw = (raw.ACCOUNT_PURGE_RETENTION_DAYS as string) ?? '30';
+  const purgeRetentionDays = Number(purgeDaysRaw);
+  if (!Number.isInteger(purgeRetentionDays) || purgeRetentionDays <= 0) {
+    errors.push(`ACCOUNT_PURGE_RETENTION_DAYS doit être un entier > 0 (reçu : "${purgeDaysRaw}")`);
+  }
 
   // Clé de signature RS256 (TLX-020). En staging/prod elle est obligatoire et ne
   // doit jamais être une valeur en dur ; en dev/test une clé éphémère est générée
@@ -158,6 +168,7 @@ export function validateEnv(raw: Record<string, unknown>): EnvConfig {
     ...(s3SecretAccessKey ? { S3_SECRET_ACCESS_KEY: s3SecretAccessKey } : {}),
     EXPORT_ARCHIVE_TTL_HOURS: archiveTtlHours,
     EXPORT_URL_TTL_SECONDS: urlTtlSeconds,
+    ACCOUNT_PURGE_RETENTION_DAYS: purgeRetentionDays,
     ...(jwtPrivateKey ? { JWT_PRIVATE_KEY: jwtPrivateKey } : {}),
     ...(jwtKeyId ? { JWT_KEY_ID: jwtKeyId } : {}),
     ...(jwtAdditionalPublicKeys ? { JWT_ADDITIONAL_PUBLIC_KEYS: jwtAdditionalPublicKeys } : {}),

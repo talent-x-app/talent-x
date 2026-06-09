@@ -14,8 +14,22 @@ describe('validateEnv', () => {
       DATABASE_URL: base.DATABASE_URL,
       EXPORT_ARCHIVE_TTL_HOURS: 24,
       EXPORT_URL_TTL_SECONDS: 86400,
+      ACCOUNT_PURGE_RETENTION_DAYS: 30,
       CONSENT_TEXT_VERSION: '2026-01',
     });
+  });
+
+  it('applique la rétention de purge par défaut (30 j) et la surcharge', () => {
+    expect(validateEnv(base).ACCOUNT_PURGE_RETENTION_DAYS).toBe(30);
+    expect(
+      validateEnv({ ...base, ACCOUNT_PURGE_RETENTION_DAYS: '7' }).ACCOUNT_PURGE_RETENTION_DAYS,
+    ).toBe(7);
+  });
+
+  it('rejette une rétention de purge non entière ou ≤ 0', () => {
+    expect(() => validateEnv({ ...base, ACCOUNT_PURGE_RETENTION_DAYS: '0' })).toThrow(
+      /ACCOUNT_PURGE_RETENTION_DAYS/,
+    );
   });
 
   it('applique la version de consentement par défaut, surchargeable', () => {
