@@ -1,34 +1,7 @@
-import { useTheme } from '@talent-x/design-tokens';
-import { StyleSheet, Text, View } from 'react-native';
+import { ProfileScreen } from '../../src/profile/ProfileScreen';
 
-// Profil coach (C-11) — placeholder TLX-007.
+// Profil coach (C-11 — TLX-043). Même écran partagé que l'athlète, piloté par
+// /users/me ; le libellé de rôle s'adapte (« Coach ») à la donnée renvoyée.
 export default function CoachProfileScreen() {
-  const { colors, typography, spacing } = useTheme();
-  return (
-    <View style={[styles.container, { backgroundColor: colors.background, padding: spacing[6] }]}>
-      <Text
-        style={{
-          color: colors.textPrimary,
-          fontFamily: typography.fontFamily.bold,
-          fontSize: typography.h2.fontSize,
-        }}
-      >
-        Profil
-      </Text>
-      <Text
-        style={{
-          marginTop: spacing[2],
-          color: colors.textMuted,
-          fontFamily: typography.fontFamily.regular,
-          fontSize: typography.body.fontSize,
-        }}
-      >
-        C-11 — TLX-043
-      </Text>
-    </View>
-  );
+  return <ProfileScreen />;
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-});

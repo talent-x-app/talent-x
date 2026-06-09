@@ -70,6 +70,18 @@ describe('ProfileScreen (TLX-042)', () => {
     expect(screen.getByTestId('profile-initials')).toHaveTextContent('AA');
   });
 
+  it('affiche le libellé de rôle « Coach » pour un coach (C-11 réutilise l’écran)', async () => {
+    mockGetMe.mockResolvedValue({
+      status: 200,
+      data: { ...USER, role: 'coach', sport: undefined, firstName: 'Marc', lastName: 'Caron' },
+    });
+    render(<ProfileScreen />, { wrapper: Wrapper });
+
+    await waitFor(() => expect(screen.getByTestId('profile-name')).toBeOnTheScreen());
+    expect(screen.getByText('Marc Caron')).toBeOnTheScreen();
+    expect(screen.getByText('Coach')).toBeOnTheScreen();
+  });
+
   it('état erreur : message + réessai relance la requête', async () => {
     mockGetMe.mockResolvedValueOnce({ status: 500, data: { error: 'INTERNAL_ERROR' } });
     render(<ProfileScreen />, { wrapper: Wrapper });

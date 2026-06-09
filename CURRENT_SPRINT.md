@@ -8,9 +8,6 @@ Milestone Linear : **Profils & Groupes** (suite de Auth & RGPD, 100 % clos).
 
 ## À faire
 
-- **TLX-043** (UI) Écran Profil coach (C-11) — lecture/édition via `/users/me`.
-  **Quasi prêt** : composant `ProfileScreen` partagé déjà livré (TLX-042) ; reste à
-  brancher la route `(coach)/profile.tsx` dessus (+ éventuels libellés coach).
 - **TLX-044** (UI) Écran Athlètes (C-02) — liste des athlètes du coach.
 - **TLX-045** (UI) Écran Détail athlète (C-03) — profil + stats d'un athlète lié.
 
@@ -20,6 +17,12 @@ Milestone Linear : **Profils & Groupes** (suite de Auth & RGPD, 100 % clos).
 
 ## Terminés ce sprint
 
+- **TLX-043** (UI) Écran Profil coach (C-11) — **livré**. Route `(coach)/profile.tsx`
+  branchée sur le composant partagé `ProfileScreen` (TLX-042) ; le libellé de rôle
+  s'adapte (« Coach ») à la donnée `/users/me`. Test du libellé coach ajouté
+  (mobile **82/82**). Le composant ayant déjà été validé en réel sur Expo web
+  (parcours athlète, TLX-042), le delta coach (libellé + routage onglet) est couvert
+  par typecheck + tests.
 - **TLX-042** (UI) Écran Profil athlète (A-10) — **livré**. Composant **réutilisable**
   `src/profile/ProfileScreen.tsx` (lecture `GET /users/me` + édition `PUT /users/me` :
   prénom/nom/discipline/bio, trim, sémantique PATCH), branché sur l'onglet
