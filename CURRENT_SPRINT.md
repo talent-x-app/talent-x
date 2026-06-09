@@ -1,12 +1,20 @@
-# Sprint courant : S-01 — Auth & RGPD
+# Sprint courant : S-02 — Profils & Groupes
 
-Objectif de fin de cycle : un utilisateur s'inscrit, se connecte (JWT RS256 +
-refresh rotatif), son rôle/ownership est appliqué, et le socle RGPD
-(consentement, export, effacement) est en place.
+Objectif de fin de cycle : un coach et un athlète consultent et éditent leur
+profil ; un coach crée des groupes, y ajoute/retire des athlètes, et navigue
+entre sa liste d'athlètes et le détail d'un athlète lié.
+
+Milestone Linear : **Profils & Groupes** (suite de Auth & RGPD, 100 % clos).
 
 ## À faire
 
-- _(rien — objectif du sprint atteint)_ ✅
+- **TLX-041** (API) `GET/POST /groups` + `GET/PUT /groups/{id}` + gestion des membres
+  (`PUT/DELETE /groups/{id}/members/{athleteId}`). RBAC coach + ownership du groupe,
+  consentement `coach_access` pour lier un athlète. — 5 pts
+- **TLX-042** (UI) Écran Profil athlète (A-10) — lecture/édition via `/users/me`.
+- **TLX-043** (UI) Écran Profil coach (C-11) — lecture/édition via `/users/me`.
+- **TLX-044** (UI) Écran Athlètes (C-02) — liste des athlètes du coach.
+- **TLX-045** (UI) Écran Détail athlète (C-03) — profil + stats d'un athlète lié.
 
 ## En cours
 
@@ -14,114 +22,46 @@ refresh rotatif), son rôle/ownership est appliqué, et le socle RGPD
 
 ## Terminés ce sprint
 
-- **TLX-83** Supervision de la file de jobs (observabilité) — **métriques + alerting livrés**.
-  Endpoint **`GET /metrics`** (exposition Prometheus v0.0.4, **hors `/api/v1`** et hors contrat
-  OpenAPI : endpoint d'exploitation scrappé à la racine), aligné **ADR-11** (observabilité managée
-  au MVP → on expose, le dashboard est managé). `QueueMetricsService` lit la profondeur de la file
-  `data-export` (BullMQ `getJobCounts`) : `talentx_export_queue_up` + `talentx_export_queue_jobs`
-  par état (`waiting/active/completed/failed/delayed/paused`) — couvre TX-OPS-004 §7 (profondeur,
-  échecs, retardés). Ne lève jamais : Redis down → `queue_up 0`. Auth de scrape **optionnelle** par
-  `METRICS_TOKEN` (Bearer ; ouvert si absent ; aucun secret en dur). Règles d'alerte déclaratives
-  (`apps/api/ops/alerts/data-export-queue.rules.yml`, seuils §7.1 critique/haute/moyenne) +
-  runbook (`apps/api/ops/observability.md`). Tests API **145/145** (+10). **Validé en réel**
-  (stack Docker) : `/metrics` 200 + compteurs réels (`queue_up 1`), `/api/v1/metrics` → 404
-  (bien exclu du préfixe). Latence de traitement (histogramme worker) → V2. **Ticket clos.**
-  Anomalie pré-existante repérée hors périmètre (faux négatif `redis` au 1ᵉʳ `/ready` à froid,
-  course `lazyConnect` de `ReadinessService`, TLX-035) → tâche de fond créée.
-- **TLX-82** Validation réelle du stockage S3 des exports — **MinIO ajouté au `docker-compose`**
-  (bucket `talentx-exports` créé au démarrage). Chemin S3 **validé bout en bout** : `putObject`
-  (archive déposée), **URL présignée téléchargeable** (HTTP 200, JSON conforme — 10 sections, secrets
-  exclus), `deleteObject` + `ExportCleanupService` (objet supprimé → statut `expired`). `forcePathStyle`
-  compatible MinIO. Config dev documentée dans `.env.example`.
-- **TLX-034** Effacement RGPD — **endpoint + purge planifiée livrés**. `DELETE /users/me` →
-  soft-delete immédiat (`deleted_at`), révocation refresh+device tokens, audit `account.deletion`,
-  **202** `{ jobId, status }` (accusé non persisté, ADR-13 §2 ; idempotent). Purge/anonymisation
-  différée (`AccountPurgeService`, `@Cron`, worker only) après `ACCOUNT_PURGE_RETENTION_DAYS` (30 j) :
-  anonymise la ligne `users` + purge perfs/tokens/links/exports, scrub des commentaires, conserve
-  consents/audit/groupes-séances (intégrité), marqueur e-mail `@anonymized.invalid` (idempotent, sans
-  migration). Manifeste acté en **ADR-15**. Tests API 135/135. **Validé bout en bout** : register →
-  DELETE (202) → login bloqué → tokens révoqués ; purge (deleted_at antidaté) → ligne anonymisée +
-  sous-données purgées + 2ᵉ passage no-op.
-- **TLX-033** Export RGPD — **endpoints + contenu réel livrés**. `POST /users/me/export` (202,
-  idempotent sur l'export actif) et `GET /users/me/export/{jobId}` (URL présignée au GET, 404
-  hors-propriétaire, 400 jobId malformé) ; `ExportService` + `ExportJobDto`/`JobDto`.
-  Vrai `DataExportArchiveBuilder` câblé dans le worker — manifeste par rôle, **sans secrets ni
-  données de tiers**, acté en **ADR-14** (feedbacks reçus exclus ; identités d'athlètes exclues de
-  l'export coach). Audit `data.export` écrit à la demande. Tests API 129/129. **Validé bout en bout**
-  (register → POST → worker → builder réel → GET → **téléchargement S3 réel** via MinIO, TLX-82).
-  Câblage RGPD du `ConsentGate` non requis sur ces routes (droit d'accès).
-- **TLX-035** Infra jobs asynchrones — **socle + couche worker livrés**. Socle data model
-  `export_jobs` (PR #10, ADR-13) appliqué en base réelle. Couche worker : file BullMQ
-  `data-export` + producteur `ExportQueueService` ; **process worker séparé** (`src/worker.ts`,
-  TX-ARCH-001 §4.5) consommant la file via `ExportProcessor` (transitions
-  `pending→processing→ready|failed`) ; `ObjectStorageService` S3 OVH (put / URL présignée au
-  GET / delete) ; nettoyage planifié des archives expirées (`ExportCleanupService`, `@Cron`,
-  worker only) ; point d'extension `ExportArchiveBuilder` (placeholder → contenu réel en TLX-033) ;
-  check Redis dans la readiness ; config S3/Redis/TTL dans `validateEnv`.
-  **Validé bout en bout** sur Redis + **S3 réels** (MinIO, via TLX-82) : enqueue → worker → archive
-  déposée → URL présignée téléchargeable → cleanup. Journalisation `audit_log` faite. **Ticket clos** ;
-  reliquat observabilité (supervision de file) → **TLX-83**.
-- **TLX-020** Génération et rotation des clés RS256 (keystore) — PR #9 mergée
-- **TLX-021** POST /auth/register — Argon2id + émission access/refresh — mergé
-- **TLX-022** POST /auth/login + JwtAuthGuard global (routes protégées → 401) — mergé
-- **TLX-023** POST /auth/refresh — rotation + détection de réutilisation (révocation famille) — mergé
-- **TLX-024** Middleware RBAC + ownership — `RolesGuard` global + `OwnershipService` (appartenance coach↔athlète, ownership séance/groupe/compte) — mergé
-- **TLX-031** GET/PUT /users/me/consents — consentement append-only + versionnage (`CONSENT_TEXT_VERSION`) — mergé
-- **TLX-032** Gating `CONSENT_REQUIRED` — `ConsentGate` (4ᵉ niveau d'autorisation, RB-08), réutilisable pour perfs/stats — mergé
-- **TLX-025** Écran Connexion (O-02) — login + persistance jetons + session + navigation, états gérés, tests — mergé
-- **TLX-026** Écrans Inscription + choix du rôle (O-03/O-04) — `register` + `RoleCard`, mêmes flux/états que login (409 e-mail pris, 422 validation), tests (6/6) — mergé
-- **TLX-030** Écran Consentement (O-05) — onboarding RGPD opt-in (sans case pré-cochée), `PUT /users/me/consents` par choix, flux register → consent → tabs (`signIn` différé), tests (4/4) — mergé
-- **TLX-027** Persistance de session + refresh silencieux — `restoreSession` (refresh silencieux au démarrage, présence des jetons = source de vérité : échec dur → logout, erreur réseau → reprise optimiste) ; `SessionProvider` propriétaire unique du bootstrap ; `QueryProvider` n'init. plus la couche données (corrige une race sur le cache de jetons). Tests (suite mobile 77/77) — mergé
+- **TLX-040** (API) Profil — **`GET/PUT /users/me` livrés** (`getMe`/`updateMe`,
+  remplacent les stubs `NotImplementedException`). `ProfileService` : `getMe`
+  (projection `users` → DTO `User`, **404** si introuvable/soft-deleted) ;
+  `updateMe` (sémantique **PATCH** — seuls les champs fournis écrits ; `email`/
+  `role` non modifiables ; 404 si supprimé). `UserUpdateDto` (schéma `UserUpdate` :
+  firstName/lastName/photoUrl(uri)/sport/bio, tous optionnels, `MaxLength`).
+  **Conforme au contrat OpenAPI** (`/users/me`, pas `/athletes/{id}` — voir note
+  divergence). Tests API **151/151** (+6). **Validé en réel** (DB Docker) :
+  register → GET (profil) → PUT (sport+bio, `updatedAt` incrémenté) → re-GET
+  (persisté) → champ inconnu **422** (whitelist) → sans token **401**.
 
 ## Notes / dépendances
 
-- Cœur auth backend en place : `PasswordService` (Argon2id), `TokenService`
-  (access RS256 + refresh opaque rotatif), `JwtAuthGuard` global. Réutilisables
-  pour la suite (RBAC, consentement…).
-- **TLX-79** ✅ **fait** : suite d'**intégration DB-backed** ajoutée
-  (`apps/api/test/auth-rgpd.int-spec.ts`, config `jest-integration.json`, script
-  `test:int`). Valide contre une **vraie base** : register (compte + refresh haché +
-  409 e-mail casse-insensible), login (200 / 401), refresh (rotation + réutilisation
-  → 409 + famille révoquée), consents append-only + CHECK `type`, `ConsentGate`
-  (dernière ligne fait foi, 403 `CONSENT_REQUIRED`), `OwnershipService` (appartenance,
-  404/403, soft-delete). **CI** : service `postgres` + `migrate deploy` + `test:int`.
-  Tests auto-suffisants (fixtures créées/nettoyées). 11/11 verts en local.
-- **TLX-81** ✅ **fait** : onboarding validé sur **app Expo réelle (cible web)**
-  contre l'**API live** + base réelle. Parcours pilotés bout en bout : `register →
-consent → tabs` (POST register 201, **3× PUT consents 200 via l'intercepteur
-  d'auth**, consentements persistés en base), restauration de session au reload,
-  login 401 (inline) puis 200, register 409 (inline). **2 défauts corrigés** que
-  seul le bundle réel révélait : (a) expo-router transformait les `*.test.tsx`
-  colocalisés en routes → `resolver.blockList` Metro ; (b) `expo-secure-store` sans
-  implémentation web (crash bootstrap) → adaptateur `secure-storage` (trousseau natif
-  iOS/Android, repli `localStorage` web). CORS dev activé côté API. **Suite Maestro**
-  (`apps/mobile/.maestro/`, 3 flows + runbook) pour l'exécution sur simulateur natif
-  (couvre le trousseau natif, non exerçable en web). Tests mobiles 77/77 inchangés.
-- **Autorisation prête à câbler** : `@Roles('coach'|'athlete')` appliqué
-  globalement ; les services métier injectent `OwnershipService` (appartenance/
-  propriété) et `ConsentGate` (`assertActiveConsent` → 403 `CONSENT_REQUIRED`).
-  Les contrôleurs perfs/stats ne sont pas encore scaffoldés (TLX-070, TLX-040/080) :
-  le gating sera branché à leur livraison. Câblage par ticket de ressource.
-- **TLX-035** (Linear TLX-80) : export/effacement RGPD (TLX-033/034) sont des
-  opérations **asynchrones** (202 + ressource `Job`). Décision tranchée par
-  **ADR-13** (raffine ADR-09) : table `export_jobs` pour l'export (état persistant),
-  suppression conservée sur soft-delete + purge planifiée (pas de table de jobs).
-  Socle data model + migration **mergé (PR #10)** et **appliqué sur base réelle**
-  (Docker, 2026-06-09 : migrations `init` + `export_jobs` déployées, table vérifiée —
-  CHECK statut, index unique partiel « un seul export actif », FK CASCADE, trigger
-  `updated_at` ; seed OK). Reste worker BullMQ/Redis + stockage OVH S3 + URL présignée
-  avant de livrer les endpoints. Pose en bloqueur de TLX-033 et TLX-034 dans Linear.
-- **Front auth** : `login.tsx`, `register.tsx` (TLX-026) et `consent.tsx` (TLX-030)
-  livrés. Onboarding : register → consent → tabs (la session n'est ouverte
-  qu'après l'étape consentement). Persistance/restauration de session au
-  démarrage + refresh silencieux (TLX-027) : `SessionProvider` → `setupApiClient`
-  puis `restoreSession`. Intercepteur refresh single-flight réactif (TLX-009).
+- **Divergence titre ↔ contrat (TLX-040, règle 7).** Le titre Linear dit
+  « GET/PATCH /athletes/:id » mais le **contrat OpenAPI** (source de vérité) n'a
+  **pas** cette route. Le profil y est `/users/me` (GET/PUT — `getMe`/`updateMe`,
+  schémas `User`/`UserUpdate`) ; l'accès coach→athlète est `/athletes/{id}/stats`
+  (stats, **consent-gated**, hors périmètre profil → relève de la Progression).
+  Le corps du ticket dit « conforme au contrat OpenAPI » : **le contrat prime**,
+  le titre est un raccourci. On implémente donc `/users/me`, **sans** créer
+  `/athletes/{id}` (pas d'ADR : on suit le contrat, on ne le complète pas).
+  L'écran C-03 (TLX-045) composera le « détail athlète » à partir de
+  `/athletes/{id}/stats` + résumé d'appartenance (UserSummary), pas d'un GET profil.
+- **Socle réutilisable (S-01).** `JwtAuthGuard` + `RolesGuard` globaux,
+  `@Roles('coach'|'athlete')`, `OwnershipService` (appartenance coach↔athlète,
+  ownership groupe/séance/compte), `ConsentGate` (`assertActiveConsent` → 403
+  `CONSENT_REQUIRED`). À câbler sur les endpoints groupes (TLX-041).
+- **Stubs de contrat (TLX-011).** Contrôleurs `groups`/`sessions`/… déjà
+  scaffoldés (routes câblées, handlers `NotImplementedException`) — à remplir.
+  `users.controller` : `getMe`/`updateMe` étaient des stubs (TLX-040 les remplit).
+- **Modèle de données.** `User` (Prisma) : `firstName`/`lastName` requis, `sport`,
+  `bio`, `photoUrl`, `birthDate` optionnels ; soft-delete `deletedAt`. `Group`
+  (`GroupCoach`), `GroupMember`, `CoachAthleteLink` déjà au schéma.
 - Base dev : `docker compose up -d` puis `prisma migrate deploy` puis `pnpm --filter @talent-x/api seed`.
-- Workflow distant : push direct sur `main` (commits poussés directement, sans PR).
+- Workflow distant : push direct sur `main` (sans PR).
 
-## Jalon précédent — S-00 Fondations : ✅ 15/15 (clos)
+## Jalons précédents
 
-TLX-001 → 015 tous mergés : mono-repo, design system et composants UI, navigation,
-client API généré et couche données, squelette API avec logs/readiness, schéma
-Prisma avec migration et seed, CI, qualité (ESLint/Prettier/Husky),
-environnements/secrets, harnais de tests, gestion erreurs/toasts/offline.
+- **S-00 Fondations** : ✅ 15/15 (clos).
+- **S-01 Auth & RGPD** : ✅ clos. Auth JWT RS256 + refresh rotatif, RBAC +
+  ownership + consentement, RGPD (consentement versionné, export asynchrone S3,
+  effacement + purge planifiée), observabilité file de jobs (`/metrics`,
+  TLX-83). Validé en réel (DB Docker, Redis, S3 MinIO, app Expo réelle).

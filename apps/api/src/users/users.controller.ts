@@ -4,7 +4,6 @@ import {
   Delete,
   Get,
   HttpCode,
-  NotImplementedException,
   Param,
   ParseUUIDPipe,
   Post,
@@ -17,7 +16,10 @@ import { ConsentsService } from './consents.service';
 import { ConsentDto, ConsentListDto } from './dto/consent.dto';
 import { ConsentUpdateDto } from './dto/consent-update.dto';
 import { ExportJobDto, JobDto } from './dto/export.dto';
+import { UserDto } from './dto/user.dto';
+import { UserUpdateDto } from './dto/user-update.dto';
 import { ExportService } from './export.service';
+import { ProfileService } from './profile.service';
 
 /**
  * Profil & RGPD — SQUELETTE (TLX-011).
@@ -29,20 +31,23 @@ import { ExportService } from './export.service';
 @Controller()
 export class UsersController {
   constructor(
+    private readonly profile: ProfileService,
     private readonly consents: ConsentsService,
     private readonly exports: ExportService,
     private readonly accountDeletion: AccountDeletionService,
   ) {}
   @Get('users/me')
   @ApiOperation({ summary: 'Profil courant', operationId: 'getMe' })
-  getMe(): never {
-    throw new NotImplementedException('getMe');
+  @ApiResponse({ status: 200, description: 'Profil.', type: UserDto })
+  getMe(@CurrentUser('id') userId: string): Promise<UserDto> {
+    return this.profile.getMe(userId);
   }
 
   @Put('users/me')
   @ApiOperation({ summary: 'Mettre à jour le profil', operationId: 'updateMe' })
-  updateMe(): never {
-    throw new NotImplementedException('updateMe');
+  @ApiResponse({ status: 200, description: 'Profil mis à jour.', type: UserDto })
+  updateMe(@CurrentUser('id') userId: string, @Body() dto: UserUpdateDto): Promise<UserDto> {
+    return this.profile.updateMe(userId, dto);
   }
 
   @Delete('users/me')
