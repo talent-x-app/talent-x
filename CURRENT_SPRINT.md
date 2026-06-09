@@ -14,6 +14,11 @@ refresh rotatif), son rôle/ownership est appliqué, et le socle RGPD
 
 ## Terminés ce sprint
 
+- **TLX-82** Validation réelle du stockage S3 des exports — **MinIO ajouté au `docker-compose`**
+  (bucket `talentx-exports` créé au démarrage). Chemin S3 **validé bout en bout** : `putObject`
+  (archive déposée), **URL présignée téléchargeable** (HTTP 200, JSON conforme — 10 sections, secrets
+  exclus), `deleteObject` + `ExportCleanupService` (objet supprimé → statut `expired`). `forcePathStyle`
+  compatible MinIO. Config dev documentée dans `.env.example`.
 - **TLX-034** Effacement RGPD — **endpoint + purge planifiée livrés**. `DELETE /users/me` →
   soft-delete immédiat (`deleted_at`), révocation refresh+device tokens, audit `account.deletion`,
   **202** `{ jobId, status }` (accusé non persisté, ADR-13 §2 ; idempotent). Purge/anonymisation
