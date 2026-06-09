@@ -34,8 +34,8 @@ refresh rotatif), son rôle/ownership est appliqué, et le socle RGPD
   Vrai `DataExportArchiveBuilder` câblé dans le worker — manifeste par rôle, **sans secrets ni
   données de tiers**, acté en **ADR-14** (feedbacks reçus exclus ; identités d'athlètes exclues de
   l'export coach). Audit `data.export` écrit à la demande. Tests API 129/129. **Validé bout en bout**
-  (register → POST → worker → builder réel → GET) : le builder produit l'archive ; seul le dépôt S3
-  manque (→ **TLX-82**). Câblage RGPD du `ConsentGate` non requis sur ces routes (droit d'accès).
+  (register → POST → worker → builder réel → GET → **téléchargement S3 réel** via MinIO, TLX-82).
+  Câblage RGPD du `ConsentGate` non requis sur ces routes (droit d'accès).
 - **TLX-035** Infra jobs asynchrones — **socle + couche worker livrés**. Socle data model
   `export_jobs` (PR #10, ADR-13) appliqué en base réelle. Couche worker : file BullMQ
   `data-export` + producteur `ExportQueueService` ; **process worker séparé** (`src/worker.ts`,
@@ -43,9 +43,10 @@ refresh rotatif), son rôle/ownership est appliqué, et le socle RGPD
   `pending→processing→ready|failed`) ; `ObjectStorageService` S3 OVH (put / URL présignée au
   GET / delete) ; nettoyage planifié des archives expirées (`ExportCleanupService`, `@Cron`,
   worker only) ; point d'extension `ExportArchiveBuilder` (placeholder → contenu réel en TLX-033) ;
-  check Redis dans la readiness ; config S3/Redis/TTL dans `validateEnv`. Tests API 121/121.
-  **Plomberie validée bout en bout** (Redis Docker) : enqueue → worker → DB (`failed` placeholder).
-  Reste à valider en réel le chemin **S3** (put / URL présignée / cleanup) → **TLX-82**.
+  check Redis dans la readiness ; config S3/Redis/TTL dans `validateEnv`.
+  **Validé bout en bout** sur Redis + **S3 réels** (MinIO, via TLX-82) : enqueue → worker → archive
+  déposée → URL présignée téléchargeable → cleanup. Journalisation `audit_log` faite. **Ticket clos** ;
+  reliquat observabilité (supervision de file) → **TLX-83**.
 - **TLX-020** Génération et rotation des clés RS256 (keystore) — PR #9 mergée
 - **TLX-021** POST /auth/register — Argon2id + émission access/refresh — mergé
 - **TLX-022** POST /auth/login + JwtAuthGuard global (routes protégées → 401) — mergé
