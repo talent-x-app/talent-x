@@ -4,15 +4,18 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react-nativ
 import { type ReactNode, useState } from 'react';
 
 const mockGetAthleteStats = jest.fn();
+const mockListAssignments = jest.fn();
 const mockBack = jest.fn();
+const mockPush = jest.fn();
 let mockParams: Record<string, string> = {};
 
 jest.mock('@talent-x/api-client', () => ({
   getAthleteStats: (...args: unknown[]) => mockGetAthleteStats(...args),
+  listAssignments: (...args: unknown[]) => mockListAssignments(...args),
   AthleteStatus: { up_to_date: 'up_to_date', late: 'late', pending_review: 'pending_review' },
 }));
 jest.mock('expo-router', () => ({
-  useRouter: () => ({ back: mockBack }),
+  useRouter: () => ({ back: mockBack, push: mockPush }),
   useLocalSearchParams: () => mockParams,
 }));
 
@@ -44,6 +47,7 @@ const STATS = {
 beforeEach(() => {
   jest.clearAllMocks();
   mockParams = { id: 'a-1', name: 'Léa Dubois', status: 'late', sport: '200m' };
+  mockListAssignments.mockResolvedValue({ status: 200, data: { data: [], meta: {} } });
 });
 
 describe('AthleteDetailScreen (TLX-045)', () => {
@@ -85,6 +89,42 @@ describe('AthleteDetailScreen (TLX-045)', () => {
     render(<AthleteDetailScreen />, { wrapper: Wrapper });
     fireEvent.press(screen.getByTestId('athlete-detail-back'));
     expect(mockBack).toHaveBeenCalled();
+  });
+
+  it('liste les séances réalisées de l’athlète et ouvre la revue (C-08)', async () => {
+    mockGetAthleteStats.mockResolvedValue({ status: 200, data: STATS });
+    mockListAssignments.mockResolvedValue({
+      status: 200,
+      data: {
+        data: [
+          {
+            id: 'asg-1',
+            athleteId: 'a-1',
+            status: 'completed',
+            session: { title: 'Haut du corps' },
+          },
+          {
+            id: 'asg-9',
+            athleteId: 'autre',
+            status: 'completed',
+            session: { title: 'Autre athlète' },
+          },
+        ],
+        meta: {},
+      },
+    });
+    render(<AthleteDetailScreen />, { wrapper: Wrapper });
+
+    await waitFor(() => expect(screen.getByTestId('review-session-asg-1')).toBeOnTheScreen());
+    // Filtré sur l'athlète courant : la séance d'un autre athlète n'apparaît pas.
+    expect(screen.queryByTestId('review-session-asg-9')).toBeNull();
+
+    fireEvent.press(screen.getByTestId('review-session-asg-1'));
+    expect(mockPush).toHaveBeenCalledWith(
+      expect.objectContaining({
+        params: expect.objectContaining({ id: 'asg-1', athlete: 'Léa Dubois' }),
+      }),
+    );
   });
 
   it('RPE absent affiché « — »', async () => {

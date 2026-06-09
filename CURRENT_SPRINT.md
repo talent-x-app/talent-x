@@ -13,8 +13,6 @@ de débloquer les écrans coach C-01/C-02/C-03.
   détaillées au-delà des KPIs livrés.
 - **TLX-084/085** Alertes détaillées & états première utilisation (enfants de C-01).
 - **TLX-052** Constructeur de séance (C-05) [PARENT] + éditeurs de blocs (TLX-053…).
-- **TLX-086** Revue de performance + feedback (C-08) — pose le commentaire coach qui sort
-  une perf de « à revoir ».
 
 ## En cours
 
@@ -40,6 +38,24 @@ de débloquer les écrans coach C-01/C-02/C-03.
   11 tests. **Validé réel** (dashboard + stats 7/7). Commit `782de28`. **Débloque C-02/C-03.**
 
 Total : **+52 tests API** (168 → 220). Tout poussé sur `main`.
+
+## Terminés ce sprint — C-08 Revue de perf + feedback (TLX-086)
+
+- **(API) Commentaires** — `POST/GET/DELETE /comments` (squelette 501 → implémenté) :
+  cible **séance XOR performance** (400 sinon), autorisation « partie liée » (perf :
+  athlète titulaire **ou** coach propriétaire + lien + `coach_access` ; séance : coach
+  propriétaire **ou** athlète affecté), suppression réservée à l'auteur (soft-delete).
+  **14 tests** (suite API **234/234**). Le modèle de données et la dérivation
+  `pending_review` (perf **sans** commentaire coach) existaient déjà → un feedback coach
+  fait sortir la perf de « à revoir ».
+- **(UI) Écran de revue (C-08)** — route `(coach)/review/[id]` : `getPerformance`
+  (consent-gated) + `listComments`, résumé perf (RPE, exercices réalisés, ressenti), fil
+  de feedback, saisie → `createComment` (invalide le tableau de bord). Entrée depuis C-03
+  (section « Séances réalisées »). 6 tests ; suite mobile **114/114**.
+- **Validé en réel** (Expo web + API) : Nina `pending_review`/toReview 1 → le coach poste
+  un feedback → commentaires 0→1 → Nina **`up_to_date`**/toReview 0 ; second feedback posté
+  **via l'UI** (`POST /comments` 201, fil + dashboard rafraîchis). **Ferme la boucle de
+  feedback coach→athlète.**
 
 ## Terminés ce sprint (frontend + contrat)
 

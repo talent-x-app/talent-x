@@ -1,4 +1,10 @@
-import { getAthleteStats, type AthleteStatus, type Stats } from '@talent-x/api-client';
+import {
+  getAthleteStats,
+  listAssignments,
+  type AthleteStatus,
+  type Assignment,
+  type Stats,
+} from '@talent-x/api-client';
 import { useTheme } from '@talent-x/design-tokens';
 import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 import { Feather } from '@expo/vector-icons';
@@ -40,6 +46,19 @@ export function AthleteDetailScreen() {
     },
     retry: false,
   });
+
+  // Séances réalisées par cet athlète (perf soumise) → revue (C-08). `listAssignments`
+  // (coach) couvre toutes ses séances ; on filtre sur l'athlète courant.
+  const done = useQuery({
+    queryKey: ['coach', 'assignments', 'completed'],
+    queryFn: async (): Promise<Assignment[]> => {
+      const response = await listAssignments({ status: 'completed' });
+      if (response.status === 200) return response.data.data;
+      throw response;
+    },
+    retry: false,
+  });
+  const reviewable = (done.data ?? []).filter((a) => a.athleteId === id);
 
   return (
     <ScrollView
@@ -107,7 +126,65 @@ export function AthleteDetailScreen() {
       </View>
 
       <StatsSection stats={stats} />
+
+      <ReviewableSessions
+        assignments={reviewable}
+        onReview={(a) =>
+          router.push({
+            pathname: '/(coach)/review/[id]' as const,
+            params: { id: a.id, athlete: name, title: a.session?.title ?? 'Séance' },
+          })
+        }
+      />
     </ScrollView>
+  );
+}
+
+/** Liste des séances réalisées (perf soumise) menant à la revue + feedback (C-08). */
+function ReviewableSessions({
+  assignments,
+  onReview,
+}: {
+  assignments: Assignment[];
+  onReview: (a: Assignment) => void;
+}) {
+  const { colors, typography, spacing } = useTheme();
+  if (assignments.length === 0) return null;
+  return (
+    <View style={{ gap: spacing[3] }}>
+      <SectionTitle>Séances réalisées</SectionTitle>
+      <View style={{ gap: spacing[2] }}>
+        {assignments.map((a) => (
+          <Card key={a.id} testID={`review-session-${a.id}`} onPress={() => onReview(a)}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[3] }}>
+              <View style={{ flex: 1, gap: 2 }}>
+                <Text
+                  style={{
+                    color: colors.textPrimary,
+                    fontFamily: typography.fontFamily.medium,
+                    fontSize: typography.body.fontSize,
+                  }}
+                >
+                  {a.session?.title ?? 'Séance'}
+                </Text>
+                <Text
+                  style={{
+                    color: colors.textMuted,
+                    fontFamily: typography.fontFamily.regular,
+                    fontSize: typography.bodySm.fontSize,
+                  }}
+                >
+                  {a.dueDate || a.session?.scheduledDate
+                    ? formatDate((a.dueDate ?? a.session?.scheduledDate) as string)
+                    : 'Réalisée'}
+                </Text>
+              </View>
+              <Feather name="chevron-right" size={20} color={colors.textMuted} />
+            </View>
+          </Card>
+        ))}
+      </View>
+    </View>
   );
 }
 
