@@ -924,6 +924,110 @@ Contrainte d'unicité UNIQUE \(assignment\_id\) : une performance au plus par af
 
 Cohérence athlete\_id ↔ assignment\.athlete\_id garantie au niveau applicatif \(optionnellement par trigger\)\.
 
+## 5\.7 personal\_records \(ADR\-20\)
+
+Record personnel \(PB\) d'un athlète sur une épreuve, **matérialisé** et mis à jour **sur confirmation de l'athlète** \(détection des candidats à la soumission d'une performance — cf\. ADR\-20\)\. La clé d'épreuve `event_key` est dérivée des blocs typés \(ADR\-18\) : `sprint:60m`, `hurdles:110m`, `endurance:5000m`, `interval:400m`, `jumps`, `throws:7.26kg`\.
+
+__Colonne__
+
+__Type__
+
+__Contraintes__
+
+__Description__
+
+id
+
+uuid
+
+PK
+
+Identifiant du record\.
+
+athlete\_id
+
+uuid
+
+NOT NULL, FK → users \(CASCADE\)
+
+Athlète détenteur\.
+
+event\_key
+
+text
+
+NOT NULL
+
+Clé d'épreuve dérivée \(cf\. ADR\-20\)\.
+
+label
+
+text
+
+NOT NULL
+
+Libellé affichable \(ex\. « 60 m », « Lancer 7\.26 kg »\)\.
+
+value
+
+numeric
+
+NOT NULL, CHECK \(value >= 0\)
+
+Valeur du record \(secondes ou mètres\)\.
+
+unit
+
+text
+
+NOT NULL, CHECK \(unit IN \('s','m'\)\)
+
+Unité de la mesure\.
+
+direction
+
+text
+
+NOT NULL, CHECK \(direction IN \('min','max'\)\)
+
+Sens d'amélioration \(min = chrono, max = distance\)\.
+
+achieved\_at
+
+date
+
+NOT NULL
+
+Date de réalisation\.
+
+performance\_id
+
+uuid
+
+NULL, FK → performances \(SET NULL\)
+
+Performance source ; NULL = record déclaré manuellement \(A\-07\)\.
+
+created\_at
+
+timestamptz
+
+NOT NULL, default now\(\)
+
+Création\.
+
+updated\_at
+
+timestamptz
+
+NOT NULL, default now\(\)
+
+Mise à jour\.
+
+Contrainte d'unicité UNIQUE \(athlete\_id, event\_key\) : un record au plus par athlète et par épreuve\.
+
+Donnée de santé au sens du projet : écriture par l'athlète sous consentement `data_processing`, lecture coach sous `coach_access` \+ lien actif ; incluse dans l'export \(ADR\-14\) et l'effacement \(ADR\-15\)\.
+
 # 6\. Collaboration et journalisation
 
 ## 6\.1 comments

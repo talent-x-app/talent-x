@@ -1,7 +1,7 @@
 # ADR-20 — Records personnels : table matérialisée + détection de PB à la soumission
 
-- **Statut :** Proposé
-- **Date :** 2026-06-10
+- **Statut :** Accepté
+- **Date :** 2026-06-10 (validé 2026-06-10)
 - **Complète :** `Talent-X_06_Modele_de_donnees.md` (nouvelle table `personal_records`),
   `talent-x-openapi.yaml` (schéma `PersonalRecord`, endpoints records, réponse de
   soumission de perf)

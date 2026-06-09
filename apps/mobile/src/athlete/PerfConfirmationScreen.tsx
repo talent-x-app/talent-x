@@ -1,18 +1,22 @@
 import {
+  confirmRecord,
   getAssignment,
   getPerformance,
   type Assignment,
   type Performance,
+  type RecordCandidate,
 } from '@talent-x/api-client';
 import { useTheme } from '@talent-x/design-tokens';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Feather } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useState } from 'react';
 import { ActivityIndicator, ScrollView, Text, View } from 'react-native';
 import { Button, Card } from '../components/ui';
+import { useToast } from '../feedback';
 import { formatSessionDate, sessionTitle } from './athlete-session-ui';
 import { sessionDetailHref } from './navigation';
-import { formatMeasures } from './perf-entry';
+import { formatMeasures, formatRecordValue } from './perf-entry';
 
 /**
  * Écran Confirmation de perf (A-05 — TLX-078). Affiché après l'envoi de la saisie
@@ -117,6 +121,10 @@ export function PerfConfirmationScreen() {
             </Text>
           </View>
 
+          {perf.data.recordCandidates?.length ? (
+            <RecordCandidatesCard performance={perf.data} />
+          ) : null}
+
           <RecapCard performance={perf.data} />
 
           <View style={{ gap: spacing[3] }}>
@@ -137,6 +145,110 @@ export function PerfConfirmationScreen() {
         </>
       )}
     </ScrollView>
+  );
+}
+
+/**
+ * Proposition de mise à jour des records (TLX-076, ADR-20) : candidats détectés par le
+ * backend à la soumission. L'athlète valide épreuve par épreuve — la valeur est
+ * revalidée côté serveur depuis la performance (jamais de valeur libre).
+ */
+function RecordCandidatesCard({ performance }: { performance: Performance }) {
+  const { colors, typography, spacing } = useTheme();
+  const toast = useToast();
+  const queryClient = useQueryClient();
+  const [confirmed, setConfirmed] = useState<string[]>([]);
+  const candidates = performance.recordCandidates ?? [];
+
+  const mutation = useMutation({
+    mutationFn: async (candidate: RecordCandidate) => {
+      const response = await confirmRecord(candidate.eventKey, {
+        performanceId: performance.id,
+      });
+      if (response.status === 200) return response.data;
+      throw response;
+    },
+    onSuccess: (record) => {
+      setConfirmed((prev) => [...prev, record.eventKey]);
+      void queryClient.invalidateQueries({ queryKey: ['records'] });
+      toast.show({ title: 'Record enregistré !', variant: 'success' });
+    },
+    onError: () => {
+      toast.show({ title: "Échec de l'enregistrement du record", variant: 'danger' });
+    },
+  });
+
+  return (
+    <Card testID="record-candidates" style={{ backgroundColor: colors.accentSubtle }}>
+      <View style={{ gap: spacing[3] }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[2] }}>
+          <Feather name="award" size={18} color={colors.accentText} />
+          <Text
+            style={{
+              color: colors.accentText,
+              fontFamily: typography.fontFamily.bold,
+              fontSize: typography.body.fontSize,
+            }}
+          >
+            {candidates.length > 1 ? 'Nouveaux records ?' : 'Nouveau record ?'}
+          </Text>
+        </View>
+        {candidates.map((candidate) => {
+          const done = confirmed.includes(candidate.eventKey);
+          return (
+            <View
+              key={candidate.eventKey}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[3] }}
+            >
+              <View style={{ flex: 1, gap: 2 }}>
+                <Text
+                  testID={`record-candidate-${candidate.eventKey}`}
+                  style={{
+                    color: colors.textPrimary,
+                    fontFamily: typography.fontFamily.medium,
+                    fontSize: typography.body.fontSize,
+                  }}
+                >
+                  {candidate.label} — {formatRecordValue(candidate.value, candidate.unit)}
+                </Text>
+                <Text
+                  style={{
+                    color: colors.textSecondary,
+                    fontFamily: typography.fontFamily.regular,
+                    fontSize: typography.bodySm.fontSize,
+                  }}
+                >
+                  {candidate.previousValue != null
+                    ? `Ancien record : ${formatRecordValue(candidate.previousValue, candidate.unit)}`
+                    : 'Première marque sur cette épreuve'}
+                </Text>
+              </View>
+              {done ? (
+                <Text
+                  testID={`record-confirmed-${candidate.eventKey}`}
+                  style={{
+                    color: colors.success,
+                    fontFamily: typography.fontFamily.medium,
+                    fontSize: typography.bodySm.fontSize,
+                  }}
+                >
+                  ✓ Validé
+                </Text>
+              ) : (
+                <Button
+                  testID={`record-confirm-${candidate.eventKey}`}
+                  size="sm"
+                  loading={mutation.isPending}
+                  onPress={() => mutation.mutate(candidate)}
+                >
+                  Valider
+                </Button>
+              )}
+            </View>
+          );
+        })}
+      </View>
+    </Card>
   );
 }
 

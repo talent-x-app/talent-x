@@ -4,6 +4,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { OwnershipService } from '../common/authorization/ownership.service';
 import { ConsentGate } from '../common/authorization/consent.gate';
 import type { AuthenticatedUser } from '../common/decorators/current-user.decorator';
+import { RecordsService } from '../progress/records.service';
+import type { ExerciseDto } from '../sessions/dto/exercises.dto';
 import { PerformanceCreateDto, PerformanceDto } from './dto/performance.dto';
 import type { ResultsDocDto } from './dto/results.dto';
 
@@ -24,6 +26,7 @@ export class PerformancesService {
     private readonly prisma: PrismaService,
     private readonly ownership: OwnershipService,
     private readonly consent: ConsentGate,
+    private readonly records: RecordsService,
   ) {}
 
   /** Athlète titulaire saisit sa performance. Idempotent : renvoie l'existante si déjà soumise. */
@@ -59,7 +62,34 @@ export class PerformancesService {
       });
       return created;
     });
-    return toPerformanceDto(performance);
+    return this.withRecordCandidates(toPerformanceDto(performance), assignmentId);
+  }
+
+  /**
+   * Joint les candidats record (ADR-20) à la réponse de soumission/MAJ — additif et
+   * défensif : une détection en échec ne doit jamais faire échouer la saisie.
+   */
+  private async withRecordCandidates(
+    dto: PerformanceDto,
+    assignmentId: string,
+  ): Promise<PerformanceDto> {
+    try {
+      const session = await this.prisma.sessionAssignment
+        .findUnique({ where: { id: assignmentId } })
+        .session({ select: { exercises: true } });
+      const exercises =
+        ((session?.exercises as { items?: unknown[] } | null)?.items as
+          | Partial<ExerciseDto>[]
+          | undefined) ?? [];
+      const candidates = await this.records.detectCandidates(
+        dto.athleteId,
+        exercises,
+        dto.results.items,
+      );
+      return candidates.length > 0 ? { ...dto, recordCandidates: candidates } : dto;
+    } catch {
+      return dto;
+    }
   }
 
   /** Lecture : athlète titulaire, ou coach propriétaire (lien actif + coach_access). */
@@ -80,7 +110,12 @@ export class PerformancesService {
     } else if (assignment.athleteId !== user.id) {
       throw new ForbiddenException('Cette performance ne vous appartient pas.');
     }
-    return toPerformanceDto(assignment.performance);
+    const dto = toPerformanceDto(assignment.performance);
+    // Athlète titulaire : la proposition de record (ADR-20) survit au refetch / rechargement.
+    if (user.role !== 'coach') {
+      return this.withRecordCandidates(dto, assignmentId);
+    }
+    return dto;
   }
 
   /** Mise à jour par l'athlète titulaire (consentement requis). 404 si pas encore soumise. */
@@ -108,7 +143,7 @@ export class PerformancesService {
         notes: dto.notes ?? null,
       },
     });
-    return toPerformanceDto(updated);
+    return this.withRecordCandidates(toPerformanceDto(updated), assignmentId);
   }
 
   /** Charge une affectation active (404 sinon). */

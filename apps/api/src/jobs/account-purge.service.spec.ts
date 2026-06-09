@@ -10,6 +10,7 @@ function setup(candidates: Array<{ id: string }>) {
   const prisma = {
     user: { findMany, update: userUpdate },
     performance: { deleteMany: tagged('perf') },
+    personalRecord: { deleteMany: tagged('record') },
     groupMember: { deleteMany: tagged('gm') },
     coachAthleteLink: { deleteMany: tagged('cal') },
     deviceToken: { deleteMany: tagged('device') },

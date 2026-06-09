@@ -5,11 +5,14 @@ import { type ReactNode, useState } from 'react';
 
 const mockGetAssignment = jest.fn();
 const mockGetPerformance = jest.fn();
+const mockConfirmRecord = jest.fn();
 const mockReplace = jest.fn();
+const mockShow = jest.fn();
 
 jest.mock('@talent-x/api-client', () => ({
   getAssignment: (...a: unknown[]) => mockGetAssignment(...a),
   getPerformance: (...a: unknown[]) => mockGetPerformance(...a),
+  confirmRecord: (...a: unknown[]) => mockConfirmRecord(...a),
   AssignmentStatus: {
     assigned: 'assigned',
     in_progress: 'in_progress',
@@ -21,6 +24,7 @@ jest.mock('expo-router', () => ({
   useRouter: () => ({ replace: mockReplace, back: jest.fn() }),
   useLocalSearchParams: () => ({ id: 'asg-1' }),
 }));
+jest.mock('../feedback', () => ({ useToast: () => ({ show: mockShow, dismiss: jest.fn() }) }));
 
 import { PerfConfirmationScreen } from './PerfConfirmationScreen';
 
@@ -108,6 +112,50 @@ describe('PerfConfirmationScreen (TLX-078 — A-05)', () => {
       pathname: '/(athlete)/session/[id]',
       params: { id: 'asg-1' },
     });
+  });
+
+  it('propose les candidats record et les valide un à un (TLX-076, ADR-20)', async () => {
+    mockGetAssignment.mockResolvedValue({ status: 200, data: ASSIGNMENT });
+    mockGetPerformance.mockResolvedValue({
+      status: 200,
+      data: {
+        ...PERF,
+        recordCandidates: [
+          { eventKey: 'interval:400m', label: '400 m', value: 72.4, unit: 's', previousValue: 73 },
+          { eventKey: 'jumps', label: 'Saut', value: 6.12, unit: 'm' },
+        ],
+      },
+    });
+    mockConfirmRecord.mockResolvedValue({
+      status: 200,
+      data: { id: 'rec-1', eventKey: 'interval:400m', value: 72.4, unit: 's' },
+    });
+    render(<PerfConfirmationScreen />, { wrapper: Wrapper });
+
+    await waitFor(() => expect(screen.getByTestId('record-candidates')).toBeOnTheScreen());
+    expect(screen.getByTestId('record-candidate-interval:400m')).toHaveTextContent(
+      '400 m — 1:12.4',
+    );
+    expect(screen.getByText('Ancien record : 1:13')).toBeOnTheScreen();
+    expect(screen.getByTestId('record-candidate-jumps')).toHaveTextContent('Saut — 6.12 m');
+    expect(screen.getByText('Première marque sur cette épreuve')).toBeOnTheScreen();
+
+    fireEvent.press(screen.getByTestId('record-confirm-interval:400m'));
+    await waitFor(() =>
+      expect(screen.getByTestId('record-confirmed-interval:400m')).toBeOnTheScreen(),
+    );
+    expect(mockConfirmRecord).toHaveBeenCalledWith('interval:400m', { performanceId: 'perf-1' });
+    // L'autre candidat reste proposé.
+    expect(screen.getByTestId('record-confirm-jumps')).toBeOnTheScreen();
+  });
+
+  it('sans candidat record, la carte n’apparaît pas', async () => {
+    mockGetAssignment.mockResolvedValue({ status: 200, data: ASSIGNMENT });
+    mockGetPerformance.mockResolvedValue({ status: 200, data: PERF });
+    render(<PerfConfirmationScreen />, { wrapper: Wrapper });
+
+    await waitFor(() => expect(screen.getByTestId('perf-confirmation-title')).toBeOnTheScreen());
+    expect(screen.queryByTestId('record-candidates')).toBeNull();
   });
 
   it('affiche l’état d’erreur si la performance est introuvable', async () => {

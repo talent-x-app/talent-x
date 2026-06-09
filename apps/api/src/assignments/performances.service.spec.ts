@@ -3,6 +3,7 @@ import type { OwnershipService } from '../common/authorization/ownership.service
 import type { ConsentGate } from '../common/authorization/consent.gate';
 import type { PrismaService } from '../prisma/prisma.service';
 import type { AuthenticatedUser } from '../common/decorators/current-user.decorator';
+import type { RecordsService } from '../progress/records.service';
 import { PerformancesService } from './performances.service';
 
 const ATHLETE: AuthenticatedUser = { id: 'a-1', role: 'athlete' };
@@ -59,7 +60,12 @@ type PrismaMock = {
 
 function prismaMock(): PrismaMock {
   const mock: PrismaMock = {
-    sessionAssignment: { findFirst: jest.fn(), update: jest.fn() },
+    sessionAssignment: {
+      findFirst: jest.fn(),
+      update: jest.fn(),
+      // Fluent `findUnique(...).session(...)` (détection record, ADR-20).
+      findUnique: jest.fn(() => ({ session: jest.fn().mockResolvedValue(null) })),
+    },
     performance: { findUnique: jest.fn(), create: jest.fn(), update: jest.fn() },
     $transaction: jest.fn((arg: unknown) =>
       Array.isArray(arg) ? Promise.all(arg) : (arg as (tx: unknown) => unknown)(mock),
@@ -68,12 +74,20 @@ function prismaMock(): PrismaMock {
   return mock;
 }
 
+function recordsMock(over: Partial<RecordsService> = {}): RecordsService {
+  return {
+    detectCandidates: jest.fn().mockResolvedValue([]),
+    ...over,
+  } as unknown as RecordsService;
+}
+
 function service(
   prisma: PrismaMock,
   ownership = ownershipMock(),
   consent = consentMock(),
+  records = recordsMock(),
 ): PerformancesService {
-  return new PerformancesService(prisma as unknown as PrismaService, ownership, consent);
+  return new PerformancesService(prisma as unknown as PrismaService, ownership, consent, records);
 }
 
 describe('PerformancesService', () => {
@@ -99,6 +113,56 @@ describe('PerformancesService', () => {
         data: { status: 'completed' },
       });
       expect(res.id).toBe('perf-1');
+    });
+
+    it('joint les candidats record à la réponse quand la détection en trouve (ADR-20)', async () => {
+      const prisma = prismaMock();
+      prisma.sessionAssignment.findFirst.mockResolvedValue(assignmentRow());
+      prisma.performance.findUnique.mockResolvedValue(null);
+      prisma.performance.create.mockResolvedValue(performanceRow());
+      prisma.sessionAssignment.update.mockResolvedValue(assignmentRow({ status: 'completed' }));
+      prisma.sessionAssignment.findUnique.mockReturnValue({
+        session: jest.fn().mockResolvedValue({
+          exercises: { items: [{ name: '60m', order: 1, type: 'sprint' }] },
+        }),
+      });
+      const candidate = { eventKey: 'sprint:60m', label: '60 m', value: 7.45, unit: 's' as const };
+      const records = recordsMock({
+        detectCandidates: jest.fn().mockResolvedValue([candidate]),
+      } as Partial<RecordsService>);
+
+      const res = await service(prisma, ownershipMock(), consentMock(), records).submitPerformance(
+        ATHLETE,
+        'asg-1',
+        DTO,
+      );
+
+      expect(records.detectCandidates).toHaveBeenCalledWith(
+        'a-1',
+        [{ name: '60m', order: 1, type: 'sprint' }],
+        DTO.results.items,
+      );
+      expect(res.recordCandidates).toEqual([candidate]);
+    });
+
+    it('la détection record ne fait jamais échouer la saisie (best effort)', async () => {
+      const prisma = prismaMock();
+      prisma.sessionAssignment.findFirst.mockResolvedValue(assignmentRow());
+      prisma.performance.findUnique.mockResolvedValue(null);
+      prisma.performance.create.mockResolvedValue(performanceRow());
+      prisma.sessionAssignment.update.mockResolvedValue(assignmentRow({ status: 'completed' }));
+      const records = recordsMock({
+        detectCandidates: jest.fn().mockRejectedValue(new Error('boom')),
+      } as Partial<RecordsService>);
+
+      const res = await service(prisma, ownershipMock(), consentMock(), records).submitPerformance(
+        ATHLETE,
+        'asg-1',
+        DTO,
+      );
+
+      expect(res.id).toBe('perf-1');
+      expect(res.recordCandidates).toBeUndefined();
     });
 
     it('idempotent : renvoie la performance existante sans recréer ni changer le statut', async () => {

@@ -301,6 +301,32 @@ athlete-session-ui.tsx`. 10 tests ; **suite mobile 108/108**. **Validé en réel
   → redirection `/perf/:id`, récap « 7.45 s · 7.52 s · 7.38 s », « Revoir ma saisie » →
   retour détail réhydraté. Zéro erreur console.
 
+## Terminés ce sprint — A-04 §7 Détection de record + proposition de mise à jour (TLX-076)
+
+- **ADR-20 (Accepté)** — records personnels : **clé d'épreuve dérivée** des blocs typés
+  (`sprint:60m`, `hurdles:110m`, `throws:7.26kg`, `jumps` ; sens min/max), **table
+  `personal_records`** matérialisée (TX-DATA-006 §5.7, unicité athlète × épreuve,
+  `performance_id` nullable pour les records manuels A-07), **mise à jour sur confirmation
+  de l'athlète**. Migration expand-only `20260610090000_personal_records` (CHECKs unit/
+  direction/valeur). Incluse **export (ADR-14) + purge (ADR-15)**.
+- **API** — module pur `progress/record-detection.ts` (dérivation d'épreuve + meilleure
+  mesure par perf, lecture défensive) ; `RecordsService` (`detectCandidates`, `confirm`
+  revalidé depuis la perf — jamais de valeur libre, portes `data_processing` /
+  `coach_access`) ; endpoints `GET /athletes/me/records`, `PUT /athletes/me/records/
+{eventKey}`, `GET /athletes/{id}/records` ; `recordCandidates` **additif** sur la réponse
+  `Performance` (soumission/MAJ **et** lecture athlète — survit au refetch). OpenAPI +
+  orval régénérés. **+21 tests API (262/262)**.
+- **Mobile** — carte « Nouveau record ? » sur la confirmation A-05 : candidats avec
+  « Ancien record : … » / « Première marque », bouton **Valider** par épreuve
+  (`PUT records/{eventKey}`), état ✓ Validé + toast. `formatRecordValue` partagé.
+  +2 tests écran.
+- **Validé en réel** (Expo web + API locale) : saisie 60 m `7.52/7.45/7.61` → carte
+  « 60 m — 7.45 s · Première marque » → Valider → record stocké (lecture athlète + coach
+  consent-gated) → perf améliorée 7.30 → candidat `previousValue: 7.45` → confirme 7.30 →
+  re-confirmation **422**. Pendant la vérif : bundle Metro à redémarrer après régénération
+  du client (cache de résolution) ; correctif découvert en réel — `GET performance`
+  athlète inclut désormais les candidats (le refetch écrasait la carte).
+
 ## Notes / dépendances (réutilisables)
 
 - **Mapper séance partagé** : `sessions/session.mapper.ts` (`toSessionDto`).
@@ -326,10 +352,9 @@ athlete-session-ui.tsx`. 10 tests ; **suite mobile 108/108**. **Validé en réel
 
 ## Prochaine étape (proposition)
 
-1. **TLX-076** (détection de record PB, High) — **nécessite une décision de modèle** : aucune
-   table records dans TX-DATA-006 ni dans l'OpenAPI. Proposer un **ADR** (records dérivés des
-   perfs v2 à la lecture vs table `personal_records` matérialisée — TLX-091 « Records
-   personnels A-07 » en dépend) avant de coder.
-2. **TLX-075** (grille de barres hauteur/perche, Medium) — convention essais × tentatives à
-   trancher (complément ADR-19).
-3. **TLX-077** (brouillon auto-save + hors-ligne, Medium 8 pts) — TX-ARCH-001 §4.
+1. **TLX-091** (écran Records personnels A-07, High) — débloqué par TLX-076 : lit
+   `GET /athletes/me/records` (socle ADR-20), + records manuels (`performance_id` null).
+2. **TLX-090** (écran Progression A-06, `/athletes/me/progress` encore en 501).
+3. **TLX-075** (grille de barres hauteur/perche, Medium) — convention essais × tentatives à
+   trancher (complément ADR-19/20).
+4. **TLX-077** (brouillon auto-save + hors-ligne, Medium 8 pts) — TX-ARCH-001 §4.

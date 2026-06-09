@@ -52,6 +52,7 @@ model User {
   coachedSessions  Session[]           @relation("SessionCoach")
   assignments      SessionAssignment[]
   performances     Performance[]
+  personalRecords  PersonalRecord[]
   comments         Comment[]           @relation("CommentAuthor")
   auditLogs        AuditLog[]
 
@@ -255,9 +256,35 @@ model Performance {
   assignment SessionAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
   athlete    User              @relation(fields: [athleteId], references: [id], onDelete: Cascade)
   comments   Comment[]
+  records    PersonalRecord[]
 
   @@index([athleteId], map: "ix_perf_athlete")
   @@map("performances")
+}
+
+/// Records personnels matérialisés (cf. §5.7, ADR-20). Mise à jour sur confirmation
+/// de l'athlète — détection des candidats à la soumission d'une performance.
+model PersonalRecord {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  athleteId     String   @map("athlete_id") @db.Uuid
+  eventKey      String   @map("event_key")
+  label         String
+  /// Valeur >= 0 (CHECK en base) — secondes ou mètres selon `unit`.
+  value         Decimal  @db.Decimal
+  /// 's' | 'm' (CHECK en base)
+  unit          String
+  /// 'min' | 'max' (CHECK en base)
+  direction     String
+  achievedAt    DateTime @map("achieved_at") @db.Date
+  performanceId String?  @map("performance_id") @db.Uuid
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  athlete     User         @relation(fields: [athleteId], references: [id], onDelete: Cascade)
+  performance Performance? @relation(fields: [performanceId], references: [id], onDelete: SetNull)
+
+  @@unique([athleteId, eventKey], map: "ux_record_athlete_event")
+  @@map("personal_records")
 }
 
 // ────────────────────────── Collaboration & journalisation ─────────────────────

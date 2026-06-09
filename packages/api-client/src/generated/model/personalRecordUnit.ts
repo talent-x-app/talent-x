@@ -7,22 +7,11 @@
  * Conventions transverses : préfixe /api/v1 ; jeton d'accès JWT (RS256) via en-tête Authorization ; pagination par enveloppe { data, meta } ; idempotence des écritures sensibles via Idempotency-Key ; opérations longues asynchrones (202 + ressource de statut) ; rate limiting signalé par les en-têtes RateLimit-*. L'autorisation combine rôle, appartenance (lien coach↔athlète), propriété et consentement ; voir TX-SPEC-002 §6.
  * OpenAPI spec version: 1.0.0
  */
-import type { RecordCandidate } from './recordCandidate';
-import type { ResultsDoc } from './resultsDoc';
 
-export interface Performance {
-  id: string;
-  assignmentId: string;
-  athleteId: string;
-  results: ResultsDoc;
-  /**
-     * @minimum 1
-     * @maximum 10
-     */
-  rpe?: number;
-  notes?: string;
-  submittedAt?: string;
-  updatedAt?: string;
-  /** Candidats record détectés à la soumission (ADR-20) : meilleure mesure de la performance par épreuve, strictement meilleure que le record courant (ou épreuve sans record). La mise à jour du record reste à la main de l'athlète (PUT /athletes/me/records/{eventKey}). */
-  recordCandidates?: RecordCandidate[];
-}
+export type PersonalRecordUnit = typeof PersonalRecordUnit[keyof typeof PersonalRecordUnit];
+
+
+export const PersonalRecordUnit = {
+  s: 's',
+  m: 'm',
+} as const;

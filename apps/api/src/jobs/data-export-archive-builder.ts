@@ -117,31 +117,35 @@ export class DataExportArchiveBuilder extends ExportArchiveBuilder {
 
   /** Sections spécifiques athlète. */
   private async athleteSections(userId: string): Promise<Record<string, unknown>> {
-    const [memberships, coachLinks, assignments, performances] = await Promise.all([
-      this.prisma.groupMember.findMany({
-        where: { athleteId: userId },
-        include: { group: { select: { name: true } } },
-      }),
-      this.prisma.coachAthleteLink.findMany({
-        where: { athleteId: userId },
-        include: { coach: { select: { firstName: true, lastName: true } } },
-      }),
-      this.prisma.sessionAssignment.findMany({
-        where: { athleteId: userId },
-        include: {
-          session: {
-            select: {
-              title: true,
-              description: true,
-              scheduledDate: true,
-              exercises: true,
-              exercisesSchemaVersion: true,
+    const [memberships, coachLinks, assignments, performances, personalRecords] = await Promise.all(
+      [
+        this.prisma.groupMember.findMany({
+          where: { athleteId: userId },
+          include: { group: { select: { name: true } } },
+        }),
+        this.prisma.coachAthleteLink.findMany({
+          where: { athleteId: userId },
+          include: { coach: { select: { firstName: true, lastName: true } } },
+        }),
+        this.prisma.sessionAssignment.findMany({
+          where: { athleteId: userId },
+          include: {
+            session: {
+              select: {
+                title: true,
+                description: true,
+                scheduledDate: true,
+                exercises: true,
+                exercisesSchemaVersion: true,
+              },
             },
           },
-        },
-      }),
-      this.prisma.performance.findMany({ where: { athleteId: userId } }),
-    ]);
+        }),
+        this.prisma.performance.findMany({ where: { athleteId: userId } }),
+        // Records personnels (ADR-20) — donnée de santé, incluse au manifeste (ADR-14).
+        this.prisma.personalRecord.findMany({ where: { athleteId: userId } }),
+      ],
+    );
 
     return {
       groupMemberships: memberships.map((m) => ({
@@ -170,6 +174,16 @@ export class DataExportArchiveBuilder extends ExportArchiveBuilder {
         submittedAt: p.submittedAt,
         createdAt: p.createdAt,
         updatedAt: p.updatedAt,
+      })),
+      personalRecords: personalRecords.map((r) => ({
+        eventKey: r.eventKey,
+        label: r.label,
+        value: Number(r.value),
+        unit: r.unit,
+        direction: r.direction,
+        achievedAt: r.achievedAt,
+        createdAt: r.createdAt,
+        updatedAt: r.updatedAt,
       })),
     };
   }

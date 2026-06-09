@@ -51,8 +51,11 @@ import type {
   NotificationPreferences,
   Performance,
   PerformanceCreate,
+  PersonalRecord,
+  PersonalRecordList,
   Progress,
   Readiness,
+  RecordConfirm,
   RefreshRequest,
   RegisterRequest,
   ResetPasswordRequest,
@@ -3057,6 +3060,196 @@ export const getGetMyProgressUrl = () => {
 export const getMyProgress = async ( options?: RequestInit): Promise<getMyProgressResponse> => {
 
   return customFetch<getMyProgressResponse>(getGetMyProgressUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+export type listMyRecordsResponse200 = {
+  data: PersonalRecordList
+  status: 200
+}
+
+export type listMyRecordsResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type listMyRecordsResponse429 = {
+  data: TooManyRequestsResponse
+  status: 429
+}
+
+export type listMyRecordsResponse500 = {
+  data: ServerErrorResponse
+  status: 500
+}
+
+export type listMyRecordsResponseSuccess = (listMyRecordsResponse200) & {
+  headers: Headers;
+};
+export type listMyRecordsResponseError = (listMyRecordsResponse401 | listMyRecordsResponse429 | listMyRecordsResponse500) & {
+  headers: Headers;
+};
+
+export type listMyRecordsResponse = (listMyRecordsResponseSuccess | listMyRecordsResponseError)
+
+export const getListMyRecordsUrl = () => {
+
+
+
+
+  return `/athletes/me/records`
+}
+
+/**
+ * @summary Consulter ses records personnels (ADR-20)
+ */
+export const listMyRecords = async ( options?: RequestInit): Promise<listMyRecordsResponse> => {
+
+  return customFetch<listMyRecordsResponse>(getListMyRecordsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+export type confirmRecordResponse200 = {
+  data: PersonalRecord
+  status: 200
+}
+
+export type confirmRecordResponse400 = {
+  data: BadRequestResponse
+  status: 400
+}
+
+export type confirmRecordResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type confirmRecordResponse403 = {
+  data: ConsentRequiredResponse
+  status: 403
+}
+
+export type confirmRecordResponse404 = {
+  data: NotFoundResponse
+  status: 404
+}
+
+export type confirmRecordResponse422 = {
+  data: ValidationFailedResponse
+  status: 422
+}
+
+export type confirmRecordResponse429 = {
+  data: TooManyRequestsResponse
+  status: 429
+}
+
+export type confirmRecordResponse500 = {
+  data: ServerErrorResponse
+  status: 500
+}
+
+export type confirmRecordResponseSuccess = (confirmRecordResponse200) & {
+  headers: Headers;
+};
+export type confirmRecordResponseError = (confirmRecordResponse400 | confirmRecordResponse401 | confirmRecordResponse403 | confirmRecordResponse404 | confirmRecordResponse422 | confirmRecordResponse429 | confirmRecordResponse500) & {
+  headers: Headers;
+};
+
+export type confirmRecordResponse = (confirmRecordResponseSuccess | confirmRecordResponseError)
+
+export const getConfirmRecordUrl = (eventKey: string,) => {
+
+
+
+
+  return `/athletes/me/records/${eventKey}`
+}
+
+/**
+ * @summary Confirmer un candidat record (proposition de mise à jour, ADR-20)
+ */
+export const confirmRecord = async (eventKey: string,
+    recordConfirm: RecordConfirm, options?: RequestInit): Promise<confirmRecordResponse> => {
+
+  return customFetch<confirmRecordResponse>(getConfirmRecordUrl(eventKey),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(recordConfirm)
+  }
+);}
+
+
+
+export type listAthleteRecordsResponse200 = {
+  data: PersonalRecordList
+  status: 200
+}
+
+export type listAthleteRecordsResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type listAthleteRecordsResponse403 = {
+  data: ConsentRequiredResponse
+  status: 403
+}
+
+export type listAthleteRecordsResponse404 = {
+  data: NotFoundResponse
+  status: 404
+}
+
+export type listAthleteRecordsResponse429 = {
+  data: TooManyRequestsResponse
+  status: 429
+}
+
+export type listAthleteRecordsResponse500 = {
+  data: ServerErrorResponse
+  status: 500
+}
+
+export type listAthleteRecordsResponseSuccess = (listAthleteRecordsResponse200) & {
+  headers: Headers;
+};
+export type listAthleteRecordsResponseError = (listAthleteRecordsResponse401 | listAthleteRecordsResponse403 | listAthleteRecordsResponse404 | listAthleteRecordsResponse429 | listAthleteRecordsResponse500) & {
+  headers: Headers;
+};
+
+export type listAthleteRecordsResponse = (listAthleteRecordsResponseSuccess | listAthleteRecordsResponseError)
+
+export const getListAthleteRecordsUrl = (id: string,) => {
+
+
+
+
+  return `/athletes/${id}/records`
+}
+
+/**
+ * @summary Records personnels d'un athlète lié (consentement requis, ADR-20)
+ */
+export const listAthleteRecords = async (id: string, options?: RequestInit): Promise<listAthleteRecordsResponse> => {
+
+  return customFetch<listAthleteRecordsResponse>(getListAthleteRecordsUrl(id),
   {
     ...options,
     method: 'GET'

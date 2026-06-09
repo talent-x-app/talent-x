@@ -1,9 +1,19 @@
-import { Controller, Get, NotImplementedException, Param, ParseUUIDPipe } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  NotImplementedException,
+  Param,
+  ParseUUIDPipe,
+  Put,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CoachInsightsService } from './coach-insights.service';
+import { RecordsService } from './records.service';
 import { DashboardDto } from './dto/dashboard.dto';
+import { PersonalRecordDto, PersonalRecordListDto, RecordConfirmDto } from './dto/record.dto';
 import { StatsDto } from './dto/stats.dto';
 
 /**
@@ -15,13 +25,50 @@ import { StatsDto } from './dto/stats.dto';
 @ApiBearerAuth()
 @Controller()
 export class ProgressController {
-  constructor(private readonly insights: CoachInsightsService) {}
+  constructor(
+    private readonly insights: CoachInsightsService,
+    private readonly records: RecordsService,
+  ) {}
 
   @Get('athletes/me/progress')
   @ApiOperation({ summary: 'Ma progression', operationId: 'getMyProgress' })
   getMyProgress(): never {
     // Livré par TLX-090 (écran Progression A-06).
     throw new NotImplementedException('getMyProgress');
+  }
+
+  @Get('athletes/me/records')
+  @Roles('athlete')
+  @ApiOperation({ summary: 'Mes records personnels', operationId: 'listMyRecords' })
+  @ApiResponse({ status: 200, description: 'Records personnels.', type: PersonalRecordListDto })
+  listMyRecords(@CurrentUser('id') athleteId: string): Promise<PersonalRecordListDto> {
+    return this.records.listMine(athleteId);
+  }
+
+  @Put('athletes/me/records/:eventKey')
+  @Roles('athlete')
+  @ApiOperation({
+    summary: 'Confirmer un candidat record (ADR-20)',
+    operationId: 'confirmRecord',
+  })
+  @ApiResponse({ status: 200, description: 'Record créé ou mis à jour.', type: PersonalRecordDto })
+  confirmRecord(
+    @CurrentUser('id') athleteId: string,
+    @Param('eventKey') eventKey: string,
+    @Body() dto: RecordConfirmDto,
+  ): Promise<PersonalRecordDto> {
+    return this.records.confirm(athleteId, eventKey, dto.performanceId);
+  }
+
+  @Get('athletes/:id/records')
+  @Roles('coach')
+  @ApiOperation({ summary: "Records d'un athlète lié", operationId: 'listAthleteRecords' })
+  @ApiResponse({ status: 200, description: 'Records personnels.', type: PersonalRecordListDto })
+  listAthleteRecords(
+    @CurrentUser('id') coachId: string,
+    @Param('id', new ParseUUIDPipe()) id: string,
+  ): Promise<PersonalRecordListDto> {
+    return this.records.listForCoach(coachId, id);
   }
 
   @Get('athletes/:id/stats')

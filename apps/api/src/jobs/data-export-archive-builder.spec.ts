@@ -17,6 +17,7 @@ function prismaMock(user: Record<string, unknown>, rows: Record<string, unknown[
     coachAthleteLink: { findMany: many('coachAthleteLink') },
     sessionAssignment: { findMany: many('sessionAssignment') },
     performance: { findMany: many('performance') },
+    personalRecord: { findMany: many('personalRecord') },
     group: { findMany: many('group') },
     session: { findMany: many('session') },
   } as unknown as PrismaService;

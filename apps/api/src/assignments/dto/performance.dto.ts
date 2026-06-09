@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsInt, IsOptional, IsString, Max, Min, ValidateNested } from 'class-validator';
+import { RecordCandidateDto } from '../../progress/dto/record.dto';
 import { ResultsDocDto } from './results.dto';
 
 /** Corps de `POST/PUT /assignments/{id}/performance` — schéma `PerformanceCreate`. */
@@ -48,4 +49,10 @@ export class PerformanceDto {
 
   @ApiProperty({ format: 'date-time' })
   updatedAt!: string;
+
+  @ApiPropertyOptional({
+    type: [RecordCandidateDto],
+    description: 'Candidats record détectés à la soumission (ADR-20).',
+  })
+  recordCandidates?: RecordCandidateDto[];
 }

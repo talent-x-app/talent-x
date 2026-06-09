@@ -33,7 +33,7 @@ Chaque décision suit le format **ADR** : Statut, Date, Contexte, Décision, Con
 | ADR-17 | Contrat explicite des dérivations de pilotage coach (`Dashboard`/`Stats`) (complète OpenAPI · Carte C-01 §8) | Accepté |
 | ADR-18 | Schéma `exercises` v2 : blocs typés par discipline, union discriminée (raffine ADR-10 · complète TX-DATA-006 §9.1) | Accepté |
 | ADR-19 | Schéma `results` v2 : mesures chronométriques et de distance par essai (méthode ADR-18 · complète TX-DATA-006 §9.2) | Accepté |
-| ADR-20 | Records personnels : table `personal_records` + détection de PB à la soumission, confirmation athlète (complète TX-DATA-006 · OpenAPI) | Proposé |
+| ADR-20 | Records personnels : table `personal_records` + détection de PB à la soumission, confirmation athlète (complète TX-DATA-006 · OpenAPI) | Accepté |
 
 ---
 
@@ -337,7 +337,7 @@ trancher.
 
 Décision complète : [`docs/adr/ADR-20-records-personnels.md`](adr/ADR-20-records-personnels.md).
 
-**Statut : Proposé** (bloque TLX-076 ; TLX-091 — A-07 — en dépend).
+**Statut : Accepté** (validé 2026-06-10 — débloque TLX-076 ; TLX-091 — A-07 — en dépend).
 
 **En bref.** Ni TX-DATA-006 ni l'OpenAPI ne définissent de record personnel, alors que
 TLX-076 exige « détection de PB + proposition de mise à jour » et TLX-091 un écran A-07.

@@ -57,6 +57,8 @@ export class AccountPurgeService {
     return this.prisma.$transaction([
       // Suppression des données personnelles propres.
       this.prisma.performance.deleteMany({ where: { athleteId: userId } }),
+      // Records personnels (ADR-20) — manifeste d'effacement (ADR-15).
+      this.prisma.personalRecord.deleteMany({ where: { athleteId: userId } }),
       this.prisma.groupMember.deleteMany({ where: { athleteId: userId } }),
       this.prisma.coachAthleteLink.deleteMany({
         where: { OR: [{ coachId: userId }, { athleteId: userId }] },

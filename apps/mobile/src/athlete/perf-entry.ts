@@ -171,6 +171,12 @@ export function formatMeasures(sets: SetResult[] | undefined): string | undefine
   return parts.length ? parts.join(' · ') : undefined;
 }
 
+/** Mesure d'épreuve en libellé (« 7.45 s », « 1:15.3 », « 6.42 m ») — records, ADR-20. */
+export function formatRecordValue(value: number, unit: 's' | 'm'): string {
+  if (unit === 'm') return `${value} m`;
+  return value >= 60 ? formatTimeInput(value) : `${formatTimeInput(value)} s`;
+}
+
 /** Réhydrate l'état de saisie depuis une perf existante (mise à jour, rétro-compat v1). */
 export function entryFromResult(ex: Exercise, result: ExerciseResult | undefined): ExerciseEntry {
   const empty = makeEmptyEntry(ex);

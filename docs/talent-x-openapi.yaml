@@ -1289,6 +1289,90 @@ paths:
           $ref: '#/components/responses/TooManyRequests'
         '500':
           $ref: '#/components/responses/ServerError'
+  /athletes/me/records:
+    get:
+      tags:
+      - Progression
+      summary: Consulter ses records personnels (ADR-20)
+      operationId: listMyRecords
+      responses:
+        '200':
+          description: Records personnels.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonalRecordList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
+  /athletes/me/records/{eventKey}:
+    put:
+      tags:
+      - Progression
+      summary: Confirmer un candidat record (proposition de mise à jour, ADR-20)
+      operationId: confirmRecord
+      parameters:
+      - name: eventKey
+        in: path
+        required: true
+        schema:
+          type: string
+        description: 'Clé d''épreuve (ex. sprint:60m).'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecordConfirm'
+      responses:
+        '200':
+          description: Record créé ou mis à jour (valeur revalidée depuis la performance).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonalRecord'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/ConsentRequired'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
+  /athletes/{id}/records:
+    get:
+      tags:
+      - Progression
+      summary: Records personnels d'un athlète lié (consentement requis, ADR-20)
+      operationId: listAthleteRecords
+      parameters:
+      - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: Records personnels.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonalRecordList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/ConsentRequired'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
   /athletes/{id}/stats:
     get:
       tags:
@@ -2351,11 +2435,105 @@ components:
         updatedAt:
           type: string
           format: date-time
+        recordCandidates:
+          type: array
+          description: >-
+            Candidats record détectés à la soumission (ADR-20) : meilleure mesure de la
+            performance par épreuve, strictement meilleure que le record courant (ou
+            épreuve sans record). La mise à jour du record reste à la main de l'athlète
+            (PUT /athletes/me/records/{eventKey}).
+          items:
+            $ref: '#/components/schemas/RecordCandidate'
       required:
       - id
       - assignmentId
       - athleteId
       - results
+    RecordCandidate:
+      type: object
+      description: Proposition de record personnel détectée sur une performance (ADR-20).
+      properties:
+        eventKey:
+          type: string
+          description: 'Clé d''épreuve dérivée du bloc typé (ex. sprint:60m, throws:7.26kg).'
+        label:
+          type: string
+          description: Libellé affichable de l'épreuve (ex. « 60 m »).
+        value:
+          type: number
+          description: Mesure candidate (secondes ou mètres).
+        unit:
+          type: string
+          enum: [s, m]
+        previousValue:
+          type: number
+          description: Record courant battu (absent si première marque sur l'épreuve).
+      required:
+      - eventKey
+      - label
+      - value
+      - unit
+    PersonalRecord:
+      type: object
+      description: Record personnel matérialisé d'un athlète sur une épreuve (ADR-20).
+      properties:
+        id:
+          type: string
+          format: uuid
+        athleteId:
+          type: string
+          format: uuid
+        eventKey:
+          type: string
+        label:
+          type: string
+        value:
+          type: number
+        unit:
+          type: string
+          enum: [s, m]
+        direction:
+          type: string
+          enum: [min, max]
+        achievedAt:
+          type: string
+          format: date
+        performanceId:
+          type: string
+          format: uuid
+          description: Performance source (absent si record déclaré manuellement).
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+      - id
+      - athleteId
+      - eventKey
+      - label
+      - value
+      - unit
+      - direction
+      - achievedAt
+    PersonalRecordList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PersonalRecord'
+      required:
+      - items
+    RecordConfirm:
+      type: object
+      description: >-
+        Confirmation d'un candidat record (ADR-20) : la valeur est revalidée côté serveur
+        depuis la performance source — pas de valeur libre sur ce chemin.
+      properties:
+        performanceId:
+          type: string
+          format: uuid
+      required:
+      - performanceId
     PerformanceCreate:
       type: object
       properties:
