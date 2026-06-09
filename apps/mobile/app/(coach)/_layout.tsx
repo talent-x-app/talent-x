@@ -53,6 +53,8 @@ export default function CoachLayout() {
       {/* Constructeur de séance (C-05) : routable mais masqué du tab bar. */}
       <Tabs.Screen name="session/new" options={{ href: null }} />
       <Tabs.Screen name="session/[id]" options={{ href: null }} />
+      {/* Assignation de séance (C-06/C-07) : routable mais masquée du tab bar. */}
+      <Tabs.Screen name="assign/[id]" options={{ href: null }} />
     </Tabs>
   );
 }
