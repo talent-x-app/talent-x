@@ -33,6 +33,7 @@ Chaque décision suit le format **ADR** : Statut, Date, Contexte, Décision, Con
 | ADR-17 | Contrat explicite des dérivations de pilotage coach (`Dashboard`/`Stats`) (complète OpenAPI · Carte C-01 §8) | Accepté |
 | ADR-18 | Schéma `exercises` v2 : blocs typés par discipline, union discriminée (raffine ADR-10 · complète TX-DATA-006 §9.1) | Accepté |
 | ADR-19 | Schéma `results` v2 : mesures chronométriques et de distance par essai (méthode ADR-18 · complète TX-DATA-006 §9.2) | Accepté |
+| ADR-20 | Records personnels : table `personal_records` + détection de PB à la soumission, confirmation athlète (complète TX-DATA-006 · OpenAPI) | Proposé |
 
 ---
 
@@ -329,6 +330,25 @@ discriminant dans `results` : le mode de saisie dérive du `type` du bloc (ADR-1
 client. **Rétro-compatible** (aucun champ v1 modifié — `durationSeconds` garde sa sémantique
 de durée tenue). Symétrie cibles (ADR-18) ↔ mesures ; la grille de barres (TLX-075) reste à
 trancher.
+
+---
+
+## ADR-20 — Records personnels : table matérialisée + détection de PB à la soumission
+
+Décision complète : [`docs/adr/ADR-20-records-personnels.md`](adr/ADR-20-records-personnels.md).
+
+**Statut : Proposé** (bloque TLX-076 ; TLX-091 — A-07 — en dépend).
+
+**En bref.** Ni TX-DATA-006 ni l'OpenAPI ne définissent de record personnel, alors que
+TLX-076 exige « détection de PB + proposition de mise à jour » et TLX-091 un écran A-07.
+Proposition en trois volets : **clé d'épreuve dérivée** des blocs typés ADR-18
+(`sprint:60m`, `throws:7.26kg`…) avec sens min/max ; **table `personal_records`**
+matérialisée (unicité athlète × épreuve, `performance_id` nullable pour les records
+manuels, mêmes portes consentement que les perfs, incluse export/effacement RGPD) ;
+**détection à la soumission** (`recordCandidates` additif sur `Performance`) avec mise à
+jour **sur confirmation de l'athlète** (`PUT /athletes/me/records/{eventKey}`, valeur
+revalidée depuis la perf). Écartés : records dérivés à la lecture (pas de proposition ni
+de records manuels), mise à jour automatique (retire le contrôle à l'athlète).
 
 ---
 
