@@ -257,6 +257,82 @@ describe('SessionBuilderScreen (TLX-052 — C-05)', () => {
     });
   });
 
+  it('sélectionne Lancers → sérialise type + params (engin kg, technique/complets) (TLX-059)', async () => {
+    mockCreateSession.mockResolvedValue({ status: 201, data: { id: 's-thr' } });
+    render(<SessionBuilderScreen />, { wrapper: Wrapper });
+
+    fireEvent.changeText(screen.getByTestId('session-field-title'), 'Poids');
+    fireEvent.changeText(screen.getByTestId('block-0-name'), 'Poids 7.26 kg');
+    fireEvent.press(screen.getByTestId('block-0-type-throws'));
+
+    expect(screen.getByTestId('block-0-params')).toBeOnTheScreen();
+    fireEvent.changeText(screen.getByTestId('block-0-param-implementKg'), '7.26');
+    fireEvent.changeText(screen.getByTestId('block-0-param-techniqueThrows'), '10');
+    fireEvent.changeText(screen.getByTestId('block-0-param-fullThrows'), '6');
+    fireEvent.press(screen.getByTestId('session-save'));
+
+    await waitFor(() => expect(mockCreateSession).toHaveBeenCalled());
+    const item = mockCreateSession.mock.calls[0][0].exercises.items[0];
+    expect(item).toMatchObject({
+      name: 'Poids 7.26 kg',
+      order: 1,
+      type: 'throws',
+      params: { implementKg: 7.26, techniqueThrows: 10, fullThrows: 6 },
+    });
+  });
+
+  it('sélectionne Musculation → type strength sur la base v1, sans section params (TLX-060)', async () => {
+    mockCreateSession.mockResolvedValue({ status: 201, data: { id: 's-str' } });
+    render(<SessionBuilderScreen />, { wrapper: Wrapper });
+
+    fireEvent.changeText(screen.getByTestId('session-field-title'), 'Force');
+    fireEvent.changeText(screen.getByTestId('block-0-name'), 'Développé couché');
+    fireEvent.press(screen.getByTestId('block-0-type-strength'));
+    fireEvent.changeText(screen.getByTestId('block-0-sets'), '4');
+    fireEvent.changeText(screen.getByTestId('block-0-reps'), '6');
+    fireEvent.changeText(screen.getByTestId('block-0-load'), '90');
+    fireEvent.press(screen.getByTestId('block-0-unit-kg'));
+
+    // Musculation = base v1 générique : aucune section params.
+    expect(screen.queryByTestId('block-0-params')).toBeNull();
+    fireEvent.press(screen.getByTestId('session-save'));
+
+    await waitFor(() => expect(mockCreateSession).toHaveBeenCalled());
+    const item = mockCreateSession.mock.calls[0][0].exercises.items[0];
+    expect(item).toMatchObject({
+      name: 'Développé couché',
+      order: 1,
+      type: 'strength',
+      sets: 4,
+      reps: 6,
+      load: { value: 90, unit: 'kg' },
+    });
+    expect(item).not.toHaveProperty('params');
+  });
+
+  it('sélectionne Gainage / Circuit → sérialise type + params partagés (tours, station) (TLX-061)', async () => {
+    mockCreateSession.mockResolvedValue({ status: 201, data: { id: 's-core' } });
+    render(<SessionBuilderScreen />, { wrapper: Wrapper });
+
+    fireEvent.changeText(screen.getByTestId('session-field-title'), 'Renfo');
+    fireEvent.changeText(screen.getByTestId('block-0-name'), 'Circuit gainage');
+    fireEvent.press(screen.getByTestId('block-0-type-core'));
+
+    expect(screen.getByTestId('block-0-params')).toBeOnTheScreen();
+    fireEvent.changeText(screen.getByTestId('block-0-param-rounds'), '3');
+    fireEvent.changeText(screen.getByTestId('block-0-param-stationSeconds'), '45');
+    fireEvent.press(screen.getByTestId('session-save'));
+
+    await waitFor(() => expect(mockCreateSession).toHaveBeenCalled());
+    const item = mockCreateSession.mock.calls[0][0].exercises.items[0];
+    expect(item).toMatchObject({
+      name: 'Circuit gainage',
+      order: 1,
+      type: 'core',
+      params: { rounds: 3, stationSeconds: 45 },
+    });
+  });
+
   it('édition : hydrate type et params d’un bloc intervalle', async () => {
     mockGetSession.mockResolvedValue({
       status: 200,

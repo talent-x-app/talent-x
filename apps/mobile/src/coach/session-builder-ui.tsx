@@ -48,12 +48,24 @@ export interface BlockTypeSpec {
 }
 
 /**
+ * Params partagés des blocs de type circuit (TLX-061) : Gainage / Circuit / Échauffement /
+ * Retour au calme partagent un même éditeur (tours + durée par station ; la durée totale
+ * reste portée par le champ de base `durationSeconds`).
+ */
+const CIRCUIT_PARAM_FIELDS: BlockParamField[] = [
+  { key: 'rounds', label: 'Tours (nombre de circuits)', placeholder: 'Ex. 3' },
+  { key: 'stationSeconds', label: 'Durée par station (s)', placeholder: 'Ex. 45' },
+];
+
+/**
  * Registre des types de bloc (TLX-053). Chaque éditeur typé (TLX-054→061) renseigne ses
  * `paramFields` ici — le sélecteur et l'éditeur de params s'en déduisent automatiquement.
  * `custom` (défaut) et les types sans `paramFields` n'utilisent que la base commune.
  */
 export const BLOCK_TYPE_SPECS: BlockTypeSpec[] = [
   { type: BlockType.custom, label: 'Personnalisé' },
+  // TLX-060 — Musculation : séries × reps × charge = base v1 générique (aucun `params`) ;
+  // `strength` ne fait que tagger le bloc (cf. ADR-18).
   { type: BlockType.strength, label: 'Musculation' },
   {
     type: BlockType.interval,
@@ -110,10 +122,25 @@ export const BLOCK_TYPE_SPECS: BlockTypeSpec[] = [
       { key: 'plyoContacts', label: 'Contacts pliométriques (nombre)', placeholder: 'Ex. 40' },
     ],
   },
-  { type: BlockType.throws, label: 'Lancers' },
-  { type: BlockType.core, label: 'Gainage / Circuit' },
-  { type: BlockType.warmup, label: 'Échauffement' },
-  { type: BlockType.cooldown, label: 'Retour au calme' },
+  {
+    type: BlockType.throws,
+    label: 'Lancers',
+    // TLX-059 — Lancers : poids de l'engin + lancers technique vs complets.
+    paramFields: [
+      {
+        key: 'implementKg',
+        label: 'Poids de l’engin (kg)',
+        placeholder: 'Ex. 7.26',
+        kind: 'number',
+      },
+      { key: 'techniqueThrows', label: 'Lancers technique (nombre)', placeholder: 'Ex. 10' },
+      { key: 'fullThrows', label: 'Lancers complets (nombre)', placeholder: 'Ex. 6' },
+    ],
+  },
+  // TLX-061 — Gainage / Circuit / Échauffement / Retour au calme : éditeur partagé.
+  { type: BlockType.core, label: 'Gainage / Circuit', paramFields: CIRCUIT_PARAM_FIELDS },
+  { type: BlockType.warmup, label: 'Échauffement', paramFields: CIRCUIT_PARAM_FIELDS },
+  { type: BlockType.cooldown, label: 'Retour au calme', paramFields: CIRCUIT_PARAM_FIELDS },
 ];
 
 /** Spécification d'un type (repli sur la première entrée, `custom`). */

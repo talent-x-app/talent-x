@@ -9,10 +9,7 @@ de débloquer les écrans coach C-01/C-02/C-03.
 
 ## À faire (frontend)
 
-- **TLX-059→061** 3 éditeurs typés restants (lancers, musculation, gainage/circuit…).
-  Pattern établi par TLX-054 : ajouter une entrée `BLOCK_TYPE_SPECS` avec ses
-  `paramFields`. Chaque éditeur fixe la forme de son `params`. (TLX-055→058 livrés ↓.)
-  Note : `strength`/musculation (TLX-060) = base v1 générique (déjà fonctionnel) → trivial.
+- _(éditeurs typés terminés — TLX-054→061 livrés ↓)_
 - **TLX-062** Cibles de bloc → pré-remplissage saisie perf (A-04) — débloqué par le v2.
 - **TLX-063** Écran Assignation (C-06) + Confirmation (C-07) — débloqué par TLX-052.
 - **TLX-082/083** Sections « À revoir » / « Aujourd'hui » (enfants de C-01) — listes
@@ -102,6 +99,19 @@ plyoContacts }` (élan décimal). +2 tests (payload v2 sérialisé asserté, don
 - **Validé en réel** (Expo web, HMR) : sur `/session/new`, « Haies » → champs
   `heightCm`/`spacingMeters`/`rhythmSteps` ; « Sauts » → `approachMeters`/`fullJumps`/
   `plyoContacts`. Sérialisation identique au chemin Intervalles déjà validé end-to-end.
+
+## Terminés ce sprint — C-05 Blocs typés : Lancers + Musculation + Circuit (TLX-059/060/061)
+
+- **TLX-059** (Lancers) + **TLX-060** (Musculation) + **TLX-061** (Gainage / Circuit /
+  Échauffement / Retour au calme) — **clôt la série des éditeurs typés** (TLX-054→061).
+  `throws` = `{ implementKg (décimal), techniqueThrows, fullThrows }` ; `strength` (TLX-060) =
+  **base v1 générique, aucun `params`** (le type ne fait que tagger le bloc) ; `core`/`warmup`/
+  `cooldown` (TLX-061) partagent `CIRCUIT_PARAM_FIELDS` = `{ rounds, stationSeconds }` (la durée
+  totale reste sur le champ de base `durationSeconds`). +3 tests (dont non-régression « pas de
+  params » pour `strength`) ; **mobile 137/137** ; lint/typecheck clean. Linear **TLX-44/45/46**.
+- **Validé en réel** (Expo web, HMR) : « Lancers » → `implementKg`/`techniqueThrows`/`fullThrows` ;
+  « Musculation » → **aucune section params** (base v1) ; « Gainage / Circuit » → `rounds`/
+  `stationSeconds`. **Les 11 `BlockType` ont désormais leur éditeur.**
 
 ## Terminés ce sprint — A-09 Fil de feedback athlète (TLX-092)
 
