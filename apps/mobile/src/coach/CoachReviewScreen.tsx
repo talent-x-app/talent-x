@@ -1,19 +1,11 @@
-import {
-  createComment,
-  getPerformance,
-  listComments,
-  type Comment,
-  type Performance,
-} from '@talent-x/api-client';
+import { getPerformance, type Performance } from '@talent-x/api-client';
 import { useTheme } from '@talent-x/design-tokens';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { Feather } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { Button, Card } from '../components/ui';
-import { useToast } from '../feedback';
-import { COACH_DASHBOARD_QUERY_KEY } from '../dashboard/CoachDashboardScreen';
+import { FeedbackThread } from '../comments/FeedbackThread';
 
 /** Réponse 403 dont le code métier indique un consentement manquant. */
 function isConsentRequired(error: unknown): boolean {
@@ -23,16 +15,14 @@ function isConsentRequired(error: unknown): boolean {
 
 /**
  * Écran Revue de performance + feedback (C-08 — TLX-086). Le coach lit la performance
- * d'un athlète (`GET /assignments/:id/performance`, consent-gated), voit le fil de
- * feedback existant (`GET /comments?performanceId=…`) et poste son commentaire
- * (`POST /comments`). Poster un commentaire coach sort la performance de « à revoir »
- * (dérivation tableau de bord). États chargement / consentement / erreur.
+ * d'un athlète (`GET /assignments/:id/performance`, consent-gated) puis échange via le
+ * fil de feedback partagé (`FeedbackThread`). Poster un commentaire coach sort la
+ * performance de « à revoir » (dérivation tableau de bord). États chargement /
+ * consentement / erreur.
  */
 export function CoachReviewScreen() {
   const { colors, typography, spacing } = useTheme();
   const router = useRouter();
-  const toast = useToast();
-  const queryClient = useQueryClient();
   const params = useLocalSearchParams<{ id: string; athlete?: string; title?: string }>();
   const assignmentId = params.id;
 
@@ -45,43 +35,6 @@ export function CoachReviewScreen() {
     },
     retry: false,
   });
-
-  const performanceId = perf.data?.id;
-  const comments = useQuery({
-    queryKey: ['performance', performanceId, 'comments'],
-    enabled: !!performanceId,
-    queryFn: async (): Promise<Comment[]> => {
-      const response = await listComments({ performanceId });
-      if (response.status === 200) return response.data.data;
-      throw response;
-    },
-    retry: false,
-  });
-
-  const [body, setBody] = useState('');
-
-  const mutation = useMutation({
-    mutationFn: async (): Promise<Comment> => {
-      const response = await createComment({ performanceId, body: body.trim() });
-      if (response.status === 201) return response.data;
-      throw response;
-    },
-    onSuccess: () => {
-      setBody('');
-      void queryClient.invalidateQueries({ queryKey: ['performance', performanceId, 'comments'] });
-      void queryClient.invalidateQueries({ queryKey: COACH_DASHBOARD_QUERY_KEY });
-      toast.show({ title: 'Feedback envoyé', variant: 'success' });
-    },
-    onError: () => {
-      toast.show({
-        title: 'Échec de l’envoi',
-        description: 'Réessaie dans un instant.',
-        variant: 'danger',
-      });
-    },
-  });
-
-  const canSend = body.trim().length > 0 && !mutation.isPending;
 
   return (
     <ScrollView
@@ -158,87 +111,12 @@ export function CoachReviewScreen() {
       ) : (
         <>
           <PerformanceSummary performance={perf.data} />
-
-          {/* Fil de feedback existant. */}
-          <View style={{ gap: spacing[3] }}>
-            <SectionTitle>Feedback</SectionTitle>
-            {comments.isLoading ? (
-              <ActivityIndicator color={colors.accent} />
-            ) : comments.data && comments.data.length > 0 ? (
-              <View style={{ gap: spacing[2] }}>
-                {comments.data.map((c) => (
-                  <Card key={c.id} testID={`comment-${c.id}`}>
-                    <View style={{ gap: spacing[1] }}>
-                      <Text
-                        style={{
-                          color: colors.textPrimary,
-                          fontFamily: typography.fontFamily.regular,
-                          fontSize: typography.body.fontSize,
-                        }}
-                      >
-                        {c.body}
-                      </Text>
-                      {c.createdAt ? (
-                        <Text
-                          style={{
-                            color: colors.textMuted,
-                            fontFamily: typography.fontFamily.regular,
-                            fontSize: typography.caption.fontSize,
-                          }}
-                        >
-                          {formatDateTime(c.createdAt)}
-                        </Text>
-                      ) : null}
-                    </View>
-                  </Card>
-                ))}
-              </View>
-            ) : (
-              <Text
-                testID="review-no-comments"
-                style={{
-                  color: colors.textMuted,
-                  fontFamily: typography.fontFamily.regular,
-                  fontSize: typography.bodySm.fontSize,
-                }}
-              >
-                Pas encore de feedback — sois le premier à commenter.
-              </Text>
-            )}
-          </View>
-
-          {/* Saisie du feedback. */}
-          <View style={{ gap: spacing[3] }}>
-            <TextInput
-              testID="review-input"
-              value={body}
-              onChangeText={setBody}
-              placeholder="Ton feedback à l'athlète…"
-              placeholderTextColor={colors.textMuted}
-              multiline
-              style={{
-                minHeight: 96,
-                borderRadius: 14,
-                borderWidth: 1,
-                borderColor: colors.borderStrong,
-                backgroundColor: colors.surface,
-                padding: spacing[4],
-                color: colors.textPrimary,
-                fontFamily: typography.fontFamily.regular,
-                fontSize: typography.body.fontSize,
-                textAlignVertical: 'top',
-              }}
-            />
-            <Button
-              testID="review-send"
-              onPress={() => mutation.mutate()}
-              loading={mutation.isPending}
-              disabled={!canSend}
-              size="lg"
-            >
-              Envoyer le feedback
-            </Button>
-          </View>
+          <FeedbackThread
+            performanceId={perf.data.id}
+            composerPlaceholder="Ton feedback à l'athlète…"
+            sendLabel="Envoyer le feedback"
+            emptyHint="Pas encore de feedback — sois le premier à commenter."
+          />
         </>
       )}
     </ScrollView>
@@ -331,17 +209,4 @@ function SectionTitle({ children }: { children: string }) {
       {children}
     </Text>
   );
-}
-
-/** Date + heure courtes FR (ex. « 9 juin 2026, 10:00 »). */
-function formatDateTime(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleString('fr-FR', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
 }

@@ -60,7 +60,7 @@ describe('CoachReviewScreen (TLX-086 — C-08)', () => {
     mockListComments.mockResolvedValue(emptyComments);
     render(<CoachReviewScreen />, { wrapper: Wrapper });
 
-    await waitFor(() => expect(screen.getByTestId('review-no-comments')).toBeOnTheScreen());
+    await waitFor(() => expect(screen.getByTestId('feedback-empty')).toBeOnTheScreen());
     expect(screen.getByTestId('review-title')).toHaveTextContent('Haut du corps');
     expect(screen.getByTestId('review-athlete-notes')).toHaveTextContent('Bonnes sensations.');
   });
@@ -93,9 +93,9 @@ describe('CoachReviewScreen (TLX-086 — C-08)', () => {
     mockCreateComment.mockResolvedValue({ status: 201, data: { id: 'cm-2' } });
     render(<CoachReviewScreen />, { wrapper: Wrapper });
 
-    await waitFor(() => expect(screen.getByTestId('review-send')).toBeOnTheScreen());
-    fireEvent.changeText(screen.getByTestId('review-input'), 'Garde le dos gainé.');
-    fireEvent.press(screen.getByTestId('review-send'));
+    await waitFor(() => expect(screen.getByTestId('feedback-send')).toBeOnTheScreen());
+    fireEvent.changeText(screen.getByTestId('feedback-input'), 'Garde le dos gainé.');
+    fireEvent.press(screen.getByTestId('feedback-send'));
 
     await waitFor(() => expect(mockCreateComment).toHaveBeenCalled());
     expect(mockCreateComment).toHaveBeenCalledWith({

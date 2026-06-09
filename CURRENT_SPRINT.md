@@ -39,6 +39,19 @@ de débloquer les écrans coach C-01/C-02/C-03.
 
 Total : **+52 tests API** (168 → 220). Tout poussé sur `main`.
 
+## Terminés ce sprint — A-09 Fil de feedback athlète (TLX-092)
+
+- **Composant partagé `FeedbackThread`** (`src/comments/FeedbackThread.tsx`) — fil de
+  commentaires d'une performance : `listComments` + `createComment`, états chargement /
+  vide, saisie. **Une seule source de vérité** pour le dialogue, réutilisée côté coach
+  (revue C-08) et athlète (A-09). `CoachReviewScreen` refactorisé pour l'utiliser.
+- **(UI) Côté athlète** — le détail séance (A-03/A-04) affiche le fil sur la perf soumise :
+  l'athlète **voit** le feedback du coach et peut **répondre** (titulaire autorisé en
+  lecture/écriture). 4 tests composant ; suite mobile **118/118**.
+- **Validé en réel** (Expo web) : Nina ouvre sa séance → voit les 2 retours du coach →
+  poste « Merci coach ! … » (`POST /comments` 201, fil rafraîchi, 3 messages). **Le
+  dialogue coach↔athlète est bidirectionnel et complet.**
+
 ## Terminés ce sprint — C-08 Revue de perf + feedback (TLX-086)
 
 - **(API) Commentaires** — `POST/GET/DELETE /comments` (squelette 501 → implémenté) :

@@ -24,6 +24,7 @@ import {
 } from 'react-native';
 import { Button, Card, Slider } from '../components/ui';
 import { useToast } from '../feedback';
+import { FeedbackThread } from '../comments/FeedbackThread';
 import { formatSessionDate, sessionTitle } from './athlete-session-ui';
 
 /** Réponse 403 dont le code métier indique un consentement manquant. */
@@ -375,6 +376,16 @@ export function SessionDetailScreen() {
           >
             {alreadySaved ? 'Mettre à jour' : 'Enregistrer ma perf'}
           </Button>
+
+          {/* A-09 : fil de feedback avec le coach (une fois la perf enregistrée). */}
+          {existing.data ? (
+            <FeedbackThread
+              performanceId={existing.data.id}
+              composerPlaceholder="Répondre à ton coach…"
+              sendLabel="Envoyer"
+              emptyHint="Pas encore de retour de ton coach sur cette séance."
+            />
+          ) : null}
         </>
       )}
     </ScrollView>

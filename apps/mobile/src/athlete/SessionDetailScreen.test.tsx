@@ -7,6 +7,7 @@ const mockGetAssignment = jest.fn();
 const mockGetPerformance = jest.fn();
 const mockSubmitPerformance = jest.fn();
 const mockUpdatePerformance = jest.fn();
+const mockListComments = jest.fn();
 const mockBack = jest.fn();
 const mockShow = jest.fn();
 
@@ -15,12 +16,16 @@ jest.mock('@talent-x/api-client', () => ({
   getPerformance: (...a: unknown[]) => mockGetPerformance(...a),
   submitPerformance: (...a: unknown[]) => mockSubmitPerformance(...a),
   updatePerformance: (...a: unknown[]) => mockUpdatePerformance(...a),
+  listComments: (...a: unknown[]) => mockListComments(...a),
+  createComment: jest.fn(),
+  getCoachDashboard: jest.fn(),
   AssignmentStatus: {
     assigned: 'assigned',
     in_progress: 'in_progress',
     completed: 'completed',
     skipped: 'skipped',
   },
+  AthleteStatus: { up_to_date: 'up_to_date', late: 'late', pending_review: 'pending_review' },
 }));
 jest.mock('expo-router', () => ({
   useRouter: () => ({ back: mockBack }),
@@ -62,7 +67,10 @@ const ASSIGNMENT = {
   },
 };
 
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => {
+  jest.clearAllMocks();
+  mockListComments.mockResolvedValue({ status: 200, data: { data: [], meta: {} } });
+});
 
 describe('SessionDetailScreen (TLX-065/071 — A-03/A-04)', () => {
   it('affiche la séance et ses exercices', async () => {
