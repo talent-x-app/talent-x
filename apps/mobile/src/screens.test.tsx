@@ -2,7 +2,7 @@ import { type ReactNode } from 'react';
 import { render, screen } from '@testing-library/react-native';
 import { ThemeProvider } from '@talent-x/design-tokens';
 
-jest.mock('expo-router', () => ({ Redirect: () => null }));
+jest.mock('expo-router', () => ({ Redirect: () => null, useRouter: () => ({ push: jest.fn() }) }));
 jest.mock('expo-secure-store', () => {
   const store = new Map<string, string>();
   return {

@@ -4,12 +4,14 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react-nativ
 import { type ReactNode, useState } from 'react';
 
 const mockGetCoachDashboard = jest.fn();
+const mockPush = jest.fn();
 
 jest.mock('@talent-x/api-client', () => ({
   getCoachDashboard: (...args: unknown[]) => mockGetCoachDashboard(...args),
   // Enum orval réexporté tel quel (valeurs littérales).
   AthleteStatus: { up_to_date: 'up_to_date', late: 'late', pending_review: 'pending_review' },
 }));
+jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush }) }));
 
 import { CoachDashboardScreen } from './CoachDashboardScreen';
 
@@ -81,6 +83,22 @@ describe('CoachDashboardScreen (TLX-081)', () => {
     expect(screen.getByText('Tom Petit')).toBeOnTheScreen();
     expect(screen.getByTestId('status-badge-late')).toHaveTextContent('En retard');
     expect(screen.getByTestId('status-badge-pending_review')).toHaveTextContent('À revoir');
+  });
+
+  it('ouvre le détail athlète au tap sur une carte', async () => {
+    mockGetCoachDashboard.mockResolvedValue({ status: 200, data: DASHBOARD });
+    render(<CoachDashboardScreen />, { wrapper: Wrapper });
+
+    await waitFor(() =>
+      expect(screen.getByTestId('coach-dashboard-athlete-a-1')).toBeOnTheScreen(),
+    );
+    fireEvent.press(screen.getByTestId('coach-dashboard-athlete-a-1'));
+    expect(mockPush).toHaveBeenCalledWith(
+      expect.objectContaining({
+        pathname: '/(coach)/athlete/[id]',
+        params: expect.objectContaining({ id: 'a-1', status: 'late' }),
+      }),
+    );
   });
 
   it('affiche le bandeau d’alertes quand retards ou consentements manquants', async () => {
