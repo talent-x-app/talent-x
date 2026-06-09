@@ -9,10 +9,13 @@ de débloquer les écrans coach C-01/C-02/C-03.
 
 ## À faire (frontend)
 
+- **TLX-053→061** Sélecteur de type de bloc + 8 éditeurs typés par discipline
+  (C-05 §6). **Bloqués par ADR-18** (schéma exercises v2) — à valider avant de coder.
+- **TLX-062** Cibles de bloc → pré-remplissage saisie perf (A-04) — dépend du v2.
+- **TLX-063** Écran Assignation (C-06) + Confirmation (C-07) — débloqué par TLX-052.
 - **TLX-082/083** Sections « À revoir » / « Aujourd'hui » (enfants de C-01) — listes
   détaillées au-delà des KPIs livrés.
 - **TLX-084/085** Alertes détaillées & états première utilisation (enfants de C-01).
-- **TLX-052** Constructeur de séance (C-05) [PARENT] + éditeurs de blocs (TLX-053…).
 
 ## En cours
 
@@ -38,6 +41,24 @@ de débloquer les écrans coach C-01/C-02/C-03.
   11 tests. **Validé réel** (dashboard + stats 7/7). Commit `782de28`. **Débloque C-02/C-03.**
 
 Total : **+52 tests API** (168 → 220). Tout poussé sur `main`.
+
+## Terminés ce sprint — C-05 Constructeur de séance (TLX-052)
+
+- **(UI) Écran constructeur** — routes `(coach)/session/new` + `[id]` (édition) :
+  en-tête (titre, description, date, statut Brouillon/Publiée) + canvas de blocs
+  ordonnés. **Éditeur de bloc générique** calé sur le schéma exercises v1
+  (name/sets/reps/durée/repos/charge `{value,unit}`/notes), réordonnancement, ajout/
+  suppression. Création `POST /sessions` / édition `GET`+`PUT`. Entrée « Nouvelle séance »
+  sur le dashboard coach. Composants partagés `src/coach/session-builder-ui.tsx`.
+  +9 tests ; **suite mobile 127/127** ; typecheck + lint clean. Commit `02a7535`.
+- **Validé en réel** (Expo web + API locale) : coach connecté → « Nouvelle séance » →
+  2 blocs (Squat arrière 5×3 @80 kg, Gainage 45 s) + statut Publiée → **`POST /sessions`
+  201**, payload `schemaVersion 1`, `order` 1/2, charge `{80,kg}` persistés ; retour
+  dashboard. **Le coach crée ses séances dans l'app (plus de seed via API).**
+- **ADR-18 (Proposé)** — schéma exercises **v2** en union discriminée (blocs typés par
+  discipline) : la coquille générique livrée est une variante de v2 (zéro rework). Les
+  éditeurs typés **TLX-053→061 attendent la validation de l'ADR** (règle #7). Indexé au
+  Journal ADR.
 
 ## Terminés ce sprint — A-09 Fil de feedback athlète (TLX-092)
 
@@ -125,6 +146,7 @@ athlete-session-ui.tsx`. 10 tests ; **suite mobile 108/108**. **Validé en réel
 
 ## Prochaine étape (proposition)
 
-Frontend coach : **TLX-081** (tableau de bord C-01) en s'appuyant sur `/coach/dashboard`,
-puis **TLX-044/045** (C-02/C-03) désormais débloqués. Alternative : **TLX-052**
-(constructeur de séance C-05) pour compléter le cycle de création côté coach.
+1. **Valider l'ADR-18** (schéma exercises v2) — débloque les éditeurs typés C-05
+   (TLX-053→061) et le pré-remplissage A-04 (TLX-062). Décision structurante en attente.
+2. **TLX-063** (Assignation C-06 + Confirmation C-07) — débloqué par TLX-052 : assigner
+   une séance créée à un·e athlète, refermant le cycle création → affectation côté coach.
