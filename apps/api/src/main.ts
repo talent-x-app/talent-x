@@ -13,8 +13,10 @@ async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule, { bufferLogs: true });
   app.useLogger(new JsonLogger());
 
-  // Contrat : toutes les routes sous /api/v1 (cf. docs/talent-x-openapi.yaml).
-  app.setGlobalPrefix('api/v1');
+  // Contrat : toutes les routes métier sous /api/v1 (cf. docs/talent-x-openapi.yaml).
+  // `/metrics` est exclu : endpoint d'exploitation (exposition Prometheus, TLX-83),
+  // hors contrat et scrappé à la racine par convention.
+  app.setGlobalPrefix('api/v1', { exclude: ['metrics'] });
 
   // CORS : l'API est consommée par l'app Expo (natif ET cible web/PWA). Le natif
   // n'est pas soumis au CORS, mais le navigateur (Expo web) l'exige. L'auth étant

@@ -14,6 +14,20 @@ refresh rotatif), son rôle/ownership est appliqué, et le socle RGPD
 
 ## Terminés ce sprint
 
+- **TLX-83** Supervision de la file de jobs (observabilité) — **métriques + alerting livrés**.
+  Endpoint **`GET /metrics`** (exposition Prometheus v0.0.4, **hors `/api/v1`** et hors contrat
+  OpenAPI : endpoint d'exploitation scrappé à la racine), aligné **ADR-11** (observabilité managée
+  au MVP → on expose, le dashboard est managé). `QueueMetricsService` lit la profondeur de la file
+  `data-export` (BullMQ `getJobCounts`) : `talentx_export_queue_up` + `talentx_export_queue_jobs`
+  par état (`waiting/active/completed/failed/delayed/paused`) — couvre TX-OPS-004 §7 (profondeur,
+  échecs, retardés). Ne lève jamais : Redis down → `queue_up 0`. Auth de scrape **optionnelle** par
+  `METRICS_TOKEN` (Bearer ; ouvert si absent ; aucun secret en dur). Règles d'alerte déclaratives
+  (`apps/api/ops/alerts/data-export-queue.rules.yml`, seuils §7.1 critique/haute/moyenne) +
+  runbook (`apps/api/ops/observability.md`). Tests API **145/145** (+10). **Validé en réel**
+  (stack Docker) : `/metrics` 200 + compteurs réels (`queue_up 1`), `/api/v1/metrics` → 404
+  (bien exclu du préfixe). Latence de traitement (histogramme worker) → V2. **Ticket clos.**
+  Anomalie pré-existante repérée hors périmètre (faux négatif `redis` au 1ᵉʳ `/ready` à froid,
+  course `lazyConnect` de `ReadinessService`, TLX-035) → tâche de fond créée.
 - **TLX-82** Validation réelle du stockage S3 des exports — **MinIO ajouté au `docker-compose`**
   (bucket `talentx-exports` créé au démarrage). Chemin S3 **validé bout en bout** : `putObject`
   (archive déposée), **URL présignée téléchargeable** (HTTP 200, JSON conforme — 10 sections, secrets

@@ -1,0 +1,85 @@
+# Règles d'alerte — file de jobs `data-export` (TLX-83 / TX-OPS-004 §7.1).
+#
+# Format Prometheus (groups/rules), consommé tel quel par l'observabilité managée
+# du MVP (ADR-11) ou un Prometheus auto-hébergé ultérieur. Les SEUILS sont
+# INDICATIFS et à affiner avec le trafic réel (TX-OPS-004 §7.2 : alertes reliées
+# aux SLO / au burn-rate, pas à des seuils figés). Aucun secret ici.
+#
+# Métriques source (exposées par GET /metrics) :
+#   - talentx_export_queue_up{queue="data-export"}                 0/1
+#   - talentx_export_queue_jobs{queue="data-export",state="..."}   gauge par état
+#
+# Niveaux : critical / high / medium — cf. TX-OPS-004 §7.1.
+
+groups:
+  - name: talentx-data-export-queue
+    rules:
+      # --- Critique : file bloquée / worker probablement en panne ---------------
+      # /metrics répond mais la file est injoignable (Redis down), OU des jobs
+      # restent "active" sans avancer alors que la file s'allonge.
+      - alert: DataExportQueueDown
+        expr: talentx_export_queue_up{queue="data-export"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          component: jobs
+        annotations:
+          summary: 'File data-export injoignable (Redis/worker)'
+          description: >
+            talentx_export_queue_up = 0 depuis 2 min. Exports RGPD à l'arrêt.
+            Vérifier Redis, le process worker et /api/v1/ready. Réf. TX-OPS-004 §7.1, runbook §12.
+
+      # File qui s'engorge durablement : beaucoup de jobs en attente et rien qui
+      # passe en "active" → consommateur absent/saturé.
+      - alert: DataExportQueueStalled
+        expr: >
+          talentx_export_queue_jobs{queue="data-export",state="waiting"} > 20
+          and talentx_export_queue_jobs{queue="data-export",state="active"} == 0
+        for: 10m
+        labels:
+          severity: critical
+          component: jobs
+        annotations:
+          summary: 'File data-export engorgée sans traitement'
+          description: >
+            > 20 jobs en attente et 0 actif depuis 10 min : worker probablement en
+            panne. Réf. risque « File de jobs engorgée / worker en panne »
+            (TX-OPS-004 §14), runbook §12.
+
+      # --- Haute : profondeur anormale / échecs en série -----------------------
+      - alert: DataExportQueueBacklog
+        expr: talentx_export_queue_jobs{queue="data-export",state="waiting"} > 50
+        for: 10m
+        labels:
+          severity: high
+          component: jobs
+        annotations:
+          summary: 'Profondeur de file data-export anormale'
+          description: >
+            > 50 jobs en attente depuis 10 min. Dimensionner/redémarrer le worker.
+            Réf. TX-OPS-004 §7.1 (profondeur de file anormale).
+
+      - alert: DataExportJobsFailing
+        expr: talentx_export_queue_jobs{queue="data-export",state="failed"} > 10
+        for: 10m
+        labels:
+          severity: high
+          component: jobs
+        annotations:
+          summary: 'Jobs data-export en échec en série'
+          description: >
+            > 10 jobs en échec. Inspecter les logs du worker (event=data.export
+            status=failed) et la cause (S3, base). Réf. TX-OPS-004 §7.1.
+
+      # --- Moyenne : retard qui s'installe -------------------------------------
+      - alert: DataExportJobsDelayed
+        expr: talentx_export_queue_jobs{queue="data-export",state="delayed"} > 20
+        for: 30m
+        labels:
+          severity: medium
+          component: jobs
+        annotations:
+          summary: 'Jobs data-export retardés en nombre'
+          description: >
+            > 20 jobs "delayed" depuis 30 min (rejeux/backoff). Surveiller la
+            tendance ; si elle monte, traiter comme un backlog. Réf. TX-OPS-004 §7.1.

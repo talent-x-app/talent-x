@@ -57,6 +57,12 @@ export interface EnvConfig {
    * incrémenter quand un texte change, pour tracer la base juridique (TX-SEC-003 §6).
    */
   CONSENT_TEXT_VERSION: string;
+  /**
+   * Jeton de scrape de `GET /metrics` (TLX-83). Optionnel : s'il est défini, un
+   * `Authorization: Bearer <token>` valide est exigé ; sinon l'endpoint est ouvert
+   * (dev, ou prod derrière un réseau restreint). Secret d'environnement, jamais en dur.
+   */
+  METRICS_TOKEN?: string;
 }
 
 const NODE_ENVS: readonly NodeEnv[] = ['development', 'test', 'staging', 'production'];
@@ -152,6 +158,10 @@ export function validateEnv(raw: Record<string, unknown>): EnvConfig {
   // surchargeable par environnement quand les textes évoluent.
   const consentTextVersion = (raw.CONSENT_TEXT_VERSION as string)?.trim() || '2026-01';
 
+  // Jeton de scrape de /metrics (TLX-83) : optionnel, non requis (l'endpoint peut
+  // rester ouvert derrière un réseau restreint). Aucune valeur par défaut.
+  const metricsToken = (raw.METRICS_TOKEN as string)?.trim();
+
   if (errors.length > 0) {
     throw new Error(`Configuration d'environnement invalide :\n- ${errors.join('\n- ')}`);
   }
@@ -173,5 +183,6 @@ export function validateEnv(raw: Record<string, unknown>): EnvConfig {
     ...(jwtKeyId ? { JWT_KEY_ID: jwtKeyId } : {}),
     ...(jwtAdditionalPublicKeys ? { JWT_ADDITIONAL_PUBLIC_KEYS: jwtAdditionalPublicKeys } : {}),
     CONSENT_TEXT_VERSION: consentTextVersion,
+    ...(metricsToken ? { METRICS_TOKEN: metricsToken } : {}),
   };
 }

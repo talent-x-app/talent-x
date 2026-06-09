@@ -10,6 +10,7 @@ import { CommentsModule } from './comments/comments.module';
 import { GroupsModule } from './groups/groups.module';
 import { HealthModule } from './health/health.module';
 import { KeysModule } from './auth/keys/keys.module';
+import { MetricsModule } from './metrics/metrics.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { ProgressModule } from './progress/progress.module';
@@ -31,6 +32,7 @@ import { UsersModule } from './users/users.module';
     KeysModule,
     AuthorizationModule,
     HealthModule,
+    MetricsModule,
     AuthModule,
     UsersModule,
     GroupsModule,
