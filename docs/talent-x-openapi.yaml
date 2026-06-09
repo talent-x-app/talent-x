@@ -2388,6 +2388,34 @@ components:
             additionalProperties: true
       required:
       - athleteId
+    StatsMetrics:
+      type: object
+      description: Indicateurs dérivés pour un athlète, sur les séances du coach demandeur (ADR-17).
+      properties:
+        assignmentsTotal:
+          type: integer
+          description: Affectations actives (non supprimées).
+        completed:
+          type: integer
+          description: Affectations réalisées (status completed).
+        missed:
+          type: integer
+          description: Affectations échues non réalisées.
+        completionRate:
+          type: number
+          description: Taux de réalisation (completed / total), 0..1.
+        avgRpe:
+          type: number
+          description: RPE moyen des performances soumises (1..10).
+        lastPerformanceAt:
+          type: string
+          format: date-time
+          description: Dernière performance soumise.
+      required:
+      - assignmentsTotal
+      - completed
+      - missed
+      - completionRate
     Stats:
       type: object
       properties:
@@ -2395,20 +2423,92 @@ components:
           type: string
           format: uuid
         metrics:
-          type: object
-          additionalProperties: true
+          $ref: '#/components/schemas/StatsMetrics'
       required:
       - athleteId
+      - metrics
+    AthleteStatus:
+      type: string
+      description: >-
+        Statut dérivé d'un athlète sur le tableau de bord coach (ADR-17, Carte C-01 §8) :
+        retard > à revoir > à jour.
+      enum:
+      - up_to_date
+      - late
+      - pending_review
+    DashboardAthlete:
+      type: object
+      description: Athlète lié du coach, enrichi de son statut dérivé — étend UserSummary (ADR-17).
+      properties:
+        id:
+          type: string
+          format: uuid
+        firstName:
+          type: string
+        lastName:
+          type: string
+        sport:
+          type: string
+        status:
+          $ref: '#/components/schemas/AthleteStatus'
+        overdueCount:
+          type: integer
+          description: Affectations échues non réalisées.
+        toReviewCount:
+          type: integer
+          description: Performances soumises en attente de retour du coach.
+        coachAccessGranted:
+          type: boolean
+          description: Accès aux perfs bloqué tant que coach_access n'est pas accordé.
+      required:
+      - id
+      - status
+      - overdueCount
+      - toReviewCount
+    DashboardAlerts:
+      type: object
+      description: Alertes & signaux agrégés (Carte C-01 §5).
+      properties:
+        missedSessions:
+          type: integer
+          description: Affectations échues non réalisées, tous athlètes confondus.
+        consentMissing:
+          type: integer
+          description: Athlètes liés sans consentement coach_access actif.
+      required:
+      - missedSessions
+      - consentMissing
+    DashboardSummary:
+      type: object
+      description: KPIs et compteurs du tableau de bord coach (ADR-17).
+      properties:
+        athleteCount:
+          type: integer
+        toReview:
+          type: integer
+          description: Performances en attente de revue (toutes confondues).
+        today:
+          type: integer
+          description: Affectations à échéance aujourd'hui, non réalisées.
+        alerts:
+          $ref: '#/components/schemas/DashboardAlerts'
+      required:
+      - athleteCount
+      - toReview
+      - today
+      - alerts
     Dashboard:
       type: object
       properties:
         athletes:
           type: array
           items:
-            $ref: '#/components/schemas/UserSummary'
+            $ref: '#/components/schemas/DashboardAthlete'
         summary:
-          type: object
-          additionalProperties: true
+          $ref: '#/components/schemas/DashboardSummary'
+      required:
+      - athletes
+      - summary
     DevicePlatform:
       type: string
       enum:

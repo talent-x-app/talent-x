@@ -30,6 +30,7 @@ Chaque décision suit le format **ADR** : Statut, Date, Contexte, Décision, Con
 | ADR-14 | Manifeste d'export RGPD & frontière des données de tiers (complète ADR-05/13) | Accepté |
 | ADR-15 | Manifeste d'effacement / anonymisation RGPD (complète ADR-05/13) | Accepté |
 | ADR-16 | Révocation du code d'invitation de groupe : colonne `invite_code_revoked_at` (complète TX-DATA-006 §5.1) | Accepté |
+| ADR-17 | Contrat explicite des dérivations de pilotage coach (`Dashboard`/`Stats`) (complète OpenAPI · Carte C-01 §8) | Accepté |
 
 ---
 
@@ -278,6 +279,19 @@ effacement-vs-anonymisation et la rétention, pour TLX-034. Texte complet :
 worker BullMQ/Redis, archive sur stockage objet OVH S3, URL présignée générée au GET). La **suppression**
 reste conforme à TX-DATA-006 §12 (soft-delete immédiat + purge planifiée, **sans** table de jobs). Débloque
 TLX-033 puis TLX-034 ; socle livré par TLX-035.
+
+---
+
+## ADR-17 — Contrat explicite des dérivations de pilotage coach (Dashboard/Stats)
+
+Décision complète : [`docs/adr/ADR-17-contrat-derivations-pilotage-coach.md`](adr/ADR-17-contrat-derivations-pilotage-coach.md).
+
+**En bref.** Les schémas `Dashboard` et `Stats`, **volontairement ouverts** au MVP
+(`additionalProperties`), sont **figés** pour décrire le payload réel livré par TLX-080 :
+statut par athlète (`up_to_date`/`late`/`pending_review`), compteurs, état `coach_access`,
+agrégats (`toReview`, `today`, alertes) et métriques athlète typées. Permet un client
+`@talent-x/api-client` **typé de bout en bout** pour le tableau de bord C-01 (TLX-081).
+Rétrocompatible (champs ajoutés, aucun retiré) ; OpenAPI ↔ DTOs Nest alignés.
 
 ---
 

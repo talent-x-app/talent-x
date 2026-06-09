@@ -7,10 +7,13 @@
  * Conventions transverses : préfixe /api/v1 ; jeton d'accès JWT (RS256) via en-tête Authorization ; pagination par enveloppe { data, meta } ; idempotence des écritures sensibles via Idempotency-Key ; opérations longues asynchrones (202 + ressource de statut) ; rate limiting signalé par les en-têtes RateLimit-*. L'autorisation combine rôle, appartenance (lien coach↔athlète), propriété et consentement ; voir TX-SPEC-002 §6.
  * OpenAPI spec version: 1.0.0
  */
-import type { DashboardAthlete } from './dashboardAthlete';
-import type { DashboardSummary } from './dashboardSummary';
 
-export interface Dashboard {
-  athletes: DashboardAthlete[];
-  summary: DashboardSummary;
+/**
+ * Alertes & signaux agrégés (Carte C-01 §5).
+ */
+export interface DashboardAlerts {
+  /** Affectations échues non réalisées, tous athlètes confondus. */
+  missedSessions: number;
+  /** Athlètes liés sans consentement coach_access actif. */
+  consentMissing: number;
 }

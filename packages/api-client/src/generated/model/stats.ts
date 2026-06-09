@@ -11,5 +11,5 @@ import type { StatsMetrics } from './statsMetrics';
 
 export interface Stats {
   athleteId: string;
-  metrics?: StatsMetrics;
+  metrics: StatsMetrics;
 }

@@ -8,4 +8,20 @@
  * OpenAPI spec version: 1.0.0
  */
 
-export type StatsMetrics = { [key: string]: unknown };
+/**
+ * Indicateurs dérivés pour un athlète, sur les séances du coach demandeur (ADR-17).
+ */
+export interface StatsMetrics {
+  /** Affectations actives (non supprimées). */
+  assignmentsTotal: number;
+  /** Affectations réalisées (status completed). */
+  completed: number;
+  /** Affectations échues non réalisées. */
+  missed: number;
+  /** Taux de réalisation (completed / total), 0..1. */
+  completionRate: number;
+  /** RPE moyen des performances soumises (1..10). */
+  avgRpe?: number;
+  /** Dernière performance soumise. */
+  lastPerformanceAt?: string;
+}
