@@ -200,6 +200,44 @@ export function specForType(type: BlockType): BlockTypeSpec {
   return BLOCK_TYPE_SPECS.find((s) => s.type === type) ?? BLOCK_TYPE_SPECS[0];
 }
 
+/** Champ de la base commune v1 dont l'affichage peut être supplanté par un `param` typé. */
+export type BaseFieldKey = 'sets' | 'reps' | 'durationSeconds' | 'restSeconds';
+
+/**
+ * Redondance base ↔ params (TLX-94, ADR-18). Quand un type déclare un `param` couvrant la
+ * **même dimension** qu'un champ de base v1, ce dernier ferait doublon (ex. Sprints : base
+ * « Répétitions » vs param « nombre de sprints ») et n'alimente pas la dérivation métier. On
+ * masque alors le champ de base. `sets` (jamais dupliqué) et la charge restent toujours.
+ */
+const BASE_FIELD_SUPERSEDED_BY: Partial<Record<BaseFieldKey, string[]>> = {
+  reps: ['reps', 'fullJumps', 'techniqueThrows', 'fullThrows', 'rounds'],
+  durationSeconds: ['workSeconds', 'stationSeconds'],
+  restSeconds: ['recoverySeconds'],
+};
+
+/** Le champ de base est-il pertinent pour ce type (i.e. non supplanté par un `param`) ? */
+export function isBaseFieldVisible(type: BlockType, key: BaseFieldKey): boolean {
+  const supersededBy = BASE_FIELD_SUPERSEDED_BY[key];
+  if (!supersededBy) return true;
+  const paramKeys = specForType(type).paramFields?.map((f) => f.key) ?? [];
+  return !supersededBy.some((k) => paramKeys.includes(k));
+}
+
+/** Champs de base v1 affichés dans `BlockCard` (libellé + suffixe de testID). */
+const BASE_FIELDS: { key: BaseFieldKey; testId: string; label: string }[] = [
+  { key: 'sets', testId: 'sets', label: 'Séries' },
+  { key: 'reps', testId: 'reps', label: 'Répétitions' },
+  { key: 'durationSeconds', testId: 'duration', label: 'Durée (s)' },
+  { key: 'restSeconds', testId: 'rest', label: 'Repos (s)' },
+];
+
+/** Regroupe une liste en paires successives (lignes de deux champs). */
+function chunkPairs<T>(items: T[]): T[][] {
+  const rows: T[][] = [];
+  for (let i = 0; i < items.length; i += 2) rows.push(items.slice(i, i + 2));
+  return rows;
+}
+
 /** Libellés FR des unités de charge (schéma `Load.unit`). */
 export const LOAD_UNIT_LABELS: Record<LoadUnit, string> = {
   [LoadUnit.kg]: 'kg',
@@ -281,14 +319,20 @@ export function blockToExercise(block: EditableBlock, order: number): Exercise {
   const exercise: Exercise = { name: block.name.trim(), order };
   // `type` n'est posé que pour une discipline (un bloc `custom` reste byte-identique au v1).
   if (block.type !== BlockType.custom) exercise.type = block.type;
+  // Champs de base : sérialisés seulement s'ils sont visibles pour le type — un champ
+  // supplanté par un `param` (TLX-94) ne doit pas fuiter une valeur résiduelle.
   const sets = toPositiveInt(block.sets);
   const reps = toPositiveInt(block.reps);
   const durationSeconds = toPositiveInt(block.durationSeconds);
   const restSeconds = toPositiveInt(block.restSeconds);
-  if (sets != null) exercise.sets = sets;
-  if (reps != null) exercise.reps = reps;
-  if (durationSeconds != null) exercise.durationSeconds = durationSeconds;
-  if (restSeconds != null) exercise.restSeconds = restSeconds;
+  if (sets != null && isBaseFieldVisible(block.type, 'sets')) exercise.sets = sets;
+  if (reps != null && isBaseFieldVisible(block.type, 'reps')) exercise.reps = reps;
+  if (durationSeconds != null && isBaseFieldVisible(block.type, 'durationSeconds')) {
+    exercise.durationSeconds = durationSeconds;
+  }
+  if (restSeconds != null && isBaseFieldVisible(block.type, 'restSeconds')) {
+    exercise.restSeconds = restSeconds;
+  }
   // La charge n'est attachée que si une valeur ET une unité sont renseignées (contrat `Load`).
   if (loadValue != null && block.loadUnit != null) {
     exercise.load = { value: loadValue, unit: block.loadUnit };
@@ -420,47 +464,28 @@ export function BlockCard({
           onChange={(type) => onChange({ type })}
         />
 
-        <View style={{ flexDirection: 'row', gap: spacing[3] }}>
-          <FieldInput
-            testID={`block-${index}-sets`}
-            label="Séries"
-            value={block.sets}
-            onChangeText={(sets) => onChange({ sets })}
-            keyboardType="number-pad"
-            placeholder="—"
-            style={{ flex: 1 }}
-          />
-          <FieldInput
-            testID={`block-${index}-reps`}
-            label="Répétitions"
-            value={block.reps}
-            onChangeText={(reps) => onChange({ reps })}
-            keyboardType="number-pad"
-            placeholder="—"
-            style={{ flex: 1 }}
-          />
-        </View>
-
-        <View style={{ flexDirection: 'row', gap: spacing[3] }}>
-          <FieldInput
-            testID={`block-${index}-duration`}
-            label="Durée (s)"
-            value={block.durationSeconds}
-            onChangeText={(durationSeconds) => onChange({ durationSeconds })}
-            keyboardType="number-pad"
-            placeholder="—"
-            style={{ flex: 1 }}
-          />
-          <FieldInput
-            testID={`block-${index}-rest`}
-            label="Repos (s)"
-            value={block.restSeconds}
-            onChangeText={(restSeconds) => onChange({ restSeconds })}
-            keyboardType="number-pad"
-            placeholder="—"
-            style={{ flex: 1 }}
-          />
-        </View>
+        {/* Champs de base v1 : seuls ceux pertinents pour le type sont affichés (TLX-94),
+            disposés en lignes de deux. Un champ supplanté par un `param` est masqué. */}
+        {chunkPairs(BASE_FIELDS.filter((f) => isBaseFieldVisible(block.type, f.key))).map(
+          (pair, rowIndex) => (
+            <View key={rowIndex} style={{ flexDirection: 'row', gap: spacing[3] }}>
+              {pair.map((f) => (
+                <FieldInput
+                  key={f.key}
+                  testID={`block-${index}-${f.testId}`}
+                  label={f.label}
+                  value={block[f.key]}
+                  onChangeText={(v) => onChange({ [f.key]: v } as Partial<EditableBlock>)}
+                  keyboardType="number-pad"
+                  placeholder="—"
+                  style={{ flex: 1 }}
+                />
+              ))}
+              {/* Conserve la demi-largeur quand la ligne n'a qu'un champ. */}
+              {pair.length === 1 ? <View style={{ flex: 1 }} /> : null}
+            </View>
+          ),
+        )}
 
         {/* Charge : valeur + unité. Attachée à la séance seulement si les deux sont posées. */}
         <View style={{ gap: spacing[2] }}>

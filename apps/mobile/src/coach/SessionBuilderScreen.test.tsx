@@ -131,6 +131,40 @@ describe('SessionBuilderScreen (TLX-052 — C-05)', () => {
     expect(screen.queryByTestId('block-1')).toBeNull();
   });
 
+  it('masque le champ de base redondant sur un bloc typé (TLX-94)', () => {
+    render(<SessionBuilderScreen />, { wrapper: Wrapper });
+    // Bloc custom : la base « Répétitions » est présente.
+    expect(screen.getByTestId('block-0-reps')).toBeOnTheScreen();
+    expect(screen.getByTestId('block-0-sets')).toBeOnTheScreen();
+
+    // Sprints : la base « Répétitions » disparaît (le param « nombre de sprints » la couvre),
+    // mais « Séries » (non dupliquée) et le param restent.
+    fireEvent.press(screen.getByTestId('block-0-type-sprint'));
+    expect(screen.queryByTestId('block-0-reps')).toBeNull();
+    expect(screen.getByTestId('block-0-sets')).toBeOnTheScreen();
+    expect(screen.getByTestId('block-0-param-reps')).toBeOnTheScreen();
+  });
+
+  it('ne sérialise pas un champ de base masqué — pas de fuite (TLX-94)', async () => {
+    mockCreateSession.mockResolvedValue({ status: 201, data: { id: 's-leak' } });
+    render(<SessionBuilderScreen />, { wrapper: Wrapper });
+
+    fireEvent.changeText(screen.getByTestId('session-field-title'), 'Vitesse');
+    fireEvent.changeText(screen.getByTestId('block-0-name'), '8 × 60m');
+    // Saisie d'une valeur sur la base v1 (bloc custom) PUIS bascule en Sprints : la base
+    // « Répétitions » devient masquée — sa valeur résiduelle ne doit pas être sérialisée.
+    fireEvent.changeText(screen.getByTestId('block-0-reps'), '99');
+    fireEvent.press(screen.getByTestId('block-0-type-sprint'));
+    fireEvent.changeText(screen.getByTestId('block-0-param-reps'), '8');
+    fireEvent.changeText(screen.getByTestId('block-0-param-distanceMeters'), '60');
+    fireEvent.press(screen.getByTestId('session-save'));
+
+    await waitFor(() => expect(mockCreateSession).toHaveBeenCalled());
+    const item = mockCreateSession.mock.calls[0][0].exercises.items[0];
+    expect(item).not.toHaveProperty('reps');
+    expect(item.params).toMatchObject({ reps: 8, distanceMeters: 60 });
+  });
+
   it('crée une séance avec le document exercises v1 (order, nombres, charge)', async () => {
     mockCreateSession.mockResolvedValue({ status: 201, data: { id: 's-new' } });
     render(<SessionBuilderScreen />, { wrapper: Wrapper });
