@@ -16,6 +16,8 @@ jest.mock('expo-secure-store', () => {
 jest.mock('@talent-x/api-client', () => ({
   getCoachDashboard: () => new Promise(() => {}),
   listAssignments: () => new Promise(() => {}),
+  getMe: () => new Promise(() => {}),
+  getMyGroups: () => new Promise(() => {}),
   AthleteStatus: { up_to_date: 'up_to_date', late: 'late', pending_review: 'pending_review' },
   AssignmentStatus: {
     assigned: 'assigned',
@@ -45,9 +47,10 @@ describe('CoachHomeScreen (TLX-081)', () => {
   });
 });
 
-describe('AthleteHomeScreen (TLX-007)', () => {
-  it('affiche le titre Accueil', () => {
+describe('AthleteHomeScreen (A-01, TLX-089)', () => {
+  it('rend l’accueil athlète (salutation + chargement) — détail couvert par AthleteHomeScreen.test', () => {
     render(<AthleteHomeScreen />, { wrapper: Wrapper });
-    expect(screen.getByText('Accueil')).toBeOnTheScreen();
+    expect(screen.getByTestId('home-greeting')).toBeOnTheScreen();
+    expect(screen.getByTestId('home-loading')).toBeOnTheScreen();
   });
 });

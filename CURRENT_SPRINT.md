@@ -576,6 +576,31 @@ athlete-session-ui.tsx`. 10 tests ; **suite mobile 108/108**. **Validé en réel
   natif `@react-native-community/netinfo` absent (`RNCNetInfo is null`, APK antérieur à la dépendance)
   → vérif faite en Expo web ; rebuild du dev client à prévoir pour repasser sur device.
 
+## Terminés (validé en réel) — Accueil athlète A-01 (TLX-089)
+
+- **Lacune trouvée à l'audit front (live device, 2026-06-10)** : après login, l'athlète tombait sur
+  un écran **vide** (`(athlete)/index.tsx` = placeholder « Accueil — A-01 / TLX-065 »), alors que le
+  coach a un vrai dashboard. Asymétrie sur la première impression, jamais ticketée comme écran.
+- **`AthleteHomeScreen` (A-01)** — **vue dérivée, zéro backend, zéro contrat** : tout vient des caches
+  déjà en place (`['assignments']` partagé A-02/calendrier, `['groups','mine']` section Profil,
+  `['me']` Profil) → aucun fetch redondant. Salutation par prénom, sous-titre dynamique (« N séance(s)
+  prévue(s) aujourd'hui » / « N à faire » / « rien à faire »), section **« À faire »** (3 séances max,
+  **plus proche échéance d'abord**, via `AssignmentListItem` réutilisé) → tap vers le détail
+  (A-03/A-04), lien « Voir toutes mes séances » au-delà de 3 ; **CTA « Rejoindre un groupe »** si non
+  rattaché (réutilise `joinGroupHref`, point d'entrée TLX-88 depuis l'accueil) ; raccourcis Séances /
+  Calendrier / Progression. États chargement / erreur (réessai) / positif (« tout est fait ») / vide,
+  pull-to-refresh. Commentaire `TLX-065`/`TLX-007` incohérent nettoyé.
+- **Module pur `src/athlete/home-model.ts`** (`selectPendingAssignments` tri croissant + sans-date en
+  dernier, `isPending`, `assignmentDate`, `isDueToday`/`countDueToday` en UTC, cohérent backend).
+- **Tests** : home-model (6) + `AthleteHomeScreen` (8 : salutation, liste à faire, nav détail, voir
+  tout, CTA groupe si non rattaché, état positif, vide, erreur+réessai, raccourcis) + smoke
+  `screens.test` adapté. **Suite mobile 342/342**, typecheck clean.
+- **Validé en réel** (Expo web + API + DB) : login athlète (groupe Sprint elite + 1 séance « VMA
+  6x400m » assignée échéance du jour) → accueil **« Bonjour, Awa · 1 séance prévue aujourd'hui »**,
+  carte « VMA 6x400m · 10 juin 2026 · 1 exercice · À faire », pas de CTA groupe (déjà rattaché),
+  raccourcis ; tap séance → `/session/:id`. Zéro erreur console. (Capture preview indisponible —
+  outil screenshot instable dans l'env ; vérif par arbre DOM + logs.)
+
 ## Notes / dépendances (réutilisables)
 
 - **Mapper séance partagé** : `sessions/session.mapper.ts` (`toSessionDto`).
