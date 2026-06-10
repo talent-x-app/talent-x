@@ -40,6 +40,7 @@ Chaque décision suit le format **ADR** : Statut, Date, Contexte, Décision, Con
 | ADR-24 | Compétitions & engagements d'athlètes : tables `competitions`/`competition_entries`, contrat `/competitions`, autorisation alignée sur les affectations, données non-santé (complète TX-DATA-006 · OpenAPI · TLX-100) | Accepté |
 | ADR-25 | Grille de barres (sauts verticaux) : `BlockType` `vertical_jumps` + mode de saisie `bars`, stockage via `results` v2 inchangé (`distanceMeters`=hauteur, `failed`), records `vertical:{high\|pole}` (complète OpenAPI · TLX-075) | Accepté |
 | ADR-26 | Lecture athlète de ses groupes & coach : endpoint additif `GET /groups/mine` + schéma dédié `AthleteGroup` (sans `inviteCode`, ADR-16) (complète OpenAPI · TX-SPEC-002 §6 · TLX-88) | Accepté |
+| ADR-27 | Schéma `exercises` v3 : groupes d'exercices à un niveau (`kind: group`, tours `rounds` + récup r/R, `groupType` superset\|circuit\|series) — séries de courses, contraste, circuits, gammes ; `results`/records inchangés (complète ADR-18 · TX-DATA-006 §9.1 · TLX-95) | Proposé |
 
 ---
 
@@ -478,6 +479,29 @@ chacun enrichi du **résumé coach** et de `joinedAt`, via un schéma dédié **
 zéro migration, rétro-compatible. Écartés : élargir `GET /groups` au rôle athlète (fuite potentielle
 du code via le schéma `Group` partagé), porter le rattachement dans `GET /users/me` (casse la cohésion
 du profil), persistance locale du `join` (perdue à froid).
+
+---
+
+## ADR-27 — Schéma `exercises` v3 : groupes d'exercices (tours / séries / supersets)
+
+Décision complète : [`docs/adr/ADR-27-groupes-d-exercices-tours-series.md`](adr/ADR-27-groupes-d-exercices-tours-series.md).
+
+**Statut : Proposé** (spike TLX-95 — à valider avant d'ouvrir les tickets d'implémentation).
+
+**En bref.** La liste plate de blocs (ADR-18) n'exprime pas les regroupements canoniques de
+l'entraînement athlétique : séries de courses `2 × (3 × 300) r/R`, complex/contrast training
+(supersets force-vitesse), circuits PPG à stations hétérogènes, gammes. Proposition : **v3
+additive** introduisant un nœud **`kind: "group"`** à **un seul niveau** (garanti par
+construction : `group.items` est typé `Exercise[]`), portant `rounds` (tours), `groupType`
+(`superset|circuit|series`, sémantique d'affichage), `restBetweenItemsSeconds` (r) et
+`restBetweenRoundsSeconds` (R). `order` global unique sur les feuilles → **`results` v2,
+records et progression inchangés** (simple aplatissement de lecture). Composition variable
+par tour = **plusieurs groupes successifs** (décision ferme, conforme à l'écriture de
+terrain). `sets` masqué pour un exercice en groupe (la série = `rounds`, mécanique TLX-94).
+Écartés : statu quo (duplication manuelle des tours — le manque remonté en live), récursion
+complète (YAGNI), regroupement par référence `groupKey` (intégrité faible), tours à
+composition variable (complexité sans pratique réelle), extension des params `rounds`
+mono-bloc (stations hétérogènes impossibles).
 
 ---
 
