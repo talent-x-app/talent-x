@@ -11,8 +11,8 @@ import {
 import { useTheme } from '@talent-x/design-tokens';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Feather } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { Button, Card, Chip } from '../components/ui';
 import { useToast } from '../feedback';
@@ -72,6 +72,22 @@ export function SessionBuilderScreen({ sessionId }: { sessionId?: string }) {
     const hydrated = blocksFromExercises(session.exercises?.items ?? []);
     setBlocks(hydrated.length > 0 ? hydrated : [makeEmptyBlock()]);
   }, [existing.data]);
+
+  // TLX-93 : `session/new` est un écran de tab caché (href:null) que React Navigation
+  // garde monté — son état `useState` survivrait donc à un aller-retour dashboard ↔
+  // constructeur, réaffichant le brouillon précédent. En mode création, on repart d'un
+  // formulaire vierge à chaque fois que l'écran reprend le focus (mount inclus).
+  useFocusEffect(
+    useCallback(() => {
+      if (isEdit) return;
+      setTitle('');
+      setDescription('');
+      setScheduledDate('');
+      setStatus(SessionStatus.draft);
+      setBlocks([makeEmptyBlock()]);
+      setError(null);
+    }, [isEdit]),
+  );
 
   const mutation = useMutation({
     mutationFn: async (): Promise<Session> => {

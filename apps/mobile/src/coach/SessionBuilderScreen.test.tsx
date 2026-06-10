@@ -1,6 +1,6 @@
 import { ThemeProvider } from '@talent-x/design-tokens';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { type ReactNode, useState } from 'react';
 
 const mockCreateSession = jest.fn();
@@ -10,6 +10,9 @@ const mockBack = jest.fn();
 const mockReplace = jest.fn();
 const mockPush = jest.fn();
 const mockShow = jest.fn();
+// Capture le dernier callback passé à useFocusEffect → permet de simuler un retour de
+// focus sur l'écran (persistant comme un tab caché) sans le remonter (TLX-93).
+const mockFocusCb: { current: (() => void) | null } = { current: null };
 
 jest.mock('@talent-x/api-client', () => ({
   createSession: (...a: unknown[]) => mockCreateSession(...a),
@@ -34,9 +37,18 @@ jest.mock('@talent-x/api-client', () => ({
     custom: 'custom',
   },
 }));
-jest.mock('expo-router', () => ({
-  useRouter: () => ({ back: mockBack, replace: mockReplace, push: mockPush }),
-}));
+jest.mock('expo-router', () => {
+  const React = jest.requireActual('react');
+  return {
+    useRouter: () => ({ back: mockBack, replace: mockReplace, push: mockPush }),
+    // Comme le vrai useFocusEffect : exécute le callback au montage (≈ premier focus) ;
+    // on mémorise aussi le dernier callback pour rejouer un focus dans les tests.
+    useFocusEffect: (cb: () => void) => {
+      mockFocusCb.current = cb;
+      React.useEffect(() => cb(), [cb]);
+    },
+  };
+});
 jest.mock('../feedback', () => ({ useToast: () => ({ show: mockShow, dismiss: jest.fn() }) }));
 
 import { SessionBuilderScreen } from './SessionBuilderScreen';
@@ -59,6 +71,23 @@ describe('SessionBuilderScreen (TLX-052 — C-05)', () => {
     render(<SessionBuilderScreen />, { wrapper: Wrapper });
     expect(screen.getByTestId('session-builder-title')).toHaveTextContent('Nouvelle séance');
     expect(screen.getByTestId('block-0')).toBeOnTheScreen();
+    expect(screen.queryByTestId('block-1')).toBeNull();
+  });
+
+  it('création : repart d’un formulaire vierge à chaque focus (TLX-93)', () => {
+    render(<SessionBuilderScreen />, { wrapper: Wrapper });
+
+    // Le coach saisit un brouillon puis ajoute un 2ᵉ bloc.
+    fireEvent.changeText(screen.getByTestId('session-field-title'), 'Brouillon résiduel');
+    fireEvent.changeText(screen.getByTestId('block-0-name'), 'Squat arrière');
+    fireEvent.press(screen.getByTestId('session-add-block'));
+    expect(screen.getByTestId('block-1')).toBeOnTheScreen();
+
+    // Il quitte le constructeur et y revient (l'écran-tab caché reste monté) → re-focus.
+    act(() => mockFocusCb.current?.());
+
+    expect(screen.getByTestId('session-field-title').props.value).toBe('');
+    expect(screen.getByTestId('block-0-name').props.value).toBe('');
     expect(screen.queryByTestId('block-1')).toBeNull();
   });
 
