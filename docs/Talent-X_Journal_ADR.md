@@ -34,6 +34,7 @@ Chaque décision suit le format **ADR** : Statut, Date, Contexte, Décision, Con
 | ADR-18 | Schéma `exercises` v2 : blocs typés par discipline, union discriminée (raffine ADR-10 · complète TX-DATA-006 §9.1) | Accepté |
 | ADR-19 | Schéma `results` v2 : mesures chronométriques et de distance par essai (méthode ADR-18 · complète TX-DATA-006 §9.2) | Accepté |
 | ADR-20 | Records personnels : table `personal_records` + détection de PB à la soumission, confirmation athlète (complète TX-DATA-006 · OpenAPI) | Accepté |
+| ADR-21 | Contrat explicite de la progression athlète `/athletes/me/progress` : séries par épreuve + métriques (méthode ADR-17 · briques ADR-19/20) | Proposé |
 
 ---
 
@@ -349,6 +350,24 @@ manuels, mêmes portes consentement que les perfs, incluse export/effacement RGP
 jour **sur confirmation de l'athlète** (`PUT /athletes/me/records/{eventKey}`, valeur
 revalidée depuis la perf). Écartés : records dérivés à la lecture (pas de proposition ni
 de records manuels), mise à jour automatique (retire le contrôle à l'athlète).
+
+---
+
+## ADR-21 — Contrat explicite de la progression athlète (`/athletes/me/progress`)
+
+Décision complète : [`docs/adr/ADR-21-contrat-progress-athlete.md`](adr/ADR-21-contrat-progress-athlete.md).
+
+**Statut : Proposé** (bloque TLX-090 — écran Progression A-06).
+
+**En bref.** Le schéma `Progress` est un conteneur libre et l'endpoint répond 501,
+alors qu'A-06 veut des graphes par discipline. Proposition (méthode ADR-17) :
+`series[]` = une série par **épreuve** (clé ADR-20, dérivée des blocs typés) avec un
+point par perf soumise (`value` = meilleure marque de la perf via
+`bestMeasuresByEvent`, `date` = soumission) ; `metrics` = dérivations `StatsMetrics`
+(ADR-17) appliquées à soi, tous coachs confondus ; porte `data_processing`.
+Dérivation à la lecture, zéro migration, segmentation temporelle côté client.
+Écartés : conteneurs libres dérivés côté mobile (logique d'épreuve dupliquée),
+agrégats matérialisés (prématuré), fenêtre serveur dès le MVP.
 
 ---
 
