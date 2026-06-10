@@ -371,6 +371,27 @@ agrégats matérialisés (prématuré), fenêtre serveur dès le MVP.
 
 ---
 
+## ADR-22 — Infrastructure notifications : préférences, taxonomie d'événements, pipeline push
+
+Décision complète : [`docs/adr/ADR-22-infrastructure-notifications.md`](adr/ADR-22-infrastructure-notifications.md).
+
+**Statut : Proposé** (bloque TLX-110 ; TLX-111 consommera la même taxonomie).
+
+**En bref.** Le contrat définit `NotificationPreferences` sans table, et aucun document
+ne fixe quel événement métier déclenche quelle notification. Proposition : table
+`notification_preferences` 1:1 users (colonnes explicites, défauts en base —
+`marketing` opt-in à `false`, absence de ligne = défauts) ; taxonomie MVP à trois
+émissions gardées par leur préférence (`session_assigned` → athlète,
+`performance_feedback` → athlète, `group_update` → coach) ; pipeline BullMQ file
+`notifications` (payload minimal non sensible `{type, recipientUserId, resourceId}`,
+pattern `data-export`) ; provider push abstrait (implémentation logging en dev,
+adaptateurs APNs/FCM par config — frontière testable sans credentials) ; tokens
+upsert par `token` + révocation logique. Conforme ADR-10 (rien de sensible dans le
+push). Écartés : JSONB sur `users`, envoi synchrone, historique dès TLX-110, SDK
+dans les services métier.
+
+---
+
 ## Gabarit pour un nouvel ADR
 
 ```markdown
