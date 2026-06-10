@@ -1,6 +1,6 @@
 ## ADR-24 — Compétitions & engagements d'athlètes (modèle, contrat, autorisation, RGPD)
 
-- **Statut :** Proposé
+- **Statut :** Accepté (validé 2026-06-10)
 - **Date :** 2026-06-10
 - **Réf. :** TLX-101 (Carte « Compétitions ») · TX-DATA-006 (modèle de données) · TX-SPEC-002 §6 (autorisation) · TX-SEC-003 (RGPD) · `talent-x-openapi.yaml` · ADR-08 (autorisation) · ADR-12 (expand-contract) · TLX-100 (calendrier)
 
@@ -118,11 +118,10 @@ immédiat si le lot est trop gros.
 - **Résultats de compétition dans ce ticket** : rejeté — données de santé ; étendre le mécanisme
   records/perfs existant, hors « CRUD + engagement ».
 
-**Questions ouvertes à trancher avant le code.**
+**Questions tranchées (validation 2026-06-10).**
 
-1. **Périmètre calendrier** : intégrer les compétitions au calendrier TLX-100 dans ce ticket, ou
-   livrer l'écran Compétitions seul (surfacing calendrier en suivi immédiat) ?
-2. **Navigation** : pas de 6ᵉ onglet, entrée depuis le Calendrier (recommandé) — ou onglet dédié ?
-3. **`event_label`** : libre au MVP (recommandé) vs clés d'épreuve typées (ADR-20) dès maintenant.
-4. **Statuts d'engagement** : `engaged`/`confirmed`/`withdrawn` proposé — garder `confirmed` ou se
-   limiter à `engaged`/`withdrawn` ?
+1. **Périmètre calendrier** : ✅ **intégré dans ce ticket** — les compétitions enrichissent le
+   calendrier TLX-100 (entrée distincte) en plus des écrans dédiés.
+2. **Navigation** : ✅ **pas de 6ᵉ onglet** — routes empilées accessibles depuis le Calendrier.
+3. **`event_label`** : ✅ **texte libre au MVP** ; typage via les clés d'épreuve ADR-20 repoussé.
+4. **Statuts d'engagement** : ✅ **`engaged`/`confirmed`/`withdrawn`**.

@@ -56,6 +56,8 @@ model User {
   performances     Performance[]
   personalRecords  PersonalRecord[]
   comments         Comment[]           @relation("CommentAuthor")
+  competitions     Competition[]       @relation("CompetitionCoach")
+  competitionEntries CompetitionEntry[]
   auditLogs        AuditLog[]
 
   // Index unique PARTIEL sur lower(email) WHERE deleted_at IS NULL → migration SQL.
@@ -346,6 +348,52 @@ model Comment {
   @@index([sessionId], map: "ix_comments_session")
   @@index([performanceId], map: "ix_comments_performance")
   @@map("comments")
+}
+
+// ──────────────────────────── Compétitions (ADR-24, TLX-101) ───────────────────
+
+/// Compétition (événement) appartenant à un coach. Données de planification, PAS de santé.
+model Competition {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  coachId     String    @map("coach_id") @db.Uuid
+  name        String
+  discipline  String?
+  location    String?
+  startDate   DateTime  @map("start_date") @db.Date
+  endDate     DateTime? @map("end_date") @db.Date
+  description String?
+  /// 'draft' | 'published' | 'cancelled' (CHECK en base)
+  status      String    @default("draft")
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  coach   User               @relation("CompetitionCoach", fields: [coachId], references: [id], onDelete: Restrict)
+  entries CompetitionEntry[]
+
+  // CHECK ck_competition_dates / ck_competition_status, index partiel ix_competitions_coach → migration SQL.
+  @@index([startDate], map: "ix_competitions_date")
+  @@map("competitions")
+}
+
+/// Engagement d'un athlète à une compétition (miroir de SessionAssignment).
+model CompetitionEntry {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  competitionId String    @map("competition_id") @db.Uuid
+  athleteId     String    @map("athlete_id") @db.Uuid
+  eventLabel    String?   @map("event_label")
+  /// 'engaged' | 'confirmed' | 'withdrawn' (CHECK en base)
+  status        String    @default("engaged")
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt     DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  competition Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  athlete     User        @relation(fields: [athleteId], references: [id], onDelete: Cascade)
+
+  // Unique PARTIEL (competition_id, athlete_id) WHERE deleted_at IS NULL → migration SQL.
+  @@index([athleteId], map: "ix_entry_athlete")
+  @@map("competition_entries")
 }
 
 /// Journal d'audit (append-only, clé entière auto-incrémentée).

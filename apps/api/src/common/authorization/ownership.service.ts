@@ -72,6 +72,23 @@ export class OwnershipService {
   }
 
   /**
+   * Ownership d'une compétition : `competition.coach_id = coachId` (et non supprimée).
+   * 404 si la compétition n'existe pas / est supprimée ; 403 si elle appartient à un autre coach.
+   */
+  async assertCompetitionOwnedByCoach(coachId: string, competitionId: string): Promise<void> {
+    const competition = await this.prisma.competition.findFirst({
+      where: { id: competitionId, deletedAt: null },
+      select: { coachId: true },
+    });
+    if (!competition) {
+      throw new NotFoundException('Compétition introuvable.');
+    }
+    if (competition.coachId !== coachId) {
+      throw new ForbiddenException('Cette compétition ne vous appartient pas.');
+    }
+  }
+
+  /**
    * Propriété du compte : une ressource `users.me.*` n'est accessible que par son
    * titulaire (export, suppression, consentements…). 403 sinon.
    */

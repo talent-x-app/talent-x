@@ -7,6 +7,7 @@ import { AssignmentsModule } from './assignments/assignments.module';
 import { AuthModule } from './auth/auth.module';
 import { AuthorizationModule } from './common/authorization/authorization.module';
 import { CommentsModule } from './comments/comments.module';
+import { CompetitionsModule } from './competitions/competitions.module';
 import { GroupsModule } from './groups/groups.module';
 import { HealthModule } from './health/health.module';
 import { KeysModule } from './auth/keys/keys.module';
@@ -39,6 +40,7 @@ import { UsersModule } from './users/users.module';
     SessionsModule,
     AssignmentsModule,
     CommentsModule,
+    CompetitionsModule,
     ProgressModule,
     NotificationsModule,
   ],

@@ -36,6 +36,8 @@ tags:
   description: Cycle de vie et affectation des séances.
 - name: Affectations & performances
   description: Affectations et saisie des performances.
+- name: Compétitions
+  description: Compétitions et engagements d'athlètes (ADR-24).
 - name: Collaboration
   description: Commentaires sur séances et performances.
 - name: Progression
@@ -1009,6 +1011,248 @@ paths:
           $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/IdempotencyConflict'
+  /competitions:
+    post:
+      tags:
+      - Compétitions
+      summary: Créer une compétition
+      operationId: createCompetition
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompetitionCreate'
+      responses:
+        '201':
+          description: Compétition créée.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Competition'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    get:
+      tags:
+      - Compétitions
+      summary: 'Lister les compétitions (coach : les siennes ; athlète : engagées)'
+      operationId: listCompetitions
+      parameters:
+      - $ref: '#/components/parameters/PageParam'
+      - $ref: '#/components/parameters/LimitParam'
+      - $ref: '#/components/parameters/SortParam'
+      - $ref: '#/components/parameters/CompetitionStatusFilter'
+      responses:
+        '200':
+          description: Liste paginée des compétitions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompetitionPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
+  /competitions/{id}:
+    get:
+      tags:
+      - Compétitions
+      summary: Lire une compétition autorisée
+      operationId: getCompetition
+      parameters:
+      - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: Compétition.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Competition'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags:
+      - Compétitions
+      summary: Modifier une compétition
+      operationId: updateCompetition
+      parameters:
+      - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompetitionUpdate'
+      responses:
+        '200':
+          description: Compétition mise à jour.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Competition'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags:
+      - Compétitions
+      summary: Supprimer (logique) une compétition
+      operationId: deleteCompetition
+      parameters:
+      - $ref: '#/components/parameters/IdPath'
+      responses:
+        '204':
+          description: Compétition supprimée.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /competitions/{id}/entries:
+    post:
+      tags:
+      - Compétitions
+      summary: Engager des athlètes à une compétition
+      operationId: engageAthletes
+      parameters:
+      - $ref: '#/components/parameters/IdPath'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EngageRequest'
+      responses:
+        '201':
+          description: Engagements créés.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompetitionEntryList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/IdempotencyConflict'
+    get:
+      tags:
+      - Compétitions
+      summary: Lister les engagements d'une compétition
+      operationId: listEntries
+      parameters:
+      - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: Engagements de la compétition.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompetitionEntryList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /competitions/{id}/entries/{entryId}:
+    delete:
+      tags:
+      - Compétitions
+      summary: Désengager un athlète
+      operationId: unengageAthlete
+      parameters:
+      - $ref: '#/components/parameters/IdPath'
+      - name: entryId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '204':
+          description: Engagement supprimé.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /assignments:
     get:
       tags:
@@ -1682,6 +1926,12 @@ components:
       required: false
       schema:
         $ref: '#/components/schemas/AssignmentStatus'
+    CompetitionStatusFilter:
+      name: status
+      in: query
+      required: false
+      schema:
+        $ref: '#/components/schemas/CompetitionStatus'
     SessionIdQuery:
       name: sessionId
       in: query
@@ -2409,6 +2659,147 @@ components:
             $ref: '#/components/schemas/Assignment'
       required:
       - data
+    CompetitionStatus:
+      type: string
+      enum:
+      - draft
+      - published
+      - cancelled
+    Competition:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        coachId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        discipline:
+          type: string
+        location:
+          type: string
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        description:
+          type: string
+        status:
+          $ref: '#/components/schemas/CompetitionStatus'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+      - id
+      - coachId
+      - name
+      - startDate
+      - status
+    CompetitionCreate:
+      type: object
+      properties:
+        name:
+          type: string
+        discipline:
+          type: string
+        location:
+          type: string
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        description:
+          type: string
+        status:
+          $ref: '#/components/schemas/CompetitionStatus'
+      required:
+      - name
+      - startDate
+    CompetitionUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        discipline:
+          type: string
+        location:
+          type: string
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        description:
+          type: string
+        status:
+          $ref: '#/components/schemas/CompetitionStatus'
+    CompetitionEntryStatus:
+      type: string
+      enum:
+      - engaged
+      - confirmed
+      - withdrawn
+    CompetitionEntry:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        competitionId:
+          type: string
+          format: uuid
+        athleteId:
+          type: string
+          format: uuid
+        eventLabel:
+          type: string
+        status:
+          $ref: '#/components/schemas/CompetitionEntryStatus'
+        competition:
+          $ref: '#/components/schemas/Competition'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+      - id
+      - competitionId
+      - athleteId
+      - status
+    EngageRequest:
+      type: object
+      properties:
+        athleteIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+          minItems: 1
+        eventLabel:
+          type: string
+      required:
+      - athleteIds
+    CompetitionEntryList:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/CompetitionEntry'
+      required:
+      - data
     SetResult:
       type: object
       description: Résultat d'une série / d'un essai. Les mesures `timeSeconds`, `distanceMeters` et `failed` relèvent du contrat v2 (ADR-19) ; le mode de saisie dérive du `type` du bloc de séance (ADR-18), sans discriminant ici.
@@ -2992,6 +3383,18 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Assignment'
+        meta:
+          $ref: '#/components/schemas/PageMeta'
+    CompetitionPage:
+      type: object
+      required:
+      - data
+      - meta
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Competition'
         meta:
           $ref: '#/components/schemas/PageMeta'
     CommentPage:

@@ -18,6 +18,11 @@ import type {
   Comment,
   CommentCreate,
   CommentPage,
+  Competition,
+  CompetitionCreate,
+  CompetitionEntryList,
+  CompetitionPage,
+  CompetitionUpdate,
   ConflictResponse,
   Consent,
   ConsentList,
@@ -26,6 +31,7 @@ import type {
   Dashboard,
   DeviceToken,
   DeviceTokenCreate,
+  EngageRequest,
   ExportJob,
   ForbiddenResponse,
   ForgotPasswordRequest,
@@ -43,6 +49,7 @@ import type {
   JoinGroupRequest,
   ListAssignmentsParams,
   ListCommentsParams,
+  ListCompetitionsParams,
   ListGroupMembersParams,
   ListGroupsParams,
   ListNotificationsParams,
@@ -2419,6 +2426,591 @@ export const assignSession = async (id: string,
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...options?.headers },
     body: JSON.stringify(assignRequest)
+  }
+);}
+
+
+
+export type createCompetitionResponse201 = {
+  data: Competition
+  status: 201
+}
+
+export type createCompetitionResponse400 = {
+  data: BadRequestResponse
+  status: 400
+}
+
+export type createCompetitionResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type createCompetitionResponse403 = {
+  data: ForbiddenResponse
+  status: 403
+}
+
+export type createCompetitionResponse422 = {
+  data: ValidationFailedResponse
+  status: 422
+}
+
+export type createCompetitionResponse429 = {
+  data: TooManyRequestsResponse
+  status: 429
+}
+
+export type createCompetitionResponse500 = {
+  data: ServerErrorResponse
+  status: 500
+}
+
+export type createCompetitionResponseSuccess = (createCompetitionResponse201) & {
+  headers: Headers;
+};
+export type createCompetitionResponseError = (createCompetitionResponse400 | createCompetitionResponse401 | createCompetitionResponse403 | createCompetitionResponse422 | createCompetitionResponse429 | createCompetitionResponse500) & {
+  headers: Headers;
+};
+
+export type createCompetitionResponse = (createCompetitionResponseSuccess | createCompetitionResponseError)
+
+export const getCreateCompetitionUrl = () => {
+
+
+
+
+  return `/competitions`
+}
+
+/**
+ * @summary Créer une compétition
+ */
+export const createCompetition = async (competitionCreate: CompetitionCreate, options?: RequestInit): Promise<createCompetitionResponse> => {
+
+  return customFetch<createCompetitionResponse>(getCreateCompetitionUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(competitionCreate)
+  }
+);}
+
+
+
+export type listCompetitionsResponse200 = {
+  data: CompetitionPage
+  status: 200
+}
+
+export type listCompetitionsResponse400 = {
+  data: BadRequestResponse
+  status: 400
+}
+
+export type listCompetitionsResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type listCompetitionsResponse422 = {
+  data: ValidationFailedResponse
+  status: 422
+}
+
+export type listCompetitionsResponse429 = {
+  data: TooManyRequestsResponse
+  status: 429
+}
+
+export type listCompetitionsResponse500 = {
+  data: ServerErrorResponse
+  status: 500
+}
+
+export type listCompetitionsResponseSuccess = (listCompetitionsResponse200) & {
+  headers: Headers;
+};
+export type listCompetitionsResponseError = (listCompetitionsResponse400 | listCompetitionsResponse401 | listCompetitionsResponse422 | listCompetitionsResponse429 | listCompetitionsResponse500) & {
+  headers: Headers;
+};
+
+export type listCompetitionsResponse = (listCompetitionsResponseSuccess | listCompetitionsResponseError)
+
+export const getListCompetitionsUrl = (params?: ListCompetitionsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/competitions?${stringifiedParams}` : `/competitions`
+}
+
+/**
+ * @summary Lister les compétitions (coach : les siennes ; athlète : engagées)
+ */
+export const listCompetitions = async (params?: ListCompetitionsParams, options?: RequestInit): Promise<listCompetitionsResponse> => {
+
+  return customFetch<listCompetitionsResponse>(getListCompetitionsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+export type getCompetitionResponse200 = {
+  data: Competition
+  status: 200
+}
+
+export type getCompetitionResponse400 = {
+  data: BadRequestResponse
+  status: 400
+}
+
+export type getCompetitionResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type getCompetitionResponse403 = {
+  data: ForbiddenResponse
+  status: 403
+}
+
+export type getCompetitionResponse404 = {
+  data: NotFoundResponse
+  status: 404
+}
+
+export type getCompetitionResponse422 = {
+  data: ValidationFailedResponse
+  status: 422
+}
+
+export type getCompetitionResponse429 = {
+  data: TooManyRequestsResponse
+  status: 429
+}
+
+export type getCompetitionResponse500 = {
+  data: ServerErrorResponse
+  status: 500
+}
+
+export type getCompetitionResponseSuccess = (getCompetitionResponse200) & {
+  headers: Headers;
+};
+export type getCompetitionResponseError = (getCompetitionResponse400 | getCompetitionResponse401 | getCompetitionResponse403 | getCompetitionResponse404 | getCompetitionResponse422 | getCompetitionResponse429 | getCompetitionResponse500) & {
+  headers: Headers;
+};
+
+export type getCompetitionResponse = (getCompetitionResponseSuccess | getCompetitionResponseError)
+
+export const getGetCompetitionUrl = (id: string,) => {
+
+
+
+
+  return `/competitions/${id}`
+}
+
+/**
+ * @summary Lire une compétition autorisée
+ */
+export const getCompetition = async (id: string, options?: RequestInit): Promise<getCompetitionResponse> => {
+
+  return customFetch<getCompetitionResponse>(getGetCompetitionUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+export type updateCompetitionResponse200 = {
+  data: Competition
+  status: 200
+}
+
+export type updateCompetitionResponse400 = {
+  data: BadRequestResponse
+  status: 400
+}
+
+export type updateCompetitionResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type updateCompetitionResponse403 = {
+  data: ForbiddenResponse
+  status: 403
+}
+
+export type updateCompetitionResponse404 = {
+  data: NotFoundResponse
+  status: 404
+}
+
+export type updateCompetitionResponse422 = {
+  data: ValidationFailedResponse
+  status: 422
+}
+
+export type updateCompetitionResponse429 = {
+  data: TooManyRequestsResponse
+  status: 429
+}
+
+export type updateCompetitionResponse500 = {
+  data: ServerErrorResponse
+  status: 500
+}
+
+export type updateCompetitionResponseSuccess = (updateCompetitionResponse200) & {
+  headers: Headers;
+};
+export type updateCompetitionResponseError = (updateCompetitionResponse400 | updateCompetitionResponse401 | updateCompetitionResponse403 | updateCompetitionResponse404 | updateCompetitionResponse422 | updateCompetitionResponse429 | updateCompetitionResponse500) & {
+  headers: Headers;
+};
+
+export type updateCompetitionResponse = (updateCompetitionResponseSuccess | updateCompetitionResponseError)
+
+export const getUpdateCompetitionUrl = (id: string,) => {
+
+
+
+
+  return `/competitions/${id}`
+}
+
+/**
+ * @summary Modifier une compétition
+ */
+export const updateCompetition = async (id: string,
+    competitionUpdate: CompetitionUpdate, options?: RequestInit): Promise<updateCompetitionResponse> => {
+
+  return customFetch<updateCompetitionResponse>(getUpdateCompetitionUrl(id),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(competitionUpdate)
+  }
+);}
+
+
+
+export type deleteCompetitionResponse204 = {
+  data: void
+  status: 204
+}
+
+export type deleteCompetitionResponse400 = {
+  data: BadRequestResponse
+  status: 400
+}
+
+export type deleteCompetitionResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type deleteCompetitionResponse403 = {
+  data: ForbiddenResponse
+  status: 403
+}
+
+export type deleteCompetitionResponse404 = {
+  data: NotFoundResponse
+  status: 404
+}
+
+export type deleteCompetitionResponse422 = {
+  data: ValidationFailedResponse
+  status: 422
+}
+
+export type deleteCompetitionResponse429 = {
+  data: TooManyRequestsResponse
+  status: 429
+}
+
+export type deleteCompetitionResponse500 = {
+  data: ServerErrorResponse
+  status: 500
+}
+
+export type deleteCompetitionResponseSuccess = (deleteCompetitionResponse204) & {
+  headers: Headers;
+};
+export type deleteCompetitionResponseError = (deleteCompetitionResponse400 | deleteCompetitionResponse401 | deleteCompetitionResponse403 | deleteCompetitionResponse404 | deleteCompetitionResponse422 | deleteCompetitionResponse429 | deleteCompetitionResponse500) & {
+  headers: Headers;
+};
+
+export type deleteCompetitionResponse = (deleteCompetitionResponseSuccess | deleteCompetitionResponseError)
+
+export const getDeleteCompetitionUrl = (id: string,) => {
+
+
+
+
+  return `/competitions/${id}`
+}
+
+/**
+ * @summary Supprimer (logique) une compétition
+ */
+export const deleteCompetition = async (id: string, options?: RequestInit): Promise<deleteCompetitionResponse> => {
+
+  return customFetch<deleteCompetitionResponse>(getDeleteCompetitionUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+export type engageAthletesResponse201 = {
+  data: CompetitionEntryList
+  status: 201
+}
+
+export type engageAthletesResponse400 = {
+  data: BadRequestResponse
+  status: 400
+}
+
+export type engageAthletesResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type engageAthletesResponse403 = {
+  data: ForbiddenResponse
+  status: 403
+}
+
+export type engageAthletesResponse404 = {
+  data: NotFoundResponse
+  status: 404
+}
+
+export type engageAthletesResponse409 = {
+  data: IdempotencyConflictResponse
+  status: 409
+}
+
+export type engageAthletesResponse422 = {
+  data: ValidationFailedResponse
+  status: 422
+}
+
+export type engageAthletesResponse429 = {
+  data: TooManyRequestsResponse
+  status: 429
+}
+
+export type engageAthletesResponse500 = {
+  data: ServerErrorResponse
+  status: 500
+}
+
+export type engageAthletesResponseSuccess = (engageAthletesResponse201) & {
+  headers: Headers;
+};
+export type engageAthletesResponseError = (engageAthletesResponse400 | engageAthletesResponse401 | engageAthletesResponse403 | engageAthletesResponse404 | engageAthletesResponse409 | engageAthletesResponse422 | engageAthletesResponse429 | engageAthletesResponse500) & {
+  headers: Headers;
+};
+
+export type engageAthletesResponse = (engageAthletesResponseSuccess | engageAthletesResponseError)
+
+export const getEngageAthletesUrl = (id: string,) => {
+
+
+
+
+  return `/competitions/${id}/entries`
+}
+
+/**
+ * @summary Engager des athlètes à une compétition
+ */
+export const engageAthletes = async (id: string,
+    engageRequest: EngageRequest, options?: RequestInit): Promise<engageAthletesResponse> => {
+
+  return customFetch<engageAthletesResponse>(getEngageAthletesUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(engageRequest)
+  }
+);}
+
+
+
+export type listEntriesResponse200 = {
+  data: CompetitionEntryList
+  status: 200
+}
+
+export type listEntriesResponse400 = {
+  data: BadRequestResponse
+  status: 400
+}
+
+export type listEntriesResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type listEntriesResponse403 = {
+  data: ForbiddenResponse
+  status: 403
+}
+
+export type listEntriesResponse404 = {
+  data: NotFoundResponse
+  status: 404
+}
+
+export type listEntriesResponse422 = {
+  data: ValidationFailedResponse
+  status: 422
+}
+
+export type listEntriesResponse429 = {
+  data: TooManyRequestsResponse
+  status: 429
+}
+
+export type listEntriesResponse500 = {
+  data: ServerErrorResponse
+  status: 500
+}
+
+export type listEntriesResponseSuccess = (listEntriesResponse200) & {
+  headers: Headers;
+};
+export type listEntriesResponseError = (listEntriesResponse400 | listEntriesResponse401 | listEntriesResponse403 | listEntriesResponse404 | listEntriesResponse422 | listEntriesResponse429 | listEntriesResponse500) & {
+  headers: Headers;
+};
+
+export type listEntriesResponse = (listEntriesResponseSuccess | listEntriesResponseError)
+
+export const getListEntriesUrl = (id: string,) => {
+
+
+
+
+  return `/competitions/${id}/entries`
+}
+
+/**
+ * @summary Lister les engagements d'une compétition
+ */
+export const listEntries = async (id: string, options?: RequestInit): Promise<listEntriesResponse> => {
+
+  return customFetch<listEntriesResponse>(getListEntriesUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+export type unengageAthleteResponse204 = {
+  data: void
+  status: 204
+}
+
+export type unengageAthleteResponse400 = {
+  data: BadRequestResponse
+  status: 400
+}
+
+export type unengageAthleteResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type unengageAthleteResponse403 = {
+  data: ForbiddenResponse
+  status: 403
+}
+
+export type unengageAthleteResponse404 = {
+  data: NotFoundResponse
+  status: 404
+}
+
+export type unengageAthleteResponse422 = {
+  data: ValidationFailedResponse
+  status: 422
+}
+
+export type unengageAthleteResponse429 = {
+  data: TooManyRequestsResponse
+  status: 429
+}
+
+export type unengageAthleteResponse500 = {
+  data: ServerErrorResponse
+  status: 500
+}
+
+export type unengageAthleteResponseSuccess = (unengageAthleteResponse204) & {
+  headers: Headers;
+};
+export type unengageAthleteResponseError = (unengageAthleteResponse400 | unengageAthleteResponse401 | unengageAthleteResponse403 | unengageAthleteResponse404 | unengageAthleteResponse422 | unengageAthleteResponse429 | unengageAthleteResponse500) & {
+  headers: Headers;
+};
+
+export type unengageAthleteResponse = (unengageAthleteResponseSuccess | unengageAthleteResponseError)
+
+export const getUnengageAthleteUrl = (id: string,
+    entryId: string,) => {
+
+
+
+
+  return `/competitions/${id}/entries/${entryId}`
+}
+
+/**
+ * @summary Désengager un athlète
+ */
+export const unengageAthlete = async (id: string,
+    entryId: string, options?: RequestInit): Promise<unengageAthleteResponse> => {
+
+  return customFetch<unengageAthleteResponse>(getUnengageAthleteUrl(id,entryId),
+  {
+    ...options,
+    method: 'DELETE'
+
+
   }
 );}
 

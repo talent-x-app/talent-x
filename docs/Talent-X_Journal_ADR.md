@@ -37,7 +37,7 @@ Chaque décision suit le format **ADR** : Statut, Date, Contexte, Décision, Con
 | ADR-21 | Contrat explicite de la progression athlète `/athletes/me/progress` : séries par épreuve + métriques (méthode ADR-17 · briques ADR-19/20) | Accepté |
 | ADR-22 | Infrastructure notifications : `notification_preferences`, taxonomie MVP, pipeline BullMQ + provider push abstrait (complète TX-ARCH-001 §4.5) | Accepté |
 | ADR-23 | Notifications in-app : table `notifications`, contrat de feed `GET /notifications` + `read-all`, écran préférences (complète ADR-22) | Accepté |
-| ADR-24 | Compétitions & engagements d'athlètes : tables `competitions`/`competition_entries`, contrat `/competitions`, autorisation alignée sur les affectations, données non-santé (complète TX-DATA-006 · OpenAPI · TLX-100) | Proposé |
+| ADR-24 | Compétitions & engagements d'athlètes : tables `competitions`/`competition_entries`, contrat `/competitions`, autorisation alignée sur les affectations, données non-santé (complète TX-DATA-006 · OpenAPI · TLX-100) | Accepté |
 
 ---
 
@@ -418,7 +418,7 @@ ne coupant que le push (collecte refusée), lecture unitaire, cloche en tab bar.
 
 Décision complète : [`docs/adr/ADR-24-competitions-engagements.md`](adr/ADR-24-competitions-engagements.md).
 
-**Statut : Proposé** (2026-06-10 — pré-requis de TLX-101).
+**Statut : Accepté** (validé 2026-06-10 — pré-requis de TLX-101 ; calendrier inclus, pas de 6ᵉ onglet, `event_label` libre, statuts engaged/confirmed/withdrawn).
 
 **En bref.** TLX-101 (« Compétitions — CRUD + engagement ») ne s'appuie sur rien : pas
 d'entité TX-DATA-006, pas de chemin OpenAPI, pas de modèle Prisma, pas de maquette. Proposition,
