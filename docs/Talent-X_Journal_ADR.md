@@ -35,6 +35,9 @@ Chaque décision suit le format **ADR** : Statut, Date, Contexte, Décision, Con
 | ADR-19 | Schéma `results` v2 : mesures chronométriques et de distance par essai (méthode ADR-18 · complète TX-DATA-006 §9.2) | Accepté |
 | ADR-20 | Records personnels : table `personal_records` + détection de PB à la soumission, confirmation athlète (complète TX-DATA-006 · OpenAPI) | Accepté |
 | ADR-21 | Contrat explicite de la progression athlète `/athletes/me/progress` : séries par épreuve + métriques (méthode ADR-17 · briques ADR-19/20) | Accepté |
+| ADR-22 | Infrastructure notifications : `notification_preferences`, taxonomie MVP, pipeline BullMQ + provider push abstrait (complète TX-ARCH-001 §4.5) | Accepté |
+| ADR-23 | Notifications in-app : table `notifications`, contrat de feed `GET /notifications` + `read-all`, écran préférences (complète ADR-22) | Accepté |
+| ADR-24 | Compétitions & engagements d'athlètes : tables `competitions`/`competition_entries`, contrat `/competitions`, autorisation alignée sur les affectations, données non-santé (complète TX-DATA-006 · OpenAPI · TLX-100) | Proposé |
 
 ---
 
@@ -408,6 +411,27 @@ pas un canal) ; contrat additif `GET /notifications` (paginé + `unreadCount`) e
 centre de notifications avec badge dans l'onglet Profil (pattern UI kit). Device token
 mobile → reste dans TLX-84. Écartés : persistance côté API (double garde), préférences
 ne coupant que le push (collecte refusée), lecture unitaire, cloche en tab bar.
+
+---
+
+## ADR-24 — Compétitions & engagements d'athlètes
+
+Décision complète : [`docs/adr/ADR-24-competitions-engagements.md`](adr/ADR-24-competitions-engagements.md).
+
+**Statut : Proposé** (2026-06-10 — pré-requis de TLX-101).
+
+**En bref.** TLX-101 (« Compétitions — CRUD + engagement ») ne s'appuie sur rien : pas
+d'entité TX-DATA-006, pas de chemin OpenAPI, pas de modèle Prisma, pas de maquette. Proposition,
+calquée sur le couple séances/affectations : deux tables expand-only `competitions` (événement
+propriété du coach) et `competition_entries` (engagement athlète, idempotent via unique partiel
+`ux_entry_active`) ; contrat additif `/competitions` (+ `/entries`) role-aware ; autorisation
+**rôle + propriété + lien actif** (le coach pilote, l'athlète consulte) ; **classification RGPD :
+données de planification, PAS de santé → aucune porte de consentement** (les résultats chiffrés,
+eux, resteraient des données de santé → hors périmètre). Les compétitions datées **enrichissent le
+calendrier TLX-100** (entrée distincte, via `competitionToCalendarEntry`). Écartés : compétition
+= type de séance, auto-inscription athlète, consentement sur données non sensibles, résultats dans
+ce ticket. Quatre questions ouvertes (périmètre calendrier, navigation sans 6ᵉ onglet, `event_label`
+libre, statuts d'engagement) à trancher avant code.
 
 ---
 
