@@ -62,6 +62,8 @@ export default function AthleteLayout() {
       {/* Compétitions (TLX-101, ADR-24) : liste + détail lecture seule, hors tab bar. */}
       <Tabs.Screen name="competitions" options={{ href: null }} />
       <Tabs.Screen name="competition/[id]" options={{ href: null }} />
+      {/* Rejoindre un groupe via code (TLX-88) : routable mais masqué du tab bar. */}
+      <Tabs.Screen name="group/join" options={{ href: null }} />
     </Tabs>
   );
 }

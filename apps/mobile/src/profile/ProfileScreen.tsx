@@ -9,6 +9,7 @@ import { Button, Card, Input } from '../components/ui';
 import { toUserMessage, useToast } from '../feedback';
 import { NotificationPreferencesSection } from '../notifications/NotificationPreferencesSection';
 import { NotificationsLink } from '../notifications/NotificationsLink';
+import { MyGroupSection } from '../groups/MyGroupSection';
 
 /** Clé de cache du profil courant (partagée avec d'éventuels invalidations). */
 export const ME_QUERY_KEY = ['me'] as const;
@@ -230,6 +231,9 @@ export function ProfileScreen() {
               <Field label="Bio" value={user.bio} />
             </View>
           </Card>
+          {/* Mon groupe / Mon coach (TLX-88, ADR-26) : réservé à l'athlète — le coach
+              gère ses groupes depuis le dashboard / l'écran Athlètes. */}
+          {user.role === 'athlete' ? <MyGroupSection /> : null}
           {/* Centre de notifications + préférences (TLX-111, ADR-23). */}
           <NotificationsLink />
           <NotificationPreferencesSection />
