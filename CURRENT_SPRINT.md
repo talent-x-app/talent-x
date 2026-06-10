@@ -422,6 +422,37 @@ athlete-session-ui.tsx`. 10 tests ; **suite mobile 108/108**. **Validé en réel
   console. Worker : persistance puis « sans cible » (aucun device — chemin push
   déjà validé TLX-110).
 
+## Terminés — TLX-120 Tests E2E parcours critiques — **ouvre le jalon Lancement & Qualité**
+
+- **Fix préalable** : le `pnpm typecheck` d'`apps/api` était **rouge sur main**
+  (`records.service.spec.ts` : littéraux `type: 'sprint'` au lieu de l'enum `BlockType`) —
+  le step CI `pnpm -r typecheck` était donc cassé. Corrigé (import + `BlockType.Sprint`).
+- **Suite E2E DB-backed `test/critical-paths.int-spec.ts`** (7 tests, config `test:int`) —
+  le **cycle complet coach↔athlète via HTTP** contre une vraie base migrée :
+  register coach+athlète → consentements → groupe + join (lien actif vérifié en base) →
+  séance à blocs typés (sprint **+ grille de barres ADR-25**) → assignation idempotente →
+  perf v2 (chronos + barres 1.75/1.80/1.85✗) → **candidats records `sprint:60m` +
+  `vertical:high` (1.80, sans collision)** → affectation `completed` → dashboard coach
+  `toReview` 1→0 après feedback → record confirmé + relu → progression athlète → stats
+  coach. Et la **matrice d'autorisation** : RBAC 403 (athlète crée séance), consentement
+  403 `CONSENT_REQUIRED` (perf sans `data_processing`, stats sans `coach_access`),
+  ownership 403/404 (séance d'un autre coach / inexistante), 401 sans jeton.
+  **Couvre le volet API/données de TLX-86** (persistance grille + records `vertical:*`
+  joués contre la base — reste le pilotage UI Expo). Int **18/18** (11 auth-rgpd + 7 parcours).
+- **Seuils de couverture « ratchet »** (`coverageThreshold`) : api **90/75/83/90**
+  (mesuré 92.2/77.4/85.8/92.7), mobile **87/80/84/88** (mesuré 89.9/83.1/87.0/90.6) ;
+  script `test:cov` ajouté au mobile. **CI** : steps unitaires passés en `test:cov`
+  (les seuils ne s'appliquent qu'avec --coverage) ; step int renommé « intégration &
+  parcours critiques ».
+- **Flows Maestro TLX-120** : `04-coach-create-assign.yaml` (login coach → séance typée
+  Sprints C-05 → bascule assignation C-06 → sélection athlète → confirmation C-07) et
+  `05-athlete-perf.yaml` (login athlète → séance à faire → saisie mode Temps → confirmation
+  A-05) ; README .maestro mis à jour (commandes + pendant API automatisé en CI). Joués en
+  staging/manuel (émulateur requis), testID vérifiés contre les écrans.
+- Écarts attrapés en écrivant la suite : champ lien = `endedAt` (pas `revokedAt`) ;
+  ownership = **403** pour la séance d'un autre coach (404 réservé à l'inexistant) ;
+  liste records = `items` (pas `data`).
+
 ## Terminés — TLX-075 Grille de barres : saisie des sauts verticaux (A-04 §4.4, ADR-25) — **clôt les modes A-04 (072→075)**
 
 - **ADR-25 accepté** : le mode de saisie devant dériver du `BlockType` (invariant ADR-18/19), un

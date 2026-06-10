@@ -6,6 +6,7 @@ import {
 import type { OwnershipService } from '../common/authorization/ownership.service';
 import type { ConsentGate } from '../common/authorization/consent.gate';
 import type { PrismaService } from '../prisma/prisma.service';
+import { BlockType } from '../sessions/dto/exercises.dto';
 import { RecordsService } from './records.service';
 
 function ownershipMock(): OwnershipService {
@@ -98,7 +99,9 @@ describe('RecordsService (TLX-076, ADR-20)', () => {
   });
 
   describe('detectCandidates', () => {
-    const EXERCISES = [{ name: '60m', order: 0, type: 'sprint', params: { distanceMeters: 60 } }];
+    const EXERCISES = [
+      { name: '60m', order: 0, type: BlockType.Sprint, params: { distanceMeters: 60 } },
+    ];
     const RESULTS = [
       { exerciseName: '60m', order: 0, setResults: [{ set: 1, timeSeconds: 7.45 }] },
     ];

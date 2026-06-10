@@ -1,0 +1,49 @@
+# TLX-120 — Parcours critique coach : connexion → création de séance typée (C-05)
+# → bascule auto sur l'assignation (C-06) → sélection d'athlète → confirmation (C-07).
+# Pré-requis : un coach avec ≥ 1 athlète lié (cf. README — comptes du flow 01 ou seed).
+# Variables : APP_ID, COACH_EMAIL, COACH_PASSWORD, ATHLETE_NAME (nom affiché à sélectionner).
+appId: ${APP_ID}
+---
+- launchApp:
+    clearState: true
+- assertVisible: 'Se connecter'
+- tapOn:
+    id: 'login-email'
+- inputText: '${COACH_EMAIL}'
+- tapOn:
+    id: 'login-password'
+- inputText: '${COACH_PASSWORD}'
+- tapOn:
+    id: 'login-submit'
+# Dashboard coach (C-01) → constructeur (C-05).
+- tapOn:
+    id: 'coach-dashboard-new-session'
+- tapOn:
+    id: 'session-field-title'
+- inputText: 'Maestro — Vitesse 60m'
+# Bloc typé Sprints (TLX-055) : nom + discipline + params.
+- tapOn:
+    id: 'block-0-name'
+- inputText: '8 × 60m départs'
+- tapOn:
+    id: 'block-0-type-sprint'
+- tapOn:
+    id: 'block-0-param-reps'
+- inputText: '8'
+- tapOn:
+    id: 'block-0-param-distanceMeters'
+- inputText: '60'
+- tapOn:
+    id: 'session-save'
+# Création → bascule auto sur l'assignation (C-06, câblage TLX-063).
+- assertVisible:
+    id: 'assign-title'
+# Sélectionne l'athlète par son nom affiché, puis envoie.
+- tapOn: '${ATHLETE_NAME}'
+- tapOn:
+    id: 'assign-submit'
+# Confirmation (C-07) : récap de l'affectation.
+- assertVisible:
+    id: 'assign-confirmation'
+- assertVisible:
+    id: 'assign-confirmation-summary'

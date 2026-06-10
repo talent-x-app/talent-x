@@ -12,4 +12,10 @@ module.exports = {
   transform: {
     '^.+\\.ts$': ['ts-jest', { tsconfig: '<rootDir>/tsconfig.spec.json' }],
   },
+  // Seuils de couverture « ratchet » (TLX-120, TX-OPS-004 §6) : posés juste sous la
+  // couverture mesurée (92.2 / 77.4 / 85.8 / 92.7 au 2026-06-10) — toute régression
+  // significative casse la CI ; relever les seuils quand la couverture progresse.
+  coverageThreshold: {
+    global: { statements: 90, branches: 75, functions: 83, lines: 90 },
+  },
 };

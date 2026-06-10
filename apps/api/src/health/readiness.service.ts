@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, type OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Redis } from 'ioredis';
 import { PrismaService } from '../prisma/prisma.service';
@@ -11,7 +11,7 @@ import type { ReadinessDto } from './dto/readiness.dto';
  * configuré — l'API produit des jobs d'export, sa disponibilité en dépend.
  */
 @Injectable()
-export class ReadinessService {
+export class ReadinessService implements OnModuleDestroy {
   private readonly logger = new Logger(ReadinessService.name);
   private redisClient?: Redis;
 
@@ -19,6 +19,15 @@ export class ReadinessService {
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
   ) {}
+
+  /** Ferme le client Redis lazy — sans quoi `app.close()` laisse un handle ouvert
+   *  (Jest e2e ne se termine jamais quand REDIS_URL est configuré). */
+  async onModuleDestroy(): Promise<void> {
+    if (this.redisClient) {
+      this.redisClient.disconnect();
+      this.redisClient = undefined;
+    }
+  }
 
   async check(): Promise<ReadinessDto> {
     const checks: Record<string, boolean> = {

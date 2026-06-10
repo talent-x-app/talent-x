@@ -11,4 +11,10 @@ module.exports = {
   transformIgnorePatterns: [
     'node_modules/(?!((jest-)?react-native|@react-native(-community)?|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|expo-router|expo-modules-core|@react-navigation/.*|react-native-.*))',
   ],
+  // Seuils de couverture « ratchet » (TLX-120) : posés juste sous la couverture
+  // mesurée (89.9 / 83.1 / 87.0 / 90.6 au 2026-06-10) — anti-régression en CI ;
+  // relever les seuils quand la couverture progresse.
+  coverageThreshold: {
+    global: { statements: 87, branches: 80, functions: 84, lines: 88 },
+  },
 };

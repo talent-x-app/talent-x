@@ -71,8 +71,16 @@ jobs:
         run: pnpm -r typecheck
 
       # Tests unitaires de tous les paquets (api, mobile, design-tokens).
-      - name: Tests unitaires
-        run: pnpm -r --if-present test
+      # api & mobile passent par test:cov : les seuils de couverture « ratchet »
+      # (coverageThreshold, TLX-120) ne s'appliquent qu'avec --coverage.
+      - name: Tests unitaires + couverture (api)
+        run: pnpm --filter @talent-x/api test:cov
+
+      - name: Tests unitaires + couverture (mobile)
+        run: pnpm --filter @talent-x/mobile test:cov
+
+      - name: Tests unitaires (autres paquets)
+        run: pnpm --filter '!@talent-x/api' --filter '!@talent-x/mobile' -r --if-present test
 
       # Tests e2e API « sans base » (Jest + Supertest). Config dédiée, base factice
       # (cf. DATABASE_URL ci-dessus) : valide les comportements transverses sans
@@ -89,7 +97,9 @@ jobs:
         env:
           DATABASE_URL: postgresql://talentx:talentx@localhost:5432/talentx?schema=public
 
-      - name: Tests d'intégration API (DB)
+      # Inclut la suite E2E des parcours critiques (critical-paths.int-spec, TLX-120) :
+      # cycle complet coach↔athlète via HTTP contre la base du service `postgres`.
+      - name: Tests d'intégration & parcours critiques (DB)
         run: pnpm --filter @talent-x/api test:int
         env:
           DATABASE_URL: postgresql://talentx:talentx@localhost:5432/talentx?schema=public

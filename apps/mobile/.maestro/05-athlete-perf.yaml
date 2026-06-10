@@ -1,0 +1,31 @@
+# TLX-120 — Parcours critique athlète : connexion → séance « À faire » (A-02)
+# → saisie de perf typée (A-04, mode Temps) → soumission → confirmation (A-05).
+# Pré-requis : une séance assignée à l'athlète (jouer 04-coach-create-assign d'abord).
+# Variables : APP_ID, ATHLETE_EMAIL, ATHLETE_PASSWORD, SESSION_TITLE (titre de la séance).
+appId: ${APP_ID}
+---
+- launchApp:
+    clearState: true
+- assertVisible: 'Se connecter'
+- tapOn:
+    id: 'login-email'
+- inputText: '${ATHLETE_EMAIL}'
+- tapOn:
+    id: 'login-password'
+- inputText: '${ATHLETE_PASSWORD}'
+- tapOn:
+    id: 'login-submit'
+# Onglet Séances (A-02) → détail de la séance assignée.
+- tapOn: 'Séances'
+- tapOn: '${SESSION_TITLE}'
+# Saisie typée (mode Temps, TLX-072) : 2 chronos sur les lignes pré-remplies.
+- tapOn:
+    id: 'exercise-0-time-0'
+- inputText: '7.45'
+- tapOn:
+    id: 'exercise-0-time-1'
+- inputText: '7,62'
+- tapOn:
+    id: 'submit-performance'
+# Confirmation (A-05) : récap de la perf envoyée.
+- assertVisible: 'Performance envoyée !'

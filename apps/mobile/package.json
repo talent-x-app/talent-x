@@ -11,6 +11,7 @@
     "build": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
     "test": "jest",
+    "test:cov": "jest --coverage",
     "test:watch": "jest --watch"
   },
   "dependencies": {

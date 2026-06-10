@@ -1,17 +1,20 @@
-# Tests E2E mobile (Maestro) — onboarding TLX-81
+# Tests E2E mobile (Maestro) — onboarding TLX-81 + parcours critiques TLX-120
 
-Parcours d'onboarding (login O-02, inscription O-03/O-04, consentement O-05) joués
-sur **app réelle** (simulateur/appareil) contre l'**API live**. Complète la
-validation web (déjà réalisée dans TLX-81) en couvrant le **trousseau natif**
-(`expo-secure-store`, non exercé en web) et le rendu natif.
+Parcours joués sur **app réelle** (simulateur/appareil) contre l'**API live** :
+onboarding (login O-02, inscription O-03/O-04, consentement O-05) et **parcours
+critiques** coach↔athlète (création de séance → assignation → saisie de perf).
+Complète la validation web en couvrant le **trousseau natif** (`expo-secure-store`,
+non exercé en web) et le rendu natif.
 
 ## Flows
 
-| Fichier                           | Parcours                                                 |
-| --------------------------------- | -------------------------------------------------------- |
-| `01-register-consent-tabs.yaml`   | Inscription → consentement → tabs (e2e nominal, athlète) |
-| `02-login.yaml`                   | Connexion : 401 (mauvais mdp) puis 200 → tabs            |
-| `03-register-existing-email.yaml` | Inscription e-mail déjà pris → 409 inline                |
+| Fichier                           | Parcours                                                           |
+| --------------------------------- | ------------------------------------------------------------------ |
+| `01-register-consent-tabs.yaml`   | Inscription → consentement → tabs (e2e nominal, athlète)           |
+| `02-login.yaml`                   | Connexion : 401 (mauvais mdp) puis 200 → tabs                      |
+| `03-register-existing-email.yaml` | Inscription e-mail déjà pris → 409 inline                          |
+| `04-coach-create-assign.yaml`     | Coach : séance typée (C-05) → assignation (C-06) → confirmation    |
+| `05-athlete-perf.yaml`            | Athlète : séance à faire → saisie typée (A-04) → confirmation A-05 |
 
 ## Prérequis
 
@@ -57,7 +60,30 @@ maestro test \
   --env APP_ID=<app-id> \
   --env EXISTING_EMAIL=<email-déjà-pris> \
   .maestro/03-register-existing-email.yaml
+
+# 4) parcours critique coach : séance typée → assignation → confirmation (TLX-120)
+#    Pré-requis : coach avec ≥ 1 athlète lié (groupe rejoint).
+maestro test \
+  --env APP_ID=<app-id> \
+  --env COACH_EMAIL=<email-coach> \
+  --env COACH_PASSWORD=<mot-de-passe> \
+  --env ATHLETE_NAME='<Prénom Nom affiché>' \
+  .maestro/04-coach-create-assign.yaml
+
+# 5) parcours critique athlète : saisie de perf → confirmation (TLX-120)
+#    Pré-requis : jouer le flow 04 d'abord (séance « Maestro — Vitesse 60m » assignée).
+maestro test \
+  --env APP_ID=<app-id> \
+  --env ATHLETE_EMAIL=<email-athlète> \
+  --env ATHLETE_PASSWORD=<mot-de-passe> \
+  --env SESSION_TITLE='Maestro — Vitesse 60m' \
+  .maestro/05-athlete-perf.yaml
 ```
+
+> Le pendant **API** des parcours critiques est automatisé en CI :
+> `apps/api/test/critical-paths.int-spec.ts` (suite `test:int`, DB-backed) joue le
+> cycle complet coach↔athlète via HTTP — les flows Maestro valident la couche
+> mobile native par-dessus.
 
 ## Notes
 

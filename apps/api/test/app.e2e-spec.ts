@@ -53,7 +53,12 @@ describe('API skeleton (e2e)', () => {
       .expect(503)
       .expect((res) => {
         expect(res.body.status).toBe('not_ready');
-        expect(res.body.checks).toEqual({ database: false });
+        // `redis` n'apparaît dans les checks que si REDIS_URL est configuré (TLX-110) :
+        // absent en CI, présent en local (.env). Assertion agnostique à l'environnement.
+        expect(res.body.checks.database).toBe(false);
+        if ('redis' in res.body.checks) {
+          expect(typeof res.body.checks.redis).toBe('boolean');
+        }
       });
   });
 
