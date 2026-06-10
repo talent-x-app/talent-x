@@ -59,6 +59,9 @@ export default function AthleteLayout() {
       <Tabs.Screen name="perf/[id]" options={{ href: null }} />
       {/* Centre de notifications (TLX-111) : routable mais masqué du tab bar. */}
       <Tabs.Screen name="notifications" options={{ href: null }} />
+      {/* Compétitions (TLX-101, ADR-24) : liste + détail lecture seule, hors tab bar. */}
+      <Tabs.Screen name="competitions" options={{ href: null }} />
+      <Tabs.Screen name="competition/[id]" options={{ href: null }} />
     </Tabs>
   );
 }

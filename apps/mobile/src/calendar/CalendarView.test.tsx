@@ -10,15 +10,30 @@ function Wrapper({ children }: { children: React.ReactNode }) {
 const NOW = new Date('2026-05-14T09:00:00Z'); // jeudi → semaine du 11 mai
 
 const ENTRIES: CalendarEntry[] = [
-  { id: 'e-1', title: 'Sprint 60m', date: '2026-05-12', tone: 'accent', statusLabel: 'À faire' },
+  {
+    id: 'e-1',
+    kind: 'assignment',
+    title: 'Sprint 60m',
+    date: '2026-05-12',
+    tone: 'accent',
+    statusLabel: 'À faire',
+  },
   {
     id: 'e-2',
+    kind: 'assignment',
     title: 'Récupération',
     date: '2026-05-14',
     tone: 'success',
     statusLabel: 'Réalisée',
   },
-  { id: 'e-undated', title: 'Séance libre', date: null, tone: 'neutral', statusLabel: 'Brouillon' },
+  {
+    id: 'e-undated',
+    kind: 'session',
+    title: 'Séance libre',
+    date: null,
+    tone: 'neutral',
+    statusLabel: 'Brouillon',
+  },
 ];
 
 describe('CalendarView (TLX-100)', () => {

@@ -1,11 +1,18 @@
-import { listSessions, type Session } from '@talent-x/api-client';
+import {
+  listCompetitions,
+  listSessions,
+  type Competition,
+  type Session,
+} from '@talent-x/api-client';
 import { useTheme } from '@talent-x/design-tokens';
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { ActivityIndicator, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { Button, Card } from '../components/ui';
+import { COMPETITIONS_QUERY_KEY } from '../competitions/competitions-query';
+import { coachCompetitionsHref, competitionEditHref } from '../competitions/navigation';
 import { CalendarView } from './CalendarView';
-import { sessionToCalendarEntry } from './calendar-model';
+import { competitionToCalendarEntry, sessionToCalendarEntry } from './calendar-model';
 
 /**
  * Calendrier coach (C-09 — TLX-100). Vue planning dérivée de `GET /sessions` (role-aware :
@@ -27,7 +34,22 @@ export function CoachCalendarScreen() {
     retry: false,
   });
 
-  const entries = (query.data ?? []).map(sessionToCalendarEntry);
+  // Les compétitions enrichissent le calendrier (ADR-24 §5) en entrées distinctes. Erreur
+  // tolérée : le planning séances reste affiché si l'appel compétitions échoue.
+  const competitions = useQuery({
+    queryKey: COMPETITIONS_QUERY_KEY,
+    queryFn: async (): Promise<Competition[]> => {
+      const response = await listCompetitions();
+      if (response.status === 200) return response.data.data;
+      throw response;
+    },
+    retry: false,
+  });
+
+  const entries = [
+    ...(query.data ?? []).map(sessionToCalendarEntry),
+    ...(competitions.data ?? []).map(competitionToCalendarEntry),
+  ];
 
   return (
     <ScrollView
@@ -50,6 +72,14 @@ export function CoachCalendarScreen() {
       >
         Calendrier
       </Text>
+
+      <Button
+        testID="calendar-competitions-link"
+        variant="secondary"
+        onPress={() => router.push(coachCompetitionsHref())}
+      >
+        Gérer les compétitions
+      </Button>
 
       {query.isLoading ? (
         <View testID="calendar-loading" style={{ paddingVertical: spacing[6] }}>
@@ -94,7 +124,11 @@ export function CoachCalendarScreen() {
             now={new Date()}
             testIDPrefix="calendar"
             onPressEntry={(entry) =>
-              router.push({ pathname: '/(coach)/session/[id]', params: { id: entry.id } })
+              router.push(
+                entry.kind === 'competition'
+                  ? competitionEditHref(entry.id)
+                  : { pathname: '/(coach)/session/[id]', params: { id: entry.id } },
+              )
             }
           />
         </>

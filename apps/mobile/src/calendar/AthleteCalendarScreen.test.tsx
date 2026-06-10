@@ -4,10 +4,12 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react-nativ
 import { type ReactNode, useState } from 'react';
 
 const mockListAssignments = jest.fn();
+const mockListCompetitions = jest.fn();
 const mockPush = jest.fn();
 
 jest.mock('@talent-x/api-client', () => ({
   listAssignments: (...args: unknown[]) => mockListAssignments(...args),
+  listCompetitions: (...args: unknown[]) => mockListCompetitions(...args),
   AssignmentStatus: {
     assigned: 'assigned',
     in_progress: 'in_progress',
@@ -15,8 +17,14 @@ jest.mock('@talent-x/api-client', () => ({
     skipped: 'skipped',
   },
   SessionStatus: { draft: 'draft', published: 'published', archived: 'archived' },
+  CompetitionStatus: { draft: 'draft', published: 'published', cancelled: 'cancelled' },
 }));
 jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush }) }));
+
+const EMPTY_COMPETITIONS = {
+  status: 200 as const,
+  data: { data: [], meta: { total: 0, page: 1, limit: 20 } },
+};
 
 import { AthleteCalendarScreen } from './AthleteCalendarScreen';
 
@@ -52,7 +60,10 @@ const PAGE = {
   meta: { total: 1, page: 1, limit: 20 },
 };
 
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => {
+  jest.clearAllMocks();
+  mockListCompetitions.mockResolvedValue(EMPTY_COMPETITIONS);
+});
 
 describe('AthleteCalendarScreen (TLX-100 / A-08)', () => {
   it('rend le calendrier avec les séances affectées dérivées', async () => {
@@ -92,5 +103,39 @@ describe('AthleteCalendarScreen (TLX-100 / A-08)', () => {
     mockListAssignments.mockResolvedValueOnce({ status: 200, data: PAGE });
     fireEvent.press(screen.getByTestId('calendar-retry'));
     await waitFor(() => expect(screen.getByTestId('calendar-undated-as-1')).toBeOnTheScreen());
+  });
+
+  it('fusionne les compétitions et ouvre le détail au tap (ADR-24 §5)', async () => {
+    mockListAssignments.mockResolvedValue({
+      status: 200,
+      data: { data: [], meta: { total: 0, page: 1, limit: 20 } },
+    });
+    mockListCompetitions.mockResolvedValue({
+      status: 200,
+      data: {
+        data: [
+          {
+            id: 'k-1',
+            coachId: 'c-1',
+            name: 'Coupe régionale',
+            startDate: null,
+            status: 'published',
+          },
+        ],
+        meta: { total: 1, page: 1, limit: 20 },
+      },
+    });
+    render(<AthleteCalendarScreen />, { wrapper: Wrapper });
+
+    await waitFor(() => expect(screen.getByTestId('calendar-undated-k-1')).toBeOnTheScreen());
+    expect(screen.getByText('Coupe régionale')).toBeOnTheScreen();
+
+    fireEvent.press(screen.getByTestId('calendar-undated-k-1'));
+    expect(mockPush).toHaveBeenCalledWith(
+      expect.objectContaining({
+        pathname: '/(athlete)/competition/[id]',
+        params: expect.objectContaining({ id: 'k-1' }),
+      }),
+    );
   });
 });

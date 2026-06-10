@@ -1,4 +1,4 @@
-import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import type { OwnershipService } from '../common/authorization/ownership.service';
 import type { PrismaService } from '../prisma/prisma.service';
 import type { AuthenticatedUser } from '../common/decorators/current-user.decorator';
@@ -47,6 +47,7 @@ function prismaMock(): PrismaMock {
       findMany: jest.fn(),
       count: jest.fn(),
       findFirst: jest.fn(),
+      findUniqueOrThrow: jest.fn(),
       update: jest.fn(),
     },
     competitionEntry: { findFirst: jest.fn() },
@@ -79,6 +80,18 @@ describe('CompetitionsService', () => {
       expect(arg.data.status).toBe(CompetitionStatus.Draft);
       expect(arg.data.startDate).toEqual(new Date('2026-07-01'));
       expect(result).toMatchObject({ id: 'k-1', coachId: 'c-1', status: 'draft' });
+    });
+
+    it('400 si endDate précède startDate (garde applicative, pas la contrainte DB)', async () => {
+      const prisma = prismaMock();
+      await expect(
+        service(prisma).createCompetition('c-1', {
+          name: 'Meeting',
+          startDate: '2026-07-05',
+          endDate: '2026-07-01',
+        }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.competition.create).not.toHaveBeenCalled();
     });
   });
 
@@ -165,10 +178,26 @@ describe('CompetitionsService', () => {
 
     it('endDate fournie est convertie en Date', async () => {
       const prisma = prismaMock();
+      prisma.competition.findUniqueOrThrow.mockResolvedValue({
+        startDate: new Date('2026-07-01'),
+        endDate: null,
+      });
       prisma.competition.update.mockResolvedValue(competitionRow());
       await service(prisma).updateCompetition('c-1', 'k-1', { endDate: '2026-07-03' });
       const data = prisma.competition.update.mock.calls[0][0].data;
       expect(data.endDate).toEqual(new Date('2026-07-03'));
+    });
+
+    it('400 si la endDate fournie précède la startDate existante (valeurs effectives)', async () => {
+      const prisma = prismaMock();
+      prisma.competition.findUniqueOrThrow.mockResolvedValue({
+        startDate: new Date('2026-07-05'),
+        endDate: null,
+      });
+      await expect(
+        service(prisma).updateCompetition('c-1', 'k-1', { endDate: '2026-07-01' }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.competition.update).not.toHaveBeenCalled();
     });
   });
 

@@ -4,10 +4,12 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react-nativ
 import { type ReactNode, useState } from 'react';
 
 const mockListSessions = jest.fn();
+const mockListCompetitions = jest.fn();
 const mockPush = jest.fn();
 
 jest.mock('@talent-x/api-client', () => ({
   listSessions: (...args: unknown[]) => mockListSessions(...args),
+  listCompetitions: (...args: unknown[]) => mockListCompetitions(...args),
   AssignmentStatus: {
     assigned: 'assigned',
     in_progress: 'in_progress',
@@ -15,8 +17,14 @@ jest.mock('@talent-x/api-client', () => ({
     skipped: 'skipped',
   },
   SessionStatus: { draft: 'draft', published: 'published', archived: 'archived' },
+  CompetitionStatus: { draft: 'draft', published: 'published', cancelled: 'cancelled' },
 }));
 jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush }) }));
+
+const EMPTY_COMPETITIONS = {
+  status: 200 as const,
+  data: { data: [], meta: { total: 0, page: 1, limit: 20 } },
+};
 
 import { CoachCalendarScreen } from './CoachCalendarScreen';
 
@@ -45,7 +53,11 @@ const PAGE = {
   meta: { total: 1, page: 1, limit: 20 },
 };
 
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => {
+  jest.clearAllMocks();
+  // Par défaut, aucune compétition : les tests séances restent inchangés (ADR-24 §5).
+  mockListCompetitions.mockResolvedValue(EMPTY_COMPETITIONS);
+});
 
 describe('CoachCalendarScreen (TLX-100 / C-09)', () => {
   it('rend le calendrier avec les séances du coach dérivées', async () => {
@@ -88,5 +100,40 @@ describe('CoachCalendarScreen (TLX-100 / C-09)', () => {
     mockListSessions.mockResolvedValueOnce({ status: 200, data: PAGE });
     fireEvent.press(screen.getByTestId('calendar-retry'));
     await waitFor(() => expect(screen.getByTestId('calendar-undated-s-1')).toBeOnTheScreen());
+  });
+
+  it('fusionne les compétitions et ouvre l’édition au tap (ADR-24 §5)', async () => {
+    mockListSessions.mockResolvedValue({
+      status: 200,
+      data: { data: [], meta: { total: 0, page: 1, limit: 20 } },
+    });
+    mockListCompetitions.mockResolvedValue({
+      status: 200,
+      data: {
+        data: [
+          {
+            id: 'k-1',
+            coachId: 'me',
+            name: 'Meeting de printemps',
+            startDate: null,
+            status: 'published',
+          },
+        ],
+        meta: { total: 1, page: 1, limit: 20 },
+      },
+    });
+    render(<CoachCalendarScreen />, { wrapper: Wrapper });
+
+    await waitFor(() => expect(screen.getByTestId('calendar-undated-k-1')).toBeOnTheScreen());
+    expect(screen.getByText('Meeting de printemps')).toBeOnTheScreen();
+    expect(screen.getByText('Compétition · Publiée')).toBeOnTheScreen();
+
+    fireEvent.press(screen.getByTestId('calendar-undated-k-1'));
+    expect(mockPush).toHaveBeenCalledWith(
+      expect.objectContaining({
+        pathname: '/(coach)/competition/[id]',
+        params: expect.objectContaining({ id: 'k-1' }),
+      }),
+    );
   });
 });

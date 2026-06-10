@@ -1,12 +1,19 @@
-import { listAssignments, type Assignment } from '@talent-x/api-client';
+import {
+  listAssignments,
+  listCompetitions,
+  type Assignment,
+  type Competition,
+} from '@talent-x/api-client';
 import { useTheme } from '@talent-x/design-tokens';
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { ActivityIndicator, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { Button, Card } from '../components/ui';
 import { sessionDetailHref } from '../athlete/navigation';
+import { COMPETITIONS_QUERY_KEY } from '../competitions/competitions-query';
+import { athleteCompetitionDetailHref, athleteCompetitionsHref } from '../competitions/navigation';
 import { CalendarView } from './CalendarView';
-import { assignmentToCalendarEntry } from './calendar-model';
+import { assignmentToCalendarEntry, competitionToCalendarEntry } from './calendar-model';
 
 /**
  * Calendrier athlète (A-08 — TLX-100). Vue planning dérivée de `GET /assignments` (role-aware :
@@ -30,7 +37,21 @@ export function AthleteCalendarScreen() {
     retry: false,
   });
 
-  const entries = (query.data ?? []).map(assignmentToCalendarEntry);
+  // Les compétitions où l'athlète est engagé enrichissent le calendrier (ADR-24 §5).
+  const competitions = useQuery({
+    queryKey: COMPETITIONS_QUERY_KEY,
+    queryFn: async (): Promise<Competition[]> => {
+      const response = await listCompetitions();
+      if (response.status === 200) return response.data.data;
+      throw response;
+    },
+    retry: false,
+  });
+
+  const entries = [
+    ...(query.data ?? []).map(assignmentToCalendarEntry),
+    ...(competitions.data ?? []).map(competitionToCalendarEntry),
+  ];
 
   return (
     <ScrollView
@@ -53,6 +74,14 @@ export function AthleteCalendarScreen() {
       >
         Calendrier
       </Text>
+
+      <Button
+        testID="calendar-competitions-link"
+        variant="secondary"
+        onPress={() => router.push(athleteCompetitionsHref())}
+      >
+        Mes compétitions
+      </Button>
 
       {query.isLoading ? (
         <View testID="calendar-loading" style={{ paddingVertical: spacing[6] }}>
@@ -96,7 +125,13 @@ export function AthleteCalendarScreen() {
             entries={entries}
             now={new Date()}
             testIDPrefix="calendar"
-            onPressEntry={(entry) => router.push(sessionDetailHref(entry.id))}
+            onPressEntry={(entry) =>
+              router.push(
+                entry.kind === 'competition'
+                  ? athleteCompetitionDetailHref(entry.id)
+                  : sessionDetailHref(entry.id),
+              )
+            }
           />
         </>
       )}

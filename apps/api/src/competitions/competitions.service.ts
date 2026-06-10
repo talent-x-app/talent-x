@@ -1,4 +1,9 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { Prisma, type Competition } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { OwnershipService } from '../common/authorization/ownership.service';
@@ -28,6 +33,7 @@ export class CompetitionsService {
   ) {}
 
   async createCompetition(coachId: string, dto: CompetitionCreateDto): Promise<CompetitionDto> {
+    assertDateOrder(dto.startDate, dto.endDate);
     const competition = await this.prisma.competition.create({
       data: {
         coachId,
@@ -80,6 +86,20 @@ export class CompetitionsService {
     dto: CompetitionUpdateDto,
   ): Promise<CompetitionDto> {
     await this.ownership.assertCompetitionOwnedByCoach(coachId, id);
+    // Valide l'ordre sur les valeurs *effectives* (DTO fusionné aux valeurs existantes) pour
+    // renvoyer un 400 propre plutôt que de laisser la contrainte CHECK lever un 500.
+    if (dto.startDate !== undefined || dto.endDate !== undefined) {
+      const current = await this.prisma.competition.findUniqueOrThrow({
+        where: { id },
+        select: { startDate: true, endDate: true },
+      });
+      const start = dto.startDate ?? current.startDate.toISOString().slice(0, 10);
+      const end =
+        dto.endDate !== undefined
+          ? dto.endDate
+          : (current.endDate?.toISOString().slice(0, 10) ?? undefined);
+      assertDateOrder(start, end || undefined);
+    }
     const competition = await this.prisma.competition.update({
       where: { id },
       data: {
@@ -130,6 +150,19 @@ export class CompetitionsService {
     if (!entry) {
       throw new ForbiddenException("Vous n'êtes pas engagé à cette compétition.");
     }
+  }
+}
+
+/**
+ * Garde-fou applicatif de l'ordre des dates (miroir de la contrainte CHECK `ck_competition_dates`) :
+ * renvoie un 400 explicite au lieu de laisser la base lever une erreur générique (500).
+ * Comparaison lexicographique valide car les dates sont calendaires `YYYY-MM-DD`.
+ */
+function assertDateOrder(startDate: string, endDate?: string): void {
+  if (endDate && endDate < startDate) {
+    throw new BadRequestException(
+      'La date de fin doit être postérieure ou égale à la date de début.',
+    );
   }
 }
 

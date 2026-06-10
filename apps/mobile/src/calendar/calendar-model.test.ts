@@ -1,8 +1,9 @@
-import type { Assignment, Session } from '@talent-x/api-client';
+import type { Assignment, Competition, Session } from '@talent-x/api-client';
 import {
   addDays,
   assignmentToCalendarEntry,
   type CalendarEntry,
+  competitionToCalendarEntry,
   dayKey,
   formatDayLabel,
   formatWeekLabel,
@@ -34,8 +35,18 @@ const assignment = (over: Partial<Assignment> = {}): Assignment => ({
   ...over,
 });
 
+const competition = (over: Partial<Competition> = {}): Competition => ({
+  id: 'k-1',
+  coachId: 'c-1',
+  name: 'Meeting de printemps',
+  startDate: '2026-07-01',
+  status: 'published',
+  ...over,
+});
+
 const entry = (over: Partial<CalendarEntry> = {}): CalendarEntry => ({
   id: 'e-1',
+  kind: 'assignment',
   title: 'Séance',
   date: '2026-05-12',
   tone: 'accent',
@@ -140,6 +151,34 @@ describe('sessionToCalendarEntry (C-09)', () => {
 
   it("date null si la séance n'est pas planifiée", () => {
     expect(sessionToCalendarEntry(session({ scheduledDate: undefined })).date).toBeNull();
+  });
+});
+
+describe('competitionToCalendarEntry (ADR-24 §5)', () => {
+  it('mappe une compétition publiée (date de début, libellé « Compétition »)', () => {
+    const e = competitionToCalendarEntry(competition({ startDate: '2026-07-01' }));
+    expect(e).toMatchObject({
+      id: 'k-1',
+      kind: 'competition',
+      title: 'Meeting de printemps',
+      date: '2026-07-01',
+      tone: 'accent',
+      statusLabel: 'Compétition · Publiée',
+    });
+  });
+
+  it('mappe une compétition annulée (tonalité danger)', () => {
+    const e = competitionToCalendarEntry(competition({ status: 'cancelled' }));
+    expect(e).toMatchObject({ tone: 'danger', statusLabel: 'Compétition · Annulée' });
+  });
+
+  it('titre de repli si le nom est vide', () => {
+    expect(competitionToCalendarEntry(competition({ name: '   ' })).title).toBe('Compétition');
+  });
+
+  it('normalise un instant ISO complet en jour calendaire', () => {
+    const e = competitionToCalendarEntry(competition({ startDate: '2026-07-01T00:00:00.000Z' }));
+    expect(e.date).toBe('2026-07-01');
   });
 });
 

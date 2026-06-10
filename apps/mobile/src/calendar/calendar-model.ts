@@ -1,4 +1,10 @@
-import { SessionStatus, type Assignment, type Session } from '@talent-x/api-client';
+import {
+  CompetitionStatus,
+  SessionStatus,
+  type Assignment,
+  type Competition,
+  type Session,
+} from '@talent-x/api-client';
 import { ASSIGNMENT_STATUS_META } from '../athlete/athlete-session-ui';
 
 /**
@@ -15,10 +21,18 @@ import { ASSIGNMENT_STATUS_META } from '../athlete/athlete-session-ui';
 
 export type CalendarTone = 'success' | 'warning' | 'danger' | 'neutral' | 'accent';
 
-/** Entrée de calendrier dérivée (affectation côté athlète, séance côté coach). */
+/** Nature de l'entrée : détermine la route de navigation chez le parent (ADR-24 §5). */
+export type CalendarEntryKind = 'session' | 'assignment' | 'competition';
+
+/** Entrée de calendrier dérivée (séance/affectation ou compétition — ADR-24). */
 export interface CalendarEntry {
-  /** Identifiant de la ressource navigable : affectation (athlète) ou séance (coach). */
+  /**
+   * Identifiant de la ressource navigable selon `kind` : affectation (athlète),
+   * séance (coach), ou compétition (les deux rôles).
+   */
   id: string;
+  /** Type de ressource sous-jacente → route de destination résolue par le parent. */
+  kind: CalendarEntryKind;
   title: string;
   /** Jour calendaire `YYYY-MM-DD`, ou `null` si non planifiée. */
   date: string | null;
@@ -31,6 +45,16 @@ export const SESSION_STATUS_META: Record<SessionStatus, { label: string; tone: C
   [SessionStatus.draft]: { label: 'Brouillon', tone: 'neutral' },
   [SessionStatus.published]: { label: 'Publiée', tone: 'accent' },
   [SessionStatus.archived]: { label: 'Archivée', tone: 'neutral' },
+};
+
+/** Libellé + tonalité par statut de compétition (ADR-24). */
+export const COMPETITION_STATUS_META: Record<
+  CompetitionStatus,
+  { label: string; tone: CalendarTone }
+> = {
+  [CompetitionStatus.draft]: { label: 'Brouillon', tone: 'neutral' },
+  [CompetitionStatus.published]: { label: 'Publiée', tone: 'accent' },
+  [CompetitionStatus.cancelled]: { label: 'Annulée', tone: 'danger' },
 };
 
 /**
@@ -50,6 +74,7 @@ export function assignmentToCalendarEntry(a: Assignment): CalendarEntry {
   const title = a.session?.title?.trim();
   return {
     id: a.id,
+    kind: 'assignment',
     title: title && title.length > 0 ? title : 'Séance',
     date: normalizeDate(a.dueDate ?? a.session?.scheduledDate),
     tone: toneFromAssignment(meta.tone),
@@ -63,10 +88,30 @@ export function sessionToCalendarEntry(s: Session): CalendarEntry {
   const title = s.title?.trim();
   return {
     id: s.id,
+    kind: 'session',
     title: title && title.length > 0 ? title : 'Séance',
     date: normalizeDate(s.scheduledDate),
     tone: meta.tone,
     statusLabel: meta.label,
+  };
+}
+
+/**
+ * Compétition → entrée de calendrier (ADR-24 §5). Date = jour de début. Le `statusLabel`
+ * porte le libellé « Compétition » pour distinguer ces entrées des séances dans la grille
+ * partagée (les deux rôles consomment `GET /competitions`, role-aware). Navigue vers le
+ * détail (athlète) ou l'édition (coach), résolu par le parent via `kind`.
+ */
+export function competitionToCalendarEntry(c: Competition): CalendarEntry {
+  const meta = COMPETITION_STATUS_META[c.status];
+  const title = c.name?.trim();
+  return {
+    id: c.id,
+    kind: 'competition',
+    title: title && title.length > 0 ? title : 'Compétition',
+    date: normalizeDate(c.startDate),
+    tone: meta.tone,
+    statusLabel: `Compétition · ${meta.label}`,
   };
 }
 
