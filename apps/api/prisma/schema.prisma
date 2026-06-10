@@ -45,6 +45,7 @@ model User {
   refreshTokens    RefreshToken[]
   deviceTokens     DeviceToken[]
   notificationPreferences NotificationPreferences?
+  notifications    Notification[]
   exportJobs       ExportJob[]
   coachedGroups    Group[]             @relation("GroupCoach")
   groupMemberships GroupMember[]
@@ -112,6 +113,27 @@ model DeviceToken {
 
   @@index([userId], map: "ix_device_user")
   @@map("device_tokens")
+}
+
+/// Notification in-app (ADR-23). Historique par destinataire, persisté par le
+/// worker derrière la même garde de préférence que le push. Contenu minimal
+/// (type + ressource, ADR-10) : les libellés sont composés côté client.
+model Notification {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  /// 'session_assigned' | 'performance_feedback' | 'group_update' (CHECK en base)
+  type       String
+  resourceId String    @map("resource_id") @db.Uuid
+  /// Clé d'idempotence = jobId BullMQ : le rejeu d'un job ne crée pas de doublon.
+  dedupeKey  String    @unique @map("dedupe_key")
+  readAt     DateTime? @map("read_at") @db.Timestamptz(6)
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt(sort: Desc)], map: "ix_notifications_user_created")
+  // Index partiel non-lus (user_id) WHERE read_at IS NULL → migration SQL.
+  @@map("notifications")
 }
 
 /// Préférences de notification (ADR-22). 1:1 users ; absence de ligne = défauts

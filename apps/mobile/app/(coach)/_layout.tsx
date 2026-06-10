@@ -55,6 +55,8 @@ export default function CoachLayout() {
       <Tabs.Screen name="session/[id]" options={{ href: null }} />
       {/* Assignation de séance (C-06/C-07) : routable mais masquée du tab bar. */}
       <Tabs.Screen name="assign/[id]" options={{ href: null }} />
+      {/* Centre de notifications (TLX-111) : routable mais masqué du tab bar. */}
+      <Tabs.Screen name="notifications" options={{ href: null }} />
     </Tabs>
   );
 }

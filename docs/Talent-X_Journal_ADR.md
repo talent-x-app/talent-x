@@ -396,7 +396,7 @@ dans les services métier.
 
 Décision complète : [`docs/adr/ADR-23-notifications-in-app.md`](adr/ADR-23-notifications-in-app.md).
 
-**Statut : Proposé** (bloque la moitié in-app de TLX-111).
+**Statut : Accepté** (validé 2026-06-10 — débloque la moitié in-app de TLX-111).
 
 **En bref.** TLX-111 doit livrer un centre de notifications in-app, mais rien n'existe
 (ni table, ni endpoint, ni écran maquetté) — l'ADR-22 avait volontairement repoussé

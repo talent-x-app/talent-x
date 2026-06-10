@@ -45,15 +45,18 @@ import type {
   ListCommentsParams,
   ListGroupMembersParams,
   ListGroupsParams,
+  ListNotificationsParams,
   ListSessionsParams,
   LoginRequest,
   NotFoundResponse,
+  NotificationPage,
   NotificationPreferences,
   Performance,
   PerformanceCreate,
   PersonalRecord,
   PersonalRecordList,
   Progress,
+  ReadAllResult,
   Readiness,
   RecordConfirm,
   RefreshRequest,
@@ -3399,6 +3402,140 @@ export const getCoachDashboard = async ( options?: RequestInit): Promise<getCoac
   {
     ...options,
     method: 'GET'
+
+
+  }
+);}
+
+
+
+export type listNotificationsResponse200 = {
+  data: NotificationPage
+  status: 200
+}
+
+export type listNotificationsResponse400 = {
+  data: BadRequestResponse
+  status: 400
+}
+
+export type listNotificationsResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type listNotificationsResponse422 = {
+  data: ValidationFailedResponse
+  status: 422
+}
+
+export type listNotificationsResponse429 = {
+  data: TooManyRequestsResponse
+  status: 429
+}
+
+export type listNotificationsResponse500 = {
+  data: ServerErrorResponse
+  status: 500
+}
+
+export type listNotificationsResponseSuccess = (listNotificationsResponse200) & {
+  headers: Headers;
+};
+export type listNotificationsResponseError = (listNotificationsResponse400 | listNotificationsResponse401 | listNotificationsResponse422 | listNotificationsResponse429 | listNotificationsResponse500) & {
+  headers: Headers;
+};
+
+export type listNotificationsResponse = (listNotificationsResponseSuccess | listNotificationsResponseError)
+
+export const getListNotificationsUrl = (params?: ListNotificationsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/notifications?${stringifiedParams}` : `/notifications`
+}
+
+/**
+ * Historique in-app (ADR-23) — contenu minimal (type + identifiant de ressource), libellés composés côté client. `unreadCount` alimente le badge.
+ * @summary Lister ses notifications in-app (récentes d'abord)
+ */
+export const listNotifications = async (params?: ListNotificationsParams, options?: RequestInit): Promise<listNotificationsResponse> => {
+
+  return customFetch<listNotificationsResponse>(getListNotificationsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+export type readAllNotificationsResponse200 = {
+  data: ReadAllResult
+  status: 200
+}
+
+export type readAllNotificationsResponse400 = {
+  data: BadRequestResponse
+  status: 400
+}
+
+export type readAllNotificationsResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type readAllNotificationsResponse422 = {
+  data: ValidationFailedResponse
+  status: 422
+}
+
+export type readAllNotificationsResponse429 = {
+  data: TooManyRequestsResponse
+  status: 429
+}
+
+export type readAllNotificationsResponse500 = {
+  data: ServerErrorResponse
+  status: 500
+}
+
+export type readAllNotificationsResponseSuccess = (readAllNotificationsResponse200) & {
+  headers: Headers;
+};
+export type readAllNotificationsResponseError = (readAllNotificationsResponse400 | readAllNotificationsResponse401 | readAllNotificationsResponse422 | readAllNotificationsResponse429 | readAllNotificationsResponse500) & {
+  headers: Headers;
+};
+
+export type readAllNotificationsResponse = (readAllNotificationsResponseSuccess | readAllNotificationsResponseError)
+
+export const getReadAllNotificationsUrl = () => {
+
+
+
+
+  return `/notifications/read-all`
+}
+
+/**
+ * @summary Marquer toutes les notifications comme lues
+ */
+export const readAllNotifications = async ( options?: RequestInit): Promise<readAllNotificationsResponse> => {
+
+  return customFetch<readAllNotificationsResponse>(getReadAllNotificationsUrl(),
+  {
+    ...options,
+    method: 'POST'
 
 
   }

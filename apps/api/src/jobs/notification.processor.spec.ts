@@ -5,6 +5,7 @@ import type { PushProvider } from './push-provider';
 type PrismaMock = {
   notificationPreferences: Record<string, jest.Mock>;
   deviceToken: Record<string, jest.Mock>;
+  notification: Record<string, jest.Mock>;
 };
 
 function prismaMock(): PrismaMock {
@@ -14,6 +15,7 @@ function prismaMock(): PrismaMock {
       findMany: jest.fn().mockResolvedValue([]),
       updateMany: jest.fn().mockResolvedValue({ count: 0 }),
     },
+    notification: { upsert: jest.fn().mockResolvedValue({}) },
   };
 }
 
@@ -29,6 +31,7 @@ const PAYLOAD = {
   type: 'session_assigned' as const,
   recipientUserId: 'u-1',
   resourceId: 'asg-1',
+  dedupeKey: 'session_assigned--asg-1',
 };
 
 const DEVICES = [
@@ -65,7 +68,7 @@ describe('NotificationProcessor (TLX-110, ADR-22)', () => {
     expect(provider.send).toHaveBeenCalledTimes(1);
   });
 
-  it('préférence off → aucun envoi (garde par type)', async () => {
+  it('préférence off → ni push ni entrée in-app (silence total, ADR-23)', async () => {
     const prisma = prismaMock();
     const provider = providerMock();
     prisma.notificationPreferences.findUnique.mockResolvedValue({
@@ -79,6 +82,27 @@ describe('NotificationProcessor (TLX-110, ADR-22)', () => {
 
     await make(prisma, provider).process(PAYLOAD);
 
+    expect(provider.send).not.toHaveBeenCalled();
+    expect(prisma.notification.upsert).not.toHaveBeenCalled();
+  });
+
+  it('persiste l’entrée in-app (upsert dedupe_key) même sans device actif', async () => {
+    const prisma = prismaMock();
+    const provider = providerMock();
+    prisma.deviceToken.findMany.mockResolvedValue([]);
+
+    await make(prisma, provider).process(PAYLOAD);
+
+    expect(prisma.notification.upsert).toHaveBeenCalledWith({
+      where: { dedupeKey: 'session_assigned--asg-1' },
+      create: {
+        userId: 'u-1',
+        type: 'session_assigned',
+        resourceId: 'asg-1',
+        dedupeKey: 'session_assigned--asg-1',
+      },
+      update: {},
+    });
     expect(provider.send).not.toHaveBeenCalled();
   });
 

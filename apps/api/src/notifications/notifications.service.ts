@@ -1,11 +1,17 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import type { DeviceToken } from '@prisma/client';
+import type { DeviceToken, Notification } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { buildPageMeta } from '../common/pagination/page-meta';
+import { PaginationQueryDto } from '../common/pagination/pagination-query.dto';
 import {
   DeviceTokenCreateDto,
   DeviceTokenDto,
+  NotificationDto,
+  NotificationPageDto,
   NotificationPreferencesDto,
+  ReadAllResultDto,
   type DevicePlatform,
+  type NotificationTypeValue,
 } from './dto/notifications.dto';
 
 /** Défauts de préférences (ADR-22) : tout actif sauf marketing (opt-in RGPD). */
@@ -27,6 +33,35 @@ const PREFERENCE_DEFAULTS: Required<NotificationPreferencesDto> = {
 @Injectable()
 export class NotificationsService {
   constructor(private readonly prisma: PrismaService) {}
+
+  /** Feed in-app (ADR-23) : page triée récentes d'abord + compteur de non-lues (badge). */
+  async listNotifications(userId: string, q: PaginationQueryDto): Promise<NotificationPageDto> {
+    const where = { userId };
+    const [rows, total, unreadCount] = await this.prisma.$transaction([
+      this.prisma.notification.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: q.skip,
+        take: q.limit,
+      }),
+      this.prisma.notification.count({ where }),
+      this.prisma.notification.count({ where: { userId, readAt: null } }),
+    ]);
+    return {
+      data: rows.map(toNotificationDto),
+      meta: buildPageMeta(total, q.page, q.limit),
+      unreadCount,
+    };
+  }
+
+  /** Marque tout lu (appelé à l'ouverture du centre de notifications). */
+  async readAll(userId: string): Promise<ReadAllResultDto> {
+    const { count } = await this.prisma.notification.updateMany({
+      where: { userId, readAt: null },
+      data: { readAt: new Date() },
+    });
+    return { updated: count };
+  }
 
   async registerDevice(userId: string, dto: DeviceTokenCreateDto): Promise<DeviceTokenDto> {
     const now = new Date();
@@ -86,6 +121,16 @@ export class NotificationsService {
       marketing: row.marketing,
     };
   }
+}
+
+function toNotificationDto(notification: Notification): NotificationDto {
+  return {
+    id: notification.id,
+    type: notification.type as NotificationTypeValue,
+    resourceId: notification.resourceId,
+    readAt: notification.readAt?.toISOString(),
+    createdAt: notification.createdAt.toISOString(),
+  };
 }
 
 function toDeviceTokenDto(device: DeviceToken): DeviceTokenDto {

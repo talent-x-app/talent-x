@@ -23,19 +23,26 @@ export class NotificationQueueService implements OnModuleDestroy {
   constructor(private readonly config: ConfigService) {}
 
   /**
-   * Enfile une notification. `dedupeKey` devient le `jobId` BullMQ : un même
-   * événement (ré-affectation idempotente, retry réseau) n'est pas enfilé deux fois
-   * tant que le job précédent est encore présent.
+   * Enfile une notification. `dedupeKey` devient le `jobId` BullMQ (pas deux jobs
+   * pour le même événement) et voyage dans le payload : le worker s'en sert comme
+   * clé d'idempotence de la persistance in-app (ADR-23).
    */
-  async enqueue(payload: NotificationJobPayload, dedupeKey: string): Promise<void> {
+  async enqueue(
+    payload: Omit<NotificationJobPayload, 'dedupeKey'>,
+    dedupeKey: string,
+  ): Promise<void> {
     try {
-      await this.queue().add(NOTIFICATION_JOB_NAME, payload, {
-        jobId: dedupeKey,
-        attempts: 3,
-        backoff: { type: 'exponential', delay: 5_000 },
-        removeOnComplete: true,
-        removeOnFail: 1_000,
-      });
+      await this.queue().add(
+        NOTIFICATION_JOB_NAME,
+        { ...payload, dedupeKey },
+        {
+          jobId: dedupeKey,
+          attempts: 3,
+          backoff: { type: 'exponential', delay: 5_000 },
+          removeOnComplete: true,
+          removeOnFail: 1_000,
+        },
+      );
       this.logger.log(
         `Notification enfilée : type=${payload.type} dest=${payload.recipientUserId} job=${dedupeKey}`,
       );

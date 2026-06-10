@@ -7,6 +7,8 @@ import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-nat
 import { useSession } from '../auth/SessionProvider';
 import { Button, Card, Input } from '../components/ui';
 import { toUserMessage, useToast } from '../feedback';
+import { NotificationPreferencesSection } from '../notifications/NotificationPreferencesSection';
+import { NotificationsLink } from '../notifications/NotificationsLink';
 
 /** Clé de cache du profil courant (partagée avec d'éventuels invalidations). */
 export const ME_QUERY_KEY = ['me'] as const;
@@ -228,6 +230,9 @@ export function ProfileScreen() {
               <Field label="Bio" value={user.bio} />
             </View>
           </Card>
+          {/* Centre de notifications + préférences (TLX-111, ADR-23). */}
+          <NotificationsLink />
+          <NotificationPreferencesSection />
           <Button testID="profile-edit" size="lg" fullWidth onPress={() => startEditing(user)}>
             Modifier mon profil
           </Button>

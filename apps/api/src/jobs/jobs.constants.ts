@@ -31,9 +31,12 @@ export type NotificationType = 'session_assigned' | 'performance_feedback' | 'gr
 /**
  * Payload d'un job de notification — minimal et non sensible (ADR-10) : un signal
  * typé + l'identifiant de la ressource à ouvrir, jamais de contenu métier.
+ * `dedupeKey` (= jobId BullMQ) sert aussi de clé d'idempotence à la persistance
+ * in-app (ADR-23 : unique `notifications.dedupe_key`).
  */
 export interface NotificationJobPayload {
   type: NotificationType;
   recipientUserId: string;
   resourceId: string;
+  dedupeKey: string;
 }

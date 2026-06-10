@@ -394,6 +394,34 @@ athlete-session-ui.tsx`. 10 tests ; **suite mobile 108/108**. **Validé en réel
 - **Non testé en réel** (credentials absents) : l'envoi APNs/FCM effectif —
   adaptateurs réels + ticket Linear de suivi dédié.
 
+## Terminés ce sprint — TLX-111 Notifications in-app + préférences (ADR-23) — **clôt le jalon Progression & Échanges**
+
+- **ADR-23 accepté** : table `notifications` (type + resource_id, `dedupe_key`
+  **unique aligné sur le jobId BullMQ**, `read_at`, index user/created + partiel
+  non-lus), persistée **par le worker derrière la même garde de préférence que le
+  push** (préférence off = silence total, minimisation RGPD) ; contrat additif
+  `GET /notifications` (paginé + `unreadCount`) + `POST /notifications/read-all`.
+- **(API)** `dedupeKey` voyage dans le payload du job ; `NotificationProcessor`
+  upsert l'entrée in-app avant la tentative push (rejeu sans doublon) ; feed +
+  read-all sur `NotificationsService`. `performance_feedback.resourceId` =
+  **affectation** (la ressource navigable côté athlète — le fil A-09 vit sur le
+  détail de séance), décidé en implémentation. +5 tests ; **API 285/285**.
+- **(UI)** `src/notifications/` : `NotificationsScreen` (centre — libellés/icônes
+  par type composés client (`notification-ui.ts`), point non-lu, date relative,
+  read-all à l'ouverture, navigation par type×rôle), `NotificationsLink` (entrée
+  Profil avec **badge non-lus**, cache partagé avec le centre),
+  `NotificationPreferencesSection` (4 switches, **PUT partiel optimiste** avec
+  rollback + toast) — intégrés à l'écran Profil partagé ; routes cachées
+  `(athlete|coach)/notifications`. +12 tests ; **mobile 237/237** ; typecheck clean.
+- **Validé en réel** (API + Redis + worker + Expo web) : adhésion + affectation +
+  commentaire coach → feed athlète `unreadCount 2` (types et `resourceId` =
+  affectation vérifiés), feed coach `group_update` ; UI login Awa → Profil :
+  **badge 1**, défauts des switches corrects → centre : 3 items libellés datés,
+  read-all (badge disparaît) → clic « Nouvelle séance » → **détail de la séance**
+  → bascule marketing → PUT persisté (vérif serveur + rechargement). Zéro erreur
+  console. Worker : persistance puis « sans cible » (aucun device — chemin push
+  déjà validé TLX-110).
+
 ## Notes / dépendances (réutilisables)
 
 - **Mapper séance partagé** : `sessions/session.mapper.ts` (`toSessionDto`).

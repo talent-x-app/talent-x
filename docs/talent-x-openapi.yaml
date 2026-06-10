@@ -1429,6 +1429,57 @@ paths:
           $ref: '#/components/responses/ServerError'
         '403':
           $ref: '#/components/responses/Forbidden'
+  /notifications:
+    get:
+      tags:
+      - Notifications
+      summary: Lister ses notifications in-app (récentes d'abord)
+      description: Historique in-app (ADR-23) — contenu minimal (type + identifiant
+        de ressource), libellés composés côté client. `unreadCount` alimente le badge.
+      operationId: listNotifications
+      parameters:
+      - $ref: '#/components/parameters/PageParam'
+      - $ref: '#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: Page de notifications + compteur de non-lues.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
+  /notifications/read-all:
+    post:
+      tags:
+      - Notifications
+      summary: Marquer toutes les notifications comme lues
+      operationId: readAllNotifications
+      responses:
+        '200':
+          description: Notifications marquées lues.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadAllResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
   /notifications/devices:
     post:
       tags:
@@ -2776,6 +2827,64 @@ components:
       enum:
       - apns
       - fcm
+    NotificationType:
+      type: string
+      description: Taxonomie des événements notifiables (ADR-22).
+      enum:
+      - session_assigned
+      - performance_feedback
+      - group_update
+    Notification:
+      type: object
+      description: Notification in-app (ADR-23) — signal minimal, libellé côté client.
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          $ref: '#/components/schemas/NotificationType'
+        resourceId:
+          type: string
+          format: uuid
+          description: Ressource à ouvrir — affectation pour session_assigned et
+            performance_feedback (le fil de feedback vit sur le détail de séance),
+            groupe pour group_update.
+        readAt:
+          type: string
+          format: date-time
+          description: Absent tant que non lue.
+        createdAt:
+          type: string
+          format: date-time
+      required:
+      - id
+      - type
+      - resourceId
+      - createdAt
+    NotificationPage:
+      type: object
+      required:
+      - data
+      - meta
+      - unreadCount
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Notification'
+        meta:
+          $ref: '#/components/schemas/PageMeta'
+        unreadCount:
+          type: integer
+          description: Nombre total de notifications non lues (badge).
+    ReadAllResult:
+      type: object
+      required:
+      - updated
+      properties:
+        updated:
+          type: integer
+          description: Nombre de notifications passées à lues.
     DeviceToken:
       type: object
       properties:

@@ -50,6 +50,8 @@ export default function AthleteLayout() {
       <Tabs.Screen name="session/[id]" options={{ href: null }} />
       {/* Confirmation de perf (A-05) : routable mais masquée du tab bar. */}
       <Tabs.Screen name="perf/[id]" options={{ href: null }} />
+      {/* Centre de notifications (TLX-111) : routable mais masqué du tab bar. */}
+      <Tabs.Screen name="notifications" options={{ href: null }} />
     </Tabs>
   );
 }

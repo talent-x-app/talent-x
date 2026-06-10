@@ -80,7 +80,12 @@ function make(
 
 /** Performance dont la séance appartient au coach c-1, athlète a-1. */
 function perfAccessible(over: Record<string, unknown> = {}) {
-  return { athleteId: 'a-1', assignment: { session: { coachId: 'c-1' } }, ...over };
+  return {
+    athleteId: 'a-1',
+    assignmentId: 'asg-7',
+    assignment: { session: { coachId: 'c-1' } },
+    ...over,
+  };
 }
 
 describe('CommentsService (TLX-086)', () => {
@@ -122,8 +127,9 @@ describe('CommentsService (TLX-086)', () => {
         body: 'Beau travail.',
       });
 
+      // resourceId = affectation (la ressource navigable côté athlète, ADR-23).
       expect(queue.enqueue).toHaveBeenCalledWith(
-        { type: 'performance_feedback', recipientUserId: 'a-1', resourceId: PERF_ID },
+        { type: 'performance_feedback', recipientUserId: 'a-1', resourceId: 'asg-7' },
         'performance_feedback--cm-1',
       );
     });

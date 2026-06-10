@@ -1,7 +1,7 @@
 # ADR-23 — Notifications in-app : historique, contrat de feed, écran préférences
 
-- **Statut :** Proposé
-- **Date :** 2026-06-10
+- **Statut :** Accepté
+- **Date :** 2026-06-10 (validé 2026-06-10)
 - **Complète :** TX-DATA-006 (aucune table d'historique), `talent-x-openapi.yaml`
   (aucun endpoint de feed), TX-SPEC-002 §3 (« préférences de notification » citées
   dans l'édition de profil sans écran spécifié)

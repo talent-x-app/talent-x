@@ -41,9 +41,9 @@ export class CommentsService {
   /** Crée un commentaire sur l'unique cible fournie (séance XOR performance). */
   async createComment(user: AuthenticatedUser, dto: CommentCreateDto): Promise<CommentDto> {
     const target = exactlyOneTarget(dto.sessionId, dto.performanceId);
-    let performanceAthleteId: string | undefined;
+    let performance: PerformanceTarget | undefined;
     if (target === 'performance') {
-      performanceAthleteId = await this.assertCanAccessPerformance(user, dto.performanceId!);
+      performance = await this.assertCanAccessPerformance(user, dto.performanceId!);
     } else {
       await this.assertCanAccessSession(user, dto.sessionId!);
     }
@@ -58,12 +58,14 @@ export class CommentsService {
     });
 
     // Feedback du coach sur une performance → notifie l'athlète (ADR-22).
-    if (user.role === 'coach' && target === 'performance' && performanceAthleteId) {
+    // resourceId = affectation : c'est la ressource navigable côté athlète
+    // (le fil de feedback A-09 vit sur le détail de séance, indexé par affectation).
+    if (user.role === 'coach' && target === 'performance' && performance) {
       await this.notificationQueue.enqueue(
         {
           type: 'performance_feedback',
-          recipientUserId: performanceAthleteId,
-          resourceId: dto.performanceId!,
+          recipientUserId: performance.athleteId,
+          resourceId: performance.assignmentId,
         },
         // « : » est interdit dans un jobId BullMQ (séparateur interne de clés Redis).
         `performance_feedback--${comment.id}`,
@@ -114,16 +116,17 @@ export class CommentsService {
   /**
    * Accès à une performance cible : athlète titulaire, ou coach propriétaire de la séance
    * (lien actif + consentement `coach_access`). Mêmes règles que la lecture de la perf.
-   * Renvoie l'athlète titulaire (destinataire d'une éventuelle notification).
+   * Renvoie titulaire + affectation (destinataire et cible d'une éventuelle notification).
    */
   private async assertCanAccessPerformance(
     user: AuthenticatedUser,
     performanceId: string,
-  ): Promise<string> {
+  ): Promise<PerformanceTarget> {
     const performance = await this.prisma.performance.findUnique({
       where: { id: performanceId },
       select: {
         athleteId: true,
+        assignmentId: true,
         assignment: { select: { session: { select: { coachId: true } } } },
       },
     });
@@ -139,7 +142,7 @@ export class CommentsService {
     } else if (performance.athleteId !== user.id) {
       throw new ForbiddenException('Cette performance ne vous appartient pas.');
     }
-    return performance.athleteId;
+    return { athleteId: performance.athleteId, assignmentId: performance.assignmentId };
   }
 
   /** Accès à une séance cible : coach propriétaire, ou athlète affecté (lien à la séance). */
@@ -165,6 +168,12 @@ export class CommentsService {
       throw new ForbiddenException('Cette séance ne vous est pas accessible.');
     }
   }
+}
+
+/** Titulaire + affectation d'une performance cible (notification ADR-22/23). */
+interface PerformanceTarget {
+  athleteId: string;
+  assignmentId: string;
 }
 
 /** Vérifie qu'exactement une cible est fournie ; renvoie laquelle. 400 sinon. */

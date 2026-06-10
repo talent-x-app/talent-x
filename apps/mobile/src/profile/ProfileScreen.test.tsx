@@ -6,14 +6,21 @@ import { type ReactNode, useState } from 'react';
 const mockGetMe = jest.fn();
 const mockUpdateMe = jest.fn();
 const mockReplace = jest.fn();
+const mockPush = jest.fn();
 const mockSignOut = jest.fn();
 const mockShow = jest.fn();
+const mockListNotifications = jest.fn();
+const mockGetPreferences = jest.fn();
+const mockUpdatePreferences = jest.fn();
 
 jest.mock('@talent-x/api-client', () => ({
   getMe: (...args: unknown[]) => mockGetMe(...args),
   updateMe: (...args: unknown[]) => mockUpdateMe(...args),
+  listNotifications: (...args: unknown[]) => mockListNotifications(...args),
+  getNotificationPreferences: (...args: unknown[]) => mockGetPreferences(...args),
+  updateNotificationPreferences: (...args: unknown[]) => mockUpdatePreferences(...args),
 }));
-jest.mock('expo-router', () => ({ useRouter: () => ({ replace: mockReplace }) }));
+jest.mock('expo-router', () => ({ useRouter: () => ({ replace: mockReplace, push: mockPush }) }));
 jest.mock('../auth/SessionProvider', () => ({
   useSession: () => ({
     signOut: mockSignOut,
@@ -56,6 +63,23 @@ const USER = {
 beforeEach(() => {
   jest.clearAllMocks();
   mockSignOut.mockResolvedValue(undefined);
+  mockListNotifications.mockResolvedValue({
+    status: 200,
+    data: {
+      data: [],
+      meta: { total: 0, page: 1, limit: 50, hasNext: false },
+      unreadCount: 2,
+    },
+  });
+  mockGetPreferences.mockResolvedValue({
+    status: 200,
+    data: {
+      sessionAssigned: true,
+      performanceFeedback: true,
+      groupUpdates: true,
+      marketing: false,
+    },
+  });
 });
 
 describe('ProfileScreen (TLX-042)', () => {
@@ -80,6 +104,23 @@ describe('ProfileScreen (TLX-042)', () => {
     await waitFor(() => expect(screen.getByTestId('profile-name')).toBeOnTheScreen());
     expect(screen.getByText('Marc Caron')).toBeOnTheScreen();
     expect(screen.getByText('Coach')).toBeOnTheScreen();
+  });
+
+  it('entrée Notifications (badge non-lus) + section préférences (TLX-111)', async () => {
+    mockGetMe.mockResolvedValue({ status: 200, data: USER });
+    render(<ProfileScreen />, { wrapper: Wrapper });
+
+    await waitFor(() => expect(screen.getByTestId('profile-notifications-link')).toBeOnTheScreen());
+    await waitFor(() =>
+      expect(screen.getByTestId('profile-notifications-badge')).toBeOnTheScreen(),
+    );
+    expect(screen.getByTestId('profile-notifications-badge')).toHaveTextContent('2');
+    await waitFor(() =>
+      expect(screen.getByTestId('notification-pref-sessionAssigned')).toBeOnTheScreen(),
+    );
+
+    fireEvent.press(screen.getByTestId('profile-notifications-link'));
+    expect(mockPush).toHaveBeenCalledWith('/(athlete)/notifications');
   });
 
   it('état erreur : message + réessai relance la requête', async () => {
