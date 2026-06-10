@@ -2,15 +2,28 @@
   "expo": {
     "name": "Talent-X",
     "slug": "talent-x",
+    "owner": "talent-x",
     "scheme": "talentx",
     "version": "0.1.0",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "platforms": ["ios", "android", "web"],
+    "android": {
+      "package": "com.talentx.app"
+    },
+    "ios": {
+      "bundleIdentifier": "com.talentx.app"
+    },
     "plugins": ["expo-router", "expo-font", "expo-secure-store"],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "ac859192-b5db-4d46-9e25-959958791804"
+      }
     }
   }
 }
