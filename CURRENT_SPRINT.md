@@ -422,6 +422,39 @@ athlete-session-ui.tsx`. 10 tests ; **suite mobile 108/108**. **Validé en réel
   console. Worker : persistance puis « sans cible » (aucun device — chemin push
   déjà validé TLX-110).
 
+## Terminés — TLX-100 Calendrier athlète (A-08) + coach (C-09) — **ouvre le jalon Calendrier & Compétitions**
+
+- **Vue dérivée, zéro backend, zéro contrat** (même approche que C-01 §4 / A-06) : le calendrier
+  se reconstruit côté front depuis les endpoints existants — athlète via `GET /assignments`
+  (séances affectées, séance embarquée), coach via `GET /sessions` (ses séances, role-aware).
+  Aucun endpoint ni ADR nécessaires.
+- **Module pur `src/calendar/calendar-model.ts`** — dérivation + dates **UTC** (cohérent avec
+  `dueDate`/`scheduledDate` calendaires et la borne de jour backend) : `assignmentToCalendarEntry`
+  (date = échéance, à défaut date planifiée de la séance ; tonalité/libellé via
+  `ASSIGNMENT_STATUS_META`), `sessionToCalendarEntry` (date planifiée ; `SESSION_STATUS_META`
+  Brouillon/Publiée/Archivée), `startOfWeek` (lundi), `weekDays`, `weekView`, `groupEntriesByDay`,
+  `undatedEntries`, `formatWeekLabel`/`formatDayLabel`. Normalisation défensive (ISO complet →
+  jour, valeur vide/invalide → `null`).
+- **`CalendarView`** (présentiel partagé) — navigation de semaine (‹ Semaine du X ›, « Revenir à
+  aujourd'hui »), grille lundi→dimanche (« Repos » si vide, jour courant surligné), section
+  « Sans date » pour les entrées sans échéance ; carte d'entrée = pastille colorée (statut) +
+  titre + libellé + chevron, cliquable.
+- **Écrans** : `AthleteCalendarScreen` (A-08, cache `['assignments']` **partagé** avec l'onglet
+  Séances → pas de re-fetch ; tap → détail séance A-03/A-04) et `CoachCalendarScreen` (C-09,
+  cache `['sessions']` ; tap → constructeur C-05). États chargement / erreur (réessai) / vide,
+  pull-to-refresh. Placeholder coach remplacé ; **onglet Calendrier ajouté à la tab bar athlète**
+  (Accueil · Séances · Calendrier · Progression · Profil).
+- +34 tests (modèle pur exhaustif + `CalendarView` + 2 écrans) ; **mobile 271/271** ;
+  typecheck + lint clean.
+- **Validé en réel** (Expo web + API locale, compte Awa) : onglet Calendrier → semaine courante
+  « Semaine du 8 juin », grille Lun→Dim « Repos », section **« Sans date »** listant les 2
+  affectations (« Côtes N111 #2 · À faire » pastille neutre, « Vitesse 60m N111 · Réalisée »
+  pastille verte) ; tap → détail séance ; « Semaine suivante » → « Semaine du 15 juin » +
+  « Revenir à aujourd'hui ». Zéro erreur console. **Bug réel attrapé** : Metro ne réindexe pas
+  les nouveaux fichiers à chaud (`Unable to resolve "./calendar-model"`) → redémarrage du bundler
+  (cache de résolution), comme au sprint A-07. C-09 non rejoué en réel (couvert par tests
+  unitaires — `CalendarView`/modèle partagés et validés côté athlète).
+
 ## Notes / dépendances (réutilisables)
 
 - **Mapper séance partagé** : `sessions/session.mapper.ts` (`toSessionDto`).

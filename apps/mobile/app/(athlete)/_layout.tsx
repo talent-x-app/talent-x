@@ -33,6 +33,13 @@ export default function AthleteLayout() {
         }}
       />
       <Tabs.Screen
+        name="calendar"
+        options={{
+          title: 'Calendrier',
+          tabBarIcon: ({ color, size }) => <Feather name="calendar" color={color} size={size} />,
+        }}
+      />
+      <Tabs.Screen
         name="progress"
         options={{
           title: 'Progression',

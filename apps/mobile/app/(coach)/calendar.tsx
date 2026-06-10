@@ -1,34 +1,6 @@
-import { useTheme } from '@talent-x/design-tokens';
-import { StyleSheet, Text, View } from 'react-native';
+import { CoachCalendarScreen } from '../../src/calendar/CoachCalendarScreen';
 
-// Calendrier coach (C-08) — placeholder TLX-007.
-export default function CoachCalendarScreen() {
-  const { colors, typography, spacing } = useTheme();
-  return (
-    <View style={[styles.container, { backgroundColor: colors.background, padding: spacing[6] }]}>
-      <Text
-        style={{
-          color: colors.textPrimary,
-          fontFamily: typography.fontFamily.bold,
-          fontSize: typography.h2.fontSize,
-        }}
-      >
-        Calendrier
-      </Text>
-      <Text
-        style={{
-          marginTop: spacing[2],
-          color: colors.textMuted,
-          fontFamily: typography.fontFamily.regular,
-          fontSize: typography.body.fontSize,
-        }}
-      >
-        C-08 — TLX-051
-      </Text>
-    </View>
-  );
+/** Onglet Calendrier coach → planning des séances (C-09, TLX-100). */
+export default function CoachCalendarRoute() {
+  return <CoachCalendarScreen />;
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-});
