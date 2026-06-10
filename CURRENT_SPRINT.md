@@ -519,6 +519,63 @@ athlete-session-ui.tsx`. 10 tests ; **suite mobile 108/108**. **Validé en réel
   (cache de résolution), comme au sprint A-07. C-09 non rejoué en réel (couvert par tests
   unitaires — `CalendarView`/modèle partagés et validés côté athlète).
 
+## Terminés (validé en réel) — Groupes : gestion coach + rejoindre athlète (TLX-87/88, ADR-26)
+
+- **Lacune trouvée à l'audit front (live device, 2026-06-10)** : backend groupes livré
+  (TLX-30/TLX-041) mais **aucune UI mobile** ne le pilotait — un coach ne pouvait pas créer
+  de groupe / partager un code, un athlète ne pouvait pas en rejoindre un. **Bloquant MVP.**
+- **ADR-26 accepté** — _lecture athlète de ses groupes_ : nouvel endpoint **`GET /groups/mine`**
+  (l'athlète liste ses groupes actifs avec le coach et l'effectif). Le contrat n'exposait que la
+  vue coach ; cet ajout est **additif** (aucune rupture). Indexé dans le Journal ADR.
+- **(API)** `GET /groups/mine` — DTO `AthleteGroup` (`id`, `name`, `memberCount`, `coach`
+  `UserSummary`), `GroupsService.listMyGroups` + mapper `toAthleteGroupDto`, route placée **avant**
+  `@Get(':id')` (sinon `mine` capturé comme id). OpenAPI : path `/groups/mine` + schémas
+  `AthleteGroup`/`AthleteGroupList` (après `GroupMember`). Client orval régénéré (`getMyGroups`,
+  type `AthleteGroup`). +1 test service (`listMyGroups`) + assertion dans la suite DB-backed
+  `critical-paths.int-spec.ts` (l'athlète relit son groupe après join). **`groups.service` 20/20.**
+- **(Front coach, TLX-87)** module `src/groups/` : `CoachGroupsScreen` (liste `listGroups` +
+  création inline `createGroup` → ouverture du détail) et `CoachGroupDetailScreen` (cœur du ticket) —
+  **code d'invitation ADR-16** : partage natif `Share`, régénération / révocation (`manageInviteCode`),
+  membres (`listGroupMembers` + retrait `removeGroupMember`), édition nom/description (`updateGroup`),
+  suppression (`deleteGroup`, soft). Routes empilées `(coach)/groups` + `(coach)/group/[id]` ;
+  **points d'entrée** : CTA de l'état vide du dashboard + en-tête de l'écran Athlètes. Helpers de nav
+  `src/groups/navigation.ts`, clés de cache `groups-query.ts`.
+- **(Front athlète, TLX-88)** `JoinGroupScreen` (route `(athlete)/group/join` : saisie code →
+  `joinGroup`, mise en capitales, 404 « code invalide/révoqué » inline, succès → invalide
+  `['groups','mine']` + retour) et `MyGroupSection` (section « Mon groupe » du Profil, **gated
+  athlète**) : consomme `GET /groups/mine`, carte par groupe (coach + effectif), « Quitter »
+  (`leaveGroup`), état vide → CTA « Rejoindre un groupe ».
+- **Tests** : 4 fichiers (`CoachGroupsScreen`/`CoachGroupDetailScreen`/`JoinGroupScreen`/
+  `MyGroupSection`), **19 tests groups verts** (rendu + interactions : création, code d'invitation,
+  retrait, suppression, join 404, quitter, états vide/erreur+réessai). **Typecheck mobile clean**
+  (client `@talent-x/api-client` rebuild + types de routes expo-router régénérés pour les nouvelles
+  routes group).
+- **Validé en réel (2026-06-10, Expo web + API `node dist/main.js` :3000 + Docker DB :5433)** —
+  parcours complet joué de bout en bout :
+  - **Backend ADR-26** : `GET /groups/mine` athlète → 200 (`data[0]` = groupe + coach + `memberCount`,
+    **sans `inviteCode`**) ; coach → **403** (RBAC). Chaîne register→consents→createGroup→join verte.
+  - **TLX-88 athlète** : `JoinGroupScreen` (saisie `phtypgf7` → champ **`PHTYPGF7`** mis en capitales →
+    Rejoindre → join 200) ; `MyGroupSection` du Profil affiche le groupe (coach + effectif), **se
+    rafraîchit en place après join** (1→2 groupes, « Sprint elite · 2 membres »), **Quitter** retire
+    la carte.
+  - **TLX-87 coach** : entrée « Gérer mes groupes » (écran Athlètes) → `CoachGroupsScreen` (liste) →
+    **création** d'un groupe (→ détail + code frais) → `CoachGroupDetailScreen` (code, membres,
+    description) → **régénérer / révoquer / générer** le code (tous rafraîchissent **en place**) →
+    **suppression** (retour liste, groupe retiré).
+- **🐛 Bug attrapé en vérif live (corrigé)** — le code d'invitation **ne se rafraîchissait jamais**
+  après régénération/révocation : `POST /groups/{id}/invite-code` renvoyait le **201** par défaut de
+  Nest alors que le contrat OpenAPI et l'`@ApiResponse` documentent **200** ; le client généré ne
+  traite que 200 en succès → la réponse tombait en `onError`, donc **pas d'invalidation** (le backend
+  régénérait bien, mais l'écran gardait l'ancien code — divergence UI/DB confirmée en base). **Fix :**
+  `@HttpCode(200)` sur `manageInviteCode` (aligné sur `joinGroup`). **Régression verrouillée** :
+  assertion `regenerate → 200` + code différent ajoutée à `critical-paths.int-spec.ts` (int **7/7**),
+  groups unit **20/20**. Re-vérifié en réel : régénération → le code bascule **en place** (UI = DB).
+- **Non testé / hors UI web** : `updateGroup` (édition) et `removeGroupMember` partagent le pattern
+  mutation→invalidation déjà prouvé (régénérer/révoquer) + sont couverts en unit ; `Share` natif
+  non testable en web. **Device physique** : dev build APK `com.talentx.app` **inutilisable** — module
+  natif `@react-native-community/netinfo` absent (`RNCNetInfo is null`, APK antérieur à la dépendance)
+  → vérif faite en Expo web ; rebuild du dev client à prévoir pour repasser sur device.
+
 ## Notes / dépendances (réutilisables)
 
 - **Mapper séance partagé** : `sessions/session.mapper.ts` (`toSessionDto`).

@@ -143,6 +143,7 @@ export class GroupsController {
 
   @Post(':id/invite-code')
   @Roles('coach')
+  @HttpCode(200)
   @ApiOperation({
     summary: "Régénérer ou révoquer le code d'invitation",
     operationId: 'manageInviteCode',

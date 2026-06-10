@@ -139,6 +139,17 @@ describe('Parcours critiques (E2E DB) — TLX-120', () => {
       // Le coach n'a pas accès à cette route athlète (RBAC).
       await http().get('/api/v1/groups/mine').set(bearer(coach.token)).expect(403);
 
+      // Régénération du code d'invitation (ADR-16) : **200** conforme au contrat (et non le 201
+      // par défaut d'un POST Nest) — sans @HttpCode(200) le client traite la réponse en erreur et
+      // l'écran coach ne rafraîchit pas le code (bug attrapé en vérif live TLX-87).
+      const regen = await http()
+        .post(`/api/v1/groups/${group.body.id}/invite-code`)
+        .set(bearer(coach.token))
+        .send({ action: 'regenerate' })
+        .expect(200);
+      expect(regen.body.inviteCode).toEqual(expect.any(String));
+      expect(regen.body.inviteCode).not.toBe(inviteCode);
+
       // 3) Le coach crée une séance à blocs typés (sprint + grille de barres, ADR-25).
       const session = await http()
         .post('/api/v1/sessions')
