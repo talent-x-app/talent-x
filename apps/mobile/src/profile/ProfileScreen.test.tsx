@@ -161,14 +161,16 @@ describe('ProfileScreen (TLX-042)', () => {
     await waitFor(() => expect(screen.getByTestId('profile-edit')).toBeOnTheScreen());
   });
 
-  it('déconnexion : appelle signOut puis redirige', async () => {
+  it('déconnexion : signOut puis redirige explicitement vers le login (TLX-90)', async () => {
     mockGetMe.mockResolvedValue({ status: 200, data: USER });
     render(<ProfileScreen />, { wrapper: Wrapper });
 
     await waitFor(() => expect(screen.getByTestId('profile-logout')).toBeOnTheScreen());
     fireEvent.press(screen.getByTestId('profile-logout'));
 
-    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/'));
+    // Redirection vers '/(auth)/login' et non '/' : passer par '/' re-dériverait
+    // le rôle du contexte pas encore flushé et nous garderait connectés.
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/(auth)/login'));
     expect(mockSignOut).toHaveBeenCalled();
   });
 });

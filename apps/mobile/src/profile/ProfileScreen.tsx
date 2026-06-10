@@ -73,7 +73,11 @@ export function ProfileScreen() {
 
   const onLogout = async () => {
     await signOut();
-    router.replace('/');
+    // Navigation explicite vers le login : passer par '/' re-dériverait le rôle
+    // depuis le contexte pas encore flushé (role toujours athlete/coach) et nous
+    // garderait visuellement connectés (TLX-90). Le garde de rôle des layouts
+    // (athlete)/(coach) sert de filet de sécurité.
+    router.replace('/(auth)/login');
   };
 
   if (profile.isLoading) {
