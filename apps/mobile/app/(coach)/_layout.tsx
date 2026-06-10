@@ -62,6 +62,9 @@ export default function CoachLayout() {
       <Tabs.Screen name="competition/[id]/engage" options={{ href: null }} />
       {/* Centre de notifications (TLX-111) : routable mais masqué du tab bar. */}
       <Tabs.Screen name="notifications" options={{ href: null }} />
+      {/* Groupes (TLX-87) : liste + détail/gestion + code d'invitation, hors tab bar. */}
+      <Tabs.Screen name="groups" options={{ href: null }} />
+      <Tabs.Screen name="group/[id]" options={{ href: null }} />
     </Tabs>
   );
 }

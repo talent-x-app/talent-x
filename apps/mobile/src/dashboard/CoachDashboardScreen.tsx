@@ -31,6 +31,7 @@ import {
   selectTodayAssignments,
 } from './dashboard-sections';
 import { COACH_DASHBOARD_QUERY_KEY } from './dashboard-query';
+import { coachGroupsHref } from '../groups/navigation';
 
 // Ré-exporté pour compat : la source unique est `dashboard-query` (sans dépendance UI).
 export { COACH_DASHBOARD_QUERY_KEY };
@@ -240,9 +241,17 @@ export function CoachDashboardScreen() {
                   textAlign: 'center',
                 }}
               >
-                Aucun athlète lié pour l'instant. Partage un code de groupe pour qu'un athlète te
-                rejoigne — tu peux déjà préparer tes séances avec « Nouvelle séance ».
+                Aucun athlète lié pour l'instant. Crée un groupe et partage son code pour qu'un
+                athlète te rejoigne — tu peux déjà préparer tes séances avec « Nouvelle séance ».
               </Text>
+              <Button
+                testID="coach-dashboard-manage-groups"
+                fullWidth
+                leftIcon={<Feather name="users" size={18} color={colors.textOnAccent} />}
+                onPress={() => router.push(coachGroupsHref())}
+              >
+                Gérer mes groupes
+              </Button>
             </View>
           </Card>
         ) : (

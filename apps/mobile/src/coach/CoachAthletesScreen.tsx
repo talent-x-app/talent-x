@@ -10,8 +10,10 @@ import {
   Text,
   View,
 } from 'react-native';
+import { Feather } from '@expo/vector-icons';
 import { Button, Card } from '../components/ui';
 import { COACH_DASHBOARD_QUERY_KEY } from '../dashboard/dashboard-query';
+import { coachGroupsHref } from '../groups/navigation';
 import { AthleteListItem } from './athlete-ui';
 import { athleteDetailHref } from './navigation';
 
@@ -106,6 +108,15 @@ export function CoachAthletesScreen() {
           {athletes.length > 1 ? 's' : ''}
         </Text>
       </View>
+
+      <Button
+        testID="coach-athletes-manage-groups"
+        fullWidth
+        leftIcon={<Feather name="users" size={18} color={colors.textOnAccent} />}
+        onPress={() => router.push(coachGroupsHref())}
+      >
+        Gérer mes groupes
+      </Button>
 
       {athletes.length === 0 ? (
         <Card testID="coach-athletes-empty">
