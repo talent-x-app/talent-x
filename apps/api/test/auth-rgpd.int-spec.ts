@@ -214,9 +214,21 @@ describe('Auth & RGPD (intégration DB)', () => {
   describe('TLX-032 — ConsentGate (dernière ligne fait foi)', () => {
     it('séquence accord → retrait → accord : consentement actif', async () => {
       const userId = await createUser('athlete');
-      for (const granted of [true, false, true]) {
+      // `createdAt` explicites et strictement croissants : trois inserts en rafale peuvent
+      // partager le même `now()` de transaction sur un runner rapide, rendant l'ordre
+      // `createdAt desc` ambigu (flake CI). En prod, les consentements passent par l'API
+      // (aller-retours HTTP sérialisés) — la collision n'existe pas.
+      const base = Date.now() - 3_000;
+      const sequence = [true, false, true];
+      for (const [i, granted] of sequence.entries()) {
         await prisma.consent.create({
-          data: { userId, type: 'coach_access', granted, textVersion: '2026-01' },
+          data: {
+            userId,
+            type: 'coach_access',
+            granted,
+            textVersion: '2026-01',
+            createdAt: new Date(base + i * 1_000),
+          },
         });
       }
       await expect(consentGate.hasActiveConsent(userId, 'coach_access')).resolves.toBe(true);
