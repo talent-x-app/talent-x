@@ -10,6 +10,7 @@ import type { ExerciseResultDto } from '../assignments/dto/results.dto';
  * |---|---|---|---|
  * | sprint, hurdles, endurance, interval | `{type}:{distanceMeters}m` | min timeSeconds | min |
  * | jumps | `jumps` | max distanceMeters | max |
+ * | vertical_jumps | `vertical:{high\|pole}` | max distanceMeters (hauteur) | max |
  * | throws | `throws:{implementKg}kg` | max distanceMeters | max |
  *
  * Lecture défensive (philosophie TLX-062) : param manquant (distance de course, poids
@@ -54,6 +55,14 @@ export function eventForExercise(
   }
   if (type === BlockType.Jumps) {
     return { eventKey: 'jumps', label: 'Saut', unit: 'm', direction: 'max' };
+  }
+  if (type === BlockType.VerticalJumps) {
+    // Saut vertical (ADR-25) : hauteur (défaut) ou perche, distingués par le param libre
+    // `discipline`. La barre franchie = max distanceMeters non-`failed` (sens identique aux sauts).
+    const pole = (exercise.params as Record<string, unknown> | undefined)?.discipline === 'pole';
+    return pole
+      ? { eventKey: 'vertical:pole', label: 'Perche', unit: 'm', direction: 'max' }
+      : { eventKey: 'vertical:high', label: 'Hauteur', unit: 'm', direction: 'max' };
   }
   if (type === BlockType.Throws) {
     const implementKg = param(exercise, 'implementKg');

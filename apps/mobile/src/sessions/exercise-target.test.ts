@@ -69,6 +69,22 @@ describe('formatExerciseTarget (TLX-062 — cibles de bloc)', () => {
     ).toBe('élan 30m · 6 complets · 40 contacts');
   });
 
+  it('vertical_jumps : discipline + barre de départ (cm → m) + montée (ADR-25)', () => {
+    expect(
+      formatExerciseTarget(
+        ex({
+          type: BlockType.vertical_jumps,
+          params: { discipline: 'pole', startHeightCm: 420, incrementCm: 15 },
+        }),
+      ),
+    ).toBe('Perche · départ 4.2 m · +15 cm');
+    expect(
+      formatExerciseTarget(
+        ex({ type: BlockType.vertical_jumps, params: { discipline: 'high', startHeightCm: 165 } }),
+      ),
+    ).toBe('Hauteur · départ 1.65 m');
+  });
+
   it('throws : engin (kg) + technique/complets', () => {
     expect(
       formatExerciseTarget(

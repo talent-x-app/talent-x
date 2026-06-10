@@ -21,6 +21,7 @@ export const BlockType = {
   endurance: 'endurance',
   hurdles: 'hurdles',
   jumps: 'jumps',
+  vertical_jumps: 'vertical_jumps',
   throws: 'throws',
   core: 'core',
   warmup: 'warmup',

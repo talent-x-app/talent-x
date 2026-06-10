@@ -34,6 +34,7 @@ jest.mock('@talent-x/api-client', () => ({
     endurance: 'endurance',
     hurdles: 'hurdles',
     jumps: 'jumps',
+    vertical_jumps: 'vertical_jumps',
     throws: 'throws',
     core: 'core',
     warmup: 'warmup',
@@ -207,6 +208,54 @@ describe('SessionDetailScreen (TLX-065/071 — A-03/A-04)', () => {
     expect(body.results.items[0].setResults).toEqual([
       { set: 1, distanceMeters: 6.42, completed: true },
       { set: 2, failed: true, completed: true },
+    ]);
+  });
+
+  it('mode Grille de barres : barre pré-remplie, cycle d’essai, sérialise distanceMeters/failed v2 (TLX-075)', async () => {
+    mockGetAssignment.mockResolvedValue({
+      status: 200,
+      data: {
+        ...ASSIGNMENT,
+        session: {
+          ...ASSIGNMENT.session,
+          exercises: {
+            schemaVersion: 2,
+            items: [
+              {
+                name: 'Hauteur',
+                order: 1,
+                type: 'vertical_jumps',
+                params: { discipline: 'high', startHeightCm: 175, incrementCm: 5 },
+              },
+            ],
+          },
+        },
+      },
+    });
+    mockGetPerformance.mockResolvedValue({ status: 404, data: { error: 'NOT_FOUND' } });
+    mockSubmitPerformance.mockResolvedValue({ status: 201, data: { id: 'p-1' } });
+    render(<SessionDetailScreen />, { wrapper: Wrapper });
+
+    // 1ʳᵉ barre pré-remplie à 1.75 m (175 cm), cible affichée.
+    await waitFor(() => expect(screen.getByTestId('exercise-0-bar-0-height')).toBeOnTheScreen());
+    expect(screen.getByTestId('exercise-0-bar-0-height').props.value).toBe('1.75');
+    expect(screen.getByTestId('exercise-0-target')).toHaveTextContent(
+      'Hauteur · départ 1.75 m · +5 cm',
+    );
+
+    // Barre 1 : 1er essai franchi (O). Barre 2 (1.8 m) : 1er essai échoué (X) puis 2e franchi.
+    fireEvent.press(screen.getByTestId('exercise-0-bar-0-attempt-0')); // none → cleared
+    fireEvent.press(screen.getByTestId('exercise-0-bar-1-attempt-0')); // none → cleared
+    fireEvent.press(screen.getByTestId('exercise-0-bar-1-attempt-0')); // cleared → failed
+    fireEvent.press(screen.getByTestId('exercise-0-bar-1-attempt-1')); // none → cleared
+    fireEvent.press(screen.getByTestId('submit-performance'));
+
+    await waitFor(() => expect(mockSubmitPerformance).toHaveBeenCalled());
+    const body = mockSubmitPerformance.mock.calls[0][1];
+    expect(body.results.items[0].setResults).toEqual([
+      { set: 1, distanceMeters: 1.75, completed: true },
+      { set: 2, distanceMeters: 1.8, failed: true, completed: true },
+      { set: 3, distanceMeters: 1.8, completed: true },
     ]);
   });
 

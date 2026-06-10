@@ -109,6 +109,17 @@ function typedTarget(ex: Exercise): string | undefined {
         plyo != null ? `${plyo} contacts` : undefined,
       ]);
     }
+    case BlockType.vertical_jumps: {
+      // Saut vertical (ADR-25) : discipline + barre de départ (cm → m) + montée (cm).
+      const discipline = (p as Record<string, unknown> | undefined)?.discipline;
+      const start = num(p, 'startHeightCm');
+      const increment = num(p, 'incrementCm');
+      return join([
+        discipline === 'pole' ? 'Perche' : discipline === 'high' ? 'Hauteur' : undefined,
+        start != null ? `départ ${start / 100} m` : undefined,
+        increment != null ? `+${increment} cm` : undefined,
+      ]);
+    }
     case BlockType.throws: {
       const kg = num(p, 'implementKg');
       const tech = num(p, 'techniqueThrows');

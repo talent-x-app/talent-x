@@ -31,13 +31,18 @@ export interface EditableBlock {
   params: Record<string, string>;
 }
 
-/** Champ de `params` propre à un type de bloc (saisie numérique). */
+/** Champ de `params` propre à un type de bloc (saisie numérique ou choix discret). */
 export interface BlockParamField {
   key: string;
   label: string;
   placeholder?: string;
-  /** `int` (défaut) ou `number` (décimal autorisé, ex. espacement en m). */
-  kind?: 'int' | 'number';
+  /**
+   * `int` (défaut) / `number` (décimal autorisé, ex. espacement en m) → saisie numérique ;
+   * `select` → choix parmi `options` (param libre en chaîne, ex. discipline, cf. ADR-25).
+   */
+  kind?: 'int' | 'number' | 'select';
+  /** Options d'un champ `select` (valeur stockée + libellé affiché). */
+  options?: { value: string; label: string }[];
 }
 
 /** Spécification d'un type de bloc : libellé FR + champs `params` (le cas échéant). */
@@ -135,6 +140,25 @@ export const BLOCK_TYPE_SPECS: BlockTypeSpec[] = [
       },
       { key: 'techniqueThrows', label: 'Lancers technique (nombre)', placeholder: 'Ex. 10' },
       { key: 'fullThrows', label: 'Lancers complets (nombre)', placeholder: 'Ex. 6' },
+    ],
+  },
+  {
+    type: BlockType.vertical_jumps,
+    label: 'Hauteur / Perche',
+    // TLX-075 (ADR-25) — Sauts verticaux : discipline (épreuve du record) + barre de départ
+    // et montée (cm) qui pré-remplissent la grille de barres côté athlète.
+    paramFields: [
+      {
+        key: 'discipline',
+        label: 'Discipline',
+        kind: 'select',
+        options: [
+          { value: 'high', label: 'Hauteur' },
+          { value: 'pole', label: 'Perche' },
+        ],
+      },
+      { key: 'startHeightCm', label: 'Barre de départ (cm)', placeholder: 'Ex. 165' },
+      { key: 'incrementCm', label: 'Montée entre barres (cm)', placeholder: 'Ex. 5' },
     ],
   },
   // TLX-061 — Gainage / Circuit / Échauffement / Retour au calme : éditeur partagé.
@@ -244,10 +268,16 @@ export function blockToExercise(block: EditableBlock, order: number): Exercise {
   const notes = block.notes.trim();
   if (notes !== '') exercise.notes = notes;
   // `params` propres au type : champs parsés, attachés seulement si au moins un est rempli.
+  // Les champs `select` stockent une chaîne (valeur d'option), les autres un nombre positif.
   const paramFields = specForType(block.type).paramFields;
   if (paramFields?.length) {
-    const params: Record<string, number> = {};
+    const params: Record<string, number | string> = {};
     paramFields.forEach((f) => {
+      if (f.kind === 'select') {
+        const raw = (block.params[f.key] ?? '').trim();
+        if (raw !== '' && f.options?.some((o) => o.value === raw)) params[f.key] = raw;
+        return;
+      }
       const raw = block.params[f.key] ?? '';
       const n = f.kind === 'number' ? toPositiveNumber(raw) : toPositiveInt(raw);
       if (n != null) params[f.key] = n;
@@ -484,17 +514,43 @@ function BlockParamsEditor({
       >
         Paramètres — {spec.label}
       </Text>
-      {spec.paramFields.map((field) => (
-        <FieldInput
-          key={field.key}
-          testID={`block-${index}-param-${field.key}`}
-          label={field.label}
-          value={block.params[field.key] ?? ''}
-          onChangeText={(v) => onChange({ params: { ...block.params, [field.key]: v } })}
-          keyboardType={field.kind === 'number' ? 'numeric' : 'number-pad'}
-          placeholder={field.placeholder}
-        />
-      ))}
+      {spec.paramFields.map((field) =>
+        field.kind === 'select' ? (
+          <View key={field.key} style={{ gap: spacing[2] }}>
+            <Text
+              style={{
+                color: colors.textSecondary,
+                fontFamily: typography.fontFamily.medium,
+                fontSize: typography.bodySm.fontSize,
+              }}
+            >
+              {field.label}
+            </Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] }}>
+              {field.options?.map((opt) => (
+                <Chip
+                  key={opt.value}
+                  testID={`block-${index}-param-${field.key}-${opt.value}`}
+                  selected={block.params[field.key] === opt.value}
+                  onPress={() => onChange({ params: { ...block.params, [field.key]: opt.value } })}
+                >
+                  {opt.label}
+                </Chip>
+              ))}
+            </View>
+          </View>
+        ) : (
+          <FieldInput
+            key={field.key}
+            testID={`block-${index}-param-${field.key}`}
+            label={field.label}
+            value={block.params[field.key] ?? ''}
+            onChangeText={(v) => onChange({ params: { ...block.params, [field.key]: v } })}
+            keyboardType={field.kind === 'number' ? 'numeric' : 'number-pad'}
+            placeholder={field.placeholder}
+          />
+        ),
+      )}
     </View>
   );
 }

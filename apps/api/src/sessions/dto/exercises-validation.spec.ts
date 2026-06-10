@@ -36,6 +36,28 @@ describe('Contrat exercises v2 via ValidationPipe (ADR-18)', () => {
     expect(block.params).toEqual({ height: 84, spacing: 8.5 });
   });
 
+  it('accepte le type vertical_jumps avec ses params libres (ADR-25)', async () => {
+    const result = (await pipe.transform(
+      {
+        title: 'Hauteur',
+        exercises: {
+          schemaVersion: 2,
+          items: [
+            {
+              ...baseBlock,
+              type: 'vertical_jumps',
+              params: { discipline: 'high', startHeightCm: 165, incrementCm: 5 },
+            },
+          ],
+        },
+      },
+      meta,
+    )) as SessionCreateDto;
+    const block = result.exercises.items[0];
+    expect(block.type).toBe('vertical_jumps');
+    expect(block.params).toEqual({ discipline: 'high', startHeightCm: 165, incrementCm: 5 });
+  });
+
   it('accepte un bloc générique sans type (rétro-compat v1)', async () => {
     const result = (await pipe.transform(
       { title: 'Renfo', exercises: { items: [{ ...baseBlock, sets: 3, reps: 10 }] } },

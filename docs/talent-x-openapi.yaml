@@ -2488,6 +2488,7 @@ components:
       - endurance
       - hurdles
       - jumps
+      - vertical_jumps
       - throws
       - core
       - warmup

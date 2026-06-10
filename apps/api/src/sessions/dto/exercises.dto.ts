@@ -31,6 +31,7 @@ export enum BlockType {
   Endurance = 'endurance',
   Hurdles = 'hurdles',
   Jumps = 'jumps',
+  VerticalJumps = 'vertical_jumps',
   Throws = 'throws',
   Core = 'core',
   Warmup = 'warmup',

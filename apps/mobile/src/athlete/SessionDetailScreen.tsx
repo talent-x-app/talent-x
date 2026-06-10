@@ -29,9 +29,13 @@ import { formatExerciseTarget } from '../sessions/exercise-target';
 import { formatSessionDate, sessionTitle } from './athlete-session-ui';
 import { perfConfirmationHref } from './navigation';
 import {
+  ATTEMPTS_PER_BAR,
+  type BarAttempt,
+  type BarRow,
   entryFromResult,
   entryIsCompleted,
   entryToResult,
+  makeEmptyBar,
   makeEmptyEntry,
   type ExerciseEntry,
 } from './perf-entry';
@@ -319,6 +323,12 @@ export function SessionDetailScreen() {
                             times={entry.times}
                             onChange={(times) => updateEntry(i, () => ({ mode: 'time', times }))}
                           />
+                        ) : entry.mode === 'bars' ? (
+                          <BarsEntryGrid
+                            index={i}
+                            bars={entry.bars}
+                            onChange={(bars) => updateEntry(i, () => ({ mode: 'bars', bars }))}
+                          />
                         ) : (
                           <DistanceEntryRows
                             index={i}
@@ -593,6 +603,141 @@ function DistanceEntryRows({
         onPress={() => onChange([...attempts, { distance: '', failed: false }])}
       >
         + Ajouter un essai
+      </Button>
+    </View>
+  );
+}
+
+/** Cycle d'une cellule d'essai au tap : non tenté → franchi → échec → non tenté. */
+const BAR_ATTEMPT_CYCLE: Record<BarAttempt, BarAttempt> = {
+  none: 'cleared',
+  cleared: 'failed',
+  failed: 'none',
+};
+const BAR_ATTEMPT_SYMBOL: Record<BarAttempt, string> = { none: '–', cleared: 'O', failed: 'X' };
+
+/** Barre éliminatoire : 3 échecs et aucun franchissement (garde-fou d'UI, ADR-25). */
+function barEliminated(bar: BarRow): boolean {
+  return (
+    !bar.attempts.includes('cleared') &&
+    bar.attempts.filter((a) => a === 'failed').length >= ATTEMPTS_PER_BAR
+  );
+}
+
+/**
+ * Grille de barres (A-04 §4.4, TLX-075 / ADR-25) — saut en hauteur / perche : une ligne par
+ * barre (hauteur en m), 3 essais cyclables (– non tenté / O franchi / X échec). La barre la plus
+ * haute avec un « O » est la marque ; 3 « X » sans « O » signalent l'élimination (garde-fou).
+ */
+function BarsEntryGrid({
+  index,
+  bars,
+  onChange,
+}: {
+  index: number;
+  bars: BarRow[];
+  onChange: (bars: BarRow[]) => void;
+}) {
+  const { colors, typography, spacing, radius, borderWidth } = useTheme();
+  const setBar = (j: number, patch: Partial<BarRow>) =>
+    onChange(bars.map((b, k) => (k === j ? { ...b, ...patch } : b)));
+  const cycleAttempt = (j: number, m: number) =>
+    setBar(j, {
+      attempts: bars[j].attempts.map((a, k) => (k === m ? BAR_ATTEMPT_CYCLE[a] : a)),
+    });
+  return (
+    <View style={{ gap: spacing[2] }}>
+      <Text
+        style={{
+          color: colors.textMuted,
+          fontFamily: typography.fontFamily.regular,
+          fontSize: typography.bodySm.fontSize,
+        }}
+      >
+        Touchez un essai pour cycler : – non tenté · O franchi · X échec
+      </Text>
+      {bars.map((bar, j) => {
+        const eliminated = barEliminated(bar);
+        return (
+          <View
+            key={j}
+            testID={`exercise-${index}-bar-${j}`}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[2] }}
+          >
+            <TextInput
+              testID={`exercise-${index}-bar-${j}-height`}
+              value={bar.height}
+              onChangeText={(v) => setBar(j, { height: v })}
+              placeholder="Barre (m) — ex. 1.85"
+              placeholderTextColor={colors.textMuted}
+              keyboardType="numeric"
+              style={[
+                styles.measureInput,
+                {
+                  flex: 1,
+                  borderColor: eliminated ? colors.danger : colors.borderStrong,
+                  backgroundColor: colors.surface,
+                  color: colors.textPrimary,
+                  fontFamily: typography.fontFamily.regular,
+                  fontSize: typography.body.fontSize,
+                },
+              ]}
+            />
+            <View style={{ flexDirection: 'row', gap: spacing[1] }}>
+              {bar.attempts.map((a, m) => {
+                const bg =
+                  a === 'cleared'
+                    ? colors.successBg
+                    : a === 'failed'
+                      ? colors.dangerBg
+                      : colors.surfaceSunken;
+                const fg =
+                  a === 'cleared'
+                    ? colors.success
+                    : a === 'failed'
+                      ? colors.danger
+                      : colors.textMuted;
+                return (
+                  <Pressable
+                    key={m}
+                    testID={`exercise-${index}-bar-${j}-attempt-${m}`}
+                    onPress={() => cycleAttempt(j, m)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Essai ${m + 1} : ${a}`}
+                    style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: radius.sm,
+                      borderWidth: borderWidth.hairline,
+                      borderColor: a === 'none' ? colors.borderStrong : 'transparent',
+                      backgroundColor: bg,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <Text
+                      style={{
+                        color: fg,
+                        fontFamily: typography.fontFamily.medium,
+                        fontSize: typography.body.fontSize,
+                      }}
+                    >
+                      {BAR_ATTEMPT_SYMBOL[a]}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+        );
+      })}
+      <Button
+        testID={`exercise-${index}-add-bar`}
+        variant="ghost"
+        size="sm"
+        onPress={() => onChange([...bars, makeEmptyBar()])}
+      >
+        + Ajouter une barre
       </Button>
     </View>
   );

@@ -38,6 +38,7 @@ Chaque décision suit le format **ADR** : Statut, Date, Contexte, Décision, Con
 | ADR-22 | Infrastructure notifications : `notification_preferences`, taxonomie MVP, pipeline BullMQ + provider push abstrait (complète TX-ARCH-001 §4.5) | Accepté |
 | ADR-23 | Notifications in-app : table `notifications`, contrat de feed `GET /notifications` + `read-all`, écran préférences (complète ADR-22) | Accepté |
 | ADR-24 | Compétitions & engagements d'athlètes : tables `competitions`/`competition_entries`, contrat `/competitions`, autorisation alignée sur les affectations, données non-santé (complète TX-DATA-006 · OpenAPI · TLX-100) | Accepté |
+| ADR-25 | Grille de barres (sauts verticaux) : `BlockType` `vertical_jumps` + mode de saisie `bars`, stockage via `results` v2 inchangé (`distanceMeters`=hauteur, `failed`), records `vertical:{high\|pole}` (complète OpenAPI · TLX-075) | Accepté |
 
 ---
 
@@ -432,6 +433,30 @@ calendrier TLX-100** (entrée distincte, via `competitionToCalendarEntry`). Éca
 = type de séance, auto-inscription athlète, consentement sur données non sensibles, résultats dans
 ce ticket. Quatre questions ouvertes (périmètre calendrier, navigation sans 6ᵉ onglet, `event_label`
 libre, statuts d'engagement) à trancher avant code.
+
+---
+
+## ADR-25 — Grille de barres : saisie des sauts verticaux (hauteur / perche)
+
+Décision complète : [`docs/adr/ADR-25-grille-de-barres-sauts-verticaux.md`](adr/ADR-25-grille-de-barres-sauts-verticaux.md).
+
+**Statut : Accepté** (validé 2026-06-10 — dernier mode de saisie A-04, TLX-075).
+
+**En bref.** La grille de barres (saut en hauteur / perche : barres successives, 3 essais
+par barre, barre la plus haute franchie) bute sur trois manques : aucun `BlockType` ne
+désigne un saut **vertical** (`jumps` = horizontal, mesure = distance par essai), or le mode
+de saisie **doit** dériver du type (invariant ADR-18/19) ; la détection de records (ADR-20)
+ferait **collisionner** une barre à 1.85 m avec une longueur à 6.42 m sous la clé `jumps` ;
+aucune convention de stockage de la grille n'est actée (ADR-19 l'avait renvoyée ici).
+Proposition : **ajouter `BlockType.vertical_jumps`** (« Hauteur / Perche », un type-famille +
+param `discipline ∈ {high, pole}`, comme `sprint:{distance}`) ; **réutiliser `results` v2
+sans le toucher** (chaque essai = un `SetResult` : `distanceMeters` = hauteur en m, `failed`
+= manqué ; barre franchie = max non-`failed`, déjà calculé par `bestMeasuresByEvent`) ;
+nouvelle branche records `vertical:{high|pole}` (max, m) qui lève la collision. La règle des
+3 échecs/élimination est un **garde-fou d'UI**, pas une contrainte de stockage. Écartés :
+surcharger `jumps` par un param (casse l'invariant + ne résout pas la collision), deux enums
+`high_jump`/`pole_vault` (mode identique dupliqué), champs `barHeight`/`attempt` dédiés
+(redondants avec `distanceMeters`+ordre). Quatre questions ouvertes à trancher avant code.
 
 ---
 

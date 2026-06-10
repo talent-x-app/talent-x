@@ -33,6 +33,22 @@ describe('record-detection (ADR-20)', () => {
       });
     });
 
+    it('sauts verticaux (ADR-25) : hauteur par défaut, perche via discipline', () => {
+      // Sans param discipline → hauteur (épreuve par défaut).
+      expect(eventForExercise({ type: BlockType.VerticalJumps })).toEqual({
+        eventKey: 'vertical:high',
+        label: 'Hauteur',
+        unit: 'm',
+        direction: 'max',
+      });
+      expect(
+        eventForExercise({ type: BlockType.VerticalJumps, params: { discipline: 'high' } }),
+      ).toEqual({ eventKey: 'vertical:high', label: 'Hauteur', unit: 'm', direction: 'max' });
+      expect(
+        eventForExercise({ type: BlockType.VerticalJumps, params: { discipline: 'pole' } }),
+      ).toEqual({ eventKey: 'vertical:pole', label: 'Perche', unit: 'm', direction: 'max' });
+    });
+
     it('param manquant ou bloc non mesurable → pas d’épreuve (défensif)', () => {
       expect(eventForExercise({ type: BlockType.Sprint })).toBeUndefined(); // sans distance
       expect(eventForExercise({ type: BlockType.Throws })).toBeUndefined(); // sans poids
@@ -72,6 +88,37 @@ describe('record-detection (ADR-20)', () => {
       ]);
       expect(best).toEqual([
         expect.objectContaining({ eventKey: 'sprint:60m', value: 7.45 }),
+        expect.objectContaining({ eventKey: 'jumps', value: 6.42 }),
+      ]);
+    });
+
+    it('grille de barres (ADR-25) : barre franchie = max hauteur non-mordue, pas de collision avec jumps', () => {
+      const exercises = [
+        {
+          name: 'Hauteur',
+          order: 0,
+          type: BlockType.VerticalJumps,
+          params: { discipline: 'high' },
+        },
+        { name: 'Longueur', order: 1, type: BlockType.Jumps, params: { fullJumps: 3 } },
+      ];
+      const best = bestMeasuresByEvent(exercises, [
+        {
+          exerciseName: 'Hauteur',
+          order: 0,
+          // 1.75 franchie, 1.80 franchie, 1.85 ratée ×2 puis franchie → barre franchie = 1.85.
+          setResults: [
+            { set: 1, distanceMeters: 1.75, completed: true },
+            { set: 2, distanceMeters: 1.8, completed: true },
+            { set: 3, distanceMeters: 1.85, failed: true, completed: true },
+            { set: 4, distanceMeters: 1.85, failed: true, completed: true },
+            { set: 5, distanceMeters: 1.85, completed: true },
+          ],
+        },
+        { exerciseName: 'Longueur', order: 1, setResults: [{ set: 1, distanceMeters: 6.42 }] },
+      ]);
+      expect(best).toEqual([
+        expect.objectContaining({ eventKey: 'vertical:high', value: 1.85 }),
         expect.objectContaining({ eventKey: 'jumps', value: 6.42 }),
       ]);
     });

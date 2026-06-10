@@ -26,6 +26,7 @@ jest.mock('@talent-x/api-client', () => ({
     endurance: 'endurance',
     hurdles: 'hurdles',
     jumps: 'jumps',
+    vertical_jumps: 'vertical_jumps',
     throws: 'throws',
     core: 'core',
     warmup: 'warmup',
@@ -169,6 +170,31 @@ describe('SessionBuilderScreen (TLX-052 — C-05)', () => {
       order: 1,
       type: 'interval',
       params: { reps: 6, workSeconds: 90, recoverySeconds: 120 },
+    });
+  });
+
+  it('sélectionne Hauteur/Perche → sélecteur discipline + params, sérialise (TLX-075/ADR-25)', async () => {
+    mockCreateSession.mockResolvedValue({ status: 201, data: { id: 's-vj' } });
+    render(<SessionBuilderScreen />, { wrapper: Wrapper });
+
+    fireEvent.changeText(screen.getByTestId('session-field-title'), 'Sauts');
+    fireEvent.changeText(screen.getByTestId('block-0-name'), 'Hauteur');
+    fireEvent.press(screen.getByTestId('block-0-type-vertical_jumps'));
+
+    expect(screen.getByTestId('block-0-params')).toBeOnTheScreen();
+    // Le champ discipline est un sélecteur (chips), pas une saisie numérique.
+    fireEvent.press(screen.getByTestId('block-0-param-discipline-pole'));
+    fireEvent.changeText(screen.getByTestId('block-0-param-startHeightCm'), '420');
+    fireEvent.changeText(screen.getByTestId('block-0-param-incrementCm'), '15');
+    fireEvent.press(screen.getByTestId('session-save'));
+
+    await waitFor(() => expect(mockCreateSession).toHaveBeenCalled());
+    const item = mockCreateSession.mock.calls[0][0].exercises.items[0];
+    expect(item).toMatchObject({
+      name: 'Hauteur',
+      order: 1,
+      type: 'vertical_jumps',
+      params: { discipline: 'pole', startHeightCm: 420, incrementCm: 15 },
     });
   });
 

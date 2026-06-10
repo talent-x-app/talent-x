@@ -422,6 +422,39 @@ athlete-session-ui.tsx`. 10 tests ; **suite mobile 108/108**. **Validé en réel
   console. Worker : persistance puis « sans cible » (aucun device — chemin push
   déjà validé TLX-110).
 
+## Terminés — TLX-075 Grille de barres : saisie des sauts verticaux (A-04 §4.4, ADR-25) — **clôt les modes A-04 (072→075)**
+
+- **ADR-25 accepté** : le mode de saisie devant dériver du `BlockType` (invariant ADR-18/19), un
+  **nouveau type `vertical_jumps`** (« Hauteur / Perche », un type-famille + param `discipline ∈
+{high, pole}` comme `sprint:{distance}`) ; **`results` v2 inchangé** — chaque essai = un
+  `SetResult` (`distanceMeters` = hauteur en m, `failed` = barre non franchie), barre franchie =
+  max non-`failed` (déjà calculé par `bestMeasuresByEvent`) ; records `vertical:{high|pole}` (max, m)
+  → lève la collision avec `jumps`. Élimination 3 échecs = **garde-fou d'UI**, pas de contrainte de
+  stockage.
+- **(Contrat)** ajout `vertical_jumps` à l'enum `BlockType` (OpenAPI → DTO Nest → client orval
+  régénéré). **Zéro champ ajouté à `results`.** +1 test ValidationPipe (type + params libres acceptés).
+- **(API)** `record-detection` : branche `vertical_jumps` → eventKey `vertical:high|pole` selon le
+  param `discipline` (défaut hauteur), unit m, direction max. +2 tests (hauteur/perche ; grille de
+  barres → barre franchie = max non-mordue, **pas de collision avec `jumps`**). **API 309/309**.
+- **(Mobile)** registre `BLOCK_TYPE_SPECS` : entrée `vertical_jumps` avec **nouveau `kind: 'select'`**
+  (sélecteur de chips, param libre en chaîne) pour `discipline` + `startHeightCm`/`incrementCm` ;
+  sérialisation builder étendue aux params chaîne. Cible (`exercise-target`) : « Hauteur · départ
+  1.65 m · +5 cm ». Module `perf-entry` : **nouveau mode `bars`** (grille pré-remplie depuis
+  départ + montée cm→m, sérialisation v2, réhydratation par regroupement des sets par hauteur,
+  `clearedBarHeight`, `entryIsCompleted`). `formatMeasures` distingue **barre échouée** (`failed` +
+  hauteur → « 1.85 m ✗ ») d'un **mordu** (`failed` sans distance) — sans connaître le type côté revue.
+- **(UI) `BarsEntryGrid`** dans `SessionDetailScreen` (A-04 §4.4) : une ligne par barre (hauteur m
+  - 3 cellules cyclant – / O / X), ajout de barre, garde-fou d'élimination (3 X sans O → bordure
+    danger). +bars module exhaustif + écran (cycle d'essai → sérialisation v2) + builder (sélecteur
+    discipline) + cible. **Mobile 309/309** ; typecheck + lint clean.
+- **Bug attrapé en test** : les mocks `BlockType` locaux des suites écran ne contenaient pas
+  `vertical_jumps` → `BlockType.vertical_jumps === undefined`, et `entryModeFor` mappait alors les
+  blocs **sans type** sur `bars` (régression sur un test checklist). Corrigé en complétant les mocks.
+- **Non vérifié en réel** (DB-backed e2e) : le parcours coach (séance Hauteur → engagement) →
+  athlète (grille → soumission → record `vertical:*`). Couvert par unit/integration + smoke bundler
+  (recompilation propre, zéro erreur console). Ticket Linear de suivi créé (règle « ticket pour
+  tout ce qui n'est pas testé en réel »).
+
 ## Terminés — TLX-100 Calendrier athlète (A-08) + coach (C-09) — **ouvre le jalon Calendrier & Compétitions**
 
 - **Vue dérivée, zéro backend, zéro contrat** (même approche que C-01 §4 / A-06) : le calendrier

@@ -14,15 +14,29 @@ import {
  * |------|-----------|--------|
  * | time (072/073) | sprint, hurdles, endurance, interval | temps décimal par course/répétition |
  * | distance (074) | jumps, throws | distance par essai + essai mordu |
+ * | bars (075, ADR-25) | vertical_jumps | grille barres × 3 essais (hauteur/perche) |
  * | checklist (v1) | strength, custom, core, warmup, cooldown | réalisé / non réalisé |
  */
-export type EntryMode = 'time' | 'distance' | 'checklist';
+export type EntryMode = 'time' | 'distance' | 'bars' | 'checklist';
+
+/** Nombre d'essais par barre (règle d'athlétisme : 3 essais, élimination après 3 échecs). */
+export const ATTEMPTS_PER_BAR = 3;
+
+/** État d'une cellule d'essai de la grille de barres (non tenté / franchi / échoué). */
+export type BarAttempt = 'none' | 'cleared' | 'failed';
+
+/** Une barre de la grille : hauteur (m, saisie libre) + ses essais. */
+export interface BarRow {
+  height: string;
+  attempts: BarAttempt[];
+}
 
 /** État de saisie d'un exercice (champs numériques en chaînes, saisie libre). */
 export type ExerciseEntry =
   | { mode: 'checklist'; done: boolean }
   | { mode: 'time'; times: string[] }
-  | { mode: 'distance'; attempts: { distance: string; failed: boolean }[] };
+  | { mode: 'distance'; attempts: { distance: string; failed: boolean }[] }
+  | { mode: 'bars'; bars: BarRow[] };
 
 /** Mode de saisie d'un bloc — dérivé de son `type` (défaut checklist v1). */
 export function entryModeFor(ex: Pick<Exercise, 'type'>): EntryMode {
@@ -35,6 +49,8 @@ export function entryModeFor(ex: Pick<Exercise, 'type'>): EntryMode {
     case BlockType.jumps:
     case BlockType.throws:
       return 'distance';
+    case BlockType.vertical_jumps:
+      return 'bars';
     default:
       return 'checklist';
   }
@@ -60,6 +76,28 @@ export function initialRowCount(ex: Exercise): number {
   return 1;
 }
 
+/** Nombre de barres pré-remplies par défaut quand le coach fixe départ + montée (ADR-25). */
+const DEFAULT_BAR_COUNT = 5;
+
+/** Une barre vide (hauteur libre + essais non tentés). */
+export function makeEmptyBar(height = ''): BarRow {
+  return { height, attempts: Array<BarAttempt>(ATTEMPTS_PER_BAR).fill('none') };
+}
+
+/**
+ * Grille de barres initiale (ADR-25) — pré-remplie depuis les params du coach
+ * (`startHeightCm` + `incrementCm`, en cm → m). Sans barre de départ, une seule barre vide
+ * que l'athlète renseigne. Calcul en cm entiers pour éviter le bruit flottant.
+ */
+export function initialBars(ex: Exercise): BarRow[] {
+  const startCm = param(ex, 'startHeightCm');
+  if (startCm == null) return [makeEmptyBar()];
+  const incrementCm = param(ex, 'incrementCm') ?? 0;
+  return Array.from({ length: DEFAULT_BAR_COUNT }, (_unused, i) =>
+    makeEmptyBar(String((startCm + i * incrementCm) / 100)),
+  );
+}
+
 /** État de saisie vide d'un exercice, dimensionné sur sa cible. */
 export function makeEmptyEntry(ex: Exercise): ExerciseEntry {
   const mode = entryModeFor(ex);
@@ -73,6 +111,7 @@ export function makeEmptyEntry(ex: Exercise): ExerciseEntry {
       })),
     };
   }
+  if (mode === 'bars') return { mode, bars: initialBars(ex) };
   return { mode: 'checklist', done: false };
 }
 
@@ -139,6 +178,24 @@ export function entryToResult(ex: Exercise, entry: ExerciseEntry): ExerciseResul
     });
     return { ...base, setResults: sets.length ? sets : [{ set: 1, completed: false }] };
   }
+  if (entry.mode === 'bars') {
+    // Grille de barres (ADR-25) : un set par essai tenté (`distanceMeters` = hauteur,
+    // `failed` = barre non franchie). La hauteur est portée même par un échec → la grille
+    // reste reconstructible ; la barre franchie = max non-`failed` (cf. bestMeasuresByEvent).
+    const sets: SetResult[] = [];
+    entry.bars.forEach((bar) => {
+      const h = parseDistanceInput(bar.height);
+      if (h == null) return;
+      bar.attempts.forEach((a) => {
+        if (a === 'cleared')
+          sets.push({ set: sets.length + 1, distanceMeters: h, completed: true });
+        else if (a === 'failed') {
+          sets.push({ set: sets.length + 1, distanceMeters: h, failed: true, completed: true });
+        }
+      });
+    });
+    return { ...base, setResults: sets.length ? sets : [{ set: 1, completed: false }] };
+  }
   return { ...base, setResults: [{ set: 1, completed: entry.done }] };
 }
 
@@ -148,12 +205,34 @@ export function entryIsCompleted(entry: ExerciseEntry): boolean {
   if (entry.mode === 'distance') {
     return entry.attempts.some((a) => a.failed || parseDistanceInput(a.distance) != null);
   }
+  if (entry.mode === 'bars') {
+    // Au moins un essai tenté sur une barre de hauteur valide.
+    return entry.bars.some(
+      (bar) => parseDistanceInput(bar.height) != null && bar.attempts.some((a) => a !== 'none'),
+    );
+  }
   return entry.done;
+}
+
+/** Barre franchie (m) la plus haute d'une grille, ou `undefined` si aucune franchie. */
+export function clearedBarHeight(
+  entry: Extract<ExerciseEntry, { mode: 'bars' }>,
+): number | undefined {
+  let best: number | undefined;
+  entry.bars.forEach((bar) => {
+    const h = parseDistanceInput(bar.height);
+    if (h != null && bar.attempts.includes('cleared') && (best == null || h > best)) best = h;
+  });
+  return best;
 }
 
 /**
  * Mesures v2 d'un exercice en libellé lisible — pour la revue coach (C-08) :
  * « 7.45 s · 7.62 s », « 1:15.3 · 1:16 », « 6.42 m · mordu ». `undefined` sans mesure (v1).
+ *
+ * Distinction sans connaître le type du bloc (ADR-25) : un essai `failed` **avec** hauteur est
+ * une **barre non franchie** (grille de barres → « 1.85 m ✗ ») ; `failed` **sans** distance est
+ * un essai **mordu** (saut/lancer horizontal).
  */
 export function formatMeasures(sets: SetResult[] | undefined): string | undefined {
   if (!sets?.length) return undefined;
@@ -165,7 +244,7 @@ export function formatMeasures(sets: SetResult[] | undefined): string | undefine
           ? formatTimeInput(s.timeSeconds)
           : `${formatTimeInput(s.timeSeconds)} s`,
       );
-    } else if (s.failed) parts.push('mordu');
+    } else if (s.failed) parts.push(s.distanceMeters != null ? `${s.distanceMeters} m ✗` : 'mordu');
     else if (s.distanceMeters != null) parts.push(`${s.distanceMeters} m`);
   });
   return parts.length ? parts.join(' · ') : undefined;
@@ -195,6 +274,27 @@ export function entryFromResult(ex: Exercise, result: ExerciseResult | undefined
         failed: !!s.failed,
       }));
     return attempts.length ? { mode: 'distance', attempts } : empty;
+  }
+  if (empty.mode === 'bars') {
+    // Regroupe les essais par hauteur (ordre de 1ʳᵉ apparition = ordre des barres) ; chaque
+    // set = un essai (`failed` → échoué, sinon franchi). Padde à ATTEMPTS_PER_BAR pour la grille.
+    const rows: BarRow[] = [];
+    const byHeight = new Map<number, BarRow>();
+    sets.forEach((s) => {
+      if (s.distanceMeters == null) return;
+      let row = byHeight.get(s.distanceMeters);
+      if (!row) {
+        row = { height: String(s.distanceMeters), attempts: [] };
+        byHeight.set(s.distanceMeters, row);
+        rows.push(row);
+      }
+      row.attempts.push(s.failed ? 'failed' : 'cleared');
+    });
+    if (!rows.length) return empty;
+    rows.forEach((row) => {
+      while (row.attempts.length < ATTEMPTS_PER_BAR) row.attempts.push('none');
+    });
+    return { mode: 'bars', bars: rows };
   }
   return { mode: 'checklist', done: sets.some((s) => s.completed) };
 }
