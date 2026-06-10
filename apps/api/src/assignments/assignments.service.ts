@@ -4,6 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { OwnershipService } from '../common/authorization/ownership.service';
 import type { AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { buildPageMeta } from '../common/pagination/page-meta';
+import { NotificationQueueService } from '../jobs/notification-queue.service';
 import { toSessionDto } from '../sessions/session.mapper';
 import { AssignRequestDto } from './dto/assign-request.dto';
 import { AssignmentQueryDto } from './dto/assignment-query.dto';
@@ -28,6 +29,7 @@ export class AssignmentsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly ownership: OwnershipService,
+    private readonly notificationQueue: NotificationQueueService,
   ) {}
 
   /** Coach affecte une séance (sienne) à des athlètes liés. Idempotent par couple (séance, athlète). */
@@ -48,7 +50,23 @@ export class AssignmentsService {
         athleteIds.map((athleteId) => upsertActiveAssignment(tx, sessionId, athleteId, dueDate)),
       ),
     );
-    return { data: rows.map((r) => toAssignmentDto(r)) };
+
+    // Notifie chaque athlète nouvellement affecté (ADR-22 : session_assigned) ;
+    // une ré-affectation idempotente n'émet rien.
+    for (const { assignment, created } of rows) {
+      if (created) {
+        await this.notificationQueue.enqueue(
+          {
+            type: 'session_assigned',
+            recipientUserId: assignment.athleteId,
+            resourceId: assignment.id,
+          },
+          // « : » est interdit dans un jobId BullMQ (séparateur interne de clés Redis).
+          `session_assigned--${assignment.id}`,
+        );
+      }
+    }
+    return { data: rows.map((r) => toAssignmentDto(r.assignment)) };
   }
 
   /** Liste paginée, role-aware : athlète → ses affectations ; coach → celles de ses séances. */
@@ -113,22 +131,24 @@ export class AssignmentsService {
 /**
  * Crée l'affectation active (séance, athlète) ou renvoie l'existante telle quelle
  * (idempotence : une ré-affectation ne modifie pas une affectation déjà en cours).
+ * `created` distingue les deux cas (seules les créations émettent une notification).
  */
 async function upsertActiveAssignment(
   tx: Prisma.TransactionClient,
   sessionId: string,
   athleteId: string,
   dueDate: Date | null,
-): Promise<SessionAssignment> {
+): Promise<{ assignment: SessionAssignment; created: boolean }> {
   const existing = await tx.sessionAssignment.findFirst({
     where: { sessionId, athleteId, deletedAt: null },
   });
   if (existing) {
-    return existing;
+    return { assignment: existing, created: false };
   }
-  return tx.sessionAssignment.create({
+  const assignment = await tx.sessionAssignment.create({
     data: { sessionId, athleteId, dueDate: dueDate ?? undefined },
   });
+  return { assignment, created: true };
 }
 
 function toAssignmentDto(assignment: SessionAssignment, session?: Session): AssignmentDto {

@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import type { OwnershipService } from '../common/authorization/ownership.service';
 import type { PrismaService } from '../prisma/prisma.service';
 import { PaginationQueryDto } from '../common/pagination/pagination-query.dto';
+import type { NotificationQueueService } from '../jobs/notification-queue.service';
 import { GroupsService } from './groups.service';
 
 function groupRow(over: Record<string, unknown> = {}) {
@@ -62,8 +63,16 @@ function prismaMock(): PrismaMock {
   return mock;
 }
 
-function service(prisma: PrismaMock, ownership = ownershipMock()): GroupsService {
-  return new GroupsService(prisma as unknown as PrismaService, ownership);
+function queueMock(): NotificationQueueService {
+  return { enqueue: jest.fn().mockResolvedValue(undefined) } as unknown as NotificationQueueService;
+}
+
+function service(
+  prisma: PrismaMock,
+  ownership = ownershipMock(),
+  queue = queueMock(),
+): GroupsService {
+  return new GroupsService(prisma as unknown as PrismaService, ownership, queue);
 }
 
 describe('GroupsService', () => {
@@ -195,8 +204,9 @@ describe('GroupsService', () => {
       );
     });
 
-    it('idempotent : déjà membre actif → renvoie l’appartenance sans recréer', async () => {
+    it('idempotent : déjà membre actif → renvoie l’appartenance sans recréer ni notifier', async () => {
       const prisma = prismaMock();
+      const queue = queueMock();
       prisma.group.findFirst.mockResolvedValue({ id: 'g-1', coachId: 'c-1' });
       prisma.groupMember.findFirst.mockResolvedValue({
         athleteId: 'a-1',
@@ -206,11 +216,34 @@ describe('GroupsService', () => {
       });
       prisma.coachAthleteLink.findFirst.mockResolvedValue({ id: 'l-1' });
 
-      const member = await service(prisma).joinGroup('a-1', 'ABCD2345');
+      const member = await service(prisma, ownershipMock(), queue).joinGroup('a-1', 'ABCD2345');
 
       expect(prisma.groupMember.create).not.toHaveBeenCalled();
       expect(prisma.coachAthleteLink.create).not.toHaveBeenCalled();
+      expect(queue.enqueue).not.toHaveBeenCalled();
       expect(member).toMatchObject({ athleteId: 'a-1', groupId: 'g-1' });
+    });
+
+    it('nouvelle adhésion → notifie le coach propriétaire (group_update, ADR-22)', async () => {
+      const prisma = prismaMock();
+      const queue = queueMock();
+      prisma.group.findFirst.mockResolvedValue({ id: 'g-1', coachId: 'c-1' });
+      prisma.groupMember.findFirst.mockResolvedValue(null);
+      prisma.groupMember.create.mockResolvedValue({
+        id: 'gm-1',
+        athleteId: 'a-2',
+        groupId: 'g-1',
+        joinedAt: new Date('2026-01-02T00:00:00.000Z'),
+        athlete: { id: 'a-2', firstName: 'Bo', lastName: 'M', sport: null },
+      });
+      prisma.coachAthleteLink.findFirst.mockResolvedValue(null);
+
+      await service(prisma, ownershipMock(), queue).joinGroup('a-2', 'ABCD2345');
+
+      expect(queue.enqueue).toHaveBeenCalledWith(
+        { type: 'group_update', recipientUserId: 'c-1', resourceId: 'g-1' },
+        'group_update--gm-1',
+      );
     });
 
     it('nouveau membre → crée l’appartenance ET le lien coach↔athlète', async () => {

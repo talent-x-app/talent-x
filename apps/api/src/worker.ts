@@ -5,14 +5,20 @@ import { NestFactory } from '@nestjs/core';
 import { Worker } from 'bullmq';
 import { JsonLogger } from './common/logging/json-logger';
 import { redisConnectionFromUrl } from './jobs/redis-connection';
-import { DATA_EXPORT_QUEUE, type ExportJobPayload } from './jobs/jobs.constants';
+import {
+  DATA_EXPORT_QUEUE,
+  NOTIFICATIONS_QUEUE,
+  type ExportJobPayload,
+  type NotificationJobPayload,
+} from './jobs/jobs.constants';
 import { ExportProcessor } from './jobs/export.processor';
+import { NotificationProcessor } from './jobs/notification.processor';
 import { WorkerModule } from './worker.module';
 
 /**
- * Entrypoint du worker (process séparé de l'API). Consomme la file `data-export`
- * via BullMQ et délègue chaque job à `ExportProcessor`. Fail-fast si `REDIS_URL`
- * est absent. Arrêt gracieux sur SIGTERM/SIGINT.
+ * Entrypoint du worker (process séparé de l'API). Consomme les files `data-export`
+ * et `notifications` via BullMQ et délègue chaque job à son processor. Fail-fast si
+ * `REDIS_URL` est absent. Arrêt gracieux sur SIGTERM/SIGINT.
  *
  * Dev :  pnpm --filter @talent-x/api worker:dev
  * Prod : node dist/worker.js
@@ -30,23 +36,33 @@ async function bootstrap(): Promise<void> {
     process.exit(1);
   }
 
-  const processor = app.get(ExportProcessor);
-  const worker = new Worker<ExportJobPayload>(
-    DATA_EXPORT_QUEUE,
-    async (job) => processor.process(job.data),
-    { connection: redisConnectionFromUrl(redisUrl) },
-  );
+  const exportProcessor = app.get(ExportProcessor);
+  const notificationProcessor = app.get(NotificationProcessor);
+  const workers = [
+    new Worker<ExportJobPayload>(
+      DATA_EXPORT_QUEUE,
+      async (job) => exportProcessor.process(job.data),
+      { connection: redisConnectionFromUrl(redisUrl) },
+    ),
+    new Worker<NotificationJobPayload>(
+      NOTIFICATIONS_QUEUE,
+      async (job) => notificationProcessor.process(job.data),
+      { connection: redisConnectionFromUrl(redisUrl) },
+    ),
+  ];
 
-  worker.on('failed', (job, err) => {
-    logger.warn(`Job ${job?.id} en échec : ${err.message}`);
-  });
-  worker.on('ready', () => {
-    logger.log(`Worker à l'écoute de la file « ${DATA_EXPORT_QUEUE} ».`);
-  });
+  for (const worker of workers) {
+    worker.on('failed', (job, err) => {
+      logger.warn(`Job ${job?.id} (${worker.name}) en échec : ${err.message}`);
+    });
+    worker.on('ready', () => {
+      logger.log(`Worker à l'écoute de la file « ${worker.name} ».`);
+    });
+  }
 
   const shutdown = async (signal: string): Promise<void> => {
     logger.log(`Signal ${signal} reçu — arrêt du worker.`);
-    await worker.close();
+    await Promise.all(workers.map((worker) => worker.close()));
     await app.close();
     process.exit(0);
   };

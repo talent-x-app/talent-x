@@ -10,6 +10,7 @@ import { OwnershipService } from '../common/authorization/ownership.service';
 import { ConsentGate } from '../common/authorization/consent.gate';
 import type { AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { buildPageMeta } from '../common/pagination/page-meta';
+import { NotificationQueueService } from '../jobs/notification-queue.service';
 import { CommentCreateDto } from './dto/comment-create.dto';
 import { CommentDto, CommentPageDto } from './dto/comment.dto';
 import { CommentQueryDto } from './dto/comment-query.dto';
@@ -34,13 +35,15 @@ export class CommentsService {
     private readonly prisma: PrismaService,
     private readonly ownership: OwnershipService,
     private readonly consent: ConsentGate,
+    private readonly notificationQueue: NotificationQueueService,
   ) {}
 
   /** Crée un commentaire sur l'unique cible fournie (séance XOR performance). */
   async createComment(user: AuthenticatedUser, dto: CommentCreateDto): Promise<CommentDto> {
     const target = exactlyOneTarget(dto.sessionId, dto.performanceId);
+    let performanceAthleteId: string | undefined;
     if (target === 'performance') {
-      await this.assertCanAccessPerformance(user, dto.performanceId!);
+      performanceAthleteId = await this.assertCanAccessPerformance(user, dto.performanceId!);
     } else {
       await this.assertCanAccessSession(user, dto.sessionId!);
     }
@@ -53,6 +56,19 @@ export class CommentsService {
         body: dto.body,
       },
     });
+
+    // Feedback du coach sur une performance → notifie l'athlète (ADR-22).
+    if (user.role === 'coach' && target === 'performance' && performanceAthleteId) {
+      await this.notificationQueue.enqueue(
+        {
+          type: 'performance_feedback',
+          recipientUserId: performanceAthleteId,
+          resourceId: dto.performanceId!,
+        },
+        // « : » est interdit dans un jobId BullMQ (séparateur interne de clés Redis).
+        `performance_feedback--${comment.id}`,
+      );
+    }
     return toCommentDto(comment);
   }
 
@@ -98,11 +114,12 @@ export class CommentsService {
   /**
    * Accès à une performance cible : athlète titulaire, ou coach propriétaire de la séance
    * (lien actif + consentement `coach_access`). Mêmes règles que la lecture de la perf.
+   * Renvoie l'athlète titulaire (destinataire d'une éventuelle notification).
    */
   private async assertCanAccessPerformance(
     user: AuthenticatedUser,
     performanceId: string,
-  ): Promise<void> {
+  ): Promise<string> {
     const performance = await this.prisma.performance.findUnique({
       where: { id: performanceId },
       select: {
@@ -122,6 +139,7 @@ export class CommentsService {
     } else if (performance.athleteId !== user.id) {
       throw new ForbiddenException('Cette performance ne vous appartient pas.');
     }
+    return performance.athleteId;
   }
 
   /** Accès à une séance cible : coach propriétaire, ou athlète affecté (lien à la séance). */

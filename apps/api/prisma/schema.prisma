@@ -44,6 +44,7 @@ model User {
   consents         Consent[]
   refreshTokens    RefreshToken[]
   deviceTokens     DeviceToken[]
+  notificationPreferences NotificationPreferences?
   exportJobs       ExportJob[]
   coachedGroups    Group[]             @relation("GroupCoach")
   groupMemberships GroupMember[]
@@ -111,6 +112,21 @@ model DeviceToken {
 
   @@index([userId], map: "ix_device_user")
   @@map("device_tokens")
+}
+
+/// Préférences de notification (ADR-22). 1:1 users ; absence de ligne = défauts
+/// (tout à true sauf marketing, opt-in RGPD). Lues par le worker comme garde d'envoi.
+model NotificationPreferences {
+  userId              String   @id @map("user_id") @db.Uuid
+  sessionAssigned     Boolean  @default(true) @map("session_assigned")
+  performanceFeedback Boolean  @default(true) @map("performance_feedback")
+  groupUpdates        Boolean  @default(true) @map("group_updates")
+  marketing           Boolean  @default(false)
+  updatedAt           DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notification_preferences")
 }
 
 /// Job d'export RGPD asynchrone (ADR-13, TX-DATA-006 §12.1).

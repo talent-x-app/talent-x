@@ -2,6 +2,7 @@ import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import type { OwnershipService } from '../common/authorization/ownership.service';
 import type { PrismaService } from '../prisma/prisma.service';
 import type { AuthenticatedUser } from '../common/decorators/current-user.decorator';
+import type { NotificationQueueService } from '../jobs/notification-queue.service';
 import { AssignmentsService } from './assignments.service';
 import { AssignmentQueryDto } from './dto/assignment-query.dto';
 import { AssignmentStatus } from './dto/assignment.dto';
@@ -69,8 +70,16 @@ function prismaMock(): PrismaMock {
   return mock;
 }
 
-function service(prisma: PrismaMock, ownership = ownershipMock()): AssignmentsService {
-  return new AssignmentsService(prisma as unknown as PrismaService, ownership);
+function queueMock(): NotificationQueueService {
+  return { enqueue: jest.fn().mockResolvedValue(undefined) } as unknown as NotificationQueueService;
+}
+
+function service(
+  prisma: PrismaMock,
+  ownership = ownershipMock(),
+  queue = queueMock(),
+): AssignmentsService {
+  return new AssignmentsService(prisma as unknown as PrismaService, ownership, queue);
 }
 
 const baseQuery = (): AssignmentQueryDto =>
@@ -100,13 +109,40 @@ describe('AssignmentsService', () => {
       expect(res.data).toHaveLength(2);
     });
 
-    it('idempotent : renvoie l’affectation existante sans recréer', async () => {
+    it('idempotent : renvoie l’affectation existante sans recréer ni notifier', async () => {
       const prisma = prismaMock();
+      const queue = queueMock();
       prisma.sessionAssignment.findFirst.mockResolvedValue(assignmentRow());
-      const res = await service(prisma).assignSession('c-1', 's-1', { athleteIds: ['a-1'] });
+      const res = await service(prisma, ownershipMock(), queue).assignSession('c-1', 's-1', {
+        athleteIds: ['a-1'],
+      });
 
       expect(prisma.sessionAssignment.create).not.toHaveBeenCalled();
+      expect(queue.enqueue).not.toHaveBeenCalled();
       expect(res.data[0].id).toBe('asg-1');
+    });
+
+    it('notifie chaque athlète nouvellement affecté (session_assigned, ADR-22)', async () => {
+      const prisma = prismaMock();
+      const queue = queueMock();
+      prisma.sessionAssignment.findFirst.mockResolvedValue(null);
+      prisma.sessionAssignment.create
+        .mockResolvedValueOnce(assignmentRow({ id: 'x', athleteId: 'a-1' }))
+        .mockResolvedValueOnce(assignmentRow({ id: 'y', athleteId: 'a-2' }));
+
+      await service(prisma, ownershipMock(), queue).assignSession('c-1', 's-1', {
+        athleteIds: ['a-1', 'a-2'],
+      });
+
+      expect(queue.enqueue).toHaveBeenCalledTimes(2);
+      expect(queue.enqueue).toHaveBeenCalledWith(
+        { type: 'session_assigned', recipientUserId: 'a-1', resourceId: 'x' },
+        'session_assigned--x',
+      );
+      expect(queue.enqueue).toHaveBeenCalledWith(
+        { type: 'session_assigned', recipientUserId: 'a-2', resourceId: 'y' },
+        'session_assigned--y',
+      );
     });
 
     it('déduplique les athleteIds en doublon', async () => {

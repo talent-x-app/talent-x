@@ -1,7 +1,7 @@
 # ADR-22 — Infrastructure notifications : préférences, taxonomie d'événements, pipeline push
 
-- **Statut :** Proposé
-- **Date :** 2026-06-10
+- **Statut :** Accepté
+- **Date :** 2026-06-10 (validé 2026-06-10)
 - **Complète :** TX-DATA-006 (aucune table de préférences), TX-ARCH-001 §4.5/§4.6
   (pipeline prescrit mais taxonomie des déclencheurs non spécifiée),
   `talent-x-openapi.yaml` (schéma `NotificationPreferences` sans persistance définie)

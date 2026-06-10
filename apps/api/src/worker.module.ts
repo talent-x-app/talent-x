@@ -10,6 +10,8 @@ import { ExportCleanupService } from './jobs/export-cleanup.service';
 import { ExportArchiveBuilder } from './jobs/export-archive-builder';
 import { DataExportArchiveBuilder } from './jobs/data-export-archive-builder';
 import { AccountPurgeService } from './jobs/account-purge.service';
+import { NotificationProcessor } from './jobs/notification.processor';
+import { LoggingPushProvider, PushProvider } from './jobs/push-provider';
 
 /**
  * Contexte d'exécution du worker (process séparé de l'API — TX-ARCH-001 §4.5).
@@ -33,6 +35,9 @@ import { AccountPurgeService } from './jobs/account-purge.service';
     ExportCleanupService,
     AccountPurgeService,
     { provide: ExportArchiveBuilder, useClass: DataExportArchiveBuilder },
+    NotificationProcessor,
+    // Provider logging tant que les credentials APNs/FCM n'existent pas (ADR-22 §4).
+    { provide: PushProvider, useClass: LoggingPushProvider },
   ],
 })
 export class WorkerModule {}

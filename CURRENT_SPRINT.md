@@ -365,6 +365,35 @@ athlete-session-ui.tsx`. 10 tests ; **suite mobile 108/108**. **Validé en réel
   3 marques · 7.3 s », 3 barres décroissantes, tendance verte ↗ (direction `min`),
   bascules de période OK, zéro erreur console.
 
+## Terminés ce sprint — TLX-110 Infrastructure notifications (ADR-22)
+
+- **ADR-22 accepté** : table `notification_preferences` (1:1 users, défauts en base,
+  `marketing` opt-in false, absence de ligne = défauts), taxonomie MVP
+  (`session_assigned` → athlète, `performance_feedback` → athlète, `group_update` →
+  coach), pipeline BullMQ + provider push abstrait. Migration expand-only.
+- **(API) 4 endpoints** `/notifications/*` (squelettes 501 → contrat) :
+  `POST devices` (upsert par `token` : ré-association + `last_seen_at` + dé-révocation),
+  `DELETE devices/{id}` (révocation logique, ownership, 404), `GET/PUT preferences`
+  (défauts sans écriture / upsert partiel).
+- **Pipeline** : `NotificationQueueService` (producteur, jobId = clé de dédup,
+  backoff expo ×3, l'échec d'enqueue ne casse jamais l'opération métier) →
+  `NotificationProcessor` (worker : garde de préférence par type, devices actifs,
+  contenu générique ADR-10 — signal + resourceId, jamais de donnée de santé —,
+  révocation des tokens signalés invalides) → `PushProvider` abstrait
+  (`LoggingPushProvider` en dev ; adaptateurs APNs/FCM à brancher par config).
+  `worker.ts` consomme désormais 2 files (`data-export`, `notifications`).
+- **Émissions** : affectation créée (assignments), commentaire coach sur perf
+  (comments), adhésion groupe (groups) — créations uniquement, jamais les chemins
+  idempotents. +16 tests ; **API 282/282** ; typecheck clean.
+- **Validé en réel** (API + Redis + worker locaux) : scénario complet —
+  device 201 + upsert (même id), GET défauts / PUT partiel, affectation →
+  **`PUSH [fcm] … — Nouvelle séance (type=session_assigned resource=<assignmentId>)`**
+  loggé par le worker ; préférence off → « ignorée (préférence off) » ; destinataire
+  sans device → « sans cible » ; DELETE 204 puis 404 ; révocation par un autre compte 404. **Bug réel attrapé en validation** : BullMQ interdit « : » dans un jobId custom
+  → séparateur `--` dans les clés de dédup.
+- **Non testé en réel** (credentials absents) : l'envoi APNs/FCM effectif —
+  adaptateurs réels + ticket Linear de suivi dédié.
+
 ## Notes / dépendances (réutilisables)
 
 - **Mapper séance partagé** : `sessions/session.mapper.ts` (`toSessionDto`).

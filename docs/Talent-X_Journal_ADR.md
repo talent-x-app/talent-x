@@ -375,7 +375,7 @@ agrégats matérialisés (prématuré), fenêtre serveur dès le MVP.
 
 Décision complète : [`docs/adr/ADR-22-infrastructure-notifications.md`](adr/ADR-22-infrastructure-notifications.md).
 
-**Statut : Proposé** (bloque TLX-110 ; TLX-111 consommera la même taxonomie).
+**Statut : Accepté** (validé 2026-06-10 — débloque TLX-110 ; TLX-111 consommera la même taxonomie).
 
 **En bref.** Le contrat définit `NotificationPreferences` sans table, et aucun document
 ne fixe quel événement métier déclenche quelle notification. Proposition : table

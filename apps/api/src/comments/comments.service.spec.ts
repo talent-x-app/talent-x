@@ -3,6 +3,7 @@ import type { OwnershipService } from '../common/authorization/ownership.service
 import type { ConsentGate } from '../common/authorization/consent.gate';
 import type { PrismaService } from '../prisma/prisma.service';
 import type { AuthenticatedUser } from '../common/decorators/current-user.decorator';
+import type { NotificationQueueService } from '../jobs/notification-queue.service';
 import { CommentsService } from './comments.service';
 
 const COACH: AuthenticatedUser = { id: 'c-1', role: 'coach' };
@@ -64,8 +65,17 @@ function prismaMock(): PrismaMock {
   return mock;
 }
 
-function make(prisma: PrismaMock, ownership = ownershipMock(), consent = consentMock()) {
-  return new CommentsService(prisma as unknown as PrismaService, ownership, consent);
+function queueMock(): NotificationQueueService {
+  return { enqueue: jest.fn().mockResolvedValue(undefined) } as unknown as NotificationQueueService;
+}
+
+function make(
+  prisma: PrismaMock,
+  ownership = ownershipMock(),
+  consent = consentMock(),
+  queue = queueMock(),
+) {
+  return new CommentsService(prisma as unknown as PrismaService, ownership, consent, queue);
 }
 
 /** Performance dont la séance appartient au coach c-1, athlète a-1. */
@@ -99,6 +109,37 @@ describe('CommentsService (TLX-086)', () => {
       });
       expect(result.performanceId).toBe(PERF_ID);
       expect(result.authorId).toBe('c-1');
+    });
+
+    it('commentaire coach sur une perf → notifie l’athlète (performance_feedback, ADR-22)', async () => {
+      const prisma = prismaMock();
+      const queue = queueMock();
+      prisma.performance.findUnique.mockResolvedValue(perfAccessible());
+      prisma.comment.create.mockResolvedValue(commentRow());
+
+      await make(prisma, ownershipMock(), consentMock(), queue).createComment(COACH, {
+        performanceId: PERF_ID,
+        body: 'Beau travail.',
+      });
+
+      expect(queue.enqueue).toHaveBeenCalledWith(
+        { type: 'performance_feedback', recipientUserId: 'a-1', resourceId: PERF_ID },
+        'performance_feedback--cm-1',
+      );
+    });
+
+    it('commentaire de l’athlète sur sa propre perf → aucune notification', async () => {
+      const prisma = prismaMock();
+      const queue = queueMock();
+      prisma.performance.findUnique.mockResolvedValue(perfAccessible());
+      prisma.comment.create.mockResolvedValue(commentRow({ authorId: 'a-1' }));
+
+      await make(prisma, ownershipMock(), consentMock(), queue).createComment(ATHLETE, {
+        performanceId: PERF_ID,
+        body: 'Je note pour la prochaine.',
+      });
+
+      expect(queue.enqueue).not.toHaveBeenCalled();
     });
 
     it('rejette si ni cible ni les deux cibles (400)', async () => {

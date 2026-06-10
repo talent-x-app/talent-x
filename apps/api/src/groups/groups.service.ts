@@ -10,6 +10,7 @@ import { GroupUpdateDto } from './dto/group-update.dto';
 import { GroupMemberPageDto, GroupMemberDto } from './dto/group-member.dto';
 import { InviteCodeDto, type InviteCodeAction } from './dto/invite-code.dto';
 import { generateInviteCode } from './invite-code';
+import { NotificationQueueService } from '../jobs/notification-queue.service';
 
 const GROUP_SORTABLE = ['createdAt', 'name', 'updatedAt'] as const;
 const MAX_CODE_ATTEMPTS = 5;
@@ -30,6 +31,7 @@ export class GroupsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly ownership: OwnershipService,
+    private readonly notificationQueue: NotificationQueueService,
   ) {}
 
   async createGroup(coachId: string, dto: GroupCreateDto): Promise<GroupDto> {
@@ -162,20 +164,30 @@ export class GroupsService {
     if (!group) {
       throw new NotFoundException("Code d'invitation invalide ou révoqué.");
     }
-    return this.prisma.$transaction(async (tx) => {
+    const { member, created } = await this.prisma.$transaction(async (tx) => {
       const existing = await tx.groupMember.findFirst({
         where: { groupId: group.id, athleteId, leftAt: null },
         include: { athlete: memberAthleteSelect },
       });
-      const member =
+      const row =
         existing ??
         (await tx.groupMember.create({
           data: { groupId: group.id, athleteId },
           include: { athlete: memberAthleteSelect },
         }));
       await ensureGroupLink(tx, group.coachId, athleteId, group.id);
-      return toGroupMemberDto(member);
+      return { member: row, created: !existing };
     });
+
+    // Nouvelle adhésion → notifie le coach propriétaire (ADR-22 : group_update).
+    if (created) {
+      await this.notificationQueue.enqueue(
+        { type: 'group_update', recipientUserId: group.coachId, resourceId: group.id },
+        // « : » est interdit dans un jobId BullMQ (séparateur interne de clés Redis).
+        `group_update--${member.id}`,
+      );
+    }
+    return toGroupMemberDto(member);
   }
 
   /** Athlète quitte un groupe. 404 s'il n'en est pas membre actif. */
