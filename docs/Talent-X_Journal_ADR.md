@@ -392,6 +392,25 @@ dans les services métier.
 
 ---
 
+## ADR-23 — Notifications in-app : historique, contrat de feed, écran préférences
+
+Décision complète : [`docs/adr/ADR-23-notifications-in-app.md`](adr/ADR-23-notifications-in-app.md).
+
+**Statut : Proposé** (bloque la moitié in-app de TLX-111).
+
+**En bref.** TLX-111 doit livrer un centre de notifications in-app, mais rien n'existe
+(ni table, ni endpoint, ni écran maquetté) — l'ADR-22 avait volontairement repoussé
+l'historique vers ce ticket. Proposition : table `notifications` (type + resource_id +
+`dedupe_key` unique aligné sur le jobId BullMQ, `read_at`), **persistée par le worker
+derrière la même garde de préférence que le push** (un interrupteur = la notification,
+pas un canal) ; contrat additif `GET /notifications` (paginé + `unreadCount`) et
+`POST /notifications/read-all` ; côté mobile, section Préférences (4 switches) et
+centre de notifications avec badge dans l'onglet Profil (pattern UI kit). Device token
+mobile → reste dans TLX-84. Écartés : persistance côté API (double garde), préférences
+ne coupant que le push (collecte refusée), lecture unitaire, cloche en tab bar.
+
+---
+
 ## Gabarit pour un nouvel ADR
 
 ```markdown
