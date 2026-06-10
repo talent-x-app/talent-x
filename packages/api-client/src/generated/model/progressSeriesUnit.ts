@@ -8,4 +8,10 @@
  * OpenAPI spec version: 1.0.0
  */
 
-export type ProgressSeriesItem = { [key: string]: unknown };
+export type ProgressSeriesUnit = typeof ProgressSeriesUnit[keyof typeof ProgressSeriesUnit];
+
+
+export const ProgressSeriesUnit = {
+  s: 's',
+  m: 'm',
+} as const;

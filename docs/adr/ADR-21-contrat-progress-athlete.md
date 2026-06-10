@@ -1,7 +1,7 @@
 # ADR-21 — Contrat explicite de la progression athlète (`/athletes/me/progress`)
 
-- **Statut :** Proposé
-- **Date :** 2026-06-10
+- **Statut :** Accepté
+- **Date :** 2026-06-10 (validé 2026-06-10)
 - **Complète :** `talent-x-openapi.yaml` (schéma `Progress` — aujourd'hui conteneurs
   libres `metrics`/`series`), TX-SPEC-002 (A-06)
 - **Tickets liés :** TLX-090 (écran Progression A-06, graphes par discipline) —

@@ -7,14 +7,18 @@
  * Conventions transverses : préfixe /api/v1 ; jeton d'accès JWT (RS256) via en-tête Authorization ; pagination par enveloppe { data, meta } ; idempotence des écritures sensibles via Idempotency-Key ; opérations longues asynchrones (202 + ressource de statut) ; rate limiting signalé par les en-têtes RateLimit-*. L'autorisation combine rôle, appartenance (lien coach↔athlète), propriété et consentement ; voir TX-SPEC-002 §6.
  * OpenAPI spec version: 1.0.0
  */
-import type { ProgressSeries } from './progressSeries';
-import type { StatsMetrics } from './statsMetrics';
+import type { ProgressPoint } from './progressPoint';
+import type { ProgressSeriesDirection } from './progressSeriesDirection';
+import type { ProgressSeriesUnit } from './progressSeriesUnit';
 
 /**
- * Progression de l'athlète connecté (ADR-21) : métriques dérivées (mêmes dérivations que StatsMetrics, ADR-17, sur toutes ses affectations) + une série de mesures par épreuve (clé ADR-20).
+ * Série de progression d'une épreuve (ADR-21) : un point par performance soumise qui la mesure — value = meilleure marque de la perf, date = soumission.
  */
-export interface Progress {
-  athleteId: string;
-  metrics: StatsMetrics;
-  series: ProgressSeries[];
+export interface ProgressSeries {
+  /** Clé d'épreuve dérivée du bloc typé (ex. sprint:60m — ADR-20). */
+  eventKey: string;
+  label: string;
+  unit: ProgressSeriesUnit;
+  direction: ProgressSeriesDirection;
+  points: ProgressPoint[];
 }

@@ -3022,6 +3022,11 @@ export type getMyProgressResponse401 = {
   status: 401
 }
 
+export type getMyProgressResponse403 = {
+  data: ConsentRequiredResponse
+  status: 403
+}
+
 export type getMyProgressResponse422 = {
   data: ValidationFailedResponse
   status: 422
@@ -3040,7 +3045,7 @@ export type getMyProgressResponse500 = {
 export type getMyProgressResponseSuccess = (getMyProgressResponse200) & {
   headers: Headers;
 };
-export type getMyProgressResponseError = (getMyProgressResponse400 | getMyProgressResponse401 | getMyProgressResponse422 | getMyProgressResponse429 | getMyProgressResponse500) & {
+export type getMyProgressResponseError = (getMyProgressResponse400 | getMyProgressResponse401 | getMyProgressResponse403 | getMyProgressResponse422 | getMyProgressResponse429 | getMyProgressResponse500) & {
   headers: Headers;
 };
 

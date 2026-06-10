@@ -342,6 +342,29 @@ athlete-session-ui.tsx`. 10 tests ; **suite mobile 108/108**. **Validé en réel
 - **Validé en réel** (Expo web + API locale) : onglet Progression d'Awa → « RECORDS
   PERSONNELS — 60 m · 9 juin 2026 · 7.3 s » (record TLX-076). Zéro erreur console.
 
+## Terminés ce sprint — A-06 Progression athlète (TLX-090, ADR-21)
+
+- **ADR-21 accepté** (contrat `GET /athletes/me/progress` : `metrics` StatsMetrics +
+  `series[]` par épreuve clé ADR-20) — OpenAPI enrichi (`ProgressSeries`, `ProgressPoint`,
+  unit/direction), client orval régénéré.
+- **(API)** `AthleteProgressService` (TLX-090) — dérivation à la lecture sur toutes les
+  affectations actives de l'athlète : `metrics` (mêmes dérivations qu'ADR-17) + une série
+  par épreuve via `bestMeasuresByEvent` (meilleure marque par perf, points triés par date).
+  Porte `data_processing`. Réutilise `PENDING_STATUSES`/`dayBounds`/`round`
+  (coach-insights) et la détection ADR-20. +4 tests ; **suite progress 29/29**.
+- **(UI) Écran A-06** (`src/athlete/ProgressScreen.tsx`) — remplace le placeholder de
+  l'onglet Progression : bandeau métriques (Réalisées, Assiduité, RPE moyen), fenêtre
+  **Semaine/Mois/Année** côté client (`progress-series.ts` : `pointsInWindow`,
+  `seriesTrend` directionnelle, `barHeights` normalisées), une carte par épreuve
+  (barres, tendance ↗/↘/—, dernière marque `formatRecordValue`), états chargement /
+  consentement (403 `CONSENT_REQUIRED`) / erreur / vide. `PersonalRecordsSection` (A-07)
+  conservée sous les graphes. +9 tests (module pur + écran) ; typecheck clean.
+- **Validé en réel** (Expo web + API locale, comptes neufs via API) : coach → 3 séances
+  Sprints 60 m assignées → Awa soumet 7.6 / 7.45 / 7.3 → `GET /athletes/me/progress`
+  renvoie metrics 3/3 · 100 % · RPE 7 + série `sprint:60m` triée → UI : « 60 m ·
+  3 marques · 7.3 s », 3 barres décroissantes, tendance verte ↗ (direction `min`),
+  bascules de période OK, zéro erreur console.
+
 ## Notes / dépendances (réutilisables)
 
 - **Mapper séance partagé** : `sessions/session.mapper.ts` (`toSessionDto`).

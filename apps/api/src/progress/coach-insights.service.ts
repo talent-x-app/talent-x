@@ -6,7 +6,7 @@ import { AthleteStatus, DashboardAthleteDto, DashboardDto } from './dto/dashboar
 import { StatsDto } from './dto/stats.dto';
 
 /** Statuts d'affectation comptant comme « à faire » (échéance / aujourd'hui). */
-const PENDING_STATUSES = ['assigned', 'in_progress'] as const;
+export const PENDING_STATUSES = ['assigned', 'in_progress'] as const;
 
 /**
  * Dérivations de pilotage coach (TLX-080) — Carte C-01 §8. Le coach n'accède qu'à
@@ -180,7 +180,7 @@ function deriveStatus(overdue: number, toReview: number): AthleteStatus {
 }
 
 /** Bornes [aujourd'hui 00:00, demain 00:00) en UTC (dueDate est une date sans heure). */
-function dayBounds(): { todayStart: Date; tomorrowStart: Date } {
+export function dayBounds(): { todayStart: Date; tomorrowStart: Date } {
   const now = new Date();
   const todayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
   const tomorrowStart = new Date(todayStart);
@@ -188,7 +188,7 @@ function dayBounds(): { todayStart: Date; tomorrowStart: Date } {
   return { todayStart, tomorrowStart };
 }
 
-function round(value: number, decimals: number): number {
+export function round(value: number, decimals: number): number {
   const f = 10 ** decimals;
   return Math.round(value * f) / f;
 }

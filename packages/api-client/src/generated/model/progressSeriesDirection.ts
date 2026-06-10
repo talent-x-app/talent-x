@@ -8,4 +8,10 @@
  * OpenAPI spec version: 1.0.0
  */
 
-export type ProgressMetrics = { [key: string]: unknown };
+export type ProgressSeriesDirection = typeof ProgressSeriesDirection[keyof typeof ProgressSeriesDirection];
+
+
+export const ProgressSeriesDirection = {
+  min: 'min',
+  max: 'max',
+} as const;

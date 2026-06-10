@@ -34,7 +34,7 @@ Chaque décision suit le format **ADR** : Statut, Date, Contexte, Décision, Con
 | ADR-18 | Schéma `exercises` v2 : blocs typés par discipline, union discriminée (raffine ADR-10 · complète TX-DATA-006 §9.1) | Accepté |
 | ADR-19 | Schéma `results` v2 : mesures chronométriques et de distance par essai (méthode ADR-18 · complète TX-DATA-006 §9.2) | Accepté |
 | ADR-20 | Records personnels : table `personal_records` + détection de PB à la soumission, confirmation athlète (complète TX-DATA-006 · OpenAPI) | Accepté |
-| ADR-21 | Contrat explicite de la progression athlète `/athletes/me/progress` : séries par épreuve + métriques (méthode ADR-17 · briques ADR-19/20) | Proposé |
+| ADR-21 | Contrat explicite de la progression athlète `/athletes/me/progress` : séries par épreuve + métriques (méthode ADR-17 · briques ADR-19/20) | Accepté |
 
 ---
 
@@ -357,7 +357,7 @@ de records manuels), mise à jour automatique (retire le contrôle à l'athlète
 
 Décision complète : [`docs/adr/ADR-21-contrat-progress-athlete.md`](adr/ADR-21-contrat-progress-athlete.md).
 
-**Statut : Proposé** (bloque TLX-090 — écran Progression A-06).
+**Statut : Accepté** (validé 2026-06-10 — débloque TLX-090, écran Progression A-06).
 
 **En bref.** Le schéma `Progress` est un conteneur libre et l'endpoint répond 501,
 alors qu'A-06 veut des graphes par discipline. Proposition (méthode ADR-17) :

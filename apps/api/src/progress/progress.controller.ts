@@ -1,18 +1,12 @@
-import {
-  Body,
-  Controller,
-  Get,
-  NotImplementedException,
-  Param,
-  ParseUUIDPipe,
-  Put,
-} from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseUUIDPipe, Put } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
+import { AthleteProgressService } from './athlete-progress.service';
 import { CoachInsightsService } from './coach-insights.service';
 import { RecordsService } from './records.service';
 import { DashboardDto } from './dto/dashboard.dto';
+import { ProgressDto } from './dto/progress.dto';
 import { PersonalRecordDto, PersonalRecordListDto, RecordConfirmDto } from './dto/record.dto';
 import { StatsDto } from './dto/stats.dto';
 
@@ -28,13 +22,15 @@ export class ProgressController {
   constructor(
     private readonly insights: CoachInsightsService,
     private readonly records: RecordsService,
+    private readonly progress: AthleteProgressService,
   ) {}
 
   @Get('athletes/me/progress')
+  @Roles('athlete')
   @ApiOperation({ summary: 'Ma progression', operationId: 'getMyProgress' })
-  getMyProgress(): never {
-    // Livré par TLX-090 (écran Progression A-06).
-    throw new NotImplementedException('getMyProgress');
+  @ApiResponse({ status: 200, description: 'Progression.', type: ProgressDto })
+  getMyProgress(@CurrentUser('id') athleteId: string): Promise<ProgressDto> {
+    return this.progress.getMyProgress(athleteId);
   }
 
   @Get('athletes/me/records')
