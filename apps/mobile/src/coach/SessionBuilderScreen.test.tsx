@@ -106,6 +106,23 @@ describe('SessionBuilderScreen (TLX-052 — C-05)', () => {
     expect(mockCreateSession).not.toHaveBeenCalled();
   });
 
+  it('refuse un bloc chronométré sans le param de suivi (distance) (TLX-91)', () => {
+    render(<SessionBuilderScreen />, { wrapper: Wrapper });
+    fireEvent.changeText(screen.getByTestId('session-field-title'), 'Vitesse');
+    fireEvent.changeText(screen.getByTestId('block-0-name'), '8 × 60m');
+    fireEvent.press(screen.getByTestId('block-0-type-sprint'));
+    // Distance laissée vide → la perf serait invisible en progression : on bloque.
+    fireEvent.press(screen.getByTestId('session-save'));
+    expect(screen.getByTestId('session-builder-validation')).toHaveTextContent(/distance/i);
+    expect(mockCreateSession).not.toHaveBeenCalled();
+
+    // Une fois la distance renseignée, l'enregistrement passe.
+    mockCreateSession.mockResolvedValue({ status: 201, data: { id: 's-ok' } });
+    fireEvent.changeText(screen.getByTestId('block-0-param-distanceMeters'), '60');
+    fireEvent.press(screen.getByTestId('session-save'));
+    return waitFor(() => expect(mockCreateSession).toHaveBeenCalled());
+  });
+
   it('ajoute et supprime des blocs', () => {
     render(<SessionBuilderScreen />, { wrapper: Wrapper });
     fireEvent.press(screen.getByTestId('session-add-block'));
@@ -188,6 +205,7 @@ describe('SessionBuilderScreen (TLX-052 — C-05)', () => {
     // L'éditeur de params propre à « Intervalles » apparaît.
     expect(screen.getByTestId('block-0-params')).toBeOnTheScreen();
     fireEvent.changeText(screen.getByTestId('block-0-param-reps'), '6');
+    fireEvent.changeText(screen.getByTestId('block-0-param-distanceMeters'), '400');
     fireEvent.changeText(screen.getByTestId('block-0-param-workSeconds'), '90');
     fireEvent.changeText(screen.getByTestId('block-0-param-recoverySeconds'), '120');
     fireEvent.press(screen.getByTestId('session-save'));
@@ -198,7 +216,7 @@ describe('SessionBuilderScreen (TLX-052 — C-05)', () => {
       name: '6 × 400m',
       order: 1,
       type: 'interval',
-      params: { reps: 6, workSeconds: 90, recoverySeconds: 120 },
+      params: { reps: 6, distanceMeters: 400, workSeconds: 90, recoverySeconds: 120 },
     });
   });
 
@@ -284,6 +302,7 @@ describe('SessionBuilderScreen (TLX-052 — C-05)', () => {
     fireEvent.press(screen.getByTestId('block-0-type-hurdles'));
 
     expect(screen.getByTestId('block-0-params')).toBeOnTheScreen();
+    fireEvent.changeText(screen.getByTestId('block-0-param-distanceMeters'), '110');
     fireEvent.changeText(screen.getByTestId('block-0-param-heightCm'), '84');
     fireEvent.changeText(screen.getByTestId('block-0-param-spacingMeters'), '8.5');
     fireEvent.changeText(screen.getByTestId('block-0-param-rhythmSteps'), '3');
@@ -295,7 +314,7 @@ describe('SessionBuilderScreen (TLX-052 — C-05)', () => {
       name: '5 haies rythme 3',
       order: 1,
       type: 'hurdles',
-      params: { heightCm: 84, spacingMeters: 8.5, rhythmSteps: 3 },
+      params: { distanceMeters: 110, heightCm: 84, spacingMeters: 8.5, rhythmSteps: 3 },
     });
   });
 

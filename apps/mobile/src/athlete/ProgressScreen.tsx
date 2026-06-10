@@ -123,8 +123,9 @@ export function ProgressScreen() {
                     textAlign: 'center',
                   }}
                 >
-                  Pas encore de mesures — saisis tes perfs sur des blocs typés (sprint, sauts…) pour
-                  voir tes courbes.
+                  Pas encore de mesures — saisis tes perfs sur des blocs typés renseignés par ton
+                  coach (sprint/course avec distance, lancer avec poids d'engin, hauteur/perche)
+                  pour voir tes courbes.
                 </Text>
               </View>
             </Card>

@@ -20,6 +20,7 @@ import {
   BlockCard,
   blockToExercise,
   blocksFromExercises,
+  firstBlockMissingRequiredParam,
   firstUnnamedBlockIndex,
   makeEmptyBlock,
   type EditableBlock,
@@ -166,6 +167,16 @@ export function SessionBuilderScreen({ sessionId }: { sessionId?: string }) {
     const unnamed = firstUnnamedBlockIndex(blocks);
     if (unnamed !== -1) {
       setError(`Le bloc ${unnamed + 1} n'a pas de nom d'exercice.`);
+      return;
+    }
+    // TLX-91 : un bloc typé sans le param dérivant son épreuve (distance, engin, discipline)
+    // produirait une perf invisible en progression — on bloque avec un message explicite.
+    const missingParam = firstBlockMissingRequiredParam(blocks);
+    if (missingParam !== null) {
+      setError(
+        `Bloc ${missingParam.index + 1} : renseigne « ${missingParam.field.label} » ` +
+          '(nécessaire au suivi de progression).',
+      );
       return;
     }
     mutation.mutate();

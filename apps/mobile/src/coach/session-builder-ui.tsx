@@ -43,6 +43,12 @@ export interface BlockParamField {
   kind?: 'int' | 'number' | 'select';
   /** Options d'un champ `select` (valeur stockée + libellé affiché). */
   options?: { value: string; label: string }[];
+  /**
+   * Param **requis** pour dériver l'épreuve d'un record/courbe (TLX-91). Sans lui, la perf
+   * saisie sur ce bloc serait ignorée par `record-detection.ts` → aucune progression. Le
+   * constructeur bloque l'enregistrement tant qu'il manque (cf. `firstBlockMissingRequiredParam`).
+   */
+  required?: boolean;
 }
 
 /** Spécification d'un type de bloc : libellé FR + champs `params` (le cas échéant). */
@@ -75,9 +81,16 @@ export const BLOCK_TYPE_SPECS: BlockTypeSpec[] = [
   {
     type: BlockType.interval,
     label: 'Intervalles',
-    // TLX-054 — Fractionné / Intervalles.
+    // TLX-054 — Fractionné / Intervalles. `distanceMeters` (par répétition) dérive l'épreuve
+    // chronométrée → requis pour le suivi de progression (TLX-91).
     paramFields: [
       { key: 'reps', label: 'Répétitions (nombre d’intervalles)', placeholder: 'Ex. 6' },
+      {
+        key: 'distanceMeters',
+        label: 'Distance par répétition (m)',
+        placeholder: 'Ex. 400',
+        required: true,
+      },
       { key: 'workSeconds', label: 'Effort (s)', placeholder: 'Ex. 90' },
       { key: 'recoverySeconds', label: 'Récupération (s)', placeholder: 'Ex. 120' },
     ],
@@ -86,9 +99,10 @@ export const BLOCK_TYPE_SPECS: BlockTypeSpec[] = [
     type: BlockType.sprint,
     label: 'Sprints',
     // TLX-055 — Répétitions de vitesse / Sprints : distances, répétitions, récupération.
+    // `distanceMeters` dérive l'épreuve chronométrée → requis pour le suivi (TLX-91).
     paramFields: [
       { key: 'reps', label: 'Répétitions (nombre de sprints)', placeholder: 'Ex. 8' },
-      { key: 'distanceMeters', label: 'Distance (m)', placeholder: 'Ex. 60' },
+      { key: 'distanceMeters', label: 'Distance (m)', placeholder: 'Ex. 60', required: true },
       { key: 'recoverySeconds', label: 'Récupération (s)', placeholder: 'Ex. 180' },
     ],
   },
@@ -96,8 +110,9 @@ export const BLOCK_TYPE_SPECS: BlockTypeSpec[] = [
     type: BlockType.endurance,
     label: 'Course / Endurance',
     // TLX-056 — Course continue / Tempo / Côtes / Fartlek : allure cible, dénivelé.
+    // `distanceMeters` dérive l'épreuve chronométrée → requis pour le suivi (TLX-91).
     paramFields: [
-      { key: 'distanceMeters', label: 'Distance (m)', placeholder: 'Ex. 5000' },
+      { key: 'distanceMeters', label: 'Distance (m)', placeholder: 'Ex. 5000', required: true },
       { key: 'paceSecondsPerKm', label: 'Allure cible (s/km)', placeholder: 'Ex. 300' },
       { key: 'elevationMeters', label: 'Dénivelé D+ (m)', placeholder: 'Ex. 120' },
     ],
@@ -105,8 +120,16 @@ export const BLOCK_TYPE_SPECS: BlockTypeSpec[] = [
   {
     type: BlockType.hurdles,
     label: 'Haies',
-    // TLX-057 — Haies : rythme (appuis entre haies), hauteur, espacement.
+    // TLX-057 — Haies : distance de course, rythme (appuis entre haies), hauteur, espacement.
+    // `distanceMeters` (distance de l'épreuve, ex. 110 m haies) dérive l'épreuve chronométrée
+    // → requis pour le suivi (TLX-91).
     paramFields: [
+      {
+        key: 'distanceMeters',
+        label: 'Distance de course (m)',
+        placeholder: 'Ex. 110',
+        required: true,
+      },
       { key: 'heightCm', label: 'Hauteur (cm)', placeholder: 'Ex. 84', kind: 'number' },
       { key: 'spacingMeters', label: 'Espacement (m)', placeholder: 'Ex. 8.5', kind: 'number' },
       { key: 'rhythmSteps', label: 'Rythme (appuis entre haies)', placeholder: 'Ex. 3' },
@@ -137,6 +160,8 @@ export const BLOCK_TYPE_SPECS: BlockTypeSpec[] = [
         label: 'Poids de l’engin (kg)',
         placeholder: 'Ex. 7.26',
         kind: 'number',
+        // Dérive l'épreuve (`throws:{kg}`) → requis pour le suivi (TLX-91).
+        required: true,
       },
       { key: 'techniqueThrows', label: 'Lancers technique (nombre)', placeholder: 'Ex. 10' },
       { key: 'fullThrows', label: 'Lancers complets (nombre)', placeholder: 'Ex. 6' },
@@ -156,6 +181,9 @@ export const BLOCK_TYPE_SPECS: BlockTypeSpec[] = [
           { value: 'high', label: 'Hauteur' },
           { value: 'pole', label: 'Perche' },
         ],
+        // Détermine l'épreuve du record (`vertical:high|pole`) → requis pour ne pas classer
+        // une perche en hauteur par défaut (TLX-91).
+        required: true,
       },
       { key: 'startHeightCm', label: 'Barre de départ (cm)', placeholder: 'Ex. 165' },
       { key: 'incrementCm', label: 'Montée entre barres (cm)', placeholder: 'Ex. 5' },
@@ -290,6 +318,32 @@ export function blockToExercise(block: EditableBlock, order: number): Exercise {
 /** Au moins un bloc nommé. Renvoie l'index du premier bloc sans nom, ou -1 si tout est valide. */
 export function firstUnnamedBlockIndex(blocks: EditableBlock[]): number {
   return blocks.findIndex((b) => b.name.trim() === '');
+}
+
+/**
+ * Premier bloc dont un `param` **requis** (TLX-91) manque ou est invalide — `null` si tout
+ * est bon. Garantit qu'un bloc typé dérivant une épreuve (sprint/haies/course/intervalle →
+ * distance, lancer → engin, vertical → discipline) porte la donnée sans laquelle la perf
+ * n'apparaîtrait jamais en progression. Mêmes règles de parsing que `blockToExercise` et que
+ * `record-detection.ts` (numérique strictement positif ; `select` = option valide).
+ */
+export function firstBlockMissingRequiredParam(
+  blocks: EditableBlock[],
+): { index: number; field: BlockParamField } | null {
+  for (let index = 0; index < blocks.length; index += 1) {
+    const block = blocks[index];
+    for (const field of specForType(block.type).paramFields ?? []) {
+      if (!field.required) continue;
+      const raw = (block.params[field.key] ?? '').trim();
+      if (field.kind === 'select') {
+        if (raw === '' || !field.options?.some((o) => o.value === raw)) return { index, field };
+        continue;
+      }
+      const n = field.kind === 'number' ? toPositiveNumber(raw) : toPositiveInt(raw);
+      if (n == null || n <= 0) return { index, field };
+    }
+  }
+  return null;
 }
 
 /** Carte d'édition d'un bloc générique : nom, séries/reps, durée/repos, charge, notes. */
@@ -524,7 +578,7 @@ function BlockParamsEditor({
                 fontSize: typography.bodySm.fontSize,
               }}
             >
-              {field.label}
+              {field.required ? `${field.label} (requis)` : field.label}
             </Text>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] }}>
               {field.options?.map((opt) => (
@@ -543,7 +597,7 @@ function BlockParamsEditor({
           <FieldInput
             key={field.key}
             testID={`block-${index}-param-${field.key}`}
-            label={field.label}
+            label={field.required ? `${field.label} (requis)` : field.label}
             value={block.params[field.key] ?? ''}
             onChangeText={(v) => onChange({ params: { ...block.params, [field.key]: v } })}
             keyboardType={field.kind === 'number' ? 'numeric' : 'number-pad'}
