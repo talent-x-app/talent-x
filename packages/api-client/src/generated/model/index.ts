@@ -14,6 +14,8 @@ export * from './assignmentPage';
 export * from './assignmentStatus';
 export * from './assignmentStatusFilterParameter';
 export * from './assignRequest';
+export * from './athleteGroup';
+export * from './athleteGroupList';
 export * from './athleteStatus';
 export * from './authSession';
 export * from './authTokens';

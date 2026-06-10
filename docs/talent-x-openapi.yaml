@@ -535,6 +535,31 @@ paths:
           $ref: '#/components/responses/TooManyRequests'
         '500':
           $ref: '#/components/responses/ServerError'
+  /groups/mine:
+    get:
+      tags:
+      - Groupes
+      summary: Lister ses groupes (athlète) et son coach
+      description: >-
+        Renvoie les groupes actifs de l'athlète courant (ADR-26), chacun enrichi
+        du résumé de son coach et de la date d'adhésion. Le code d'invitation
+        n'est jamais exposé à l'athlète (ADR-16). Ensemble borné, non paginé.
+      operationId: getMyGroups
+      responses:
+        '200':
+          description: Groupes actifs de l'athlète.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AthleteGroupList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
   /groups/{id}:
     get:
       tags:
@@ -2430,6 +2455,41 @@ components:
       required:
       - athleteId
       - groupId
+    AthleteGroup:
+      type: object
+      description: >-
+        Vue athlète d'un de ses groupes (ADR-26). N'expose jamais le code
+        d'invitation, réservé au coach propriétaire (ADR-16).
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        memberCount:
+          type: integer
+        joinedAt:
+          type: string
+          format: date-time
+        coach:
+          $ref: '#/components/schemas/UserSummary'
+      required:
+      - id
+      - name
+      - memberCount
+      - joinedAt
+      - coach
+    AthleteGroupList:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/AthleteGroup'
+      required:
+      - data
     JoinGroupRequest:
       type: object
       properties:

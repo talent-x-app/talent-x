@@ -127,6 +127,18 @@ describe('Parcours critiques (E2E DB) — TLX-120', () => {
       });
       expect(link).not.toBeNull();
 
+      // L'athlète lit son rattachement (ADR-26 — GET /groups/mine) : groupe + coach, sans code.
+      const mine = await http().get('/api/v1/groups/mine').set(bearer(athlete.token)).expect(200);
+      expect(mine.body.data).toHaveLength(1);
+      expect(mine.body.data[0]).toMatchObject({
+        id: group.body.id,
+        name: 'Sprint élite',
+        coach: { id: coach.id },
+      });
+      expect(mine.body.data[0]).not.toHaveProperty('inviteCode');
+      // Le coach n'a pas accès à cette route athlète (RBAC).
+      await http().get('/api/v1/groups/mine').set(bearer(coach.token)).expect(403);
+
       // 3) Le coach crée une séance à blocs typés (sprint + grille de barres, ADR-25).
       const session = await http()
         .post('/api/v1/sessions')

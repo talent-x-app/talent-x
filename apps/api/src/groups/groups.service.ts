@@ -8,6 +8,7 @@ import { GroupDto, GroupPageDto } from './dto/group.dto';
 import { GroupCreateDto } from './dto/group-create.dto';
 import { GroupUpdateDto } from './dto/group-update.dto';
 import { GroupMemberPageDto, GroupMemberDto } from './dto/group-member.dto';
+import { AthleteGroupDto, AthleteGroupListDto } from './dto/athlete-group.dto';
 import { InviteCodeDto, type InviteCodeAction } from './dto/invite-code.dto';
 import { generateInviteCode } from './invite-code';
 import { NotificationQueueService } from '../jobs/notification-queue.service';
@@ -55,6 +56,27 @@ export class GroupsService {
       data: rows.map((r) => toGroupDto(r, r._count.members)),
       meta: buildPageMeta(total, q.page, q.limit),
     };
+  }
+
+  /**
+   * Groupes actifs de l'athlète courant + résumé coach (ADR-26). Lecture dérivée :
+   * appartenances `left_at IS NULL` dont le groupe n'est pas supprimé. Ne renvoie
+   * jamais le code d'invitation (réservé au coach propriétaire, ADR-16).
+   */
+  async listMyGroups(athleteId: string): Promise<AthleteGroupListDto> {
+    const rows = await this.prisma.groupMember.findMany({
+      where: { athleteId, leftAt: null, group: { deletedAt: null } },
+      include: {
+        group: {
+          include: {
+            coach: { select: { id: true, firstName: true, lastName: true, sport: true } },
+            ...activeMemberCount,
+          },
+        },
+      },
+      orderBy: { joinedAt: 'asc' },
+    });
+    return { data: rows.map(toAthleteGroupDto) };
   }
 
   async getGroup(coachId: string, id: string): Promise<GroupDto> {
@@ -316,6 +338,35 @@ function toGroupDto(group: Group | GroupWithCount, memberCount: number): GroupDt
     memberCount,
     createdAt: group.createdAt.toISOString(),
     updatedAt: group.updatedAt.toISOString(),
+  };
+}
+
+type AthleteSummary = {
+  id: string;
+  firstName: string | null;
+  lastName: string | null;
+  sport: string | null;
+};
+
+type MemberWithGroupAndCoach = {
+  joinedAt: Date;
+  group: Group & { coach: AthleteSummary; _count: { members: number } };
+};
+
+/** Mappe une appartenance active vers la vue athlète `AthleteGroup` (ADR-26). */
+function toAthleteGroupDto(row: MemberWithGroupAndCoach): AthleteGroupDto {
+  return {
+    id: row.group.id,
+    name: row.group.name,
+    description: row.group.description ?? undefined,
+    memberCount: row.group._count.members,
+    joinedAt: row.joinedAt.toISOString(),
+    coach: {
+      id: row.group.coach.id,
+      firstName: row.group.coach.firstName ?? undefined,
+      lastName: row.group.coach.lastName ?? undefined,
+      sport: row.group.coach.sport ?? undefined,
+    },
   };
 }
 

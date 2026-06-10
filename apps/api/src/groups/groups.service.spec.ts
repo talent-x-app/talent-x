@@ -120,6 +120,49 @@ describe('GroupsService', () => {
     });
   });
 
+  describe('listMyGroups', () => {
+    it('mappe les groupes actifs vers la vue athlète (coach + joinedAt, sans inviteCode)', async () => {
+      const prisma = prismaMock();
+      prisma.groupMember.findMany.mockResolvedValue([
+        {
+          joinedAt: new Date('2026-02-01T00:00:00.000Z'),
+          group: {
+            ...groupRow({ _count: { members: 4 } }),
+            coach: { id: 'c-1', firstName: 'Coach', lastName: 'One', sport: null },
+          },
+        },
+      ]);
+
+      const res = await service(prisma).listMyGroups('a-1');
+
+      // Filtre : appartenances actives dont le groupe n'est pas supprimé.
+      expect(prisma.groupMember.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { athleteId: 'a-1', leftAt: null, group: { deletedAt: null } },
+        }),
+      );
+      expect(res.data).toHaveLength(1);
+      expect(res.data[0]).toEqual({
+        id: 'g-1',
+        name: 'Sprint',
+        description: undefined,
+        memberCount: 4,
+        joinedAt: '2026-02-01T00:00:00.000Z',
+        coach: { id: 'c-1', firstName: 'Coach', lastName: 'One', sport: undefined },
+      });
+      // Le code d'invitation n'est jamais exposé à l'athlète (ADR-16).
+      expect(res.data[0]).not.toHaveProperty('inviteCode');
+    });
+
+    it('athlète sans groupe → liste vide', async () => {
+      const prisma = prismaMock();
+      prisma.groupMember.findMany.mockResolvedValue([]);
+
+      const res = await service(prisma).listMyGroups('a-1');
+      expect(res.data).toEqual([]);
+    });
+  });
+
   describe('getGroup', () => {
     it('vérifie l’ownership puis renvoie le groupe', async () => {
       const prisma = prismaMock();

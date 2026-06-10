@@ -39,6 +39,7 @@ Chaque décision suit le format **ADR** : Statut, Date, Contexte, Décision, Con
 | ADR-23 | Notifications in-app : table `notifications`, contrat de feed `GET /notifications` + `read-all`, écran préférences (complète ADR-22) | Accepté |
 | ADR-24 | Compétitions & engagements d'athlètes : tables `competitions`/`competition_entries`, contrat `/competitions`, autorisation alignée sur les affectations, données non-santé (complète TX-DATA-006 · OpenAPI · TLX-100) | Accepté |
 | ADR-25 | Grille de barres (sauts verticaux) : `BlockType` `vertical_jumps` + mode de saisie `bars`, stockage via `results` v2 inchangé (`distanceMeters`=hauteur, `failed`), records `vertical:{high\|pole}` (complète OpenAPI · TLX-075) | Accepté |
+| ADR-26 | Lecture athlète de ses groupes & coach : endpoint additif `GET /groups/mine` + schéma dédié `AthleteGroup` (sans `inviteCode`, ADR-16) (complète OpenAPI · TX-SPEC-002 §6 · TLX-88) | Accepté |
 
 ---
 
@@ -457,6 +458,26 @@ nouvelle branche records `vertical:{high|pole}` (max, m) qui lève la collision.
 surcharger `jumps` par un param (casse l'invariant + ne résout pas la collision), deux enums
 `high_jump`/`pole_vault` (mode identique dupliqué), champs `barHeight`/`attempt` dédiés
 (redondants avec `distanceMeters`+ordre). Quatre questions ouvertes à trancher avant code.
+
+---
+
+## ADR-26 — Lecture athlète de ses groupes & de son coach (`GET /groups/mine`)
+
+Décision complète : [`docs/adr/ADR-26-lecture-athlete-de-ses-groupes.md`](adr/ADR-26-lecture-athlete-de-ses-groupes.md).
+
+**Statut : Accepté** (validé 2026-06-10 — débloque la section « Mon groupe / Mon coach » + Quitter de TLX-88).
+
+**En bref.** Le backend groupes (TLX-041) n'expose **aucune lecture côté athlète** : `GET /groups`,
+`/groups/{id}` et `/groups/{id}/members` sont tous `@Roles('coach')`, et la réponse de `join`
+(`GroupMember`) ne porte ni le nom du groupe ni le coach — l'athlète ne peut donc ni afficher son
+rattachement ni connaître le `groupId` à quitter. Proposition : endpoint additif **`GET /groups/mine`**
+(`@Roles('athlete')`) renvoyant ses groupes **actifs** (`left_at IS NULL` + groupe non supprimé),
+chacun enrichi du **résumé coach** et de `joinedAt`, via un schéma dédié **`AthleteGroup`**
+(`{ id, name, description?, memberCount, joinedAt, coach: UserSummary }`) **sans `inviteCode`**
+(réservé au coach, ADR-16). Enveloppe bornée `{ data }` sans pagination. Dérivation à la lecture,
+zéro migration, rétro-compatible. Écartés : élargir `GET /groups` au rôle athlète (fuite potentielle
+du code via le schéma `Group` partagé), porter le rattachement dans `GET /users/me` (casse la cohésion
+du profil), persistance locale du `join` (perdue à froid).
 
 ---
 

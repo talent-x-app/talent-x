@@ -18,6 +18,7 @@ import { GroupCreateDto } from './dto/group-create.dto';
 import { GroupUpdateDto } from './dto/group-update.dto';
 import { GroupDto, GroupPageDto } from './dto/group.dto';
 import { GroupMemberDto, GroupMemberPageDto } from './dto/group-member.dto';
+import { AthleteGroupListDto } from './dto/athlete-group.dto';
 import { InviteCodeActionDto, InviteCodeDto } from './dto/invite-code.dto';
 import { JoinGroupRequestDto } from './dto/join-group.dto';
 import { GroupsService } from './groups.service';
@@ -63,6 +64,21 @@ export class GroupsController {
     @Body() dto: JoinGroupRequestDto,
   ): Promise<GroupMemberDto> {
     return this.groups.joinGroup(athleteId, dto.inviteCode);
+  }
+
+  @Get('mine')
+  @Roles('athlete')
+  @ApiOperation({
+    summary: 'Lister ses groupes (athlète) et son coach',
+    operationId: 'getMyGroups',
+  })
+  @ApiResponse({
+    status: 200,
+    description: "Groupes actifs de l'athlète.",
+    type: AthleteGroupListDto,
+  })
+  getMyGroups(@CurrentUser('id') athleteId: string): Promise<AthleteGroupListDto> {
+    return this.groups.listMyGroups(athleteId);
   }
 
   @Get(':id')

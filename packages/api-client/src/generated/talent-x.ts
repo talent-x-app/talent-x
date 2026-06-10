@@ -12,6 +12,7 @@ import type {
   Assignment,
   AssignmentList,
   AssignmentPage,
+  AthleteGroupList,
   AuthSession,
   AuthTokens,
   BadRequestResponse,
@@ -1246,6 +1247,65 @@ export const getListGroupsUrl = (params?: ListGroupsParams,) => {
 export const listGroups = async (params?: ListGroupsParams, options?: RequestInit): Promise<listGroupsResponse> => {
 
   return customFetch<listGroupsResponse>(getListGroupsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+export type getMyGroupsResponse200 = {
+  data: AthleteGroupList
+  status: 200
+}
+
+export type getMyGroupsResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type getMyGroupsResponse403 = {
+  data: ForbiddenResponse
+  status: 403
+}
+
+export type getMyGroupsResponse429 = {
+  data: TooManyRequestsResponse
+  status: 429
+}
+
+export type getMyGroupsResponse500 = {
+  data: ServerErrorResponse
+  status: 500
+}
+
+export type getMyGroupsResponseSuccess = (getMyGroupsResponse200) & {
+  headers: Headers;
+};
+export type getMyGroupsResponseError = (getMyGroupsResponse401 | getMyGroupsResponse403 | getMyGroupsResponse429 | getMyGroupsResponse500) & {
+  headers: Headers;
+};
+
+export type getMyGroupsResponse = (getMyGroupsResponseSuccess | getMyGroupsResponseError)
+
+export const getGetMyGroupsUrl = () => {
+
+
+
+
+  return `/groups/mine`
+}
+
+/**
+ * Renvoie les groupes actifs de l'athlète courant (ADR-26), chacun enrichi du résumé de son coach et de la date d'adhésion. Le code d'invitation n'est jamais exposé à l'athlète (ADR-16). Ensemble borné, non paginé.
+ * @summary Lister ses groupes (athlète) et son coach
+ */
+export const getMyGroups = async ( options?: RequestInit): Promise<getMyGroupsResponse> => {
+
+  return customFetch<getMyGroupsResponse>(getGetMyGroupsUrl(),
   {
     ...options,
     method: 'GET'
