@@ -327,6 +327,21 @@ athlete-session-ui.tsx`. 10 tests ; **suite mobile 108/108**. **Validé en réel
   du client (cache de résolution) ; correctif découvert en réel — `GET performance`
   athlète inclut désormais les candidats (le refetch écrasait la carte).
 
+## Terminés ce sprint — A-07 Records personnels (TLX-091)
+
+- **Onglet Progression** (placeholder TLX-007 remplacé) : section **« Records
+  personnels »** (`src/athlete/PersonalRecordsSection.tsx`) — liste des records
+  matérialisés (`GET /athletes/me/records`, socle ADR-20/TLX-076) : épreuve, marque
+  formatée (`formatRecordValue`), date, badge « manuel » si `performanceId` absent.
+  États chargement / erreur (réessai) / **vide** (« saisis tes perfs… »). Clé de cache
+  `['records','me']`, invalidée à la confirmation d'un record (A-05). Les graphes A-06
+  (TLX-090) viendront au-dessus de la section. +3 tests ; **mobile 211/211** ;
+  typecheck clean. **Aucun changement backend** (socle TLX-076 suffisant) ; l'éditeur de
+  record **manuel** reste à spécifier (endpoint à valeur libre absent du contrat —
+  complément additif à l'ADR-20 le moment venu).
+- **Validé en réel** (Expo web + API locale) : onglet Progression d'Awa → « RECORDS
+  PERSONNELS — 60 m · 9 juin 2026 · 7.3 s » (record TLX-076). Zéro erreur console.
+
 ## Notes / dépendances (réutilisables)
 
 - **Mapper séance partagé** : `sessions/session.mapper.ts` (`toSessionDto`).
@@ -352,9 +367,9 @@ athlete-session-ui.tsx`. 10 tests ; **suite mobile 108/108**. **Validé en réel
 
 ## Prochaine étape (proposition)
 
-1. **TLX-091** (écran Records personnels A-07, High) — débloqué par TLX-076 : lit
-   `GET /athletes/me/records` (socle ADR-20), + records manuels (`performance_id` null).
-2. **TLX-090** (écran Progression A-06, `/athletes/me/progress` encore en 501).
-3. **TLX-075** (grille de barres hauteur/perche, Medium) — convention essais × tentatives à
+1. **TLX-090** (écran Progression A-06, 8 pts) — graphes par discipline au-dessus de la
+   section records ; `/athletes/me/progress` encore en 501 (contrat `Progress` à dériver
+   des mesures v2 — probable ADR ou précision de contrat).
+2. **TLX-075** (grille de barres hauteur/perche, Medium) — convention essais × tentatives à
    trancher (complément ADR-19/20).
-4. **TLX-077** (brouillon auto-save + hors-ligne, Medium 8 pts) — TX-ARCH-001 §4.
+3. **TLX-077** (brouillon auto-save + hors-ligne, Medium 8 pts) — TX-ARCH-001 §4.

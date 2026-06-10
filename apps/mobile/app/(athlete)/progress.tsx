@@ -1,34 +1,40 @@
 import { useTheme } from '@talent-x/design-tokens';
-import { StyleSheet, Text, View } from 'react-native';
+import { ScrollView, Text, View } from 'react-native';
+import { PersonalRecordsSection } from '../../src/athlete/PersonalRecordsSection';
 
-// Progression athlète (A-06) — placeholder TLX-007.
+/**
+ * Onglet Progression athlète : records personnels (A-07 — TLX-091). Les graphes par
+ * discipline (A-06 — TLX-090) viendront compléter cet écran au-dessus de la section.
+ */
 export default function AthleteProgressScreen() {
   const { colors, typography, spacing } = useTheme();
   return (
-    <View style={[styles.container, { backgroundColor: colors.background, padding: spacing[6] }]}>
-      <Text
-        style={{
-          color: colors.textPrimary,
-          fontFamily: typography.fontFamily.bold,
-          fontSize: typography.h2.fontSize,
-        }}
-      >
-        Progression
-      </Text>
-      <Text
-        style={{
-          marginTop: spacing[2],
-          color: colors.textMuted,
-          fontFamily: typography.fontFamily.regular,
-          fontSize: typography.body.fontSize,
-        }}
-      >
-        A-06 — TLX-070
-      </Text>
-    </View>
+    <ScrollView
+      style={{ flex: 1, backgroundColor: colors.background }}
+      contentContainerStyle={{ padding: spacing[6], gap: spacing[5] }}
+    >
+      <View style={{ gap: spacing[1] }}>
+        <Text
+          testID="progress-title"
+          style={{
+            color: colors.textPrimary,
+            fontFamily: typography.fontFamily.bold,
+            fontSize: typography.h2.fontSize,
+          }}
+        >
+          Progression
+        </Text>
+        <Text
+          style={{
+            color: colors.textMuted,
+            fontFamily: typography.fontFamily.regular,
+            fontSize: typography.bodySm.fontSize,
+          }}
+        >
+          Tes meilleures marques, épreuve par épreuve.
+        </Text>
+      </View>
+      <PersonalRecordsSection />
+    </ScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-});
