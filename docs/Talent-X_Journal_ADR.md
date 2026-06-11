@@ -41,6 +41,7 @@ Chaque décision suit le format **ADR** : Statut, Date, Contexte, Décision, Con
 | ADR-25 | Grille de barres (sauts verticaux) : `BlockType` `vertical_jumps` + mode de saisie `bars`, stockage via `results` v2 inchangé (`distanceMeters`=hauteur, `failed`), records `vertical:{high\|pole}` (complète OpenAPI · TLX-075) | Accepté |
 | ADR-26 | Lecture athlète de ses groupes & coach : endpoint additif `GET /groups/mine` + schéma dédié `AthleteGroup` (sans `inviteCode`, ADR-16) (complète OpenAPI · TX-SPEC-002 §6 · TLX-88) | Accepté |
 | ADR-27 | Schéma `exercises` v3 : groupes d'exercices à un niveau (`kind: group`, tours `rounds` + récup r/R, `groupType` superset\|circuit\|series) — séries de courses, contraste, circuits, gammes ; `results`/records inchangés (complète ADR-18 · TX-DATA-006 §9.1 · TLX-95) | Proposé |
+| ADR-28 | Brief de séance : document JSONB versionné `brief` (intention du jour, « en une phrase », durée, difficulté, réussi si / stop si, notes coach) + **double lecture coach/athlète appliquée au serveur** — champs coach retirés de toute sérialisation athlète (complète ADR-10 · TX-DATA-006 §5.4/§9 · OpenAPI) | Proposé |
 
 ---
 
@@ -502,6 +503,33 @@ terrain). `sets` masqué pour un exercice en groupe (la série = `rounds`, méca
 complète (YAGNI), regroupement par référence `groupKey` (intégrité faible), tours à
 composition variable (complexité sans pratique réelle), extension des params `rounds`
 mono-bloc (stations hétérogènes impossibles).
+
+---
+
+## ADR-28 — Brief de séance : double lecture coach / athlète
+
+Décision complète : [`docs/adr/ADR-28-brief-de-seance-double-lecture.md`](adr/ADR-28-brief-de-seance-double-lecture.md).
+
+**Statut : Proposé** (cadrage produit du 2026-06-11 — à valider avant d'ouvrir les tickets d'implémentation).
+
+**En bref.** Le cadrage produit définit la séance comme **une donnée, deux lectures** :
+logique d'entraînement côté coach (intention, charge, régression/progression, vigilance),
+version épurée et actionnable côté athlète (en une phrase, durée, difficulté, « Réussi
+si… » / « Stop si… »). Le moteur de blocs typés (ADR-18/27) couvre la moitié « machine »,
+mais la **couche éditoriale n'existe pas** : `Session` ne porte ni intention ni
+durée/difficulté (pourtant maquettées dans le kit UI), et l'athlète reçoit la séance
+entière — aucun champ coach-only n'est possible. Proposition : document JSONB versionné
+**`brief`** sur `sessions` (méthode ADR-10, tout optionnel, zéro migration) — champs
+partagés (`athleteIntent`, `durationMinutes`, `difficulty` 1-10, `successCriteria`,
+`stopCriteria`) + champs coach (`intent`, `coachNotes{regression, progression, caution}`)
+**retirés au serveur** de toute sérialisation athlète (mapper par rôle, précédent
+ADR-26). L'objectif (1 ligne) reste la `description` existante ; les phases 🔥/🎯/🧊 sont
+**dérivées** des types `warmup`/`cooldown` (pas de champ `phase`) ; la durée absente est
+**estimée depuis les blocs** et affichée comme telle (défaut explicite) ; l'intensité par
+bloc (`percentVma`, `tempo`) passe par les `params` d'éditeurs (frontend pur, cadre
+ADR-18). Écartés : deux textes stockés (désynchronisation), colonnes dédiées, filtrage
+côté client (fuite des notes coach), champ `phase`, conventions Markdown dans
+`description`.
 
 ---
 
