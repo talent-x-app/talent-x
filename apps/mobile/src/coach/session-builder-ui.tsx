@@ -1,9 +1,15 @@
-import { BlockType, LoadUnit, type Exercise } from '@talent-x/api-client';
+import {
+  BlockType,
+  LoadUnit,
+  type Exercise,
+  type ExerciseGroup,
+  type ExerciseGroupGroupType,
+} from '@talent-x/api-client';
 import { useTheme } from '@talent-x/design-tokens';
 import { Feather } from '@expo/vector-icons';
 import { Pressable, Text, TextInput, View } from 'react-native';
-import { Card, Chip } from '../components/ui';
-import { flattenLeaves, type ExerciseNode } from '../sessions/exercises-doc';
+import { Button, Card, Chip } from '../components/ui';
+import { isExerciseGroup, type ExerciseNode } from '../sessions/exercises-doc';
 
 /**
  * Couche UI partagée du constructeur de séance (C-05). Le backend accepte le contrat
@@ -31,6 +37,43 @@ export interface EditableBlock {
   /** Saisie brute des `params` propres au type, indexée par clé de champ. */
   params: Record<string, string>;
 }
+
+/**
+ * Groupe d'exercices répété en tours/séries (ADR-27, exercises v3). Contient des `EditableBlock`
+ * **à un seul niveau** (jamais un groupe imbriqué — garanti côté backend). La dimension
+ * « série » est portée par `rounds` (le champ de base `sets` des membres est masqué, règle 6).
+ */
+export interface EditableGroup {
+  key: string;
+  /** Discriminant de nœud — présent uniquement sur un groupe. */
+  kind: 'group';
+  name: string;
+  /** Sémantique d'affichage/guidage (superset / circuit / série). */
+  groupType: ExerciseGroupGroupType;
+  /** Nombre de tours/séries (chaîne libre, ≥ 1 à la sérialisation). */
+  rounds: string;
+  /** r — récup entre exercices d'un même tour (s). */
+  restBetweenItemsSeconds: string;
+  /** R — récup entre tours (s). */
+  restBetweenRoundsSeconds: string;
+  notes: string;
+  items: EditableBlock[];
+}
+
+/** Nœud du canvas : bloc simple ou groupe d'exercices (ADR-27). */
+export type EditableNode = EditableBlock | EditableGroup;
+
+/** Le nœud est-il un groupe éditable ? */
+export function isEditableGroup(node: EditableNode): node is EditableGroup {
+  return (node as EditableGroup).kind === 'group';
+}
+
+/** Libellés FR des sémantiques de groupe (`groupType`). */
+export const GROUP_TYPE_LABELS: Record<ExerciseGroupGroupType, string> = {
+  superset: 'Superset',
+  circuit: 'Circuit',
+  series: 'Série',
+};
 
 /** Champ de `params` propre à un type de bloc (saisie numérique ou choix discret). */
 export interface BlockParamField {
@@ -233,8 +276,13 @@ const BASE_FIELD_SUPERSEDED_BY: Partial<Record<BaseFieldKey, string[]>> = {
   restSeconds: ['recoverySeconds'],
 };
 
-/** Le champ de base est-il pertinent pour ce type (i.e. non supplanté par un `param`) ? */
-export function isBaseFieldVisible(type: BlockType, key: BaseFieldKey): boolean {
+/**
+ * Le champ de base est-il pertinent ? Indexé par **type** (supplantation par un `param`,
+ * TLX-94) **et contexte membre-de-groupe** (ADR-27 règle 6) : `sets` est masqué dans un groupe,
+ * la dimension « série » étant portée par le `rounds` du groupe parent.
+ */
+export function isBaseFieldVisible(type: BlockType, key: BaseFieldKey, inGroup = false): boolean {
+  if (key === 'sets' && inGroup) return false;
   const supersededBy = BASE_FIELD_SUPERSEDED_BY[key];
   if (!supersededBy) return true;
   const paramKeys = specForType(type).paramFields?.map((f) => f.key) ?? [];
@@ -288,38 +336,70 @@ export function makeEmptyBlock(): EditableBlock {
   };
 }
 
+/** Nouveau groupe vide (`circuit` par défaut, ADR-27 règle 1) avec un exercice initial. */
+export function makeEmptyGroup(): EditableGroup {
+  return {
+    key: nextBlockKey(),
+    kind: 'group',
+    name: '',
+    groupType: 'circuit',
+    rounds: '',
+    restBetweenItemsSeconds: '',
+    restBetweenRoundsSeconds: '',
+    notes: '',
+    items: [makeEmptyBlock()],
+  };
+}
+
+/** Hydrate un bloc éditable depuis un `Exercise` du contrat (feuille). */
+function blockFromExercise(ex: Exercise): EditableBlock {
+  const type = (ex.type ?? BlockType.custom) as BlockType;
+  const src = (ex.params ?? {}) as Record<string, unknown>;
+  const params: Record<string, string> = {};
+  specForType(type).paramFields?.forEach((f) => {
+    if (src[f.key] != null) params[f.key] = String(src[f.key]);
+  });
+  return {
+    key: nextBlockKey(),
+    name: ex.name,
+    type,
+    sets: ex.sets != null ? String(ex.sets) : '',
+    reps: ex.reps != null ? String(ex.reps) : '',
+    durationSeconds: ex.durationSeconds != null ? String(ex.durationSeconds) : '',
+    restSeconds: ex.restSeconds != null ? String(ex.restSeconds) : '',
+    loadValue: ex.load != null ? String(ex.load.value) : '',
+    loadUnit: ex.load?.unit ?? null,
+    notes: ex.notes ?? '',
+    params,
+  };
+}
+
+/** Hydrate un groupe éditable depuis un `ExerciseGroup` (membres triés par `order`). */
+function groupFromExercise(group: ExerciseGroup): EditableGroup {
+  return {
+    key: nextBlockKey(),
+    kind: 'group',
+    name: group.name,
+    groupType: group.groupType ?? 'circuit',
+    rounds: group.rounds != null ? String(group.rounds) : '',
+    restBetweenItemsSeconds:
+      group.restBetweenItemsSeconds != null ? String(group.restBetweenItemsSeconds) : '',
+    restBetweenRoundsSeconds:
+      group.restBetweenRoundsSeconds != null ? String(group.restBetweenRoundsSeconds) : '',
+    notes: group.notes ?? '',
+    items: [...(group.items ?? [])].sort((a, b) => a.order - b.order).map(blockFromExercise),
+  };
+}
+
 /**
- * Hydrate les blocs éditables depuis un `ExercisesDoc` existant (mode édition). Un document
- * v3 (ADR-27) peut mêler exercices et **groupes** ; le constructeur n'ayant **pas encore d'UI
- * d'écriture de groupe** (Lot 3), on **aplatit les feuilles** : les membres d'un groupe
- * deviennent des blocs éditables individuels (jamais perdus) — éditer puis sauver dégrade le
- * document en v2 plat plutôt que de supprimer silencieusement les exercices groupés.
+ * Hydrate le canvas éditable depuis un `ExercisesDoc` existant (mode édition). Un document v3
+ * (ADR-27) mêle exercices et **groupes** : les deux sont préservés (round-trip sans perte).
+ * Tri des nœuds de premier niveau par `order` global (groupes et feuilles confondus, règle 4).
  */
-export function blocksFromExercises(items: readonly ExerciseNode[]): EditableBlock[] {
-  return flattenLeaves(items)
-    .slice()
+export function nodesFromExercises(items: readonly ExerciseNode[]): EditableNode[] {
+  return [...(items ?? [])]
     .sort((a, b) => a.order - b.order)
-    .map((ex) => {
-      const type = (ex.type ?? BlockType.custom) as BlockType;
-      const src = (ex.params ?? {}) as Record<string, unknown>;
-      const params: Record<string, string> = {};
-      specForType(type).paramFields?.forEach((f) => {
-        if (src[f.key] != null) params[f.key] = String(src[f.key]);
-      });
-      return {
-        key: nextBlockKey(),
-        name: ex.name,
-        type,
-        sets: ex.sets != null ? String(ex.sets) : '',
-        reps: ex.reps != null ? String(ex.reps) : '',
-        durationSeconds: ex.durationSeconds != null ? String(ex.durationSeconds) : '',
-        restSeconds: ex.restSeconds != null ? String(ex.restSeconds) : '',
-        loadValue: ex.load != null ? String(ex.load.value) : '',
-        loadUnit: ex.load?.unit ?? null,
-        notes: ex.notes ?? '',
-        params,
-      };
-    });
+    .map((node) => (isExerciseGroup(node) ? groupFromExercise(node) : blockFromExercise(node)));
 }
 
 /** Entier positif depuis une chaîne, ou `undefined` si vide/invalide. */
@@ -338,24 +418,27 @@ function toPositiveNumber(raw: string): number | undefined {
   return Number.isFinite(n) && n >= 0 ? n : undefined;
 }
 
-/** Sérialise un bloc éditable en `Exercise` du contrat (order injecté par l'appelant). */
-export function blockToExercise(block: EditableBlock, order: number): Exercise {
+/**
+ * Sérialise un bloc éditable en `Exercise` du contrat (order injecté par l'appelant). `inGroup`
+ * (membre d'un groupe, ADR-27) masque `sets` (porté par le `rounds` du groupe — règle 6).
+ */
+export function blockToExercise(block: EditableBlock, order: number, inGroup = false): Exercise {
   const loadValue = toPositiveNumber(block.loadValue);
   const exercise: Exercise = { name: block.name.trim(), order };
   // `type` n'est posé que pour une discipline (un bloc `custom` reste byte-identique au v1).
   if (block.type !== BlockType.custom) exercise.type = block.type;
   // Champs de base : sérialisés seulement s'ils sont visibles pour le type — un champ
-  // supplanté par un `param` (TLX-94) ne doit pas fuiter une valeur résiduelle.
+  // supplanté par un `param` (TLX-94) ou masqué en groupe (ADR-27) ne doit pas fuiter.
   const sets = toPositiveInt(block.sets);
   const reps = toPositiveInt(block.reps);
   const durationSeconds = toPositiveInt(block.durationSeconds);
   const restSeconds = toPositiveInt(block.restSeconds);
-  if (sets != null && isBaseFieldVisible(block.type, 'sets')) exercise.sets = sets;
-  if (reps != null && isBaseFieldVisible(block.type, 'reps')) exercise.reps = reps;
-  if (durationSeconds != null && isBaseFieldVisible(block.type, 'durationSeconds')) {
+  if (sets != null && isBaseFieldVisible(block.type, 'sets', inGroup)) exercise.sets = sets;
+  if (reps != null && isBaseFieldVisible(block.type, 'reps', inGroup)) exercise.reps = reps;
+  if (durationSeconds != null && isBaseFieldVisible(block.type, 'durationSeconds', inGroup)) {
     exercise.durationSeconds = durationSeconds;
   }
-  if (restSeconds != null && isBaseFieldVisible(block.type, 'restSeconds')) {
+  if (restSeconds != null && isBaseFieldVisible(block.type, 'restSeconds', inGroup)) {
     exercise.restSeconds = restSeconds;
   }
   // La charge n'est attachée que si une valeur ET une unité sont renseignées (contrat `Load`).
@@ -390,42 +473,127 @@ export function blockToExercise(block: EditableBlock, order: number): Exercise {
   return exercise;
 }
 
-/** Au moins un bloc nommé. Renvoie l'index du premier bloc sans nom, ou -1 si tout est valide. */
-export function firstUnnamedBlockIndex(blocks: EditableBlock[]): number {
-  return blocks.findIndex((b) => b.name.trim() === '');
+/** Sérialise un groupe éditable en `ExerciseGroup` (membres déjà sérialisés, order global). */
+export function groupToExerciseGroup(
+  group: EditableGroup,
+  order: number,
+  items: Exercise[],
+): ExerciseGroup {
+  const result: ExerciseGroup = {
+    kind: 'group',
+    name: group.name.trim(),
+    order,
+    groupType: group.groupType,
+    // Contrat : entier ≥ 1 ; une saisie vide/invalide retombe sur 1 tour.
+    rounds: toPositiveInt(group.rounds) ?? 1,
+    items,
+  };
+  const r = toPositiveInt(group.restBetweenItemsSeconds);
+  if (r != null) result.restBetweenItemsSeconds = r;
+  const bigR = toPositiveInt(group.restBetweenRoundsSeconds);
+  if (bigR != null) result.restBetweenRoundsSeconds = bigR;
+  const notes = group.notes.trim();
+  if (notes !== '') result.notes = notes;
+  return result;
 }
 
 /**
- * Premier bloc dont un `param` **requis** (TLX-91) manque ou est invalide — `null` si tout
- * est bon. Garantit qu'un bloc typé dérivant une épreuve (sprint/haies/course/intervalle →
- * distance, lancer → engin, vertical → discipline) porte la donnée sans laquelle la perf
- * n'apparaîtrait jamais en progression. Mêmes règles de parsing que `blockToExercise` et que
- * `record-detection.ts` (numérique strictement positif ; `select` = option valide).
+ * Sérialise le canvas en items `exercises` v3 (ADR-27). **`order` global unique** en parcours
+ * de lecture : un compteur incrémente sur chaque nœud — un groupe puis chacun de ses membres
+ * (règle 4) — de sorte que les **feuilles** gardent un `order` unique (la jointure `results`
+ * par `order` reste déterministe même avec des noms dupliqués entre groupes successifs).
  */
-export function firstBlockMissingRequiredParam(
-  blocks: EditableBlock[],
-): { index: number; field: BlockParamField } | null {
-  for (let index = 0; index < blocks.length; index += 1) {
-    const block = blocks[index];
-    for (const field of specForType(block.type).paramFields ?? []) {
-      if (!field.required) continue;
-      const raw = (block.params[field.key] ?? '').trim();
-      if (field.kind === 'select') {
-        if (raw === '' || !field.options?.some((o) => o.value === raw)) return { index, field };
-        continue;
+export function nodesToItems(nodes: EditableNode[]): (Exercise | ExerciseGroup)[] {
+  let order = 0;
+  return nodes.map((node) => {
+    if (isEditableGroup(node)) {
+      order += 1;
+      const groupOrder = order;
+      const items = node.items.map((block) => {
+        order += 1;
+        return blockToExercise(block, order, true);
+      });
+      return groupToExerciseGroup(node, groupOrder, items);
+    }
+    order += 1;
+    return blockToExercise(node, order, false);
+  });
+}
+
+/**
+ * Premier `param` **requis** (TLX-91) manquant/invalide d'un bloc — `null` sinon. Garantit qu'un
+ * bloc typé dérivant une épreuve (sprint/haies/course/intervalle → distance, lancer → engin,
+ * vertical → discipline) porte la donnée sans laquelle la perf n'apparaîtrait jamais en
+ * progression. Mêmes règles de parsing que `blockToExercise` / `record-detection.ts`.
+ */
+function blockMissingRequiredParam(block: EditableBlock): BlockParamField | null {
+  for (const field of specForType(block.type).paramFields ?? []) {
+    if (!field.required) continue;
+    const raw = (block.params[field.key] ?? '').trim();
+    if (field.kind === 'select') {
+      if (raw === '' || !field.options?.some((o) => o.value === raw)) return field;
+      continue;
+    }
+    if (field.kind === 'text') {
+      if (raw === '') return field;
+      continue;
+    }
+    const n = field.kind === 'number' ? toPositiveNumber(raw) : toPositiveInt(raw);
+    if (n == null || n <= 0) return field;
+  }
+  return null;
+}
+
+/**
+ * Première anomalie bloquant l'enregistrement, en **parcours de lecture group-aware** (les
+ * membres de groupe sont traversés — sans quoi les gardes TLX-91/nom ne couvriraient plus un
+ * bloc en groupe). Renvoie un message prêt à afficher, ou `null` si tout est valide. La
+ * numérotation « Bloc N » suit l'ordre des **feuilles** (aligné sur ce que voit l'athlète).
+ */
+export function findFirstNodeIssue(nodes: EditableNode[]): { message: string } | null {
+  let leaf = 0;
+  const checkBlock = (block: EditableBlock): { message: string } | null => {
+    leaf += 1;
+    if (block.name.trim() === '') {
+      return { message: `Le bloc ${leaf} n'a pas de nom d'exercice.` };
+    }
+    const field = blockMissingRequiredParam(block);
+    if (field) {
+      return {
+        message:
+          `Bloc ${leaf} : renseigne « ${field.label} » ` + '(nécessaire au suivi de progression).',
+      };
+    }
+    return null;
+  };
+
+  for (const node of nodes) {
+    if (isEditableGroup(node)) {
+      if (node.name.trim() === '') {
+        return { message: 'Donne un nom à chaque groupe d’exercices.' };
       }
-      if (field.kind === 'text') {
-        if (raw === '') return { index, field };
-        continue;
+      if (node.items.length === 0) {
+        return { message: `Le groupe « ${node.name.trim()} » doit contenir au moins un exercice.` };
       }
-      const n = field.kind === 'number' ? toPositiveNumber(raw) : toPositiveInt(raw);
-      if (n == null || n <= 0) return { index, field };
+      for (const member of node.items) {
+        const issue = checkBlock(member);
+        if (issue) return issue;
+      }
+    } else {
+      const issue = checkBlock(node);
+      if (issue) return issue;
     }
   }
   return null;
 }
 
-/** Carte d'édition d'un bloc générique : nom, séries/reps, durée/repos, charge, notes. */
+/**
+ * Carte d'édition d'un bloc générique : nom, séries/reps, durée/repos, charge, notes. Purement
+ * présentationnelle — réutilisée **telle quelle** au premier niveau et dans un groupe (ADR-27).
+ * `testIDPrefix` namespace les testIDs (défaut `block-{index}` → compat plat) ; `inGroup` masque
+ * `sets` (porté par le `rounds` du groupe) ; `onGroup`/`onUngroup` exposent les déplacements
+ * dans/hors d'un groupe quand le contexte le permet.
+ */
 export function BlockCard({
   block,
   index,
@@ -434,6 +602,12 @@ export function BlockCard({
   onMoveUp,
   onMoveDown,
   onRemove,
+  testIDPrefix,
+  label,
+  inGroup = false,
+  onGroup,
+  groupDisabled,
+  onUngroup,
 }: {
   block: EditableBlock;
   index: number;
@@ -442,13 +616,20 @@ export function BlockCard({
   onMoveUp: () => void;
   onMoveDown: () => void;
   onRemove: () => void;
+  testIDPrefix?: string;
+  label?: string;
+  inGroup?: boolean;
+  onGroup?: () => void;
+  groupDisabled?: boolean;
+  onUngroup?: () => void;
 }) {
   const { colors, typography, spacing } = useTheme();
+  const tid = testIDPrefix ?? `block-${index}`;
 
   return (
-    <Card testID={`block-${index}`}>
+    <Card testID={tid}>
       <View style={{ gap: spacing[3] }}>
-        {/* En-tête de bloc : numéro + contrôles d'ordre / suppression. */}
+        {/* En-tête de bloc : numéro + contrôles d'ordre / groupe / suppression. */}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[2] }}>
           <Text
             style={{
@@ -460,24 +641,41 @@ export function BlockCard({
               letterSpacing: 0.6,
             }}
           >
-            Bloc {index + 1}
+            {label ?? `Bloc ${index + 1}`}
           </Text>
+          {onGroup ? (
+            <IconButton
+              testID={`${tid}-group`}
+              icon="folder-plus"
+              label="Déplacer dans le groupe voisin"
+              disabled={groupDisabled}
+              onPress={onGroup}
+            />
+          ) : null}
+          {onUngroup ? (
+            <IconButton
+              testID={`${tid}-ungroup`}
+              icon="corner-up-left"
+              label="Sortir du groupe"
+              onPress={onUngroup}
+            />
+          ) : null}
           <IconButton
-            testID={`block-${index}-up`}
+            testID={`${tid}-up`}
             icon="arrow-up"
             label="Monter le bloc"
             disabled={index === 0}
             onPress={onMoveUp}
           />
           <IconButton
-            testID={`block-${index}-down`}
+            testID={`${tid}-down`}
             icon="arrow-down"
             label="Descendre le bloc"
             disabled={index === total - 1}
             onPress={onMoveDown}
           />
           <IconButton
-            testID={`block-${index}-remove`}
+            testID={`${tid}-remove`}
             icon="trash-2"
             label="Supprimer le bloc"
             tone="danger"
@@ -486,28 +684,24 @@ export function BlockCard({
         </View>
 
         <FieldInput
-          testID={`block-${index}-name`}
+          testID={`${tid}-name`}
           label="Nom de l'exercice"
           value={block.name}
           onChangeText={(name) => onChange({ name })}
           placeholder="Ex. Squat arrière, 60m départ…"
         />
 
-        <BlockTypeSelector
-          index={index}
-          value={block.type}
-          onChange={(type) => onChange({ type })}
-        />
+        <BlockTypeSelector tid={tid} value={block.type} onChange={(type) => onChange({ type })} />
 
-        {/* Champs de base v1 : seuls ceux pertinents pour le type sont affichés (TLX-94),
-            disposés en lignes de deux. Un champ supplanté par un `param` est masqué. */}
-        {chunkPairs(BASE_FIELDS.filter((f) => isBaseFieldVisible(block.type, f.key))).map(
+        {/* Champs de base v1 : seuls ceux pertinents pour le type ET le contexte sont affichés
+            (TLX-94 + ADR-27 : `sets` masqué en groupe), disposés en lignes de deux. */}
+        {chunkPairs(BASE_FIELDS.filter((f) => isBaseFieldVisible(block.type, f.key, inGroup))).map(
           (pair, rowIndex) => (
             <View key={rowIndex} style={{ flexDirection: 'row', gap: spacing[3] }}>
               {pair.map((f) => (
                 <FieldInput
                   key={f.key}
-                  testID={`block-${index}-${f.testId}`}
+                  testID={`${tid}-${f.testId}`}
                   label={f.label}
                   value={block[f.key]}
                   onChangeText={(v) => onChange({ [f.key]: v } as Partial<EditableBlock>)}
@@ -525,7 +719,7 @@ export function BlockCard({
         {/* Charge : valeur + unité. Attachée à la séance seulement si les deux sont posées. */}
         <View style={{ gap: spacing[2] }}>
           <FieldInput
-            testID={`block-${index}-load`}
+            testID={`${tid}-load`}
             label="Charge (optionnel)"
             value={block.loadValue}
             onChangeText={(loadValue) => onChange({ loadValue })}
@@ -536,7 +730,7 @@ export function BlockCard({
             {(Object.keys(LOAD_UNIT_LABELS) as LoadUnit[]).map((unit) => (
               <Chip
                 key={unit}
-                testID={`block-${index}-unit-${unit}`}
+                testID={`${tid}-unit-${unit}`}
                 selected={block.loadUnit === unit}
                 onPress={() => onChange({ loadUnit: block.loadUnit === unit ? null : unit })}
               >
@@ -546,10 +740,10 @@ export function BlockCard({
           </View>
         </View>
 
-        <BlockParamsEditor index={index} block={block} onChange={onChange} />
+        <BlockParamsEditor tid={tid} block={block} onChange={onChange} />
 
         <FieldInput
-          testID={`block-${index}-notes`}
+          testID={`${tid}-notes`}
           label="Notes (optionnel)"
           value={block.notes}
           onChangeText={(notes) => onChange({ notes })}
@@ -561,13 +755,197 @@ export function BlockCard({
   );
 }
 
+/**
+ * Carte d'édition d'un **groupe d'exercices** (ADR-27) : nom, `groupType` (superset/circuit/
+ * série), `rounds`, récup intra-tour (r) et inter-tours (R), notes — contenant des `BlockCard`
+ * membres (réutilisées telles quelles, contexte `inGroup`). Un membre peut sortir du groupe ;
+ * supprimer le dernier membre supprime le groupe (géré par l'écran).
+ */
+export function GroupCard({
+  group,
+  index,
+  total,
+  onChange,
+  onMoveUp,
+  onMoveDown,
+  onRemove,
+  onMemberChange,
+  onMemberMoveUp,
+  onMemberMoveDown,
+  onMemberRemove,
+  onMemberUngroup,
+  onAddMember,
+}: {
+  group: EditableGroup;
+  index: number;
+  total: number;
+  onChange: (patch: Partial<EditableGroup>) => void;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
+  onRemove: () => void;
+  onMemberChange: (memberIndex: number, patch: Partial<EditableBlock>) => void;
+  onMemberMoveUp: (memberIndex: number) => void;
+  onMemberMoveDown: (memberIndex: number) => void;
+  onMemberRemove: (memberIndex: number) => void;
+  onMemberUngroup: (memberIndex: number) => void;
+  onAddMember: () => void;
+}) {
+  const { colors, typography, spacing } = useTheme();
+  const tid = `group-${index}`;
+  const superset = group.groupType === 'superset';
+
+  return (
+    <Card testID={tid} style={{ borderColor: colors.accent, borderWidth: 1.5 }}>
+      <View style={{ gap: spacing[3] }}>
+        {/* En-tête de groupe : libellé + contrôles d'ordre / suppression. */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[2] }}>
+          <Feather name="repeat" size={15} color={colors.accentText} />
+          <Text
+            style={{
+              flex: 1,
+              color: colors.accentText,
+              fontFamily: typography.fontFamily.medium,
+              fontSize: typography.bodySm.fontSize,
+              textTransform: 'uppercase',
+              letterSpacing: 0.6,
+            }}
+          >
+            Groupe {index + 1}
+          </Text>
+          <IconButton
+            testID={`${tid}-up`}
+            icon="arrow-up"
+            label="Monter le groupe"
+            disabled={index === 0}
+            onPress={onMoveUp}
+          />
+          <IconButton
+            testID={`${tid}-down`}
+            icon="arrow-down"
+            label="Descendre le groupe"
+            disabled={index === total - 1}
+            onPress={onMoveDown}
+          />
+          <IconButton
+            testID={`${tid}-remove`}
+            icon="trash-2"
+            label="Supprimer le groupe"
+            tone="danger"
+            onPress={onRemove}
+          />
+        </View>
+
+        <FieldInput
+          testID={`${tid}-name`}
+          label="Nom du groupe"
+          value={group.name}
+          onChangeText={(name) => onChange({ name })}
+          placeholder="Ex. Contraste force-vitesse, Circuit PPG…"
+        />
+
+        {/* Sémantique du groupe (affichage/guidage — superset numérote A1/A2 côté athlète). */}
+        <View style={{ gap: spacing[2] }}>
+          <Text
+            style={{
+              color: colors.textSecondary,
+              fontFamily: typography.fontFamily.medium,
+              fontSize: typography.bodySm.fontSize,
+            }}
+          >
+            Type de groupe
+          </Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] }}>
+            {(Object.keys(GROUP_TYPE_LABELS) as ExerciseGroupGroupType[]).map((gt) => (
+              <Chip
+                key={gt}
+                testID={`${tid}-type-${gt}`}
+                selected={group.groupType === gt}
+                onPress={() => onChange({ groupType: gt })}
+              >
+                {GROUP_TYPE_LABELS[gt]}
+              </Chip>
+            ))}
+          </View>
+        </View>
+
+        {/* Tours + récupérations r (intra-tour) / R (inter-tours). */}
+        <View style={{ flexDirection: 'row', gap: spacing[3] }}>
+          <FieldInput
+            testID={`${tid}-rounds`}
+            label="Tours / séries"
+            value={group.rounds}
+            onChangeText={(rounds) => onChange({ rounds })}
+            keyboardType="number-pad"
+            placeholder="Ex. 3"
+            style={{ flex: 1 }}
+          />
+          <FieldInput
+            testID={`${tid}-rest-items`}
+            label="Récup. r — entre exos (s)"
+            value={group.restBetweenItemsSeconds}
+            onChangeText={(restBetweenItemsSeconds) => onChange({ restBetweenItemsSeconds })}
+            keyboardType="number-pad"
+            placeholder="Ex. 30"
+            style={{ flex: 1 }}
+          />
+        </View>
+        <FieldInput
+          testID={`${tid}-rest-rounds`}
+          label="Récup. R — entre tours (s)"
+          value={group.restBetweenRoundsSeconds}
+          onChangeText={(restBetweenRoundsSeconds) => onChange({ restBetweenRoundsSeconds })}
+          keyboardType="number-pad"
+          placeholder="Ex. 180"
+        />
+
+        {/* Membres du groupe : BlockCard standard, contexte `inGroup` (sets masqué). */}
+        {group.items.map((member, m) => (
+          <BlockCard
+            key={member.key}
+            block={member}
+            index={m}
+            total={group.items.length}
+            testIDPrefix={`${tid}-block-${m}`}
+            label={superset ? `A${m + 1}` : `Exercice ${m + 1}`}
+            inGroup
+            onChange={(patch) => onMemberChange(m, patch)}
+            onMoveUp={() => onMemberMoveUp(m)}
+            onMoveDown={() => onMemberMoveDown(m)}
+            onRemove={() => onMemberRemove(m)}
+            onUngroup={() => onMemberUngroup(m)}
+          />
+        ))}
+
+        <Button
+          testID={`${tid}-add-member`}
+          variant="secondary"
+          fullWidth
+          leftIcon={<Feather name="plus" size={16} color={colors.textPrimary} />}
+          onPress={onAddMember}
+        >
+          Ajouter un exercice au groupe
+        </Button>
+
+        <FieldInput
+          testID={`${tid}-notes`}
+          label="Notes du groupe (optionnel)"
+          value={group.notes}
+          onChangeText={(notes) => onChange({ notes })}
+          placeholder="Consigne d'exécution du circuit…"
+          multiline
+        />
+      </View>
+    </Card>
+  );
+}
+
 /** Sélecteur du type de bloc (TLX-053) : chips déduits de `BLOCK_TYPE_SPECS`. */
 function BlockTypeSelector({
-  index,
+  tid,
   value,
   onChange,
 }: {
-  index: number;
+  tid: string;
   value: BlockType;
   onChange: (type: BlockType) => void;
 }) {
@@ -587,7 +965,7 @@ function BlockTypeSelector({
         {BLOCK_TYPE_SPECS.map((spec) => (
           <Chip
             key={spec.type}
-            testID={`block-${index}-type-${spec.type}`}
+            testID={`${tid}-type-${spec.type}`}
             selected={value === spec.type}
             onPress={() => onChange(spec.type)}
           >
@@ -604,11 +982,11 @@ function BlockTypeSelector({
  * type courant déclare des `paramFields` ; sinon `null` (types génériques sans params).
  */
 function BlockParamsEditor({
-  index,
+  tid,
   block,
   onChange,
 }: {
-  index: number;
+  tid: string;
   block: EditableBlock;
   onChange: (patch: Partial<EditableBlock>) => void;
 }) {
@@ -616,7 +994,7 @@ function BlockParamsEditor({
   const spec = specForType(block.type);
   if (!spec.paramFields?.length) return null;
   return (
-    <View testID={`block-${index}-params`} style={{ gap: spacing[3] }}>
+    <View testID={`${tid}-params`} style={{ gap: spacing[3] }}>
       <Text
         style={{
           color: colors.textSecondary,
@@ -644,7 +1022,7 @@ function BlockParamsEditor({
               {field.options?.map((opt) => (
                 <Chip
                   key={opt.value}
-                  testID={`block-${index}-param-${field.key}-${opt.value}`}
+                  testID={`${tid}-param-${field.key}-${opt.value}`}
                   selected={block.params[field.key] === opt.value}
                   onPress={() => onChange({ params: { ...block.params, [field.key]: opt.value } })}
                 >
@@ -656,7 +1034,7 @@ function BlockParamsEditor({
         ) : (
           <FieldInput
             key={field.key}
-            testID={`block-${index}-param-${field.key}`}
+            testID={`${tid}-param-${field.key}`}
             label={field.required ? `${field.label} (requis)` : field.label}
             value={block.params[field.key] ?? ''}
             onChangeText={(v) => onChange({ params: { ...block.params, [field.key]: v } })}

@@ -184,7 +184,7 @@ describe('SessionBuilderScreen (TLX-052 — C-05)', () => {
       scheduledDate: undefined,
       status: 'draft',
       exercises: {
-        schemaVersion: 2,
+        schemaVersion: 3,
         items: [
           {
             name: 'Squat arrière',
@@ -607,5 +607,80 @@ describe('SessionBuilderScreen (TLX-052 — C-05)', () => {
     expect(screen.getByTestId('brief-field-difficulty').props.value).toBe('8');
     expect(screen.getByTestId('brief-field-athleteIntent').props.value).toBe('Relâché.');
     expect(screen.getByTestId('brief-field-intent').props.value).toBe('Interne.');
+  });
+
+  it('crée une séance à GROUPE (ADR-27) : order global, rounds/R, membre sans sets (v3)', async () => {
+    mockCreateSession.mockResolvedValue({ status: 201, data: { id: 's-grp' } });
+    render(<SessionBuilderScreen />, { wrapper: Wrapper });
+
+    fireEvent.changeText(screen.getByTestId('session-field-title'), 'Contraste');
+    // Bloc 0 (premier niveau) : échauffement.
+    fireEvent.changeText(screen.getByTestId('block-0-name'), 'Échauffement');
+    // Ajoute un groupe (→ group-1) avec un membre initial group-1-block-0.
+    fireEvent.press(screen.getByTestId('session-add-group'));
+    fireEvent.changeText(screen.getByTestId('group-1-name'), 'Force-vitesse');
+    fireEvent.press(screen.getByTestId('group-1-type-superset'));
+    fireEvent.changeText(screen.getByTestId('group-1-rounds'), '3');
+    fireEvent.changeText(screen.getByTestId('group-1-rest-rounds'), '180');
+    fireEvent.changeText(screen.getByTestId('group-1-block-0-name'), 'Squat lourd');
+    fireEvent.press(screen.getByTestId('group-1-block-0-type-strength'));
+    // Le membre porte sa charge mais PAS de champ « Séries » (masqué en groupe, ADR-27).
+    expect(screen.queryByTestId('group-1-block-0-sets')).toBeNull();
+    expect(screen.getByTestId('block-0-sets')).toBeOnTheScreen(); // bloc hors groupe : sets présent
+    fireEvent.changeText(screen.getByTestId('group-1-block-0-reps'), '3');
+    fireEvent.press(screen.getByTestId('session-save'));
+
+    await waitFor(() => expect(mockCreateSession).toHaveBeenCalled());
+    const doc = mockCreateSession.mock.calls[0][0].exercises;
+    expect(doc.schemaVersion).toBe(3);
+    expect(doc.items[0]).toMatchObject({ name: 'Échauffement', order: 1 });
+    expect(doc.items[1]).toMatchObject({
+      kind: 'group',
+      name: 'Force-vitesse',
+      order: 2,
+      groupType: 'superset',
+      rounds: 3,
+      restBetweenRoundsSeconds: 180,
+    });
+    expect(doc.items[1].items[0]).toMatchObject({
+      name: 'Squat lourd',
+      order: 3,
+      type: 'strength',
+      reps: 3,
+    });
+    expect(doc.items[1].items[0]).not.toHaveProperty('sets'); // dimension portée par rounds
+  });
+
+  it('refuse un membre de groupe sans param de suivi (TLX-91 traversant)', () => {
+    render(<SessionBuilderScreen />, { wrapper: Wrapper });
+    fireEvent.changeText(screen.getByTestId('session-field-title'), 'Vitesse');
+    fireEvent.changeText(screen.getByTestId('block-0-name'), 'Footing');
+    fireEvent.press(screen.getByTestId('session-add-group'));
+    fireEvent.changeText(screen.getByTestId('group-1-name'), 'Série');
+    fireEvent.changeText(screen.getByTestId('group-1-block-0-name'), '8 × 60m');
+    fireEvent.press(screen.getByTestId('group-1-block-0-type-sprint')); // distance requise, absente
+    fireEvent.press(screen.getByTestId('session-save'));
+
+    expect(screen.getByTestId('session-builder-validation')).toHaveTextContent(/distance/i);
+    expect(mockCreateSession).not.toHaveBeenCalled();
+  });
+
+  it('déplace un bloc dans le groupe voisin puis l’en sort (dans/hors)', () => {
+    render(<SessionBuilderScreen />, { wrapper: Wrapper });
+    // block-0 (Échauffement) suivi d'un groupe (group-1) → block-0 peut rejoindre le groupe.
+    fireEvent.changeText(screen.getByTestId('block-0-name'), 'Échauffement');
+    fireEvent.press(screen.getByTestId('session-add-group'));
+    fireEvent.press(screen.getByTestId('block-0-group')); // → dans le groupe voisin
+
+    // Le bloc de premier niveau a disparu ; le groupe (maintenant en index 0) a 2 membres.
+    // Le bloc précédait le groupe → il est **préfixé** (ordre de lecture) : group-0-block-0.
+    expect(screen.queryByTestId('block-0')).toBeNull();
+    expect(screen.getByTestId('group-0')).toBeOnTheScreen();
+    expect(screen.getByTestId('group-0-block-0-name').props.value).toBe('Échauffement');
+
+    // Le ressort : on sort ce membre → il redevient un bloc de premier niveau (après le groupe).
+    fireEvent.press(screen.getByTestId('group-0-block-0-ungroup'));
+    expect(screen.getByTestId('block-1')).toBeOnTheScreen();
+    expect(screen.getByTestId('block-1-name').props.value).toBe('Échauffement');
   });
 });
