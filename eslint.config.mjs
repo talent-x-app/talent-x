@@ -20,6 +20,9 @@ export default tseslint.config(
       // Specs & design : artefacts de référence (humains), pas du code applicatif.
       'docs/**',
       'design/**',
+      // Assets de skills Claude : templates/références copiés à l'exécution (idiomes
+      // propres, ex. fixtures Playwright `async ({}, use) =>`) — pas du code applicatif.
+      '.claude/**',
     ],
   },
 
