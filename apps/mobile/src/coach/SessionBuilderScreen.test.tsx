@@ -400,7 +400,7 @@ describe('SessionBuilderScreen (TLX-052 — C-05)', () => {
     });
   });
 
-  it('sélectionne Musculation → type strength sur la base v1, sans section params (TLX-060)', async () => {
+  it('sélectionne Musculation → base v1 + tempo optionnel ; vide → aucun params (TLX-060/ADR-28)', async () => {
     mockCreateSession.mockResolvedValue({ status: 201, data: { id: 's-str' } });
     render(<SessionBuilderScreen />, { wrapper: Wrapper });
 
@@ -412,8 +412,8 @@ describe('SessionBuilderScreen (TLX-052 — C-05)', () => {
     fireEvent.changeText(screen.getByTestId('block-0-load'), '90');
     fireEvent.press(screen.getByTestId('block-0-unit-kg'));
 
-    // Musculation = base v1 générique : aucune section params.
-    expect(screen.queryByTestId('block-0-params')).toBeNull();
+    // Musculation = base v1 + tempo (ADR-28 règle 6) ; laissé vide → bloc byte-identique v1.
+    expect(screen.getByTestId('block-0-param-tempo')).toBeOnTheScreen();
     fireEvent.press(screen.getByTestId('session-save'));
 
     await waitFor(() => expect(mockCreateSession).toHaveBeenCalled());
@@ -427,6 +427,32 @@ describe('SessionBuilderScreen (TLX-052 — C-05)', () => {
       load: { value: 90, unit: 'kg' },
     });
     expect(item).not.toHaveProperty('params');
+  });
+
+  it("params d'intensité : % VMA (intervalles) et tempo (musculation) sérialisés (ADR-28 règle 6)", async () => {
+    mockCreateSession.mockResolvedValue({ status: 201, data: { id: 's-intensity' } });
+    render(<SessionBuilderScreen />, { wrapper: Wrapper });
+
+    fireEvent.changeText(screen.getByTestId('session-field-title'), 'VMA + force');
+    // Bloc 1 : intervalles à 105 % VMA.
+    fireEvent.changeText(screen.getByTestId('block-0-name'), '6 × 400m');
+    fireEvent.press(screen.getByTestId('block-0-type-interval'));
+    fireEvent.changeText(screen.getByTestId('block-0-param-distanceMeters'), '400');
+    fireEvent.changeText(screen.getByTestId('block-0-param-percentVma'), '105');
+    // Bloc 2 : musculation au tempo 3-1-1-0 (chaîne libre, espaces épurés).
+    fireEvent.press(screen.getByTestId('session-add-block'));
+    fireEvent.changeText(screen.getByTestId('block-1-name'), 'Squat arrière');
+    fireEvent.press(screen.getByTestId('block-1-type-strength'));
+    fireEvent.changeText(screen.getByTestId('block-1-param-tempo'), ' 3-1-1-0 ');
+    fireEvent.press(screen.getByTestId('session-save'));
+
+    await waitFor(() => expect(mockCreateSession).toHaveBeenCalled());
+    const items = mockCreateSession.mock.calls[0][0].exercises.items;
+    expect(items[0]).toMatchObject({
+      type: 'interval',
+      params: { distanceMeters: 400, percentVma: 105 },
+    });
+    expect(items[1]).toMatchObject({ type: 'strength', params: { tempo: '3-1-1-0' } });
   });
 
   it('sélectionne Gainage / Circuit → sérialise type + params partagés (tours, station) (TLX-061)', async () => {

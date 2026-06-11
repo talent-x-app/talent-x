@@ -38,9 +38,10 @@ export interface BlockParamField {
   placeholder?: string;
   /**
    * `int` (défaut) / `number` (décimal autorisé, ex. espacement en m) → saisie numérique ;
-   * `select` → choix parmi `options` (param libre en chaîne, ex. discipline, cf. ADR-25).
+   * `select` → choix parmi `options` (param libre en chaîne, ex. discipline, cf. ADR-25) ;
+   * `text` → chaîne libre courte (ex. tempo « 3-1-1-0 », cf. ADR-28 règle 6).
    */
-  kind?: 'int' | 'number' | 'select';
+  kind?: 'int' | 'number' | 'select' | 'text';
   /** Options d'un champ `select` (valeur stockée + libellé affiché). */
   options?: { value: string; label: string }[];
   /**
@@ -75,14 +76,27 @@ const CIRCUIT_PARAM_FIELDS: BlockParamField[] = [
  */
 export const BLOCK_TYPE_SPECS: BlockTypeSpec[] = [
   { type: BlockType.custom, label: 'Personnalisé' },
-  // TLX-060 — Musculation : séries × reps × charge = base v1 générique (aucun `params`) ;
-  // `strength` ne fait que tagger le bloc (cf. ADR-18).
-  { type: BlockType.strength, label: 'Musculation' },
+  {
+    type: BlockType.strength,
+    label: 'Musculation',
+    // TLX-060 — Musculation : séries × reps × charge = base v1 générique ; `strength` tagge le
+    // bloc. ADR-28 (règle 6) ajoute le tempo d'exécution (chaîne libre optionnelle) — sans lui,
+    // le bloc reste byte-identique au v1 (aucun `params` sérialisé).
+    paramFields: [
+      {
+        key: 'tempo',
+        label: 'Tempo (excentrique-pause-concentrique-pause)',
+        placeholder: 'Ex. 3-1-1-0',
+        kind: 'text',
+      },
+    ],
+  },
   {
     type: BlockType.interval,
     label: 'Intervalles',
     // TLX-054 — Fractionné / Intervalles. `distanceMeters` (par répétition) dérive l'épreuve
-    // chronométrée → requis pour le suivi de progression (TLX-91).
+    // chronométrée → requis pour le suivi de progression (TLX-91). Intensité % VMA : ADR-28
+    // règle 6 (jamais d'exercice « nu »).
     paramFields: [
       { key: 'reps', label: 'Répétitions (nombre d’intervalles)', placeholder: 'Ex. 6' },
       {
@@ -93,6 +107,7 @@ export const BLOCK_TYPE_SPECS: BlockTypeSpec[] = [
       },
       { key: 'workSeconds', label: 'Effort (s)', placeholder: 'Ex. 90' },
       { key: 'recoverySeconds', label: 'Récupération (s)', placeholder: 'Ex. 120' },
+      { key: 'percentVma', label: 'Intensité (% VMA)', placeholder: 'Ex. 105' },
     ],
   },
   {
@@ -100,10 +115,12 @@ export const BLOCK_TYPE_SPECS: BlockTypeSpec[] = [
     label: 'Sprints',
     // TLX-055 — Répétitions de vitesse / Sprints : distances, répétitions, récupération.
     // `distanceMeters` dérive l'épreuve chronométrée → requis pour le suivi (TLX-91).
+    // Intensité % VMA : ADR-28 règle 6.
     paramFields: [
       { key: 'reps', label: 'Répétitions (nombre de sprints)', placeholder: 'Ex. 8' },
       { key: 'distanceMeters', label: 'Distance (m)', placeholder: 'Ex. 60', required: true },
       { key: 'recoverySeconds', label: 'Récupération (s)', placeholder: 'Ex. 180' },
+      { key: 'percentVma', label: 'Intensité (% VMA)', placeholder: 'Ex. 120' },
     ],
   },
   {
@@ -340,7 +357,8 @@ export function blockToExercise(block: EditableBlock, order: number): Exercise {
   const notes = block.notes.trim();
   if (notes !== '') exercise.notes = notes;
   // `params` propres au type : champs parsés, attachés seulement si au moins un est rempli.
-  // Les champs `select` stockent une chaîne (valeur d'option), les autres un nombre positif.
+  // Les champs `select` stockent une chaîne (valeur d'option), `text` une chaîne libre épurée,
+  // les autres un nombre positif.
   const paramFields = specForType(block.type).paramFields;
   if (paramFields?.length) {
     const params: Record<string, number | string> = {};
@@ -348,6 +366,11 @@ export function blockToExercise(block: EditableBlock, order: number): Exercise {
       if (f.kind === 'select') {
         const raw = (block.params[f.key] ?? '').trim();
         if (raw !== '' && f.options?.some((o) => o.value === raw)) params[f.key] = raw;
+        return;
+      }
+      if (f.kind === 'text') {
+        const raw = (block.params[f.key] ?? '').trim();
+        if (raw !== '') params[f.key] = raw;
         return;
       }
       const raw = block.params[f.key] ?? '';
@@ -381,6 +404,10 @@ export function firstBlockMissingRequiredParam(
       const raw = (block.params[field.key] ?? '').trim();
       if (field.kind === 'select') {
         if (raw === '' || !field.options?.some((o) => o.value === raw)) return { index, field };
+        continue;
+      }
+      if (field.kind === 'text') {
+        if (raw === '') return { index, field };
         continue;
       }
       const n = field.kind === 'number' ? toPositiveNumber(raw) : toPositiveInt(raw);
@@ -518,7 +545,7 @@ export function BlockCard({
           label="Notes (optionnel)"
           value={block.notes}
           onChangeText={(notes) => onChange({ notes })}
-          placeholder="Consignes, tempo, intention…"
+          placeholder="Consignes, intention…"
           multiline
         />
       </View>
@@ -625,7 +652,9 @@ function BlockParamsEditor({
             label={field.required ? `${field.label} (requis)` : field.label}
             value={block.params[field.key] ?? ''}
             onChangeText={(v) => onChange({ params: { ...block.params, [field.key]: v } })}
-            keyboardType={field.kind === 'number' ? 'numeric' : 'number-pad'}
+            keyboardType={
+              field.kind === 'number' ? 'numeric' : field.kind === 'text' ? 'default' : 'number-pad'
+            }
             placeholder={field.placeholder}
           />
         ),

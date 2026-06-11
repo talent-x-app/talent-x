@@ -119,6 +119,40 @@ describe('formatExerciseTarget (TLX-062 — cibles de bloc)', () => {
     ).toBe('5 × 3 · 80 kg');
   });
 
+  it('interval/sprint : intensité % VMA insérée avant la récup (ADR-28 règle 6)', () => {
+    expect(
+      formatExerciseTarget(
+        ex({
+          type: BlockType.interval,
+          params: { reps: 6, workSeconds: 90, recoverySeconds: 120, percentVma: 105 },
+        }),
+      ),
+    ).toBe('6 × 90s · 105 % VMA · récup 120s');
+    expect(
+      formatExerciseTarget(
+        ex({ type: BlockType.sprint, params: { reps: 8, distanceMeters: 60, percentVma: 120 } }),
+      ),
+    ).toBe('8 × 60m · 120 % VMA');
+  });
+
+  it('strength : tempo ajouté à la base v1 (ADR-28 règle 6)', () => {
+    expect(
+      formatExerciseTarget(
+        ex({
+          type: BlockType.strength,
+          sets: 5,
+          reps: 3,
+          load: { value: 80, unit: LoadUnit.kg },
+          params: { tempo: '3-1-1-0' },
+        }),
+      ),
+    ).toBe('5 × 3 · 80 kg · tempo 3-1-1-0');
+    // Tempo seul (base v1 vide) : la cible reste lisible.
+    expect(formatExerciseTarget(ex({ type: BlockType.strength, params: { tempo: '30X0' } }))).toBe(
+      'tempo 30X0',
+    );
+  });
+
   it('custom sans type : base commune', () => {
     expect(formatExerciseTarget(ex({ sets: 4, durationSeconds: 30 }))).toBe('4 × 30s');
     expect(formatExerciseTarget(ex({ reps: 12 }))).toBe('12 reps');
@@ -139,5 +173,11 @@ describe('formatExerciseTarget (TLX-062 — cibles de bloc)', () => {
         ex({ type: BlockType.interval, params: { reps: 'six', workSeconds: 90 } as never }),
       ),
     ).toBe('90s');
+    // Tempo non textuel ignoré → repli sur la base v1.
+    expect(
+      formatExerciseTarget(
+        ex({ type: BlockType.strength, sets: 5, reps: 3, params: { tempo: 42 } as never }),
+      ),
+    ).toBe('5 × 3');
   });
 });

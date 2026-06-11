@@ -17,6 +17,12 @@ function num(params: Exercise['params'], key: string): number | undefined {
   return typeof v === 'number' && Number.isFinite(v) ? v : undefined;
 }
 
+/** Lecture défensive d'un param texte court (ex. discipline, tempo « 3-1-1-0 »). */
+function str(params: Exercise['params'], key: string): string | undefined {
+  const v = (params as Record<string, unknown> | undefined)?.[key];
+  return typeof v === 'string' && v.trim() !== '' ? v.trim() : undefined;
+}
+
 /** Allure en s/km → « m:ss » (ex. 300 → « 5:00 »). */
 function formatPace(secondsPerKm: number): string {
   const m = Math.floor(secondsPerKm / 60);
@@ -68,16 +74,26 @@ function typedTarget(ex: Exercise): string | undefined {
       const work = num(p, 'workSeconds');
       const head =
         reps != null && work != null ? `${reps} × ${work}s` : work != null ? `${work}s` : undefined;
+      const pct = num(p, 'percentVma');
       const rec = num(p, 'recoverySeconds');
-      return join([head, rec != null ? `récup ${rec}s` : undefined]);
+      return join([
+        head,
+        pct != null ? `${pct} % VMA` : undefined,
+        rec != null ? `récup ${rec}s` : undefined,
+      ]);
     }
     case BlockType.sprint: {
       const reps = num(p, 'reps');
       const dist = num(p, 'distanceMeters');
       const head =
         reps != null && dist != null ? `${reps} × ${dist}m` : dist != null ? `${dist}m` : undefined;
+      const pct = num(p, 'percentVma');
       const rec = num(p, 'recoverySeconds');
-      return join([head, rec != null ? `récup ${rec}s` : undefined]);
+      return join([
+        head,
+        pct != null ? `${pct} % VMA` : undefined,
+        rec != null ? `récup ${rec}s` : undefined,
+      ]);
     }
     case BlockType.endurance: {
       const dist = num(p, 'distanceMeters');
@@ -111,7 +127,7 @@ function typedTarget(ex: Exercise): string | undefined {
     }
     case BlockType.vertical_jumps: {
       // Saut vertical (ADR-25) : discipline + barre de départ (cm → m) + montée (cm).
-      const discipline = (p as Record<string, unknown> | undefined)?.discipline;
+      const discipline = str(p, 'discipline');
       const start = num(p, 'startHeightCm');
       const increment = num(p, 'incrementCm');
       return join([
@@ -149,8 +165,13 @@ function typedTarget(ex: Exercise): string | undefined {
               : undefined;
       return head;
     }
+    case BlockType.strength: {
+      // ADR-28 (règle 6) : le tempo d'exécution s'ajoute à la base v1 (séries × reps × charge).
+      const tempo = str(p, 'tempo');
+      return tempo != null ? join([baseTarget(ex), `tempo ${tempo}`]) : undefined;
+    }
     default:
-      // `strength` / `custom` / type absent : base commune v1 (séries × reps × charge).
+      // `custom` / type absent : base commune v1 (séries × reps × charge).
       return undefined;
   }
 }

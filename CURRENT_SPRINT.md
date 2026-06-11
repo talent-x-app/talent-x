@@ -601,6 +601,35 @@ athlete-session-ui.tsx`. 10 tests ; **suite mobile 108/108**. **Validé en réel
   raccourcis ; tap séance → `/session/:id`. Zéro erreur console. (Capture preview indisponible —
   outil screenshot instable dans l'env ; vérif par arbre DOM + logs.)
 
+## Terminés — ADR-28 Brief de séance : double lecture coach/athlète (lots 1–3)
+
+- **ADR-28 accepté** (2026-06-11) : document JSONB versionné `brief` sur `sessions` — partie
+  partagée (`athleteIntent`, `durationMinutes`, `difficulty`, `successCriteria`, `stopCriteria`)
+  - partie **coach seulement** (`intent`, `coachNotes`) retirée **au serveur** de toute
+    sérialisation vers un lecteur athlète (mapper role-aware, philosophie ADR-26).
+- **Lot 1 backend (TLX-98, commit `78d493a`)** : migration expand-only `session_brief`,
+  `SessionBriefDto` borné, mapper par rôle sur toutes les surfaces (lecture/liste `/sessions` +
+  séance embarquée des affectations), OpenAPI `SessionBrief` + TX-DATA-006 §9.4. 329 unitaires +
+  21 intégration verts ; **e2e DB réel** : l'athlète ne reçoit jamais `intent`/`coachNotes`.
+- **Lot 2 front (TLX-99, commit `8a354b6`)** : constructeur C-05 — section repliable
+  « Intention & lecture athlète » + aperçu **« Voir comme l'athlète »** ; détail athlète
+  A-03/A-04 — en-tête métriques (Durée · Exercices · Difficulté), « 💡 En une phrase »,
+  sections 🔥/🎯/🧊 dérivées, carte « ✅ Réussi si / ⚠️ Stop si » ; revue C-08 — lecture coach
+  complète (`intent` + `coachNotes`). 358 tests mobile verts ; **validé en réel** (Expo web) :
+  0 fuite coach dans le DOM athlète.
+- **Lot 3 (frontend pur, ADR-28 règle 6)** : params d'intensité, pattern TLX-054→061, **zéro
+  changement de contrat** — `percentVma` (Intervalles + Sprints) et `tempo` (Musculation,
+  nouveau `kind: 'text'` au registre `BLOCK_TYPE_SPECS` : chaîne libre « 3-1-1-0 », clavier
+  texte, épurée à la sérialisation) ; cible athlète enrichie (`formatExerciseTarget`) :
+  « 6 × 90s · 105 % VMA · récup 120s », « 5 × 3 · 80 kg · tempo 3-1-1-0 ». Musculation sans
+  tempo reste **byte-identique v1** (aucun `params` sérialisé — non-régression TLX-060
+  conservée). +3 tests ; **mobile 361/361** ; typecheck + lint clean.
+- **Validé en réel (Lot 3, API + Postgres locaux)** : `POST /sessions` 201 avec
+  `{percentVma: 105}` / `{tempo: "3-1-1-0"}` → persistés tels quels (vérif psql du JSONB) →
+  lecture athlète de la séance embarquée : params intacts **et** brief toujours filtré (pas
+  d'`intent`/`coachNotes`). Non rejoué : smoke Expo web (champs et sérialisation couverts par
+  RTL sur les vrais écrans ; aucun nouveau fichier → pas de risque de cache Metro).
+
 ## Notes / dépendances (réutilisables)
 
 - **Mapper séance partagé** : `sessions/session.mapper.ts` (`toSessionDto`).
@@ -641,5 +670,5 @@ compteurs/durée/mapper). **Ordre de livraison impératif** (ADR-27 règle 7) :
    extension TLX-94 (`sets` en contexte groupe), **bump `schemaVersion` 3** — jamais
    avant le Lot 2.
 
-Hors ADR-27 : params d'intensité `percentVma`/`tempo` (front pur, cadre ADR-28) — à
-ticketer.
+Hors ADR-27 : params d'intensité `percentVma`/`tempo` (front pur, cadre ADR-28) —
+**✅ livrés** (cf. « ADR-28 … lots 1–3 », Lot 3 ci-dessus).
