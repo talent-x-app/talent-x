@@ -424,4 +424,112 @@ describe('Parcours critiques (E2E DB) — TLX-120', () => {
       await http().get('/api/v1/coach/dashboard').expect(401);
     });
   });
+
+  describe('Groupes d’exercices v3 (ADR-27)', () => {
+    it('round-trip d’une séance à groupe : persistée intacte + records dérivés des feuilles', async () => {
+      const coach = await register('coach');
+      const athlete = await register('athlete');
+      await grantConsent(athlete.token, 'data_processing');
+
+      // Lien via groupe (rend l'athlète affectable).
+      const group = await http()
+        .post('/api/v1/groups')
+        .set(bearer(coach.token))
+        .send({ name: 'Gv3' })
+        .expect(201);
+      await http()
+        .post('/api/v1/groups/join')
+        .set(bearer(athlete.token))
+        .send({ inviteCode: group.body.inviteCode })
+        .expect(200);
+
+      // Séance v3 : un échauffement simple + un GROUPE « série » (3 tours) contenant un sprint.
+      const session = await http()
+        .post('/api/v1/sessions')
+        .set(bearer(coach.token))
+        .send({
+          title: 'Séries de vitesse',
+          status: 'published',
+          exercises: {
+            schemaVersion: 3,
+            items: [
+              { name: 'Échauffement', order: 0, type: 'warmup', durationSeconds: 600 },
+              {
+                kind: 'group',
+                name: 'Série de vitesse',
+                order: 1,
+                groupType: 'series',
+                rounds: 3,
+                restBetweenRoundsSeconds: 480,
+                items: [
+                  {
+                    name: 'Ligne droite',
+                    order: 2,
+                    type: 'sprint',
+                    params: { distanceMeters: 60 },
+                  },
+                ],
+              },
+            ],
+          },
+        })
+        .expect(201);
+      const sessionId: string = session.body.id;
+
+      // Lecture : le groupe est rendu INTACT (pas d'aplatissement serveur), v3 préservé.
+      const read = await http()
+        .get(`/api/v1/sessions/${sessionId}`)
+        .set(bearer(coach.token))
+        .expect(200);
+      expect(read.body.exercises.schemaVersion).toBe(3);
+      const groupNode = read.body.exercises.items[1];
+      expect(groupNode).toMatchObject({
+        kind: 'group',
+        groupType: 'series',
+        rounds: 3,
+        restBetweenRoundsSeconds: 480,
+      });
+      expect(groupNode.items).toHaveLength(1);
+      expect(groupNode.items[0]).toMatchObject({ name: 'Ligne droite', type: 'sprint' });
+      // L'exercice simple de premier niveau garde son type (rétro-compat mapper).
+      expect(read.body.exercises.items[0]).toMatchObject({ name: 'Échauffement', type: 'warmup' });
+
+      // Affectation + perf : le résultat se joint à la FEUILLE du groupe par l'order.
+      const assign = await http()
+        .post(`/api/v1/sessions/${sessionId}/assign`)
+        .set(bearer(coach.token))
+        .set('Idempotency-Key', `assign-${sessionId}`)
+        .send({ athleteIds: [athlete.id] })
+        .expect(201);
+      const assignmentId: string = assign.body.data[0].id;
+
+      const perf = await http()
+        .post(`/api/v1/assignments/${assignmentId}/performance`)
+        .set(bearer(athlete.token))
+        .set('Idempotency-Key', `perf-${assignmentId}`)
+        .send({
+          rpe: 6,
+          results: {
+            schemaVersion: 2,
+            items: [
+              {
+                exerciseName: 'Ligne droite',
+                order: 2,
+                setResults: [{ set: 1, timeSeconds: 7.3, completed: true }],
+              },
+            ],
+          },
+        })
+        .expect(201);
+
+      // La détection de records aplatit les feuilles du groupe puis dérive l'épreuve.
+      const candidates = (perf.body.recordCandidates ?? []) as {
+        eventKey: string;
+        value: number;
+      }[];
+      const sprint = candidates.find((c) => c.eventKey === 'sprint:60m');
+      expect(sprint).toBeDefined();
+      expect(sprint!.value).toBe(7.3);
+    });
+  });
 });

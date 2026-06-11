@@ -1,16 +1,34 @@
 import type { Session } from '@prisma/client';
 import { SessionDto } from './dto/session.dto';
-import { BlockType, type ExerciseDto, type ExercisesDocDto } from './dto/exercises.dto';
+import {
+  BlockType,
+  isExerciseGroup,
+  type ExerciseDto,
+  type ExerciseNode,
+  type ExercisesDocDto,
+} from './dto/exercises.dto';
 import type { SessionBriefDto } from './dto/session-brief.dto';
 import type { SessionStatus } from './dto/session-create.dto';
 import type { Role } from '../common/decorators/roles.decorator';
 
 /**
- * Normalise un bloc lu en base : un bloc hérité v1 sans `type` est exposé comme
- * `custom` (variante générique, rétro-compat — cf. ADR-18).
+ * Normalise un exercice (feuille) lu en base : un bloc hérité v1 sans `type` est
+ * exposé comme `custom` (variante générique, rétro-compat — cf. ADR-18).
  */
-function normalizeBlock(item: ExerciseDto): ExerciseDto {
+function normalizeLeaf(item: ExerciseDto): ExerciseDto {
   return item.type != null ? item : { ...item, type: BlockType.Custom };
+}
+
+/**
+ * Normalise un nœud du document `exercises`. Un **groupe** (ADR-27) est laissé tel
+ * quel (jamais étiqueté `type`) et ses membres normalisés ; un exercice simple suit
+ * la rétro-compat v1 (cf. `normalizeLeaf`).
+ */
+function normalizeBlock(item: ExerciseNode): ExerciseNode {
+  if (isExerciseGroup(item)) {
+    return { ...item, items: (item.items ?? []).map(normalizeLeaf) };
+  }
+  return normalizeLeaf(item);
 }
 
 /**
@@ -37,7 +55,7 @@ function toBriefDto(brief: unknown, role: Role): SessionBriefDto | undefined {
  */
 export function toSessionDto(session: Session, role: Role): SessionDto {
   const exercises = (session.exercises as { schemaVersion?: number; items?: unknown[] }) ?? {};
-  const items = (exercises.items ?? []) as ExerciseDto[];
+  const items = (exercises.items ?? []) as ExerciseNode[];
   return {
     id: session.id,
     title: session.title,

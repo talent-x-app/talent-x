@@ -2587,6 +2587,10 @@ components:
       - order
     ExercisesDoc:
       type: object
+      description: >-
+        Document JSONB des blocs (TX-DATA-006 §9.1). v3 (ADR-27) autorise des nœuds
+        `ExerciseGroup` (tours/séries) à côté des `Exercise` ; tout document v1/v2
+        (liste plate d'exercices, sans `kind`) reste valide.
       properties:
         schemaVersion:
           type: integer
@@ -2594,8 +2598,60 @@ components:
         items:
           type: array
           items:
+            oneOf:
+            - $ref: '#/components/schemas/Exercise'
+            - $ref: '#/components/schemas/ExerciseGroup'
+            description: >-
+              Exercice simple (sans `kind`) ou groupe (`kind: "group"`). Pas de
+              discriminator : le narrowing se fait par présence de `kind` (ADR-27).
+      required:
+      - items
+    ExerciseGroup:
+      type: object
+      description: >-
+        Groupe d'exercices répété en tours/séries (ADR-27, exercises v3) — séries de
+        courses, contraste/superset, circuits, gammes. **Un seul niveau** : `items` ne
+        contient que des `Exercise`, jamais un groupe.
+      properties:
+        kind:
+          type: string
+          enum:
+          - group
+          description: Discriminant structurel — présent uniquement sur un groupe.
+        name:
+          type: string
+        order:
+          type: integer
+        groupType:
+          type: string
+          enum:
+          - superset
+          - circuit
+          - series
+          description: Sémantique d'affichage/guidage (défaut circuit) — pas de mécanique.
+        rounds:
+          type: integer
+          minimum: 1
+          description: Nombre de tours/séries (entier ≥ 1).
+        restBetweenItemsSeconds:
+          type: integer
+          minimum: 0
+          description: r — récup entre exercices d'un même tour (s).
+        restBetweenRoundsSeconds:
+          type: integer
+          minimum: 0
+          description: R — récup entre tours (s).
+        notes:
+          type: string
+        items:
+          type: array
+          items:
             $ref: '#/components/schemas/Exercise'
       required:
+      - kind
+      - name
+      - order
+      - rounds
       - items
     CoachNotes:
       type: object

@@ -7,14 +7,15 @@
  * Conventions transverses : préfixe /api/v1 ; jeton d'accès JWT (RS256) via en-tête Authorization ; pagination par enveloppe { data, meta } ; idempotence des écritures sensibles via Idempotency-Key ; opérations longues asynchrones (202 + ressource de statut) ; rate limiting signalé par les en-têtes RateLimit-*. L'autorisation combine rôle, appartenance (lien coach↔athlète), propriété et consentement ; voir TX-SPEC-002 §6.
  * OpenAPI spec version: 1.0.0
  */
-import type { Exercise } from './exercise';
-import type { ExerciseGroup } from './exerciseGroup';
 
 /**
- * Document JSONB des blocs (TX-DATA-006 §9.1). v3 (ADR-27) autorise des nœuds `ExerciseGroup` (tours/séries) à côté des `Exercise` ; tout document v1/v2 (liste plate d'exercices, sans `kind`) reste valide.
+ * Sémantique d'affichage/guidage (défaut circuit) — pas de mécanique.
  */
-export interface ExercisesDoc {
-  /** Version du contrat JSONB (cf. TX-DATA-006). */
-  schemaVersion?: number;
-  items: (Exercise | ExerciseGroup)[];
-}
+export type ExerciseGroupGroupType = typeof ExerciseGroupGroupType[keyof typeof ExerciseGroupGroupType];
+
+
+export const ExerciseGroupGroupType = {
+  superset: 'superset',
+  circuit: 'circuit',
+  series: 'series',
+} as const;

@@ -1,4 +1,9 @@
-import { bestMeasuresByEvent, eventForExercise, isBetter } from './record-detection';
+import {
+  bestMeasuresByEvent,
+  eventForExercise,
+  flattenExerciseLeaves,
+  isBetter,
+} from './record-detection';
 import { BlockType } from '../sessions/dto/exercises.dto';
 
 describe('record-detection (ADR-20)', () => {
@@ -123,12 +128,77 @@ describe('record-detection (ADR-20)', () => {
       ]);
     });
 
-    it('joint par exerciseName puis par order ; résultat orphelin ignoré', () => {
+    it('joint par order puis par exerciseName ; résultat orphelin ignoré', () => {
       const best = bestMeasuresByEvent(EXERCISES, [
+        // nom renommé mais order 0 → rejoint le 60m par l'order ; order 9 inconnu → ignoré.
         { exerciseName: 'renommé', order: 0, setResults: [{ set: 1, timeSeconds: 7.6 }] },
         { exerciseName: 'inconnu', order: 9, setResults: [{ set: 1, timeSeconds: 5 }] },
       ]);
       expect(best).toEqual([expect.objectContaining({ eventKey: 'sprint:60m', value: 7.6 })]);
+    });
+
+    it('aplatit les feuilles des groupes (ADR-27) et en dérive les épreuves', () => {
+      const best = bestMeasuresByEvent(
+        [
+          {
+            kind: 'group',
+            name: 'Bloc vitesse',
+            order: 0,
+            rounds: 3,
+            items: [
+              { name: 'Sprint', order: 1, type: BlockType.Sprint, params: { distanceMeters: 60 } },
+            ],
+          },
+        ],
+        [
+          {
+            exerciseName: 'Sprint',
+            order: 1,
+            setResults: [{ set: 1, timeSeconds: 7.1, completed: true }],
+          },
+        ],
+      );
+      expect(best).toEqual([expect.objectContaining({ eventKey: 'sprint:60m', value: 7.1 })]);
+    });
+
+    it("jointure order-d'abord : désambiguïse des noms dupliqués entre deux groupes (ADR-27)", () => {
+      const exercises = [
+        {
+          kind: 'group',
+          name: 'Série 1',
+          order: 0,
+          rounds: 1,
+          items: [
+            { name: 'Ligne', order: 1, type: BlockType.Sprint, params: { distanceMeters: 60 } },
+          ],
+        },
+        {
+          kind: 'group',
+          name: 'Série 2',
+          order: 2,
+          rounds: 1,
+          items: [
+            { name: 'Ligne', order: 3, type: BlockType.Sprint, params: { distanceMeters: 150 } },
+          ],
+        },
+      ];
+      const best = bestMeasuresByEvent(exercises, [
+        {
+          exerciseName: 'Ligne',
+          order: 1,
+          setResults: [{ set: 1, timeSeconds: 7.2, completed: true }],
+        },
+        {
+          exerciseName: 'Ligne',
+          order: 3,
+          setResults: [{ set: 1, timeSeconds: 18.5, completed: true }],
+        },
+      ]);
+      // Par le nom seul, les deux résultats tomberaient sur la 1re feuille (60m). L'order tranche.
+      expect(best).toEqual([
+        expect.objectContaining({ eventKey: 'sprint:60m', value: 7.2 }),
+        expect.objectContaining({ eventKey: 'sprint:150m', value: 18.5 }),
+      ]);
     });
 
     it('mesure absente, nulle ou non finie → ignorée ; perf v1 → aucune épreuve', () => {
@@ -138,6 +208,35 @@ describe('record-detection (ADR-20)', () => {
           { exerciseName: 'Longueur', order: 1, setResults: [{ set: 1, distanceMeters: 0 }] },
         ]),
       ).toEqual([]);
+    });
+  });
+
+  describe('flattenExerciseLeaves (ADR-27)', () => {
+    it('remonte les membres des groupes au premier niveau en préservant l’ordre', () => {
+      const leaves = flattenExerciseLeaves([
+        { name: 'A', order: 0 },
+        {
+          kind: 'group',
+          name: 'G',
+          order: 1,
+          rounds: 2,
+          items: [
+            { name: 'B', order: 2 },
+            { name: 'C', order: 3 },
+          ],
+        },
+        { name: 'D', order: 4 },
+      ]);
+      expect(leaves.map((l) => l.name)).toEqual(['A', 'B', 'C', 'D']);
+    });
+
+    it('défensif : nœud null et groupe sans items ignorés', () => {
+      const leaves = flattenExerciseLeaves([
+        null,
+        { kind: 'group', name: 'Vide', order: 0, rounds: 1 },
+        { name: 'A', order: 1 },
+      ]);
+      expect(leaves.map((l) => l.name)).toEqual(['A']);
     });
   });
 

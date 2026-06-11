@@ -1593,6 +1593,28 @@ progression — le brief ne porte aucune donnée de mesure\. **RGPD** : contenu 
 coach \(donnée de planification, pas de santé — même classification qu'ADR\-24\) ; aucune porte
 de consentement ; suit la séance dans l'export du coach \(ADR\-14\) et sa suppression logique\.
 
+## 9\.5 Groupes d'exercices \(schéma exercises v3 — ADR\-27\)
+
+Extension **additive** du contrat exercises \(§9\.1\) : un élément de `items` peut être un
+**exercice** \(forme v2 inchangée, sans `kind`\) **ou** un **groupe** \(`kind: "group"`\) — un
+ensemble ordonné d'exercices répété en tours/séries\. **Un seul niveau** : `group.items` ne
+contient que des exercices \(jamais un groupe\)\.
+
+Champs d'un groupe : `kind` \(constante `"group"`\), `name`, `order`, `groupType?`
+\(`superset` \| `circuit` \| `series` — sémantique d'affichage, défaut `circuit`\), `rounds`
+\(entier ≥ 1\), `restBetweenItemsSeconds?` \(r — récup intra\-tour\), `restBetweenRoundsSeconds?`
+\(R — récup inter\-tours\), `notes?`, `items` \(exercices, au moins un\)\.
+
+**`order` global unique** sur tous les nœuds en parcours de lecture \(groupes et feuilles
+confondus\) : les **feuilles** gardent un `order` unique dans la séance\. Les contrats
+**results \(§9\.2\), records \(§5\.7\) et progression sont inchangés** — la jointure
+résultat↔feuille se fait par **`order` d'abord** \(repli `exerciseName`\), et la dérivation
+\(records/progression\) **aplatit** les feuilles des groupes avant traitement\. La composition
+variable par tour se pose comme **plusieurs groupes successifs** \(décision ferme ADR\-27\)\.
+
+`schemaVersion: 3` par défaut pour les nouvelles séances ; lecture tolérante v1/v2/v3
+\(§9\.3\), aucune migration de données\.
+
 # 10\. Index recommandés
 
 Outre les index implicites des clés primaires et des contraintes d'unicité, les index suivants soutiennent les accès fréquents\. Les index partiels WHERE deleted\_at IS NULL évitent d'indexer les enregistrements supprimés logiquement\.

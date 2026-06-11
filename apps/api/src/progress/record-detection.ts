@@ -1,4 +1,4 @@
-import { BlockType, type ExerciseDto } from '../sessions/dto/exercises.dto';
+import { BlockType, isExerciseGroup, type ExerciseDto } from '../sessions/dto/exercises.dto';
 import type { ExerciseResultDto } from '../assignments/dto/results.dto';
 
 /**
@@ -78,19 +78,39 @@ export function eventForExercise(
 }
 
 /**
- * Meilleures mesures de la performance par épreuve. Les résultats sont joints aux blocs
- * par `exerciseName` puis `order` (même convention que le client, ADR-19) ; plusieurs
- * blocs sur la même épreuve gardent la meilleure marque.
+ * Aplatit les **feuilles** (exercices) d'un document `exercises` : les membres des
+ * groupes (ADR-27) remontent au premier niveau, l'ordre de lecture est préservé.
+ * Lecture défensive : un nœud `null` ou un groupe sans `items` exploitable est ignoré.
+ */
+export function flattenExerciseLeaves(items: readonly unknown[]): Partial<ExerciseDto>[] {
+  const leaves: Partial<ExerciseDto>[] = [];
+  for (const node of items ?? []) {
+    if (isExerciseGroup(node)) {
+      for (const child of node.items ?? []) leaves.push(child as Partial<ExerciseDto>);
+    } else if (node != null) {
+      leaves.push(node as Partial<ExerciseDto>);
+    }
+  }
+  return leaves;
+}
+
+/**
+ * Meilleures mesures de la performance par épreuve. Les blocs sont d'abord **aplatis**
+ * (feuilles des groupes, ADR-27), puis joints aux résultats par **`order` d'abord**
+ * (repli `exerciseName`) : les groupes successifs dupliquent légitimement les noms
+ * (ADR-27 règle 4 amendée), seul l'`order` — unique sur les feuilles — désambiguïse.
+ * Plusieurs blocs sur la même épreuve gardent la meilleure marque.
  */
 export function bestMeasuresByEvent(
-  exercises: Partial<ExerciseDto>[],
+  exercises: readonly unknown[],
   results: Partial<ExerciseResultDto>[],
 ): EventBest[] {
+  const leaves = flattenExerciseLeaves(exercises);
   const best = new Map<string, EventBest>();
   for (const item of results) {
     const exercise =
-      exercises.find((ex) => ex.name != null && ex.name === item.exerciseName) ??
-      exercises.find((ex) => ex.order != null && ex.order === item.order);
+      leaves.find((ex) => ex.order != null && ex.order === item.order) ??
+      leaves.find((ex) => ex.name != null && ex.name === item.exerciseName);
     if (!exercise) continue;
     const event = eventForExercise(exercise);
     if (!event) continue;
