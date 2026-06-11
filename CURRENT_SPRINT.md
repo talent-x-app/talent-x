@@ -630,6 +630,44 @@ athlete-session-ui.tsx`. 10 tests ; **suite mobile 108/108**. **Validé en réel
   d'`intent`/`coachNotes`). Non rejoué : smoke Expo web (champs et sérialisation couverts par
   RTL sur les vrais écrans ; aucun nouveau fichier → pas de risque de cache Metro).
 
+## Terminés — ADR-27 Lot 2 : groupes d'exercices v3, lectures front (TLX-101)
+
+- **Module pur partagé `src/sessions/exercises-doc.ts`** — lecture d'un doc `exercises` v3
+  (exercices + groupes mêlés) : `flattenLeaves`/`countLeaves` (un groupe de 3 compte 3),
+  `exerciseRenderRows` (lignes de rendu avec **en-têtes de groupe intercalés** + libellés
+  **A1/A2** superset, indexation à plat alignée sur l'état de saisie), `leafRounds`,
+  `resultForLeaf` (**jointure `order` d'abord** puis repli `exerciseName` — désambiguïse les
+  noms dupliqués entre groupes successifs, ADR-27 règle 4). +9 tests.
+- **`perf-entry.ts`** — checklist passée en **N tours** (`done: boolean[]`), contexte `rounds`
+  (groupe parent) propagé à `makeEmptyEntry`/`initialRowCount` ; **sérialisation positionnelle**
+  (`serializePositional`) : un tour sauté intercalé → `{set:k, completed:false}` (l'index
+  positionnel `setResults[k]` = tour k), vides en queue coupés ; réhydratation positionnelle
+  (`entryFromResult`) ; couvre les modes mesurés (temps/distance) **et** checklist.
+- **`SessionDetailScreen` (A-03/A-04)** — état de saisie **par feuille** (`entries[leafIndex]`),
+  `GroupHeader` (« {nom} · N tours · R »), `LeafEntry` (membres indentés, A1/A2 superset,
+  checklist multi-tours en cases « Tour k », membre **mesuré dimensionné sur `rounds`**),
+  jointure `order` d'abord à la réhydratation. testID `exercise-count` ajouté.
+- **`brief-ui.tsx` / `athlete-session-ui.tsx`** — compteurs = **feuilles** (`countLeaves`),
+  `estimateDurationMinutes` **group-aware** : `rounds × (durées membres + r intra) + R inter`.
+- **`session-builder-ui.tsx`** — `blocksFromExercises` **aplatit les feuilles** : un doc à
+  groupes hydrate ses membres en blocs éditables sans les perdre (mode édition GET), sans UI
+  d'écriture de groupe (Lot 3). **Revue C-08** (`CoachReviewScreen`) **inchangée** : opère déjà
+  sur `results.items` à plat (compteur « réalisés » basé feuilles, `formatMeasures` énumère les
+  N tours mesurés par feuille).
+- +13 tests (exercises-doc 9, session-builder-hydration 2, groupe sur `SessionDetailScreen`,
+  N-tours sur `perf-entry`) ; **mobile 377/377** ; typecheck + lint clean.
+- **Validé en réel (2026-06-11, API `nest start` :3000 + Docker DB :5433 + Expo web)** —
+  comptes neufs via API, séance **v3 à groupes** (échauffement + superset force-vitesse 3 tours
+  [Squat `strength` + Bonds `custom`] + série de vitesse 3 tours [sprint `Ligne droite` 60 m]),
+  affectée. Détail athlète : en-têtes « 3 tours · R 180s/300s », membres **A1/A2**, checklists
+  **Tour 1/2/3**, sprint à **3 lignes de temps** (dimensionné sur `rounds`), métrique **Exercices 4**
+  (feuilles) et **durée ~28 min** group-aware, compteur **0/4 → 2/4**. Soumission → perf persistée
+  **4 items** (un par feuille), **join `order=4` non contigu** rattaché correctement, **position
+  préservée** (Squat `[✓,✗,✓]`, Ligne droite `[7.3s,✗,7.45s]`), **réhydratation positionnelle**
+  (Squat re-coche tours 1 & 3, pas le 2 — vérifié couleur accent). **Zéro erreur console.**
+- **Reste (Lot 3, TLX-102, backlog)** : écriture des groupes dans le constructeur C-05 +
+  **bump `schemaVersion` 3** — fait exister les premiers docs à groupes hors seed.
+
 ## Notes / dépendances (réutilisables)
 
 - **Mapper séance partagé** : `sessions/session.mapper.ts` (`toSessionDto`).
@@ -666,9 +704,10 @@ compteurs/durée/mapper). **Ordre de livraison impératif** (ADR-27 règle 7) :
    groupes intacts), `flattenExerciseLeaves` + jointure `order` d'abord, TX-DATA-006
    §9.5, client orval régénéré. **API unit 342/342, intégration 22/22** (round-trip DB
    d'une séance à groupe), typecheck monorepo clean. `schemaVersion` reste 2 côté builder.
-2. **Lot 2 — lectures front** : détail athlète (sections « × N tours », A1/A2, saisie
-   multi-tours dimensionnée sur `rounds`), revue C-08, compteurs/durée aplatis,
-   jointure `order` d'abord mobile, hydratation du constructeur (sans UI d'écriture).
+2. **Lot 2 — lectures front (TLX-101, commit `55b1a0f`) — ✅ livré** : détail athlète
+   (sections « × N tours », A1/A2, saisie multi-tours dimensionnée sur `rounds`), revue
+   C-08, compteurs/durée aplatis, jointure `order` d'abord mobile, hydratation du
+   constructeur (sans UI d'écriture). Détaillé dans « Terminés — ADR-27 Lot 2 » ci-dessous.
 3. **Lot 3 — écriture constructeur C-05** : carte de groupe, déplacement dans/hors,
    extension TLX-94 (`sets` en contexte groupe), **bump `schemaVersion` 3** — jamais
    avant le Lot 2.
