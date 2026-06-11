@@ -27,6 +27,7 @@ import { useToast } from '../feedback';
 import { FeedbackThread } from '../comments/FeedbackThread';
 import { formatExerciseTarget } from '../sessions/exercise-target';
 import { formatSessionDate, sessionTitle } from './athlete-session-ui';
+import { AthleteIntentBanner, BriefMetrics, SuccessStopCard } from './brief-ui';
 import { perfConfirmationHref } from './navigation';
 import {
   ATTEMPTS_PER_BAR,
@@ -245,6 +246,12 @@ export function SessionDetailScreen() {
             ) : null}
           </View>
 
+          {/* A-03 : en-tête éditorial (brief, ADR-28) — métriques + consigne « en une phrase ». */}
+          <BriefMetrics brief={assignment.data.session?.brief} items={exercises} />
+          {assignment.data.session?.brief?.athleteIntent ? (
+            <AthleteIntentBanner text={assignment.data.session.brief.athleteIntent} />
+          ) : null}
+
           {alreadySaved ? (
             <Card testID="session-detail-saved" style={{ backgroundColor: colors.successBg }}>
               <Text
@@ -456,6 +463,12 @@ export function SessionDetailScreen() {
               }}
             />
           </View>
+
+          {/* A-03 : garde-fous du brief (ADR-28) — « Réussi si / Stop si », au-dessus de la soumission. */}
+          <SuccessStopCard
+            successCriteria={assignment.data.session?.brief?.successCriteria}
+            stopCriteria={assignment.data.session?.brief?.stopCriteria}
+          />
 
           <Button
             testID="submit-performance"

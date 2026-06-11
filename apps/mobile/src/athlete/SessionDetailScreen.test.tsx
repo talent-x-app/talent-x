@@ -383,4 +383,47 @@ describe('SessionDetailScreen (TLX-065/071 — A-03/A-04)', () => {
     render(<SessionDetailScreen />, { wrapper: Wrapper });
     await waitFor(() => expect(screen.getByTestId('session-detail-error')).toBeOnTheScreen());
   });
+
+  it('affiche le brief : métriques, consigne en une phrase, carte Réussi/Stop (ADR-28)', async () => {
+    mockGetAssignment.mockResolvedValue({
+      status: 200,
+      data: {
+        ...ASSIGNMENT,
+        session: {
+          ...ASSIGNMENT.session,
+          brief: {
+            schemaVersion: 1,
+            athleteIntent: 'Cours vite et relâché.',
+            durationMinutes: 75,
+            difficulty: 7,
+            successCriteria: 'Tenir les 16 efforts au même rythme.',
+            stopCriteria: "Ta foulée s'écrase.",
+          },
+        },
+      },
+    });
+    mockGetPerformance.mockResolvedValue({ status: 404, data: { error: 'NOT_FOUND' } });
+    render(<SessionDetailScreen />, { wrapper: Wrapper });
+
+    await waitFor(() => expect(screen.getByTestId('brief-metrics')).toBeOnTheScreen());
+    expect(screen.getByTestId('brief-metric-duration-value')).toHaveTextContent('75 min');
+    expect(screen.getByTestId('brief-metric-exercises-value')).toHaveTextContent('2');
+    expect(screen.getByTestId('brief-metric-difficulty-value')).toHaveTextContent('7/10');
+    expect(screen.getByTestId('brief-athlete-intent')).toHaveTextContent(/Cours vite et relâché\./);
+    expect(screen.getByTestId('brief-success')).toHaveTextContent(
+      /Tenir les 16 efforts au même rythme\./,
+    );
+    expect(screen.getByTestId('brief-stop')).toHaveTextContent(/Ta foulée s'écrase\./);
+  });
+
+  it('séance sans brief : métriques présentes, ni consigne ni carte Réussi/Stop (rétro-compat)', async () => {
+    mockGetAssignment.mockResolvedValue({ status: 200, data: ASSIGNMENT });
+    mockGetPerformance.mockResolvedValue({ status: 404, data: { error: 'NOT_FOUND' } });
+    render(<SessionDetailScreen />, { wrapper: Wrapper });
+
+    await waitFor(() => expect(screen.getByTestId('brief-metrics')).toBeOnTheScreen());
+    expect(screen.getByTestId('brief-metric-difficulty-value')).toHaveTextContent('—');
+    expect(screen.queryByTestId('brief-athlete-intent')).toBeNull();
+    expect(screen.queryByTestId('brief-success-stop')).toBeNull();
+  });
 });

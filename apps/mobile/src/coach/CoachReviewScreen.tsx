@@ -1,4 +1,9 @@
-import { getPerformance, type Performance } from '@talent-x/api-client';
+import {
+  getAssignment,
+  getPerformance,
+  type Assignment,
+  type Performance,
+} from '@talent-x/api-client';
 import { useTheme } from '@talent-x/design-tokens';
 import { useQuery } from '@tanstack/react-query';
 import { Feather } from '@expo/vector-icons';
@@ -7,6 +12,7 @@ import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-nati
 import { Button, Card } from '../components/ui';
 import { FeedbackThread } from '../comments/FeedbackThread';
 import { formatMeasures } from '../athlete/perf-entry';
+import { CoachBriefReview } from './brief-editor';
 
 /** Réponse 403 dont le code métier indique un consentement manquant. */
 function isConsentRequired(error: unknown): boolean {
@@ -33,6 +39,19 @@ export function CoachReviewScreen() {
       const response = await getPerformance(assignmentId);
       if (response.status === 200) return response.data;
       throw response;
+    },
+    retry: false,
+  });
+
+  // Séance affectée (brief embarqué) : le coach lit l'intention + ses notes internes en
+  // regard de la perf (C-08, ADR-28). Lecteur coach → brief complet. Échec silencieux : la
+  // revue reste utilisable sans le brief.
+  const assignment = useQuery({
+    queryKey: ['assignment', assignmentId],
+    queryFn: async (): Promise<Assignment | null> => {
+      const response = await getAssignment(assignmentId);
+      if (response.status === 200) return response.data;
+      return null;
     },
     retry: false,
   });
@@ -111,6 +130,7 @@ export function CoachReviewScreen() {
         </Card>
       ) : (
         <>
+          <CoachBriefReview brief={assignment.data?.session?.brief} />
           <PerformanceSummary performance={perf.data} />
           <FeedbackThread
             performanceId={perf.data.id}

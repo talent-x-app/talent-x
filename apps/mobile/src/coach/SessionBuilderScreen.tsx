@@ -25,6 +25,13 @@ import {
   makeEmptyBlock,
   type EditableBlock,
 } from './session-builder-ui';
+import {
+  BriefEditor,
+  briefDraftFromSession,
+  briefDraftToPayload,
+  makeEmptyBriefDraft,
+  type BriefDraft,
+} from './brief-editor';
 import { assignSessionHref } from './navigation';
 
 /** Version courante du contrat JSONB des séances (schéma exercises v2, TX-DATA-006 · ADR-18). */
@@ -49,6 +56,7 @@ export function SessionBuilderScreen({ sessionId }: { sessionId?: string }) {
   const [scheduledDate, setScheduledDate] = useState('');
   const [status, setStatus] = useState<SessionStatus>(SessionStatus.draft);
   const [blocks, setBlocks] = useState<EditableBlock[]>([makeEmptyBlock()]);
+  const [brief, setBrief] = useState<BriefDraft>(makeEmptyBriefDraft());
   const [error, setError] = useState<string | null>(null);
 
   // Mode édition : charge la séance existante puis hydrate le formulaire.
@@ -72,6 +80,7 @@ export function SessionBuilderScreen({ sessionId }: { sessionId?: string }) {
     setStatus(session.status);
     const hydrated = blocksFromExercises(session.exercises?.items ?? []);
     setBlocks(hydrated.length > 0 ? hydrated : [makeEmptyBlock()]);
+    setBrief(briefDraftFromSession(session.brief));
   }, [existing.data]);
 
   // TLX-93 : `session/new` est un écran de tab caché (href:null) que React Navigation
@@ -86,6 +95,7 @@ export function SessionBuilderScreen({ sessionId }: { sessionId?: string }) {
       setScheduledDate('');
       setStatus(SessionStatus.draft);
       setBlocks([makeEmptyBlock()]);
+      setBrief(makeEmptyBriefDraft());
       setError(null);
     }, [isEdit]),
   );
@@ -96,6 +106,7 @@ export function SessionBuilderScreen({ sessionId }: { sessionId?: string }) {
         schemaVersion: EXERCISES_SCHEMA_VERSION,
         items: blocks.map((block, i) => blockToExercise(block, i + 1)),
       };
+      const briefPayload = briefDraftToPayload(brief);
       if (isEdit) {
         const body: SessionUpdate = {
           title: title.trim(),
@@ -103,6 +114,7 @@ export function SessionBuilderScreen({ sessionId }: { sessionId?: string }) {
           scheduledDate: scheduledDate.trim() || undefined,
           status,
           exercises,
+          brief: briefPayload,
         };
         const response = await updateSession(sessionId as string, body);
         if (response.status === 200) return response.data;
@@ -114,6 +126,7 @@ export function SessionBuilderScreen({ sessionId }: { sessionId?: string }) {
         scheduledDate: scheduledDate.trim() || undefined,
         status,
         exercises,
+        brief: briefPayload,
       };
       const response = await createSession(body);
       if (response.status === 201) return response.data;
@@ -278,10 +291,10 @@ export function SessionBuilderScreen({ sessionId }: { sessionId?: string }) {
         />
         <HeaderField
           testID="session-field-description"
-          label="Description (optionnel)"
+          label="Objectif de la séance (une ligne)"
           value={description}
           onChangeText={setDescription}
-          placeholder="Objectif, intention de séance…"
+          placeholder="Ex. 16 efforts courts à VO₂max, régularité avant tout"
           multiline
         />
         <HeaderField
@@ -319,6 +332,13 @@ export function SessionBuilderScreen({ sessionId }: { sessionId?: string }) {
           </View>
         </View>
       </View>
+
+      {/* Couche éditoriale (brief, ADR-28) — section repliable « Intention & lecture athlète ». */}
+      <BriefEditor
+        draft={brief}
+        onChange={(patch) => setBrief((prev) => ({ ...prev, ...patch }))}
+        items={blocks.map((block, i) => blockToExercise(block, i + 1))}
+      />
 
       {/* Canvas de blocs (Carte C-05 §5). */}
       <View style={{ gap: spacing[3] }}>

@@ -512,4 +512,74 @@ describe('SessionBuilderScreen (TLX-052 — C-05)', () => {
     render(<SessionBuilderScreen sessionId="s-x" />, { wrapper: Wrapper });
     await waitFor(() => expect(screen.getByTestId('session-builder-error')).toBeOnTheScreen());
   });
+
+  it('inclut le brief saisi (champs partagés + coach-only) dans la création (ADR-28)', async () => {
+    mockCreateSession.mockResolvedValue({ status: 201, data: { id: 's-brief' } });
+    render(<SessionBuilderScreen />, { wrapper: Wrapper });
+
+    fireEvent.changeText(screen.getByTestId('session-field-title'), 'Intermittent VO₂max');
+    fireEvent.changeText(screen.getByTestId('block-0-name'), '30/30');
+    fireEvent.press(screen.getByTestId('brief-section-toggle'));
+    fireEvent.changeText(screen.getByTestId('brief-field-athleteIntent'), 'Cours relâché.');
+    fireEvent.changeText(screen.getByTestId('brief-field-difficulty'), '7');
+    fireEvent.changeText(screen.getByTestId('brief-field-success'), 'Tenir les 16 efforts.');
+    fireEvent.changeText(screen.getByTestId('brief-field-intent'), 'VO₂max — régularité.');
+    fireEvent.changeText(screen.getByTestId('brief-field-regression'), '2 × 6 si décrochage.');
+    fireEvent.press(screen.getByTestId('session-save'));
+
+    await waitFor(() => expect(mockCreateSession).toHaveBeenCalled());
+    expect(mockCreateSession.mock.calls[0][0].brief).toMatchObject({
+      athleteIntent: 'Cours relâché.',
+      difficulty: 7,
+      successCriteria: 'Tenir les 16 efforts.',
+      intent: 'VO₂max — régularité.',
+      coachNotes: { regression: '2 × 6 si décrochage.' },
+    });
+  });
+
+  it('séance sans brief : la création n’émet pas de brief (rétro-compat)', async () => {
+    mockCreateSession.mockResolvedValue({ status: 201, data: { id: 's-nobrief' } });
+    render(<SessionBuilderScreen />, { wrapper: Wrapper });
+    fireEvent.changeText(screen.getByTestId('session-field-title'), 'Sans brief');
+    fireEvent.changeText(screen.getByTestId('block-0-name'), 'A');
+    fireEvent.press(screen.getByTestId('session-save'));
+
+    await waitFor(() => expect(mockCreateSession).toHaveBeenCalled());
+    expect(mockCreateSession.mock.calls[0][0].brief).toBeUndefined();
+  });
+
+  it('aperçu « Voir comme l’athlète » : lecture athlète sans les notes coach (ADR-28)', () => {
+    render(<SessionBuilderScreen />, { wrapper: Wrapper });
+    fireEvent.press(screen.getByTestId('brief-section-toggle'));
+    fireEvent.changeText(screen.getByTestId('brief-field-athleteIntent'), 'Consigne athlète.');
+    fireEvent.changeText(screen.getByTestId('brief-field-intent'), 'Note interne secrète.');
+    fireEvent.press(screen.getByTestId('brief-preview-toggle'));
+
+    const preview = screen.getByTestId('brief-athlete-preview');
+    expect(preview).toHaveTextContent(/Consigne athlète\./);
+    expect(preview).not.toHaveTextContent(/Note interne secrète\./);
+  });
+
+  it('édition : hydrate le brief existant dans la section (ADR-28)', async () => {
+    mockGetSession.mockResolvedValue({
+      status: 200,
+      data: {
+        id: 's-b',
+        title: 'Avec brief',
+        status: 'published',
+        coachId: 'c-1',
+        exercises: { schemaVersion: 2, items: [{ name: 'A', order: 1 }] },
+        brief: { difficulty: 8, athleteIntent: 'Relâché.', intent: 'Interne.' },
+      },
+    });
+    render(<SessionBuilderScreen sessionId="s-b" />, { wrapper: Wrapper });
+
+    await waitFor(() =>
+      expect(screen.getByTestId('session-builder-title')).toHaveTextContent('Modifier la séance'),
+    );
+    fireEvent.press(screen.getByTestId('brief-section-toggle'));
+    expect(screen.getByTestId('brief-field-difficulty').props.value).toBe('8');
+    expect(screen.getByTestId('brief-field-athleteIntent').props.value).toBe('Relâché.');
+    expect(screen.getByTestId('brief-field-intent').props.value).toBe('Interne.');
+  });
 });

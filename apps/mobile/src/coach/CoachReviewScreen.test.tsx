@@ -4,6 +4,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react-nativ
 import { type ReactNode, useState } from 'react';
 
 const mockGetPerformance = jest.fn();
+const mockGetAssignment = jest.fn();
 const mockListComments = jest.fn();
 const mockCreateComment = jest.fn();
 const mockBack = jest.fn();
@@ -11,6 +12,7 @@ const mockShow = jest.fn();
 
 jest.mock('@talent-x/api-client', () => ({
   getPerformance: (...a: unknown[]) => mockGetPerformance(...a),
+  getAssignment: (...a: unknown[]) => mockGetAssignment(...a),
   listComments: (...a: unknown[]) => mockListComments(...a),
   createComment: (...a: unknown[]) => mockCreateComment(...a),
   getCoachDashboard: jest.fn(),
@@ -52,7 +54,22 @@ const PERF = {
 
 const emptyComments = { status: 200, data: { data: [], meta: {} } };
 
-beforeEach(() => jest.clearAllMocks());
+const assignmentWithBrief = (brief?: Record<string, unknown>) => ({
+  status: 200,
+  data: {
+    id: 'asg-1',
+    sessionId: 's-1',
+    athleteId: 'a-1',
+    status: 'completed',
+    session: { id: 's-1', title: 'Haut du corps', status: 'published', coachId: 'c-1', brief },
+  },
+});
+
+beforeEach(() => {
+  jest.clearAllMocks();
+  // Par défaut : séance sans brief (la revue reste centrée sur la perf).
+  mockGetAssignment.mockResolvedValue(assignmentWithBrief(undefined));
+});
 
 describe('CoachReviewScreen (TLX-086 — C-08)', () => {
   it('affiche la performance de l’athlète et l’absence de feedback', async () => {
@@ -154,5 +171,32 @@ describe('CoachReviewScreen (TLX-086 — C-08)', () => {
     mockGetPerformance.mockResolvedValue({ status: 500, data: { error: 'INTERNAL_ERROR' } });
     render(<CoachReviewScreen />, { wrapper: Wrapper });
     await waitFor(() => expect(screen.getByTestId('review-error')).toBeOnTheScreen());
+  });
+
+  it('affiche le brief coach (intention + notes + référentiel) en regard de la perf (ADR-28)', async () => {
+    mockGetPerformance.mockResolvedValue({ status: 200, data: PERF });
+    mockListComments.mockResolvedValue(emptyComments);
+    mockGetAssignment.mockResolvedValue(
+      assignmentWithBrief({
+        successCriteria: 'Tenir les 16 efforts.',
+        intent: 'VO₂max — régularité.',
+        coachNotes: { regression: '2 × 6 si décrochage.', caution: 'Surveiller les appuis.' },
+      }),
+    );
+    render(<CoachReviewScreen />, { wrapper: Wrapper });
+
+    await waitFor(() => expect(screen.getByTestId('coach-brief-review')).toBeOnTheScreen());
+    expect(screen.getByTestId('coach-brief-success')).toHaveTextContent(/Tenir les 16 efforts\./);
+    expect(screen.getByTestId('coach-brief-intent')).toHaveTextContent(/VO₂max — régularité\./);
+    expect(screen.getByTestId('coach-brief-regression')).toHaveTextContent(/2 × 6 si décrochage\./);
+    expect(screen.getByTestId('coach-brief-caution')).toHaveTextContent(/Surveiller les appuis\./);
+  });
+
+  it('pas de brief : aucune carte « Brief coach » (rétro-compat)', async () => {
+    mockGetPerformance.mockResolvedValue({ status: 200, data: PERF });
+    mockListComments.mockResolvedValue(emptyComments);
+    render(<CoachReviewScreen />, { wrapper: Wrapper });
+    await waitFor(() => expect(screen.getByTestId('review-title')).toBeOnTheScreen());
+    expect(screen.queryByTestId('coach-brief-review')).toBeNull();
   });
 });

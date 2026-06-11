@@ -8,6 +8,7 @@
  * OpenAPI spec version: 1.0.0
  */
 import type { ExercisesDoc } from './exercisesDoc';
+import type { SessionBrief } from './sessionBrief';
 import type { SessionStatus } from './sessionStatus';
 
 export interface SessionUpdate {
@@ -16,4 +17,5 @@ export interface SessionUpdate {
   scheduledDate?: string;
   status?: SessionStatus;
   exercises?: ExercisesDoc;
+  brief?: SessionBrief;
 }
