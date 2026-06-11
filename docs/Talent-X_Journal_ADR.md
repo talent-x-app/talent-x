@@ -40,8 +40,8 @@ Chaque décision suit le format **ADR** : Statut, Date, Contexte, Décision, Con
 | ADR-24 | Compétitions & engagements d'athlètes : tables `competitions`/`competition_entries`, contrat `/competitions`, autorisation alignée sur les affectations, données non-santé (complète TX-DATA-006 · OpenAPI · TLX-100) | Accepté |
 | ADR-25 | Grille de barres (sauts verticaux) : `BlockType` `vertical_jumps` + mode de saisie `bars`, stockage via `results` v2 inchangé (`distanceMeters`=hauteur, `failed`), records `vertical:{high\|pole}` (complète OpenAPI · TLX-075) | Accepté |
 | ADR-26 | Lecture athlète de ses groupes & coach : endpoint additif `GET /groups/mine` + schéma dédié `AthleteGroup` (sans `inviteCode`, ADR-16) (complète OpenAPI · TX-SPEC-002 §6 · TLX-88) | Accepté |
-| ADR-27 | Schéma `exercises` v3 : groupes d'exercices à un niveau (`kind: group`, tours `rounds` + récup r/R, `groupType` superset\|circuit\|series) — séries de courses, contraste, circuits, gammes ; `results`/records inchangés (complète ADR-18 · TX-DATA-006 §9.1 · TLX-95) | Proposé |
-| ADR-28 | Brief de séance : document JSONB versionné `brief` (intention du jour, « en une phrase », durée, difficulté, réussi si / stop si, notes coach) + **double lecture coach/athlète appliquée au serveur** — champs coach retirés de toute sérialisation athlète (complète ADR-10 · TX-DATA-006 §5.4/§9 · OpenAPI) | Proposé |
+| ADR-27 | Schéma `exercises` v3 : groupes d'exercices à un niveau (`kind: group`, tours `rounds` + récup r/R, `groupType` superset\|circuit\|series) — séries de courses, contraste, circuits, gammes ; contrat `results`/records inchangés, jointure `order` d'abord + séquencement lecture→écriture (complète ADR-18 · TX-DATA-006 §9.1 · TLX-95) | Accepté |
+| ADR-28 | Brief de séance : document JSONB versionné `brief` (intention du jour, « en une phrase », durée, difficulté, réussi si / stop si, notes coach) + **double lecture coach/athlète appliquée au serveur** — champs coach retirés de toute sérialisation athlète (complète ADR-10 · TX-DATA-006 §5.4/§9 · OpenAPI) | Accepté |
 
 ---
 
@@ -487,7 +487,13 @@ du profil), persistance locale du `join` (perdue à froid).
 
 Décision complète : [`docs/adr/ADR-27-groupes-d-exercices-tours-series.md`](adr/ADR-27-groupes-d-exercices-tours-series.md).
 
-**Statut : Proposé** (spike TLX-95 — à valider avant d'ouvrir les tickets d'implémentation).
+**Statut : Accepté** (2026-06-11 — spike TLX-95 : validé après audit contre le code,
+amendements intégrés au fichier ADR : jointure résultats **`order` d'abord** (les groupes
+successifs dupliquent légitimement les noms), **séquencement impératif lecture→écriture**
+(aucune vue n'aplatit aujourd'hui ; le constructeur en mode édition perdrait les membres
+d'un groupe en rétrogradant v3→v2), extension du masquage TLX-94 (`sets` jamais masqué,
+mécanique par type seul), impacts ajoutés : mapper `normalizeBlock`, compteurs
+`items.length`, estimation de durée du brief ADR-28, libellés de revue C-08).
 
 **En bref.** La liste plate de blocs (ADR-18) n'exprime pas les regroupements canoniques de
 l'entraînement athlétique : séries de courses `2 × (3 × 300) r/R`, complex/contrast training
@@ -510,7 +516,7 @@ mono-bloc (stations hétérogènes impossibles).
 
 Décision complète : [`docs/adr/ADR-28-brief-de-seance-double-lecture.md`](adr/ADR-28-brief-de-seance-double-lecture.md).
 
-**Statut : Proposé** (cadrage produit du 2026-06-11 — à valider avant d'ouvrir les tickets d'implémentation).
+**Statut : Accepté** (2026-06-11 — livré : TLX-98 backend + TLX-99 front, validés en réel).
 
 **En bref.** Le cadrage produit définit la séance comme **une donnée, deux lectures** :
 logique d'entraînement côté coach (intention, charge, régression/progression, vigilance),

@@ -1,9 +1,10 @@
 # ADR-27 — Schéma `exercises` v3 : groupes d'exercices (tours / séries / supersets)
 
-- **Statut :** Proposé
+- **Statut :** Accepté (2026-06-11 — validé après audit contre le code ; amendements
+  d'audit intégrés, signalés « Amendement d'audit » dans le texte)
 - **Date :** 2026-06-11
-- **Complète :** ADR-18 (schéma `exercises` v2 — qui avait explicitement reporté les
-  schémas imbriqués), `Talent-X_06_Modele_de_donnees.md` §9.1 et §9.3 (versionnement),
+- **Complète :** ADR-18 (schéma `exercises` v2 — resté volontairement plat, schémas
+  imbriqués hors périmètre), `Talent-X_06_Modele_de_donnees.md` §9.1 et §9.3 (versionnement),
   `talent-x-openapi.yaml` (schémas `Exercise`, `ExercisesDoc`)
 - **Tickets liés :** TLX-95 (spike, cet ADR), TLX-052 (constructeur C-05), TLX-061
   (blocs circuit mono-station), ADR-19 (results v2 — **non modifié** par cet ADR),
@@ -59,8 +60,9 @@ modèle n'a donc **pas** besoin de « tours à composition variable » : il suff
 
 ### Contraintes techniques
 
-- ADR-18 avait écarté l'imbrication **pour le MVP**, pas pour toujours ; sa méthode
-  (extension additive versionnée, lecture tolérante) est réutilisable telle quelle.
+- Le schéma v2 (ADR-18) est resté volontairement **plat** — l'imbrication était hors
+  périmètre, pas exclue pour toujours ; sa méthode (extension additive versionnée,
+  lecture tolérante) est réutilisable telle quelle.
 - La perf (`results` v2, ADR-19) se joint aux blocs par `exerciseName` puis `order` ;
   les records (`record-detection.ts`) lisent les blocs **à plat**. Toute solution doit
   préserver ces jointures.
@@ -117,26 +119,49 @@ Règles du modèle :
    identique pour les trois.
 4. **`order` global unique sur tous les nœuds en parcours de lecture** (groupes et
    feuilles confondus). Les **feuilles** gardent ainsi un `order` unique dans la
-   séance → les jointures `results` (par `exerciseName` puis `order`) et la détection
-   de records fonctionnent **sans aucune modification de contrat** — seule la lecture
-   aplatit (`flatMap`) les feuilles des groupes.
+   séance → le contrat `results` (chaque résultat porte `exerciseName` + `order`) est
+   **inchangé**. **Amendement d'audit** : la jointure résultat↔bloc doit basculer
+   **`order` d'abord** (repli `exerciseName`) — aujourd'hui le mobile joint par nom
+   seul (`SessionDetailScreen.tsx:114`) et l'API par nom puis order
+   (`record-detection.ts:91-93`), or la règle 5 (plusieurs groupes successifs) produit
+   légitimement des noms dupliqués qui collisionnent. Adaptation de lecture des deux
+   côtés ; la détection de records aplatit (`flatMap`) les feuilles des groupes.
 5. **Composition variable = plusieurs groupes**. Un groupe a une composition
    constante ; « 2 séries, 1ʳᵉ à 3 exos, 2ᵈᵉ à 2 exos » se pose comme deux groupes
    successifs. Décision ferme : pas de masque par tour.
 6. **`sets` masqué dans un groupe** : pour un exercice membre d'un groupe, la dimension
    « série » est portée par `rounds` — le constructeur masque le champ de base `sets`
-   (mécanique de visibilité data-driven déjà en place, TLX-94) et ne le sérialise pas.
-7. **`schemaVersion: 3`** par défaut pour les nouvelles séances. Lecture tolérante
-   v1/v2/v3 (§9.3) ; aucune migration de données.
+   et ne le sérialise pas. **Amendement d'audit** : la mécanique de visibilité TLX-94
+   (`isBaseFieldVisible(type, key)`, `session-builder-ui.tsx:219`) est indexée par
+   **type seulement** et ne masque jamais `sets` (commentaire explicite) ; elle doit
+   être étendue d'une dimension de **contexte** (membre de groupe), propagée au rendu
+   (`BlockCard`) et à la sérialisation (`blockToExercise`).
+7. **`schemaVersion: 3`** par défaut pour les nouvelles séances ; aucune migration de
+   données. **Amendement d'audit — séquencement impératif** : §9.3 ne garantit la
+   tolérance que des *nouveaux lecteurs sur données anciennes*, pas l'inverse — et
+   aucune vue actuelle n'aplatit : un doc v3 dans le code d'aujourd'hui donnerait un
+   bloc fantôme `custom` (mapper API `normalizeBlock`), une ligne de checklist muette
+   côté athlète (membres invisibles, pseudo-résultat au nom du groupe), et le mode
+   édition du constructeur **perdrait silencieusement** les membres du groupe en
+   rétrogradant le doc en v2 (`blocksFromExercises` n'itère que le premier niveau +
+   `EXERCISES_SCHEMA_VERSION` figé à 2). Garde-fou existant : le DTO actuel
+   (`forbidNonWhitelisted`) rejette tout nœud groupe en 422 → aucun doc v3 ne peut
+   exister avant le lot backend. Ordre de livraison : **backend v3 → surfaces de
+   lecture (athlète, revue, compteurs, hydratation du constructeur, aplatissement
+   records) → écriture de groupes + bump `schemaVersion` 3** (le bump part dans le
+   même lot que l'UI groupe du constructeur, jamais avant).
 
 ### Impacts (et non-impacts) en aval
 
 | Surface | Impact |
 |---|---|
-| `results` v2 (ADR-19) | **Aucun changement de contrat.** Pour un exercice en groupe à N tours, le client pré-pose N lignes de saisie : `setResults[k]` = tour k. |
-| Records / progression (ADR-20/21) | **Aucun changement d'eventKey.** `record-detection.ts` aplatit les feuilles avant dérivation (adaptation de lecture, défensive comme aujourd'hui). |
-| Constructeur C-05 | « Ajouter un groupe » → carte de groupe (nom, type via chips, tours, r, R) contenant des `BlockCard` standard ; déplacement d'un bloc dans/hors groupe. |
-| Affichage athlète A-03/A-04 | Section visuelle « {nom} × {rounds} tours » avec R affiché ; numérotation A1/A2 pour les supersets ; saisie multi-tours pré-posée. |
+| `results` v2 (ADR-19) | **Aucun changement de contrat.** Pour un exercice en groupe à N tours, le client pré-pose N lignes : `setResults[k]` = tour k. **Amendements d'audit** : un tour sauté se sérialise `{set: k, completed: false}` (la sérialisation actuelle **compacte** les lignes vides, `perf-entry.ts:166/174` — l'index positionnel serait perdu) ; le pré-dimensionnement dérive du `rounds` du **groupe parent** (contexte à transmettre à `makeEmptyEntry`/`initialRowCount`, qui ne lisent que `params.reps`/`ex.sets`) ; le mode checklist (`strength`/`custom` — le cas vedette du superset force-vitesse) passe de 1 booléen à **N tours cochables**. |
+| Records / progression (ADR-20/21) | **Aucun changement d'eventKey.** `record-detection.ts` aplatit les feuilles avant dérivation — `eventForExercise` est déjà défensif (nœud sans `type` → ignoré, jamais d'exception) ; jointure `order` d'abord (règle 4). |
+| Mapper API (`session.mapper.ts`) | **Amendement d'audit.** `normalizeBlock` étiquette `type: custom` tout nœud sans `type` → il doit **ignorer les nœuds `kind: "group"`** (sinon chaque réponse API mal-étiquette les groupes en exercices custom). |
+| Constructeur C-05 | « Ajouter un groupe » → carte de groupe (nom, type via chips, tours, r, R) contenant des `BlockCard` standard (réutilisables tels quels : purement présentationnels) ; déplacement d'un bloc dans/hors groupe. Rework réel de l'**écran** : état plat `EditableBlock[]` → arbre, handlers et validateurs index-based à faire **traverser les groupes** (sinon la garde TLX-91 ne couvre plus les membres), hydratation `blocksFromExercises` group-aware, schéma de testID/numérotation des messages « Bloc N ». |
+| Affichage athlète A-03/A-04 | Section visuelle « {nom} × {rounds} tours » avec R affiché ; numérotation A1/A2 pour les supersets ; saisie multi-tours pré-posée. Net-new : aucun composant de section de liste réutilisable n'existe (la liste actuelle est une Card unique alignée positionnellement sur `items[]`). |
+| Compteurs & métriques | **Amendement d'audit.** `exerciseCount` (liste A-02), « Exercices · X/Y » (détail, confirmation A-05, revue C-08) et la métrique « Exercices » du brief comptent `items.length` au premier niveau → compter les **feuilles aplaties** (un groupe de 3 ≠ 1 exercice). `estimateDurationMinutes` (brief ADR-28, `brief-ui.tsx:19`) doit intégrer `rounds × (durées membres + r) + R` — un groupe compterait 0 min aujourd'hui. |
+| Revue C-08 | Libellé « Tour k » / « Série k » selon `groupType` = nouvelle jointure perf → séance (feuille par `order` → groupe parent) ; `PerformanceSummary` ne reçoit que la perf aujourd'hui. À défaut, libellé neutre (« N° k ») acceptable en première livraison. |
 | Blocs circuit TLX-061 (`rounds` en param) | Conservés (station unique simple). Le groupe devient la forme recommandée pour des stations hétérogènes ; pas de dépréciation dans cet ADR. |
 
 ## Conséquences
@@ -147,9 +172,10 @@ Règles du modèle :
 - **+** **Zéro changement** des contrats `results`, records et progression : la valeur
   est obtenue en n'étendant qu'**un seul** document JSONB (la séance), le reste suit
   par aplatissement de lecture.
-- **+** Rétro-compatibilité totale (v2 = v3 sans groupes) ; constructeur et éditeurs
-  typés existants réutilisés tels quels à l'intérieur des groupes (zéro rework, méthode
-  ADR-18).
+- **+** Rétro-compatibilité totale (v2 = v3 sans groupes) ; les **composants** du
+  constructeur (`BlockCard`, éditeurs de params typés) sont réutilisés tels quels à
+  l'intérieur des groupes — le rework se concentre sur l'état et les validateurs de
+  l'écran (cf. tableau d'impacts), pas sur les éditeurs (méthode ADR-18).
 - **+** Récursion impossible **par construction** (DTO non récursif) : validation,
   UI et saisie restent bornées à deux niveaux connus.
 - **−** Surface UI du constructeur sensiblement plus riche (carte de groupe,
@@ -157,9 +183,13 @@ Règles du modèle :
 - **−** Les vues de lecture existantes (détail séance athlète, revue coach C-08,
   pré-remplissage TLX-062) doivent apprendre à rendre les groupes (aplatissement par
   défaut acceptable en transition : les feuilles restent des exercices valides).
-- **−** Union discriminée `Exercise | Group` dans `items[]` : validation
-  class-transformer par discriminateur (`kind`) + `oneOf` OpenAPI — un cran de
-  complexité de plus dans le DTO racine.
+- **−** Union `Exercise | Group` dans `items[]` : `kind` étant **absent** côté exercice
+  (rétro-compat), le `discriminator` standard ne s'applique pas — ni en OpenAPI (la
+  propriété discriminante doit être requise sur toutes les variantes) ni en
+  class-transformer. Forme retenue : `oneOf` sans discriminator côté contrat, narrowing
+  **structurel** (présence de `kind`) via transform/validation custom côté DTO. Un cran
+  de complexité de plus dans le DTO racine ; `schemaVersion` reste un entier libre des
+  deux côtés (aucun changement de garde de version).
 
 ## Alternatives écartées
 

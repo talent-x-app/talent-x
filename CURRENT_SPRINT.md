@@ -624,11 +624,22 @@ athlete-session-ui.tsx`. 10 tests ; **suite mobile 108/108**. **Validé en réel
 - **Pilotage coach (backend)** : ✅ TLX-050/051/070/080. Reste le frontend
   (C-01/C-02/C-03, constructeur de séance, revue C-08).
 
-## Prochaine étape (proposition)
+## Prochaine étape — ADR-27 accepté (2026-06-11) : groupes d'exercices v3
 
-1. **TLX-090** (écran Progression A-06, 8 pts) — graphes par discipline au-dessus de la
-   section records ; `/athletes/me/progress` encore en 501 (contrat `Progress` à dériver
-   des mesures v2 — probable ADR ou précision de contrat).
-2. **TLX-075** (grille de barres hauteur/perche, Medium) — convention essais × tentatives à
-   trancher (complément ADR-19/20).
-3. **TLX-077** (brouillon auto-save + hors-ligne, Medium 8 pts) — TX-ARCH-001 §4.
+ADR-27 validé après audit contre le code (amendements intégrés : jointure résultats
+`order` d'abord, séquencement lecture→écriture, extension du masquage TLX-94, impacts
+compteurs/durée/mapper). **Ordre de livraison impératif** (ADR-27 règle 7) :
+
+1. **Lot 1 — contrat + backend v3** : OpenAPI `oneOf` (narrowing par présence de `kind`),
+   DTO union + validation custom, mapper (`normalizeBlock` ignore les groupes),
+   aplatissement records/progress + jointure `order` d'abord, round-trip v3 dans la
+   suite DB-backed.
+2. **Lot 2 — lectures front** : détail athlète (sections « × N tours », A1/A2, saisie
+   multi-tours dimensionnée sur `rounds`), revue C-08, compteurs/durée aplatis,
+   jointure `order` d'abord mobile, hydratation du constructeur (sans UI d'écriture).
+3. **Lot 3 — écriture constructeur C-05** : carte de groupe, déplacement dans/hors,
+   extension TLX-94 (`sets` en contexte groupe), **bump `schemaVersion` 3** — jamais
+   avant le Lot 2.
+
+Hors ADR-27 : params d'intensité `percentVma`/`tempo` (front pur, cadre ADR-28) — à
+ticketer.
