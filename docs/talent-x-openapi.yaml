@@ -2597,6 +2597,57 @@ components:
             $ref: '#/components/schemas/Exercise'
       required:
       - items
+    CoachNotes:
+      type: object
+      description: >-
+        Notes internes du coach (ADR-28) — COACH UNIQUEMENT : absent de la
+        réponse pour un lecteur athlète (filtrage serveur).
+      properties:
+        regression:
+          type: string
+          description: Variante allégée si l'athlète décroche.
+        progression:
+          type: string
+          description: Évolution prévue pour la prochaine fois.
+        caution:
+          type: string
+          description: Point de vigilance que le coach surveille (contexte, historique).
+    SessionBrief:
+      type: object
+      description: >-
+        Couche éditoriale d'une séance — double lecture coach/athlète (ADR-28).
+        Toutes les propriétés sont optionnelles (brief absent, partiel ou complet).
+        `intent` et `coachNotes` sont retirés de la réponse pour un lecteur athlète
+        (filtrage serveur, jamais côté client).
+      properties:
+        schemaVersion:
+          type: integer
+          description: Version du contrat JSONB (cf. TX-DATA-006 §9.x).
+        athleteIntent:
+          type: string
+          description: Consigne pour l'athlète, en une phrase (visible coach ET athlète).
+        durationMinutes:
+          type: integer
+          minimum: 0
+          description: Durée estimée de la séance, en minutes (visible coach ET athlète).
+        difficulty:
+          type: integer
+          minimum: 1
+          maximum: 10
+          description: Difficulté cible, 1..10 (visible coach ET athlète).
+        successCriteria:
+          type: string
+          description: Critère de réussite « Réussi si… » (visible coach ET athlète).
+        stopCriteria:
+          type: string
+          description: Règle d'arrêt « Stop si… », dite à l'athlète (visible coach ET athlète).
+        intent:
+          type: string
+          description: >-
+            Intention d'entraînement du jour — COACH UNIQUEMENT : absent de la
+            réponse pour un lecteur athlète.
+        coachNotes:
+          $ref: '#/components/schemas/CoachNotes'
     Session:
       type: object
       properties:
@@ -2617,6 +2668,8 @@ components:
           format: uuid
         exercises:
           $ref: '#/components/schemas/ExercisesDoc'
+        brief:
+          $ref: '#/components/schemas/SessionBrief'
         createdAt:
           type: string
           format: date-time
@@ -2643,6 +2696,8 @@ components:
           $ref: '#/components/schemas/SessionStatus'
         exercises:
           $ref: '#/components/schemas/ExercisesDoc'
+        brief:
+          $ref: '#/components/schemas/SessionBrief'
       required:
       - title
       - exercises
@@ -2660,6 +2715,8 @@ components:
           $ref: '#/components/schemas/SessionStatus'
         exercises:
           $ref: '#/components/schemas/ExercisesDoc'
+        brief:
+          $ref: '#/components/schemas/SessionBrief'
     AssignRequest:
       type: object
       properties:

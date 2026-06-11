@@ -10,6 +10,15 @@ import { AssignmentStatus } from './dto/assignment.dto';
 const COACH: AuthenticatedUser = { id: 'c-1', role: 'coach' };
 const ATHLETE: AuthenticatedUser = { id: 'a-1', role: 'athlete' };
 
+/** Brief complet (ADR-28) embarqué dans la séance d'une affectation. */
+const FULL_BRIEF = {
+  schemaVersion: 1,
+  athleteIntent: 'Cours relâché.',
+  difficulty: 8,
+  intent: 'Notes internes du coach.',
+  coachNotes: { caution: 'Surveiller les appuis.' },
+};
+
 function sessionRow(over: Record<string, unknown> = {}) {
   return {
     id: 's-1',
@@ -265,6 +274,42 @@ describe('AssignmentsService', () => {
       await expect(service(prisma).getAssignment(COACH, 'asg-1')).rejects.toThrow(
         ForbiddenException,
       );
+    });
+
+    it('brief embarqué : athlète titulaire ne reçoit ni intent ni coachNotes (ADR-28)', async () => {
+      const prisma = prismaMock();
+      prisma.sessionAssignment.findFirst.mockResolvedValue({
+        ...assignmentRow(),
+        session: sessionRow({ brief: FULL_BRIEF }),
+      });
+      const res = await service(prisma).getAssignment(ATHLETE, 'asg-1');
+      expect(res.session?.brief).toBeDefined();
+      expect(res.session?.brief).not.toHaveProperty('intent');
+      expect(res.session?.brief).not.toHaveProperty('coachNotes');
+      expect(res.session?.brief).toMatchObject({ athleteIntent: 'Cours relâché.', difficulty: 8 });
+    });
+
+    it('brief embarqué : coach propriétaire reçoit le brief complet', async () => {
+      const prisma = prismaMock();
+      prisma.sessionAssignment.findFirst.mockResolvedValue({
+        ...assignmentRow({ athleteId: 'a-1' }),
+        session: sessionRow({ coachId: 'c-1', brief: FULL_BRIEF }),
+      });
+      const res = await service(prisma).getAssignment(COACH, 'asg-1');
+      expect(res.session?.brief).toMatchObject({ intent: 'Notes internes du coach.' });
+    });
+  });
+
+  describe('listAssignments — brief filtré par rôle (ADR-28)', () => {
+    it('athlète : brief des séances listées sans intent ni coachNotes', async () => {
+      const prisma = prismaMock();
+      prisma.sessionAssignment.findMany.mockResolvedValue([
+        { ...assignmentRow(), session: sessionRow({ brief: FULL_BRIEF }) },
+      ]);
+      prisma.sessionAssignment.count.mockResolvedValue(1);
+      const res = await service(prisma).listAssignments(ATHLETE, baseQuery());
+      expect(res.data[0].session?.brief).not.toHaveProperty('intent');
+      expect(res.data[0].session?.brief).not.toHaveProperty('coachNotes');
     });
   });
 });

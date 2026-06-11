@@ -1,7 +1,8 @@
 # ADR-28 — Brief de séance : double lecture coach / athlète (intention, difficulté, sécurité)
 
-- **Statut :** Proposé
-- **Date :** 2026-06-11
+- **Statut :** Accepté
+- **Date :** 2026-06-11 (validé 2026-06-11 — arbitrages 1–3 ci-dessous + amendements de
+  la revue factuelle du même jour)
 - **Complète :** ADR-10 (contrat JSONB versionné), ADR-18/ADR-27 (contrat `exercises` —
   **non modifiés** par cet ADR), `Talent-X_06_Modele_de_donnees.md` §5.4 (table `sessions`)
   et §9, `talent-x-openapi.yaml` (schémas `Session`/`SessionCreate`/`SessionUpdate`)
@@ -43,9 +44,10 @@ En revanche, la **couche éditoriale de la séance** n'existe pas dans le contra
 l'intention du jour, la durée totale, la difficulté, les critères de réussite/d'arrêt ni
 les notes d'ajustement du coach. Deux symptômes concrets :
 
-1. **L'UI kit maquette déjà ces champs** : l'en-tête de `WorkoutScreen` affiche
-   « Durée ~50 min · 6 exercices · RPE cible 8 » — aujourd'hui non câblable, ces données
-   n'existant nulle part.
+1. **L'UI kit maquette déjà ces champs** : l'en-tête de `WorkoutScreen` affiche trois
+   métriques « Durée ~50 min · Exercices 6 · RPE cible 8 » — aujourd'hui non câblable,
+   ces données n'existant nulle part. (Libellé final retenu : **« Difficulté »**, pas
+   « RPE cible » — arbitrage 1.)
 2. **Aucune notion de lecture par rôle** : l'athlète reçoit la séance *entière*
    (embarquée dans `GET /assignments/:id`). Si le coach écrivait ses notes internes
    (« régression si décrochage », « vigilance dos ») dans `description` ou `notes`,
@@ -63,7 +65,7 @@ les notes d'ajustement du coach. Deux symptômes concrets :
 - Le moteur typé (`exercises` v2/v3, `results` v2, records, progression) n'est **pas
   modifié**.
 
-## Décision (proposée)
+## Décision
 
 **1. Un document JSONB versionné `brief` sur `sessions`** (méthode ADR-10) — colonne
 `brief jsonb NULL` (absent = séance sans brief, toutes les séances existantes restent
@@ -86,18 +88,26 @@ le brief n'étant ni requêté ni agrégé en SQL au MVP) :
   "coachNotes": {
     "regression": "2 × 6 rép. si décrochage ; récup 1 min.",
     "progression": "Semaine suivante 2 × 10 rép. ou 40/20.",
-    "caution": "Foulée qui s'écrase = arrêt. Hydratation entre séries."
+    "caution": "Reprise après semaine chargée — surveiller la qualité d'appuis sur les 4 derniers efforts."
   }
 }
 ```
+
+**Frontière `stopCriteria` ↔ `coachNotes.caution`** (pour ne pas saisir deux fois la
+même règle) : `stopCriteria` est la règle d'arrêt **dite à l'athlète** (observable par
+lui, formulée pour lui) ; `caution` est la **surveillance interne du coach** (contexte,
+historique, signes que *lui* observe) — jamais une redite du stop athlète.
 
 Règles du modèle :
 
 1. **Tout est optionnel** — `brief` absent, partiel ou complet : aucune contrainte à la
    création ni à la publication. Rétro-compatibilité totale, zéro migration de données.
 2. **Pas de champ « objectif »** : l'objectif principal (1 ligne) est porté par la
-   `description` existante — déjà affichée aux deux rôles, déjà dans tous les écrans.
-   On ne crée pas de doublon sémantique.
+   `description` existante — déjà saisie au constructeur C-05 et affichée au détail
+   athlète A-03. On ne crée pas de doublon sémantique. Cette règle ne tient en
+   pratique que si la saisie guide : le constructeur relibelle `description` en
+   « Objectif de la séance (une ligne) » et `athleteIntent` en « Consigne pour
+   l'athlète (une phrase) » — sinon les coachs écriront l'objectif dans les deux.
 3. **La double lecture est un contrat, pas un détail d'UI** : le mapper unique
    (`session.mapper.ts`, `toSessionDto`) prend le **rôle du lecteur** et retire
    `intent` + `coachNotes` pour un athlète — sur *toutes* les surfaces où une séance

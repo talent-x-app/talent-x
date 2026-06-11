@@ -10,6 +10,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { ExercisesDocDto } from './exercises.dto';
+import { SessionBriefDto } from './session-brief.dto';
 import { SessionStatus } from './session-create.dto';
 
 /** Corps de `PUT /sessions/{id}` — schéma `SessionUpdate` (sémantique PATCH). */
@@ -42,4 +43,10 @@ export class SessionUpdateDto {
   @ValidateNested()
   @Type(() => ExercisesDocDto)
   exercises?: ExercisesDocDto;
+
+  @ApiPropertyOptional({ type: SessionBriefDto, description: 'Couche éditoriale (ADR-28).' })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => SessionBriefDto)
+  brief?: SessionBriefDto;
 }

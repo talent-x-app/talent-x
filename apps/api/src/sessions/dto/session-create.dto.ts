@@ -10,6 +10,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { ExercisesDocDto } from './exercises.dto';
+import { SessionBriefDto } from './session-brief.dto';
 
 /** Statut d'une séance — schéma `SessionStatus`. */
 export enum SessionStatus {
@@ -46,4 +47,10 @@ export class SessionCreateDto {
   @ValidateNested()
   @Type(() => ExercisesDocDto)
   exercises!: ExercisesDocDto;
+
+  @ApiPropertyOptional({ type: SessionBriefDto, description: 'Couche éditoriale (ADR-28).' })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => SessionBriefDto)
+  brief?: SessionBriefDto;
 }

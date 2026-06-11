@@ -3,6 +3,7 @@ import { Prisma, type Session, type SessionAssignment } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { OwnershipService } from '../common/authorization/ownership.service';
 import type { AuthenticatedUser } from '../common/decorators/current-user.decorator';
+import type { Role } from '../common/decorators/roles.decorator';
 import { buildPageMeta } from '../common/pagination/page-meta';
 import { NotificationQueueService } from '../jobs/notification-queue.service';
 import { toSessionDto } from '../sessions/session.mapper';
@@ -66,7 +67,8 @@ export class AssignmentsService {
         );
       }
     }
-    return { data: rows.map((r) => toAssignmentDto(r.assignment)) };
+    // Endpoint réservé au coach propriétaire → lecteur coach (pas de séance embarquée ici).
+    return { data: rows.map((r) => toAssignmentDto(r.assignment, 'coach')) };
   }
 
   /** Liste paginée, role-aware : athlète → ses affectations ; coach → celles de ses séances. */
@@ -86,7 +88,7 @@ export class AssignmentsService {
       this.prisma.sessionAssignment.count({ where }),
     ]);
     return {
-      data: rows.map((r) => toAssignmentDto(r, r.session)),
+      data: rows.map((r) => toAssignmentDto(r, user.role, r.session)),
       meta: buildPageMeta(total, q.page, q.limit),
     };
   }
@@ -101,7 +103,7 @@ export class AssignmentsService {
       throw new NotFoundException('Affectation introuvable.');
     }
     this.assertReadable(user, assignment, assignment.session);
-    return toAssignmentDto(assignment, assignment.session);
+    return toAssignmentDto(assignment, user.role, assignment.session);
   }
 
   private scopeForUser(
@@ -151,14 +153,19 @@ async function upsertActiveAssignment(
   return { assignment, created: true };
 }
 
-function toAssignmentDto(assignment: SessionAssignment, session?: Session): AssignmentDto {
+function toAssignmentDto(
+  assignment: SessionAssignment,
+  role: Role,
+  session?: Session,
+): AssignmentDto {
   return {
     id: assignment.id,
     sessionId: assignment.sessionId,
     athleteId: assignment.athleteId,
     status: assignment.status as AssignmentStatus,
     dueDate: assignment.dueDate ? assignment.dueDate.toISOString().slice(0, 10) : undefined,
-    session: session ? toSessionDto(session) : undefined,
+    // Double lecture (ADR-28) : le brief embarqué est filtré selon le rôle du lecteur.
+    session: session ? toSessionDto(session, role) : undefined,
     createdAt: assignment.createdAt.toISOString(),
     updatedAt: assignment.updatedAt.toISOString(),
   };

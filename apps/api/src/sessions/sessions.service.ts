@@ -9,6 +9,7 @@ import { SessionUpdateDto } from './dto/session-update.dto';
 import { SessionQueryDto } from './dto/session-query.dto';
 import { SessionDto, SessionPageDto } from './dto/session.dto';
 import type { ExercisesDocDto } from './dto/exercises.dto';
+import type { SessionBriefDto } from './dto/session-brief.dto';
 import { toSessionDto } from './session.mapper';
 
 const SESSION_SORTABLE = ['createdAt', 'updatedAt', 'scheduledDate', 'title'] as const;
@@ -37,9 +38,11 @@ export class SessionsService {
         scheduledDate: dto.scheduledDate ? new Date(dto.scheduledDate) : undefined,
         status: dto.status ?? SessionStatus.Draft,
         exercises: toExercisesJson(dto.exercises),
+        ...(dto.brief !== undefined ? { brief: toBriefJson(dto.brief) } : {}),
       },
     });
-    return toSessionDto(session);
+    // Lecteur = le coach créateur → brief complet (intent + coachNotes).
+    return toSessionDto(session, 'coach');
   }
 
   /** Liste paginée, role-aware : coach → ses séances ; athlète → celles affectées. */
@@ -55,7 +58,7 @@ export class SessionsService {
       this.prisma.session.count({ where }),
     ]);
     return {
-      data: rows.map(toSessionDto),
+      data: rows.map((row) => toSessionDto(row, user.role)),
       meta: buildPageMeta(total, q.page, q.limit),
     };
   }
@@ -67,7 +70,7 @@ export class SessionsService {
       throw new NotFoundException('Séance introuvable.');
     }
     await this.assertReadable(user, session);
-    return toSessionDto(session);
+    return toSessionDto(session, user.role);
   }
 
   async updateSession(coachId: string, id: string, dto: SessionUpdateDto): Promise<SessionDto> {
@@ -80,9 +83,11 @@ export class SessionsService {
           ? { scheduledDate: dto.scheduledDate ? new Date(dto.scheduledDate) : null }
           : {}),
         ...(dto.exercises !== undefined ? { exercises: toExercisesJson(dto.exercises) } : {}),
+        ...(dto.brief !== undefined ? { brief: toBriefJson(dto.brief) } : {}),
       },
     });
-    return toSessionDto(session);
+    // Écriture réservée au coach propriétaire → lecteur coach.
+    return toSessionDto(session, 'coach');
   }
 
   /** Suppression logique (soft-delete). Owner uniquement. */
@@ -103,9 +108,11 @@ export class SessionsService {
         status: SessionStatus.Draft,
         exercises: source.exercises as Prisma.InputJsonValue,
         exercisesSchemaVersion: source.exercisesSchemaVersion,
+        // Le brief fait partie du modèle dupliqué (ADR-28, impacts modèles C-10).
+        ...(source.brief != null ? { brief: source.brief as Prisma.InputJsonValue } : {}),
       },
     });
-    return toSessionDto(copy);
+    return toSessionDto(copy, 'coach');
   }
 
   /** Archive une séance (status → archived). Owner uniquement. */
@@ -115,7 +122,7 @@ export class SessionsService {
       where: { id },
       data: { status: SessionStatus.Archived },
     });
-    return toSessionDto(session);
+    return toSessionDto(session, 'coach');
   }
 
   /** Construit le `where` Prisma selon le rôle (coach = siennes / athlète = affectées). */
@@ -158,6 +165,21 @@ function toExercisesJson(doc: ExercisesDocDto): Prisma.InputJsonValue {
     schemaVersion: doc.schemaVersion ?? EXERCISES_SCHEMA_VERSION,
     items: doc.items as unknown as Prisma.InputJsonValue[],
   };
+}
+
+/** Version courante du contrat JSONB du brief de séance (ADR-28). */
+const BRIEF_SCHEMA_VERSION = 1;
+
+/**
+ * Sérialise un `SessionBrief` en JSON Prisma (schemaVersion v1 par défaut, cf. ADR-28).
+ * Le document est stocké tel quel (tous champs optionnels) ; le filtrage par rôle est
+ * fait à la **lecture** (mapper), jamais au stockage.
+ */
+function toBriefJson(brief: SessionBriefDto): Prisma.InputJsonValue {
+  return {
+    ...brief,
+    schemaVersion: brief.schemaVersion ?? BRIEF_SCHEMA_VERSION,
+  } as unknown as Prisma.InputJsonValue;
 }
 
 /** Champs scalaires explicitement fournis (hors scheduledDate/exercises traités à part). */

@@ -244,6 +244,8 @@ model Session {
   status                 String    @default("draft")
   exercises              Json      @default("{\"items\": []}")
   exercisesSchemaVersion Int       @default(1) @map("exercises_schema_version")
+  /// Couche éditoriale double-lecture (ADR-28). NULL = séance sans brief ; schemaVersion porté par le document.
+  brief                  Json?
   createdAt              DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt              DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt              DateTime? @map("deleted_at") @db.Timestamptz(6)

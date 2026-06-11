@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { PageMetaDto } from '../../common/pagination/page-meta';
 import { ExercisesDocDto } from './exercises.dto';
+import { SessionBriefDto } from './session-brief.dto';
 import { SessionStatus } from './session-create.dto';
 
 /** Séance — schéma `Session` du contrat OpenAPI. */
@@ -25,6 +26,9 @@ export class SessionDto {
 
   @ApiProperty({ type: ExercisesDocDto })
   exercises!: ExercisesDocDto;
+
+  @ApiPropertyOptional({ type: SessionBriefDto })
+  brief?: SessionBriefDto;
 
   @ApiProperty({ format: 'date-time' })
   createdAt!: string;

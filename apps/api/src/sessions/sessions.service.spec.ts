@@ -9,6 +9,22 @@ import { SessionStatus } from './dto/session-create.dto';
 const COACH: AuthenticatedUser = { id: 'c-1', role: 'coach' };
 const ATHLETE: AuthenticatedUser = { id: 'a-1', role: 'athlete' };
 
+/** Brief complet (ADR-28) : champs partagés + champs coach-only (intent, coachNotes). */
+const FULL_BRIEF = {
+  schemaVersion: 1,
+  athleteIntent: 'Cours vite et relâché.',
+  durationMinutes: 75,
+  difficulty: 9,
+  successCriteria: "Tenir l'allure 400 m.",
+  stopCriteria: "Ta foulée s'écrase.",
+  intent: 'Tolérance lactique — accumulation puis maintien.',
+  coachNotes: {
+    regression: '2 séries au lieu de 3.',
+    progression: 'Semaine suivante R réduite à 6 min.',
+    caution: 'Reprise après semaine chargée.',
+  },
+};
+
 function sessionRow(over: Record<string, unknown> = {}) {
   return {
     id: 's-1',
@@ -281,6 +297,104 @@ describe('SessionsService', () => {
         status: SessionStatus.Archived,
       });
       expect(res.status).toBe('archived');
+    });
+  });
+
+  describe('brief — double lecture coach/athlète (ADR-28)', () => {
+    it('createSession : persiste le brief avec schemaVersion par défaut (1)', async () => {
+      const prisma = prismaMock();
+      prisma.session.create.mockResolvedValue(sessionRow({ brief: FULL_BRIEF }));
+      const { schemaVersion: _omit, ...briefSansVersion } = FULL_BRIEF;
+      await service(prisma).createSession('c-1', {
+        title: 'Lactique',
+        exercises: { items: [] },
+        brief: briefSansVersion as never,
+      });
+
+      const data = prisma.session.create.mock.calls[0][0].data;
+      expect(data.brief).toMatchObject({ ...briefSansVersion, schemaVersion: 1 });
+    });
+
+    it('createSession sans brief : champ absent de l’insert (rétro-compat)', async () => {
+      const prisma = prismaMock();
+      prisma.session.create.mockResolvedValue(sessionRow());
+      await service(prisma).createSession('c-1', { title: 'T', exercises: { items: [] } });
+      expect('brief' in prisma.session.create.mock.calls[0][0].data).toBe(false);
+    });
+
+    it('createSession : le coach créateur reçoit le brief complet', async () => {
+      const prisma = prismaMock();
+      prisma.session.create.mockResolvedValue(sessionRow({ brief: FULL_BRIEF }));
+      const res = await service(prisma).createSession('c-1', {
+        title: 'Lactique',
+        exercises: { items: [] },
+        brief: FULL_BRIEF as never,
+      });
+      expect(res.brief).toMatchObject({
+        intent: FULL_BRIEF.intent,
+        coachNotes: expect.any(Object),
+      });
+    });
+
+    it('getSession coach : brief complet (intent + coachNotes présents)', async () => {
+      const prisma = prismaMock();
+      prisma.session.findFirst.mockResolvedValue(sessionRow({ brief: FULL_BRIEF }));
+      const res = await service(prisma).getSession(COACH, 's-1');
+      expect(res.brief?.intent).toBe(FULL_BRIEF.intent);
+      expect(res.brief?.coachNotes).toBeDefined();
+    });
+
+    it('getSession athlète affecté : intent + coachNotes RETIRÉS, champs partagés conservés', async () => {
+      const prisma = prismaMock();
+      prisma.session.findFirst.mockResolvedValue(sessionRow({ brief: FULL_BRIEF }));
+      prisma.sessionAssignment.findFirst.mockResolvedValue({ id: 'asg-1' });
+      const res = await service(prisma).getSession(ATHLETE, 's-1');
+
+      expect(res.brief).toBeDefined();
+      expect(res.brief).not.toHaveProperty('intent');
+      expect(res.brief).not.toHaveProperty('coachNotes');
+      expect(res.brief).toMatchObject({
+        athleteIntent: FULL_BRIEF.athleteIntent,
+        difficulty: 9,
+        successCriteria: FULL_BRIEF.successCriteria,
+        stopCriteria: FULL_BRIEF.stopCriteria,
+      });
+    });
+
+    it('listSessions athlète : brief filtré sur chaque séance de la liste', async () => {
+      const prisma = prismaMock();
+      prisma.session.findMany.mockResolvedValue([sessionRow({ brief: FULL_BRIEF })]);
+      prisma.session.count.mockResolvedValue(1);
+      const res = await service(prisma).listSessions(ATHLETE, baseQuery());
+      expect(res.data[0].brief).not.toHaveProperty('intent');
+      expect(res.data[0].brief).not.toHaveProperty('coachNotes');
+    });
+
+    it('séance sans brief : brief absent du DTO (undefined)', async () => {
+      const prisma = prismaMock();
+      prisma.session.findFirst.mockResolvedValue(sessionRow({ brief: null }));
+      const res = await service(prisma).getSession(COACH, 's-1');
+      expect(res.brief).toBeUndefined();
+    });
+
+    it('updateSession : persiste le brief fourni', async () => {
+      const prisma = prismaMock();
+      prisma.session.update.mockResolvedValue(sessionRow({ brief: FULL_BRIEF }));
+      await service(prisma).updateSession('c-1', 's-1', { brief: { difficulty: 5 } as never });
+      expect(prisma.session.update.mock.calls[0][0].data.brief).toMatchObject({
+        difficulty: 5,
+        schemaVersion: 1,
+      });
+    });
+
+    it('duplicateSession : copie le brief de la séance source', async () => {
+      const prisma = prismaMock();
+      prisma.session.findUniqueOrThrow.mockResolvedValue(sessionRow({ brief: FULL_BRIEF }));
+      prisma.session.create.mockResolvedValue(sessionRow({ id: 's-2', brief: FULL_BRIEF }));
+      await service(prisma).duplicateSession('c-1', 's-1');
+      expect(prisma.session.create.mock.calls[0][0].data.brief).toMatchObject({
+        intent: FULL_BRIEF.intent,
+      });
     });
   });
 });

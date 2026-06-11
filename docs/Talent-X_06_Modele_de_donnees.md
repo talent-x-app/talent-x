@@ -718,6 +718,14 @@ NOT NULL, default 1
 
 Version du schéma JSONB\.
 
+brief
+
+jsonb
+
+NULL
+
+Couche éditoriale double\-lecture coach/athlète \(cf\. §9\.4, ADR\-28\)\. NULL = séance sans brief ; `schemaVersion` porté par le document \(pas de colonne dédiée\)\.
+
 created\_at
 
 timestamptz
@@ -1332,6 +1340,8 @@ Origine du lien d'autorisation\.
 
 Les champs exercises \(séances\) et results \(performances\) sont en JSONB pour absorber la variabilité entre disciplines\. Pour éviter une hétérogénéité ingérable, leur structure est régie par un schéma versionné, validé à l'écriture côté backend \(JSON Schema ou équivalent Zod\)\. La version courante est portée par la colonne …\_schema\_version de l'entité\.
 
+S'ajoute un troisième document JSONB versionné, brief \(séances, cf\. §9\.4, ADR\-28\) : à la différence des deux précédents, sa version est portée **par le document lui\-même** \(`schemaVersion`\) et non par une colonne dédiée, le brief n'étant ni requêté ni agrégé en SQL\.
+
 ## 9\.1 Contrat exercises \(schéma v2 — cf\. ADR\-18\)
 
 Objet contenant un tableau items d'exercices ordonnés\. **v2** \(ADR\-18\) ajoute, sur chaque
@@ -1515,6 +1525,73 @@ discriminant dans `results`\.
 - Toute évolution de structure incrémente la version et s'accompagne d'une procédure de migration documentée des anciens enregistrements\.
 - Le backend valide systématiquement le JSONB à l'écriture selon la version cible ; les lectures tolèrent les versions antérieures connues\.
 - Aucun calcul d'autorisation ni aucune relation critique ne repose sur le contenu JSONB\.
+
+## 9\.4 Contrat brief \(schéma v1 — ADR\-28\)
+
+Couche éditoriale d'une séance, portée par la colonne sessions\.brief \(jsonb NULL\)\. **Double
+lecture** : une seule séance, deux rendus\. Tous les champs sont **optionnels** \(brief absent,
+partiel ou complet — aucune contrainte à la création ni à la publication\)\. La version est
+portée par le document \(`schemaVersion`\), pas par une colonne\.
+
+Deux groupes de champs :
+
+- **Visibles coach ET athlète** : `athleteIntent` \(consigne en une phrase\), `durationMinutes`
+  \(durée estimée\), `difficulty` \(1\.\.10\), `successCriteria` \(« Réussi si… »\),
+  `stopCriteria` \(« Stop si… », dite à l'athlète\)\.
+- **Coach UNIQUEMENT** : `intent` \(intention d'entraînement du jour\) et `coachNotes`
+  \(`regression` / `progression` / `caution`\)\. Ces deux champs sont **retirés au serveur** de
+  toute réponse destinée à un lecteur athlète \(mapper `toSessionDto` selon le rôle — sur la
+  lecture `/sessions` comme sur la séance embarquée dans les affectations\)\. Le filtrage par
+  rôle ne se fait jamais côté client \(minimisation, cf\. ADR\-26\)\.
+
+\{
+
+  "$schema": "https://json\-schema\.org/draft/2020\-12/schema",
+
+  "type": "object",
+
+  "properties": \{
+
+    "schemaVersion": \{ "type": "integer" \},
+
+    "athleteIntent": \{ "type": "string" \},
+
+    "durationMinutes": \{ "type": "integer", "minimum": 0 \},
+
+    "difficulty": \{ "type": "integer", "minimum": 1, "maximum": 10 \},
+
+    "successCriteria": \{ "type": "string" \},
+
+    "stopCriteria": \{ "type": "string" \},
+
+    "intent": \{ "type": "string", "description": "coach\-only" \},
+
+    "coachNotes": \{
+
+      "type": "object",
+
+      "description": "coach\-only",
+
+      "properties": \{
+
+        "regression": \{ "type": "string" \},
+
+        "progression": \{ "type": "string" \},
+
+        "caution": \{ "type": "string" \}
+
+      \}
+
+    \}
+
+  \}
+
+\}
+
+**Non\-impacts** \(ADR\-28\) : aucun changement des contrats exercises, results, records ni
+progression — le brief ne porte aucune donnée de mesure\. **RGPD** : contenu rédactionnel du
+coach \(donnée de planification, pas de santé — même classification qu'ADR\-24\) ; aucune porte
+de consentement ; suit la séance dans l'export du coach \(ADR\-14\) et sa suppression logique\.
 
 # 10\. Index recommandés
 
@@ -1923,6 +2000,8 @@ CREATE TABLE sessions \(
   exercises                jsonb NOT NULL DEFAULT '\{"items": \[\]\}'::jsonb,
 
   exercises\_schema\_version integer NOT NULL DEFAULT 1,
+
+  brief                    jsonb,
 
   created\_at               timestamptz NOT NULL DEFAULT now\(\),
 
