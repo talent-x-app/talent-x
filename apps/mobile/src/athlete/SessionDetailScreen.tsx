@@ -4,7 +4,6 @@ import {
   submitPerformance,
   updatePerformance,
   type Assignment,
-  type ExerciseGroup,
   type Performance,
   type PerformanceCreate,
   type ResultsDoc,
@@ -13,7 +12,7 @@ import { useTheme } from '@talent-x/design-tokens';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Feather } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -33,6 +32,7 @@ import {
   resultForLeaf,
   type ExerciseRenderRow,
 } from '../sessions/exercises-doc';
+import { GroupHeader, SectionTitle, SessionContent } from '../sessions/session-content-ui';
 import { formatSessionDate, sessionTitle } from './athlete-session-ui';
 import { AthleteIntentBanner, BriefMetrics, SuccessStopCard } from './brief-ui';
 import { perfConfirmationHref } from './navigation';
@@ -108,6 +108,10 @@ export function SessionDetailScreen() {
     [rows],
   );
 
+  // Mode d'affichage : **lecture seule par défaut** (consultation) ; l'athlète passe en
+  // saisie via « Saisir ma performance » (A-04). La saisie n'est jamais imposée d'emblée.
+  const [mode, setMode] = useState<'view' | 'entry'>('view');
+
   // État de saisie local par feuille (mode dérivé du type de bloc — TLX-072/073/074),
   // dimensionné sur la cible (TLX-062) ou les tours du groupe (ADR-27), puis réhydraté.
   const [entries, setEntries] = useState<ExerciseEntry[]>([]);
@@ -161,8 +165,9 @@ export function SessionDetailScreen() {
       // Préchauffe le cache de la confirmation (A-05) — pas d'appel réseau supplémentaire.
       queryClient.setQueryData(['assignment', id, 'performance'], perf);
       if (alreadySaved) {
+        // Mise à jour : retour à la **lecture seule** (la perf relue, mesures incluses).
         toast.show({ title: 'Performance mise à jour', variant: 'success' });
-        router.back();
+        setMode('view');
         return;
       }
       router.replace(perfConfirmationHref(id));
@@ -263,209 +268,188 @@ export function SessionDetailScreen() {
             ) : null}
           </View>
 
-          {/* A-03 : en-tête éditorial (brief, ADR-28) — métriques + consigne « en une phrase ». */}
-          <BriefMetrics brief={assignment.data.session?.brief} items={exercises} />
-          {assignment.data.session?.brief?.athleteIntent ? (
-            <AthleteIntentBanner text={assignment.data.session.brief.athleteIntent} />
-          ) : null}
-
-          {alreadySaved ? (
-            <Card testID="session-detail-saved" style={{ backgroundColor: colors.successBg }}>
-              <Text
-                style={{
-                  color: colors.success,
-                  fontFamily: typography.fontFamily.medium,
-                  fontSize: typography.bodySm.fontSize,
-                }}
-              >
-                Performance déjà enregistrée
-                {existing.data?.submittedAt
-                  ? ` le ${formatSessionDate(existing.data.submittedAt)}`
-                  : ''}
-                . Tu peux la mettre à jour.
-              </Text>
-            </Card>
-          ) : null}
-
-          {/* A-03 : exercices de la séance — groupes (ADR-27) + feuilles cochables/mesurées. */}
-          <View style={{ gap: spacing[3] }}>
-            <SectionTitle testID="exercise-count">
-              Exercices · {completedCount}/{leafRows.length}
-            </SectionTitle>
-            {leafRows.length === 0 ? (
-              <Card>
-                <Text
-                  style={{
-                    color: colors.textMuted,
-                    fontFamily: typography.fontFamily.regular,
-                    fontSize: typography.body.fontSize,
-                  }}
-                >
-                  Aucun exercice dans cette séance.
-                </Text>
-              </Card>
-            ) : (
-              <Card padded={false}>
-                {rows.map((row, ri) =>
-                  row.type === 'group' ? (
-                    <GroupHeader
-                      key={row.key}
-                      testID={row.key}
-                      group={row.group}
-                      divider={ri > 0}
-                    />
-                  ) : (
-                    <LeafEntry
-                      key={row.key}
-                      row={row}
-                      entry={entries[row.leafIndex]}
-                      onChange={(updater) => updateEntry(row.leafIndex, updater)}
-                      divider={ri > 0 && !row.firstInGroup}
-                    />
-                  ),
-                )}
-              </Card>
-            )}
-          </View>
-
-          {/* A-04 : champs communs de saisie — RPE + notes. */}
-          <View style={{ gap: spacing[3] }}>
-            <SectionTitle>Ressenti</SectionTitle>
-            <Card>
-              <View style={{ gap: spacing[3] }}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+          {mode === 'view' ? (
+            <>
+              {alreadySaved ? (
+                <Card testID="session-detail-saved" style={{ backgroundColor: colors.successBg }}>
                   <Text
                     style={{
-                      color: colors.textSecondary,
+                      color: colors.success,
                       fontFamily: typography.fontFamily.medium,
                       fontSize: typography.bodySm.fontSize,
                     }}
                   >
-                    Effort perçu (RPE)
+                    Performance enregistrée
+                    {existing.data?.submittedAt
+                      ? ` le ${formatSessionDate(existing.data.submittedAt)}`
+                      : ''}
+                    .
                   </Text>
-                  <Text
-                    testID="rpe-value"
-                    style={{
-                      color: colors.textPrimary,
-                      fontFamily: typography.fontFamily.bold,
-                      fontSize: typography.body.fontSize,
-                    }}
-                  >
-                    {rpe}/10
-                  </Text>
-                </View>
-                <Slider
-                  testID="rpe-slider"
-                  value={rpe}
-                  onValueChange={setRpe}
-                  min={1}
-                  max={10}
-                  step={1}
-                  accessibilityLabel="Effort perçu (RPE)"
+                </Card>
+              ) : null}
+
+              {/* A-03 : séance en lecture seule (brief + exercices + Réussi/Stop) — mode par défaut. */}
+              <SessionContent
+                exercises={exercises}
+                brief={assignment.data.session?.brief}
+                results={existing.data?.results?.items}
+              />
+
+              <Button
+                testID="start-perf-entry"
+                onPress={() => setMode('entry')}
+                size="lg"
+                leftIcon={<Feather name="edit-3" size={18} color={colors.textOnAccent} />}
+              >
+                {alreadySaved ? 'Modifier ma performance' : 'Saisir ma performance'}
+              </Button>
+
+              {/* A-09 : fil de feedback avec le coach (une fois la perf enregistrée). */}
+              {existing.data ? (
+                <FeedbackThread
+                  performanceId={existing.data.id}
+                  composerPlaceholder="Répondre à ton coach…"
+                  sendLabel="Envoyer"
+                  emptyHint="Pas encore de retour de ton coach sur cette séance."
+                />
+              ) : null}
+            </>
+          ) : (
+            <>
+              {/* A-03 : en-tête éditorial (brief, ADR-28) — métriques + consigne « en une phrase ». */}
+              <BriefMetrics brief={assignment.data.session?.brief} items={exercises} />
+              {assignment.data.session?.brief?.athleteIntent ? (
+                <AthleteIntentBanner text={assignment.data.session.brief.athleteIntent} />
+              ) : null}
+
+              {/* A-04 : exercices de la séance — groupes (ADR-27) + feuilles cochables/mesurées. */}
+              <View style={{ gap: spacing[3] }}>
+                <SectionTitle testID="exercise-count">
+                  Exercices · {completedCount}/{leafRows.length}
+                </SectionTitle>
+                {leafRows.length === 0 ? (
+                  <Card>
+                    <Text
+                      style={{
+                        color: colors.textMuted,
+                        fontFamily: typography.fontFamily.regular,
+                        fontSize: typography.body.fontSize,
+                      }}
+                    >
+                      Aucun exercice dans cette séance.
+                    </Text>
+                  </Card>
+                ) : (
+                  <Card padded={false}>
+                    {rows.map((row, ri) =>
+                      row.type === 'group' ? (
+                        <GroupHeader
+                          key={row.key}
+                          testID={row.key}
+                          group={row.group}
+                          divider={ri > 0}
+                        />
+                      ) : (
+                        <LeafEntry
+                          key={row.key}
+                          row={row}
+                          entry={entries[row.leafIndex]}
+                          onChange={(updater) => updateEntry(row.leafIndex, updater)}
+                          divider={ri > 0 && !row.firstInGroup}
+                        />
+                      ),
+                    )}
+                  </Card>
+                )}
+              </View>
+
+              {/* A-04 : champs communs de saisie — RPE + notes. */}
+              <View style={{ gap: spacing[3] }}>
+                <SectionTitle>Ressenti</SectionTitle>
+                <Card>
+                  <View style={{ gap: spacing[3] }}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                      <Text
+                        style={{
+                          color: colors.textSecondary,
+                          fontFamily: typography.fontFamily.medium,
+                          fontSize: typography.bodySm.fontSize,
+                        }}
+                      >
+                        Effort perçu (RPE)
+                      </Text>
+                      <Text
+                        testID="rpe-value"
+                        style={{
+                          color: colors.textPrimary,
+                          fontFamily: typography.fontFamily.bold,
+                          fontSize: typography.body.fontSize,
+                        }}
+                      >
+                        {rpe}/10
+                      </Text>
+                    </View>
+                    <Slider
+                      testID="rpe-slider"
+                      value={rpe}
+                      onValueChange={setRpe}
+                      min={1}
+                      max={10}
+                      step={1}
+                      accessibilityLabel="Effort perçu (RPE)"
+                    />
+                  </View>
+                </Card>
+                <TextInput
+                  testID="notes-input"
+                  value={notes}
+                  onChangeText={setNotes}
+                  placeholder="Notes (optionnel) — sensations, douleurs, conditions…"
+                  placeholderTextColor={colors.textMuted}
+                  multiline
+                  style={{
+                    minHeight: 88,
+                    borderRadius: 14,
+                    borderWidth: 1,
+                    borderColor: colors.borderStrong,
+                    backgroundColor: colors.surface,
+                    padding: spacing[4],
+                    color: colors.textPrimary,
+                    fontFamily: typography.fontFamily.regular,
+                    fontSize: typography.body.fontSize,
+                    textAlignVertical: 'top',
+                  }}
                 />
               </View>
-            </Card>
-            <TextInput
-              testID="notes-input"
-              value={notes}
-              onChangeText={setNotes}
-              placeholder="Notes (optionnel) — sensations, douleurs, conditions…"
-              placeholderTextColor={colors.textMuted}
-              multiline
-              style={{
-                minHeight: 88,
-                borderRadius: 14,
-                borderWidth: 1,
-                borderColor: colors.borderStrong,
-                backgroundColor: colors.surface,
-                padding: spacing[4],
-                color: colors.textPrimary,
-                fontFamily: typography.fontFamily.regular,
-                fontSize: typography.body.fontSize,
-                textAlignVertical: 'top',
-              }}
-            />
-          </View>
 
-          {/* A-03 : garde-fous du brief (ADR-28) — « Réussi si / Stop si », au-dessus de la soumission. */}
-          <SuccessStopCard
-            successCriteria={assignment.data.session?.brief?.successCriteria}
-            stopCriteria={assignment.data.session?.brief?.stopCriteria}
-          />
+              {/* A-03 : garde-fous du brief (ADR-28) — « Réussi si / Stop si », au-dessus de la soumission. */}
+              <SuccessStopCard
+                successCriteria={assignment.data.session?.brief?.successCriteria}
+                stopCriteria={assignment.data.session?.brief?.stopCriteria}
+              />
 
-          <Button
-            testID="submit-performance"
-            onPress={() => mutation.mutate()}
-            loading={mutation.isPending}
-            size="lg"
-          >
-            {alreadySaved ? 'Mettre à jour' : 'Enregistrer ma perf'}
-          </Button>
+              <Button
+                testID="submit-performance"
+                onPress={() => mutation.mutate()}
+                loading={mutation.isPending}
+                size="lg"
+              >
+                {alreadySaved ? 'Mettre à jour' : 'Enregistrer ma perf'}
+              </Button>
 
-          {/* A-09 : fil de feedback avec le coach (une fois la perf enregistrée). */}
-          {existing.data ? (
-            <FeedbackThread
-              performanceId={existing.data.id}
-              composerPlaceholder="Répondre à ton coach…"
-              sendLabel="Envoyer"
-              emptyHint="Pas encore de retour de ton coach sur cette séance."
-            />
-          ) : null}
+              <Button
+                testID="cancel-perf-entry"
+                onPress={() => setMode('view')}
+                variant="ghost"
+                disabled={mutation.isPending}
+              >
+                Annuler
+              </Button>
+            </>
+          )}
         </>
       )}
     </ScrollView>
-  );
-}
-
-/** En-tête d'un groupe d'exercices (ADR-27) : nom · N tours · R inter-tours. */
-function GroupHeader({
-  group,
-  divider,
-  testID,
-}: {
-  group: ExerciseGroup;
-  divider: boolean;
-  testID?: string;
-}) {
-  const { colors, typography, spacing } = useTheme();
-  const rounds = group.rounds && group.rounds > 0 ? group.rounds : 1;
-  const rest = group.restBetweenRoundsSeconds ? ` · R ${group.restBetweenRoundsSeconds}s` : '';
-  return (
-    <View
-      testID={testID}
-      style={{
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: spacing[2],
-        paddingVertical: 10,
-        paddingHorizontal: 14,
-        backgroundColor: colors.surfaceSunken,
-        borderTopColor: colors.border,
-        borderTopWidth: divider ? 1 : 0,
-      }}
-    >
-      <Feather name="repeat" size={14} color={colors.textMuted} />
-      <Text
-        style={{
-          flex: 1,
-          color: colors.textSecondary,
-          fontFamily: typography.fontFamily.medium,
-          fontSize: typography.bodySm.fontSize,
-        }}
-      >
-        {group.name}
-      </Text>
-      <Text
-        testID={testID ? `${testID}-rounds` : undefined}
-        style={{
-          color: colors.textMuted,
-          fontFamily: typography.fontFamily.regular,
-          fontSize: typography.bodySm.fontSize,
-        }}
-      >
-        {rounds} tours{rest}
-      </Text>
-    </View>
   );
 }
 
@@ -900,24 +884,6 @@ function BarsEntryGrid({
         + Ajouter une barre
       </Button>
     </View>
-  );
-}
-
-function SectionTitle({ children, testID }: { children: ReactNode; testID?: string }) {
-  const { colors, typography } = useTheme();
-  return (
-    <Text
-      testID={testID}
-      style={{
-        color: colors.textSecondary,
-        fontFamily: typography.fontFamily.medium,
-        fontSize: typography.bodySm.fontSize,
-        textTransform: 'uppercase',
-        letterSpacing: 0.6,
-      }}
-    >
-      {children}
-    </Text>
   );
 }
 

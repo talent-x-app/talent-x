@@ -28,3 +28,13 @@ export function assignSessionHref(sessionId: string, sessionTitle?: string) {
     params: { id: sessionId, title: sessionTitle ?? '' },
   };
 }
+
+/** Détail d'une séance en **lecture seule** (consultation, mode par défaut côté coach). */
+export function coachSessionDetailHref(sessionId: string) {
+  return { pathname: '/(coach)/session/[id]' as const, params: { id: sessionId } };
+}
+
+/** Édition d'une séance (constructeur C-05) — depuis le détail lecture seule. */
+export function editSessionHref(sessionId: string) {
+  return { pathname: '/(coach)/session/[id]/edit' as const, params: { id: sessionId } };
+}

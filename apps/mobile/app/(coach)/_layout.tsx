@@ -52,9 +52,10 @@ export default function CoachLayout() {
         <Tabs.Screen name="athlete/[id]" options={{ href: null }} />
         {/* Revue de perf (C-08) : routable mais masquée du tab bar. */}
         <Tabs.Screen name="review/[id]" options={{ href: null }} />
-        {/* Constructeur de séance (C-05) : routable mais masqué du tab bar. */}
+        {/* Détail (lecture seule) + constructeur (C-05) : routables mais masqués du tab bar. */}
         <Tabs.Screen name="session/new" options={{ href: null }} />
         <Tabs.Screen name="session/[id]" options={{ href: null }} />
+        <Tabs.Screen name="session/[id]/edit" options={{ href: null }} />
         {/* Assignation de séance (C-06/C-07) : routable mais masquée du tab bar. */}
         <Tabs.Screen name="assign/[id]" options={{ href: null }} />
         {/* Compétitions (TLX-101, ADR-24) : liste / création / édition / engagement, hors tab bar. */}

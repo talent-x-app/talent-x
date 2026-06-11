@@ -1,8 +1,6 @@
-import { useLocalSearchParams } from 'expo-router';
-import { SessionBuilderScreen } from '../../../src/coach/SessionBuilderScreen';
+import { CoachSessionDetailScreen } from '../../../src/coach/CoachSessionDetailScreen';
 
-/** Édition d'une séance (C-05, TLX-052) — route empilée hors tab bar. */
-export default function EditSessionRoute() {
-  const { id } = useLocalSearchParams<{ id: string }>();
-  return <SessionBuilderScreen sessionId={id} />;
+/** Détail d'une séance en lecture seule (C-05) — mode par défaut, route empilée hors tab bar. */
+export default function CoachSessionDetailRoute() {
+  return <CoachSessionDetailScreen />;
 }

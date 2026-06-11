@@ -89,7 +89,12 @@ beforeEach(() => {
 });
 
 describe('SessionDetailScreen (TLX-065/071 — A-03/A-04)', () => {
-  it('affiche la séance et ses exercices', async () => {
+  /** Bascule de la lecture seule (défaut) vers la saisie de perf (A-04). */
+  async function enterEntryMode() {
+    fireEvent.press(await screen.findByTestId('start-perf-entry'));
+  }
+
+  it('affiche la séance en lecture seule par défaut (consultation, sans saisie)', async () => {
     mockGetAssignment.mockResolvedValue({ status: 200, data: ASSIGNMENT });
     mockGetPerformance.mockResolvedValue({ status: 404, data: { error: 'NOT_FOUND' } });
     render(<SessionDetailScreen />, { wrapper: Wrapper });
@@ -99,7 +104,15 @@ describe('SessionDetailScreen (TLX-065/071 — A-03/A-04)', () => {
     );
     expect(screen.getByTestId('exercise-0')).toHaveTextContent(/Développé couché/);
     expect(screen.getByTestId('exercise-1')).toHaveTextContent(/Tractions/);
+    // Lecture seule : CTA « Saisir ma performance », pas de bouton de soumission ni de RPE.
+    expect(screen.getByTestId('start-perf-entry')).toHaveTextContent(/Saisir ma performance/);
+    expect(screen.queryByTestId('submit-performance')).toBeNull();
+    expect(screen.queryByTestId('rpe-slider')).toBeNull();
+
+    // Bascule en saisie → la soumission et le RPE apparaissent.
+    await enterEntryMode();
     expect(screen.getByTestId('submit-performance')).toHaveTextContent('Enregistrer ma perf');
+    expect(screen.getByTestId('rpe-slider')).toBeOnTheScreen();
   });
 
   it('affiche la cible dérivée des params typés d’un bloc (TLX-062)', async () => {
@@ -167,6 +180,7 @@ describe('SessionDetailScreen (TLX-065/071 — A-03/A-04)', () => {
     mockGetPerformance.mockResolvedValue({ status: 404, data: { error: 'NOT_FOUND' } });
     mockSubmitPerformance.mockResolvedValue({ status: 201, data: { id: 'p-1' } });
     render(<SessionDetailScreen />, { wrapper: Wrapper });
+    await enterEntryMode();
 
     // En-tête de groupe : nom + « 3 tours ».
     await waitFor(() => expect(screen.getByTestId('group-0')).toBeOnTheScreen());
@@ -221,6 +235,7 @@ describe('SessionDetailScreen (TLX-065/071 — A-03/A-04)', () => {
     mockGetPerformance.mockResolvedValue({ status: 404, data: { error: 'NOT_FOUND' } });
     mockSubmitPerformance.mockResolvedValue({ status: 201, data: { id: 'p-1' } });
     render(<SessionDetailScreen />, { wrapper: Wrapper });
+    await enterEntryMode();
 
     // 3 lignes de temps pré-créées depuis la cible (params.reps).
     await waitFor(() => expect(screen.getByTestId('exercise-0-time-0')).toBeOnTheScreen());
@@ -257,6 +272,7 @@ describe('SessionDetailScreen (TLX-065/071 — A-03/A-04)', () => {
     mockGetPerformance.mockResolvedValue({ status: 404, data: { error: 'NOT_FOUND' } });
     mockSubmitPerformance.mockResolvedValue({ status: 201, data: { id: 'p-1' } });
     render(<SessionDetailScreen />, { wrapper: Wrapper });
+    await enterEntryMode();
 
     await waitFor(() => expect(screen.getByTestId('exercise-0-distance-0')).toBeOnTheScreen());
     fireEvent.changeText(screen.getByTestId('exercise-0-distance-0'), '6.42');
@@ -295,6 +311,7 @@ describe('SessionDetailScreen (TLX-065/071 — A-03/A-04)', () => {
     mockGetPerformance.mockResolvedValue({ status: 404, data: { error: 'NOT_FOUND' } });
     mockSubmitPerformance.mockResolvedValue({ status: 201, data: { id: 'p-1' } });
     render(<SessionDetailScreen />, { wrapper: Wrapper });
+    await enterEntryMode();
 
     // 1ʳᵉ barre pré-remplie à 1.75 m (175 cm), cible affichée.
     await waitFor(() => expect(screen.getByTestId('exercise-0-bar-0-height')).toBeOnTheScreen());
@@ -356,6 +373,7 @@ describe('SessionDetailScreen (TLX-065/071 — A-03/A-04)', () => {
     render(<SessionDetailScreen />, { wrapper: Wrapper });
 
     await waitFor(() => expect(screen.getByTestId('session-detail-saved')).toBeOnTheScreen());
+    await enterEntryMode();
     expect(screen.getByTestId('exercise-0-time-0').props.value).toBe('7.45');
   });
 
@@ -365,6 +383,7 @@ describe('SessionDetailScreen (TLX-065/071 — A-03/A-04)', () => {
     mockSubmitPerformance.mockResolvedValue({ status: 201, data: { id: 'p-1' } });
     render(<SessionDetailScreen />, { wrapper: Wrapper });
 
+    await enterEntryMode();
     await waitFor(() => expect(screen.getByTestId('exercise-0')).toBeOnTheScreen());
     fireEvent.press(screen.getByTestId('exercise-0')); // coche le 1er exercice
     fireEvent.press(screen.getByTestId('submit-performance'));
@@ -395,7 +414,7 @@ describe('SessionDetailScreen (TLX-065/071 — A-03/A-04)', () => {
     mockSubmitPerformance.mockResolvedValue({ status: 403, data: { error: 'CONSENT_REQUIRED' } });
     render(<SessionDetailScreen />, { wrapper: Wrapper });
 
-    await waitFor(() => expect(screen.getByTestId('submit-performance')).toBeOnTheScreen());
+    await enterEntryMode();
     fireEvent.press(screen.getByTestId('submit-performance'));
 
     await waitFor(() =>
@@ -429,6 +448,10 @@ describe('SessionDetailScreen (TLX-065/071 — A-03/A-04)', () => {
     render(<SessionDetailScreen />, { wrapper: Wrapper });
 
     await waitFor(() => expect(screen.getByTestId('session-detail-saved')).toBeOnTheScreen());
+    // Lecture seule : le CTA invite à modifier la perf existante.
+    expect(screen.getByTestId('start-perf-entry')).toHaveTextContent(/Modifier ma performance/);
+
+    await enterEntryMode();
     expect(screen.getByTestId('rpe-value')).toHaveTextContent('9/10');
     expect(screen.getByTestId('submit-performance')).toHaveTextContent('Mettre à jour');
 
