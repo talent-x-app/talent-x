@@ -665,8 +665,37 @@ athlete-session-ui.tsx`. 10 tests ; **suite mobile 108/108**. **Validé en réel
   **4 items** (un par feuille), **join `order=4` non contigu** rattaché correctement, **position
   préservée** (Squat `[✓,✗,✓]`, Ligne droite `[7.3s,✗,7.45s]`), **réhydratation positionnelle**
   (Squat re-coche tours 1 & 3, pas le 2 — vérifié couleur accent). **Zéro erreur console.**
-- **Reste (Lot 3, TLX-102, backlog)** : écriture des groupes dans le constructeur C-05 +
-  **bump `schemaVersion` 3** — fait exister les premiers docs à groupes hors seed.
+- **Suite (Lot 3, TLX-102) : ✅ livré** — écriture des groupes dans le constructeur (cf.
+  « Terminés — ADR-27 Lot 3 » ci-dessous).
+
+## Terminés — ADR-27 Lot 3 : écriture des groupes au constructeur C-05 (TLX-102) — **clôt l'ADR-27**
+
+- **`session-builder-ui.tsx`** — modèle **arbre** `EditableNode = EditableBlock | EditableGroup`
+  (`makeEmptyGroup`/`isEditableGroup`). **`GroupCard`** : nom, `groupType` en chips (Superset/
+  Circuit/Série), `rounds`, récup **r** (intra-tour) / **R** (inter-tours), notes — contenant des
+  `BlockCard` membres **réutilisées telles quelles** (contexte `inGroup`). `BlockCard` paramétrée
+  (`testIDPrefix`/`label`/`inGroup`/`onGroup`/`onUngroup`) → les testIDs plats du premier niveau
+  restent **inchangés** (rétro-compat des tests).
+- **Masquage `sets` en groupe (règle 6)** : `isBaseFieldVisible(type, key, inGroup)` masque `sets`
+  (dimension portée par `rounds`) **au rendu ET à la sérialisation** (`blockToExercise(…, inGroup)`).
+- **`nodesToItems`** — sérialisation v3 avec **`order` global unique** en parcours de lecture
+  (groupe puis ses membres, règle 4) ; les **deux** sites (payload + `items` du `BriefEditor`)
+  partagent la numérotation. **`nodesFromExercises`** — round-trip v3 sans perte (groupes préservés,
+  remplace l'aplatissement du Lot 2). **`findFirstNodeIssue`** — validation **traversante** (nom de
+  bloc/groupe, groupe vide, param requis TLX-91 sur les membres) avec numérotation feuille « Bloc N ».
+- **`SessionBuilderScreen`** — état arbre, handlers **par chemin** (nœud top / membre + déplacement
+  **dans/hors** groupe), boutons « Ajouter un bloc » / « Ajouter un groupe », **bump
+  `EXERCISES_SCHEMA_VERSION` → 3** (constante unique ; doc sans groupe byte-stable, seul le tag bump).
+- +~20 tests (groupes purs + écran : ajout/édition/déplacement, masquage `sets` rendu+sérialisation,
+  validation traversante, order global, round-trip v3) ; **mobile 396/396** ; typecheck + lint clean.
+- **Validé en réel bout-en-bout (2026-06-11, Expo web + API + Docker DB :5433)** : le **coach
+  construit** « Contraste & vitesse » via le constructeur (échauffement + superset 3 tours [Squat
+  `strength` **sans champ Séries** / Bonds]) → `POST /sessions` 201 **`schemaVersion 3`**, **order
+  global 1/2/3/4**, `sets` absent du membre (vérif psql/API) → assignation → **athlète** : lecture
+  seule du groupe → saisie **multi-tours** (3 cases/membre dimensionnées sur `rounds`) → perf
+  persistée **3 feuilles**, **join order non contigu** (1/3/4), **position préservée** (Squat
+  `[✓,✗,✓]`, Bonds `[✓,✗,✗]`) → **revue coach 3/3**. Zéro erreur console. **L'ADR-27 (lots 1–3)
+  est entièrement livré.**
 
 ## Notes / dépendances (réutilisables)
 
@@ -708,9 +737,9 @@ compteurs/durée/mapper). **Ordre de livraison impératif** (ADR-27 règle 7) :
    (sections « × N tours », A1/A2, saisie multi-tours dimensionnée sur `rounds`), revue
    C-08, compteurs/durée aplatis, jointure `order` d'abord mobile, hydratation du
    constructeur (sans UI d'écriture). Détaillé dans « Terminés — ADR-27 Lot 2 » ci-dessous.
-3. **Lot 3 — écriture constructeur C-05** : carte de groupe, déplacement dans/hors,
-   extension TLX-94 (`sets` en contexte groupe), **bump `schemaVersion` 3** — jamais
-   avant le Lot 2.
+3. **Lot 3 — écriture constructeur C-05 (TLX-102, commit `d266532`) — ✅ livré** : carte de
+   groupe, déplacement dans/hors, extension TLX-94 (`sets` en contexte groupe), **bump
+   `schemaVersion` 3**. Détaillé dans « Terminés — ADR-27 Lot 3 » ci-dessous. **ADR-27 clos.**
 
 Hors ADR-27 : params d'intensité `percentVma`/`tempo` (front pur, cadre ADR-28) —
 **✅ livrés** (cf. « ADR-28 … lots 1–3 », Lot 3 ci-dessus).
