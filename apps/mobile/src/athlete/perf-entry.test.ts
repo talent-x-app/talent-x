@@ -227,15 +227,24 @@ describe('parseDistanceInput', () => {
 });
 
 describe('entryToResult (sérialisation results v2)', () => {
-  it('time : une ligne par temps valide, lignes vides ignorées', () => {
+  it('time : ligne vide intercalée préservée en position (tour sauté, ADR-27)', () => {
     const result = entryToResult(ex({ type: BlockType.sprint, name: '60m' }), {
       mode: 'time',
       times: ['7.45', '', '7.62'],
     });
     expect(result.setResults).toEqual([
       { set: 1, timeSeconds: 7.45, completed: true },
-      { set: 2, timeSeconds: 7.62, completed: true },
+      { set: 2, completed: false },
+      { set: 3, timeSeconds: 7.62, completed: true },
     ]);
+  });
+
+  it('time : lignes vides en queue coupées', () => {
+    const result = entryToResult(ex({ type: BlockType.sprint, name: '60m' }), {
+      mode: 'time',
+      times: ['7.45', '', ''],
+    });
+    expect(result.setResults).toEqual([{ set: 1, timeSeconds: 7.45, completed: true }]);
   });
 
   it('distance : essais mesurés + essai mordu sans distance', () => {
@@ -258,9 +267,19 @@ describe('entryToResult (sérialisation results v2)', () => {
     expect(result.setResults).toEqual([{ set: 1, completed: false }]);
   });
 
-  it('checklist : comportement v1 inchangé', () => {
-    expect(entryToResult(ex({}), { mode: 'checklist', done: true }).setResults).toEqual([
+  it('checklist : comportement v1 inchangé (1 tour)', () => {
+    expect(entryToResult(ex({}), { mode: 'checklist', done: [true] }).setResults).toEqual([
       { set: 1, completed: true },
+    ]);
+  });
+
+  it('checklist N tours (groupe, ADR-27) : un set par tour, position préservée', () => {
+    expect(
+      entryToResult(ex({}), { mode: 'checklist', done: [true, false, true] }).setResults,
+    ).toEqual([
+      { set: 1, completed: true },
+      { set: 2, completed: false },
+      { set: 3, completed: true },
     ]);
   });
 });
@@ -272,7 +291,8 @@ describe('entryIsCompleted', () => {
     expect(entryIsCompleted({ mode: 'distance', attempts: [{ distance: '', failed: true }] })).toBe(
       true,
     );
-    expect(entryIsCompleted({ mode: 'checklist', done: false })).toBe(false);
+    expect(entryIsCompleted({ mode: 'checklist', done: [false] })).toBe(false);
+    expect(entryIsCompleted({ mode: 'checklist', done: [false, true] })).toBe(true);
   });
 });
 
@@ -345,7 +365,28 @@ describe('entryFromResult (réhydratation)', () => {
         order: 1,
         setResults: [{ set: 1, completed: true }],
       }),
-    ).toEqual({ mode: 'checklist', done: true });
-    expect(entryFromResult(ex({}), undefined)).toEqual({ mode: 'checklist', done: false });
+    ).toEqual({ mode: 'checklist', done: [true] });
+    expect(entryFromResult(ex({}), undefined)).toEqual({ mode: 'checklist', done: [false] });
+  });
+
+  it('checklist N tours (groupe, ADR-27) : un booléen par tour saisi', () => {
+    expect(
+      entryFromResult(ex({}), {
+        exerciseName: 'X',
+        order: 1,
+        setResults: [
+          { set: 1, completed: true },
+          { set: 2, completed: false },
+          { set: 3, completed: true },
+        ],
+      }),
+    ).toEqual({ mode: 'checklist', done: [true, false, true] });
+  });
+
+  it('checklist : état vide dimensionné sur rounds (groupe sans perf)', () => {
+    expect(entryFromResult(ex({}), undefined, 3)).toEqual({
+      mode: 'checklist',
+      done: [false, false, false],
+    });
   });
 });

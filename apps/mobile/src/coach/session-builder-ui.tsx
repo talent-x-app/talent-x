@@ -3,6 +3,7 @@ import { useTheme } from '@talent-x/design-tokens';
 import { Feather } from '@expo/vector-icons';
 import { Pressable, Text, TextInput, View } from 'react-native';
 import { Card, Chip } from '../components/ui';
+import { flattenLeaves, type ExerciseNode } from '../sessions/exercises-doc';
 
 /**
  * Couche UI partagée du constructeur de séance (C-05). Le backend accepte le contrat
@@ -287,9 +288,16 @@ export function makeEmptyBlock(): EditableBlock {
   };
 }
 
-/** Hydrate les blocs éditables depuis un `ExercisesDoc` existant (mode édition). */
-export function blocksFromExercises(items: Exercise[]): EditableBlock[] {
-  return [...items]
+/**
+ * Hydrate les blocs éditables depuis un `ExercisesDoc` existant (mode édition). Un document
+ * v3 (ADR-27) peut mêler exercices et **groupes** ; le constructeur n'ayant **pas encore d'UI
+ * d'écriture de groupe** (Lot 3), on **aplatit les feuilles** : les membres d'un groupe
+ * deviennent des blocs éditables individuels (jamais perdus) — éditer puis sauver dégrade le
+ * document en v2 plat plutôt que de supprimer silencieusement les exercices groupés.
+ */
+export function blocksFromExercises(items: readonly ExerciseNode[]): EditableBlock[] {
+  return flattenLeaves(items)
+    .slice()
     .sort((a, b) => a.order - b.order)
     .map((ex) => {
       const type = (ex.type ?? BlockType.custom) as BlockType;

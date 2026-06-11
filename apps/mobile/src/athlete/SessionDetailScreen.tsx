@@ -4,6 +4,7 @@ import {
   submitPerformance,
   updatePerformance,
   type Assignment,
+  type ExerciseGroup,
   type Performance,
   type PerformanceCreate,
   type ResultsDoc,
@@ -26,6 +27,12 @@ import { Button, Card, Chip, Slider } from '../components/ui';
 import { useToast } from '../feedback';
 import { FeedbackThread } from '../comments/FeedbackThread';
 import { formatExerciseTarget } from '../sessions/exercise-target';
+import {
+  exerciseRenderRows,
+  leafRounds,
+  resultForLeaf,
+  type ExerciseRenderRow,
+} from '../sessions/exercises-doc';
 import { formatSessionDate, sessionTitle } from './athlete-session-ui';
 import { AthleteIntentBanner, BriefMetrics, SuccessStopCard } from './brief-ui';
 import { perfConfirmationHref } from './navigation';
@@ -93,31 +100,39 @@ export function SessionDetailScreen() {
     () => assignment.data?.session?.exercises?.items ?? [],
     [assignment.data],
   );
+  // Lignes de rendu (en-têtes de groupe intercalés, ADR-27) + feuilles à plat. L'état de
+  // saisie `entries` est indexé par `leafIndex` → aligné sur `leafRows`.
+  const rows = useMemo(() => exerciseRenderRows(exercises), [exercises]);
+  const leafRows = useMemo(
+    () => rows.filter((r): r is Extract<ExerciseRenderRow, { type: 'leaf' }> => r.type === 'leaf'),
+    [rows],
+  );
 
-  // État de saisie local par exercice (mode dérivé du type de bloc — TLX-072/073/074),
-  // dimensionné sur la cible (TLX-062) puis réhydraté depuis la perf existante.
+  // État de saisie local par feuille (mode dérivé du type de bloc — TLX-072/073/074),
+  // dimensionné sur la cible (TLX-062) ou les tours du groupe (ADR-27), puis réhydraté.
   const [entries, setEntries] = useState<ExerciseEntry[]>([]);
   const [rpe, setRpe] = useState(DEFAULT_RPE);
   const [notes, setNotes] = useState('');
 
   useEffect(() => {
-    setEntries(exercises.map((ex) => makeEmptyEntry(ex)));
-  }, [exercises]);
+    setEntries(leafRows.map((r) => makeEmptyEntry(r.exercise, leafRounds(r.group))));
+  }, [leafRows]);
 
   useEffect(() => {
     const perf = existing.data;
     if (!perf) return;
     setEntries(
-      exercises.map((ex) =>
+      leafRows.map((r) =>
         entryFromResult(
-          ex,
-          perf.results.items.find((r) => r.exerciseName === ex.name),
+          r.exercise,
+          resultForLeaf(perf.results.items, r.exercise),
+          leafRounds(r.group),
         ),
       ),
     );
     if (perf.rpe != null) setRpe(perf.rpe);
     if (perf.notes != null) setNotes(perf.notes);
-  }, [existing.data, exercises]);
+  }, [existing.data, leafRows]);
 
   function updateEntry(index: number, updater: (entry: ExerciseEntry) => ExerciseEntry) {
     setEntries((prev) => prev.map((e, i) => (i === index ? updater(e) : e)));
@@ -129,7 +144,9 @@ export function SessionDetailScreen() {
     mutationFn: async (): Promise<Performance> => {
       const results: ResultsDoc = {
         schemaVersion: RESULTS_SCHEMA_VERSION,
-        items: exercises.map((ex, i) => entryToResult(ex, entries[i] ?? makeEmptyEntry(ex))),
+        items: leafRows.map((r, i) =>
+          entryToResult(r.exercise, entries[i] ?? makeEmptyEntry(r.exercise, leafRounds(r.group))),
+        ),
       };
       const body: PerformanceCreate = { results, rpe, notes: notes.trim() || undefined };
       const response = alreadySaved
@@ -270,12 +287,12 @@ export function SessionDetailScreen() {
             </Card>
           ) : null}
 
-          {/* A-03 : exercices de la séance, cochables (réalisé / non réalisé). */}
+          {/* A-03 : exercices de la séance — groupes (ADR-27) + feuilles cochables/mesurées. */}
           <View style={{ gap: spacing[3] }}>
-            <SectionTitle>
-              Exercices · {completedCount}/{exercises.length}
+            <SectionTitle testID="exercise-count">
+              Exercices · {completedCount}/{leafRows.length}
             </SectionTitle>
-            {exercises.length === 0 ? (
+            {leafRows.length === 0 ? (
               <Card>
                 <Text
                   style={{
@@ -289,118 +306,24 @@ export function SessionDetailScreen() {
               </Card>
             ) : (
               <Card padded={false}>
-                {exercises.map((ex, i) => {
-                  const entry = entries[i];
-                  if (entry && entry.mode !== 'checklist') {
-                    // Modes mesurés (TLX-072/073/074) : temps par course / distance par essai.
-                    return (
-                      <View
-                        key={`${ex.name}-${i}`}
-                        testID={`exercise-${i}`}
-                        style={[
-                          styles.measuredBlock,
-                          { borderTopColor: colors.border, borderTopWidth: i ? 1 : 0 },
-                        ]}
-                      >
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                          <Text
-                            style={{
-                              flex: 1,
-                              color: colors.textPrimary,
-                              fontFamily: typography.fontFamily.medium,
-                              fontSize: typography.body.fontSize,
-                            }}
-                          >
-                            {ex.name}
-                          </Text>
-                          <Text
-                            testID={`exercise-${i}-target`}
-                            style={{
-                              color: colors.textMuted,
-                              fontFamily: typography.fontFamily.regular,
-                              fontSize: typography.bodySm.fontSize,
-                            }}
-                          >
-                            {formatExerciseTarget(ex)}
-                          </Text>
-                        </View>
-                        {entry.mode === 'time' ? (
-                          <TimeEntryRows
-                            index={i}
-                            times={entry.times}
-                            onChange={(times) => updateEntry(i, () => ({ mode: 'time', times }))}
-                          />
-                        ) : entry.mode === 'bars' ? (
-                          <BarsEntryGrid
-                            index={i}
-                            bars={entry.bars}
-                            onChange={(bars) => updateEntry(i, () => ({ mode: 'bars', bars }))}
-                          />
-                        ) : (
-                          <DistanceEntryRows
-                            index={i}
-                            attempts={entry.attempts}
-                            onChange={(attempts) =>
-                              updateEntry(i, () => ({ mode: 'distance', attempts }))
-                            }
-                          />
-                        )}
-                      </View>
-                    );
-                  }
-                  // Mode checklist (base v1) : réalisé / non réalisé.
-                  const on = entry?.mode === 'checklist' && entry.done;
-                  return (
-                    <Pressable
-                      key={`${ex.name}-${i}`}
-                      testID={`exercise-${i}`}
-                      onPress={() =>
-                        updateEntry(i, (e) =>
-                          e.mode === 'checklist' ? { mode: 'checklist', done: !e.done } : e,
-                        )
-                      }
-                      accessibilityRole="checkbox"
-                      accessibilityState={{ checked: on }}
-                      style={[
-                        styles.exerciseRow,
-                        { borderTopColor: colors.border, borderTopWidth: i ? 1 : 0 },
-                      ]}
-                    >
-                      <View
-                        style={[
-                          styles.checkbox,
-                          on
-                            ? { backgroundColor: colors.accent, borderColor: colors.accent }
-                            : { borderColor: colors.borderStrong },
-                        ]}
-                      >
-                        {on ? <Feather name="check" size={14} color={colors.accentText} /> : null}
-                      </View>
-                      <Text
-                        style={{
-                          flex: 1,
-                          color: colors.textPrimary,
-                          fontFamily: typography.fontFamily.medium,
-                          fontSize: typography.body.fontSize,
-                          textDecorationLine: on ? 'line-through' : 'none',
-                          opacity: on ? 0.55 : 1,
-                        }}
-                      >
-                        {ex.name}
-                      </Text>
-                      <Text
-                        testID={`exercise-${i}-target`}
-                        style={{
-                          color: colors.textMuted,
-                          fontFamily: typography.fontFamily.regular,
-                          fontSize: typography.bodySm.fontSize,
-                        }}
-                      >
-                        {formatExerciseTarget(ex)}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
+                {rows.map((row, ri) =>
+                  row.type === 'group' ? (
+                    <GroupHeader
+                      key={row.key}
+                      testID={row.key}
+                      group={row.group}
+                      divider={ri > 0}
+                    />
+                  ) : (
+                    <LeafEntry
+                      key={row.key}
+                      row={row}
+                      entry={entries[row.leafIndex]}
+                      onChange={(updater) => updateEntry(row.leafIndex, updater)}
+                      divider={ri > 0 && !row.firstInGroup}
+                    />
+                  ),
+                )}
               </Card>
             )}
           </View>
@@ -491,6 +414,230 @@ export function SessionDetailScreen() {
         </>
       )}
     </ScrollView>
+  );
+}
+
+/** En-tête d'un groupe d'exercices (ADR-27) : nom · N tours · R inter-tours. */
+function GroupHeader({
+  group,
+  divider,
+  testID,
+}: {
+  group: ExerciseGroup;
+  divider: boolean;
+  testID?: string;
+}) {
+  const { colors, typography, spacing } = useTheme();
+  const rounds = group.rounds && group.rounds > 0 ? group.rounds : 1;
+  const rest = group.restBetweenRoundsSeconds ? ` · R ${group.restBetweenRoundsSeconds}s` : '';
+  return (
+    <View
+      testID={testID}
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing[2],
+        paddingVertical: 10,
+        paddingHorizontal: 14,
+        backgroundColor: colors.surfaceSunken,
+        borderTopColor: colors.border,
+        borderTopWidth: divider ? 1 : 0,
+      }}
+    >
+      <Feather name="repeat" size={14} color={colors.textMuted} />
+      <Text
+        style={{
+          flex: 1,
+          color: colors.textSecondary,
+          fontFamily: typography.fontFamily.medium,
+          fontSize: typography.bodySm.fontSize,
+        }}
+      >
+        {group.name}
+      </Text>
+      <Text
+        testID={testID ? `${testID}-rounds` : undefined}
+        style={{
+          color: colors.textMuted,
+          fontFamily: typography.fontFamily.regular,
+          fontSize: typography.bodySm.fontSize,
+        }}
+      >
+        {rounds} tours{rest}
+      </Text>
+    </View>
+  );
+}
+
+/** Une feuille (exercice) : bloc mesuré (temps/distance/barres) ou checklist (1 ou N tours). */
+function LeafEntry({
+  row,
+  entry,
+  onChange,
+  divider,
+}: {
+  row: Extract<ExerciseRenderRow, { type: 'leaf' }>;
+  entry: ExerciseEntry | undefined;
+  onChange: (updater: (entry: ExerciseEntry) => ExerciseEntry) => void;
+  divider: boolean;
+}) {
+  const { colors, typography, spacing } = useTheme();
+  const i = row.leafIndex;
+  const ex = row.exercise;
+  const superset = row.group?.groupType === 'superset';
+  const name = superset && row.memberLabel ? `${row.memberLabel} · ${ex.name}` : ex.name;
+  const paddingLeft = 14 + (row.group ? spacing[4] : 0);
+  const topBorder = { borderTopColor: colors.border, borderTopWidth: divider ? 1 : 0 };
+
+  const header = (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+      <Text
+        style={{
+          flex: 1,
+          color: colors.textPrimary,
+          fontFamily: typography.fontFamily.medium,
+          fontSize: typography.body.fontSize,
+        }}
+      >
+        {name}
+      </Text>
+      <Text
+        testID={`exercise-${i}-target`}
+        style={{
+          color: colors.textMuted,
+          fontFamily: typography.fontFamily.regular,
+          fontSize: typography.bodySm.fontSize,
+        }}
+      >
+        {formatExerciseTarget(ex)}
+      </Text>
+    </View>
+  );
+
+  if (entry && entry.mode !== 'checklist') {
+    // Modes mesurés (TLX-072/073/074) : temps par course / distance par essai / grille de barres.
+    return (
+      <View testID={`exercise-${i}`} style={[styles.measuredBlock, topBorder, { paddingLeft }]}>
+        {header}
+        {entry.mode === 'time' ? (
+          <TimeEntryRows
+            index={i}
+            times={entry.times}
+            onChange={(times) => onChange(() => ({ mode: 'time', times }))}
+          />
+        ) : entry.mode === 'bars' ? (
+          <BarsEntryGrid
+            index={i}
+            bars={entry.bars}
+            onChange={(bars) => onChange(() => ({ mode: 'bars', bars }))}
+          />
+        ) : (
+          <DistanceEntryRows
+            index={i}
+            attempts={entry.attempts}
+            onChange={(attempts) => onChange(() => ({ mode: 'distance', attempts }))}
+          />
+        )}
+      </View>
+    );
+  }
+
+  const done = entry?.mode === 'checklist' ? entry.done : [false];
+
+  // Membre de groupe checklist (ADR-27) : une case « Tour k » par tour.
+  if (done.length > 1) {
+    return (
+      <View testID={`exercise-${i}`} style={[styles.measuredBlock, topBorder, { paddingLeft }]}>
+        {header}
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] }}>
+          {done.map((d, k) => (
+            <Pressable
+              key={k}
+              testID={`exercise-${i}-round-${k}`}
+              onPress={() =>
+                onChange((e) =>
+                  e.mode === 'checklist'
+                    ? { mode: 'checklist', done: e.done.map((v, kk) => (kk === k ? !v : v)) }
+                    : e,
+                )
+              }
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: d }}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: spacing[1],
+                paddingVertical: 6,
+                paddingHorizontal: 10,
+                borderRadius: 8,
+                borderWidth: 1,
+                borderColor: d ? colors.accent : colors.borderStrong,
+                backgroundColor: d ? colors.accent : 'transparent',
+              }}
+            >
+              <Text
+                style={{
+                  color: d ? colors.accentText : colors.textSecondary,
+                  fontFamily: typography.fontFamily.medium,
+                  fontSize: typography.bodySm.fontSize,
+                }}
+              >
+                Tour {k + 1}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      </View>
+    );
+  }
+
+  // Un seul tour (base v1) : ligne cochable réalisé / non réalisé.
+  const on = done[0] ?? false;
+  return (
+    <Pressable
+      testID={`exercise-${i}`}
+      onPress={() =>
+        onChange((e) =>
+          e.mode === 'checklist' ? { mode: 'checklist', done: [!(e.done[0] ?? false)] } : e,
+        )
+      }
+      accessibilityRole="checkbox"
+      accessibilityState={{ checked: on }}
+      style={[styles.exerciseRow, topBorder, { paddingLeft }]}
+    >
+      <View
+        style={[
+          styles.checkbox,
+          on
+            ? { backgroundColor: colors.accent, borderColor: colors.accent }
+            : { borderColor: colors.borderStrong },
+        ]}
+      >
+        {on ? <Feather name="check" size={14} color={colors.accentText} /> : null}
+      </View>
+      <Text
+        style={{
+          flex: 1,
+          color: colors.textPrimary,
+          fontFamily: typography.fontFamily.medium,
+          fontSize: typography.body.fontSize,
+          textDecorationLine: on ? 'line-through' : 'none',
+          opacity: on ? 0.55 : 1,
+        }}
+      >
+        {name}
+      </Text>
+      <Text
+        testID={`exercise-${i}-target`}
+        style={{
+          color: colors.textMuted,
+          fontFamily: typography.fontFamily.regular,
+          fontSize: typography.bodySm.fontSize,
+        }}
+      >
+        {formatExerciseTarget(ex)}
+      </Text>
+    </Pressable>
   );
 }
 
@@ -756,10 +903,11 @@ function BarsEntryGrid({
   );
 }
 
-function SectionTitle({ children }: { children: ReactNode }) {
+function SectionTitle({ children, testID }: { children: ReactNode; testID?: string }) {
   const { colors, typography } = useTheme();
   return (
     <Text
+      testID={testID}
       style={{
         color: colors.textSecondary,
         fontFamily: typography.fontFamily.medium,

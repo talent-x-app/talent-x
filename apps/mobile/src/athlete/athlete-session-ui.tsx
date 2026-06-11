@@ -2,6 +2,7 @@ import { AssignmentStatus, type Assignment } from '@talent-x/api-client';
 import { useTheme } from '@talent-x/design-tokens';
 import { StyleSheet, Text, View } from 'react-native';
 import { Card } from '../components/ui';
+import { countLeaves } from '../sessions/exercises-doc';
 
 /** Libellé + tonalité (token) par statut d'affectation. Partagé liste ↔ détail. */
 export const ASSIGNMENT_STATUS_META: Record<
@@ -113,9 +114,9 @@ export function sessionTitle(assignment: Pick<Assignment, 'session'>): string {
   return title && title.length > 0 ? title : 'Séance';
 }
 
-/** Nombre d'exercices de la séance (0 si non chargée). */
+/** Nombre d'exercices (feuilles) de la séance — un groupe de 3 compte 3 (ADR-27). */
 export function exerciseCount(assignment: Pick<Assignment, 'session'>): number {
-  return assignment.session?.exercises?.items?.length ?? 0;
+  return countLeaves(assignment.session?.exercises?.items);
 }
 
 const styles = StyleSheet.create({

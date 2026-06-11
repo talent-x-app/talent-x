@@ -137,6 +137,66 @@ describe('SessionDetailScreen (TLX-065/071 — A-03/A-04)', () => {
     expect(screen.getByTestId('exercise-1-target')).toHaveTextContent('3 tours × 45s');
   });
 
+  it('groupe d’exercices (ADR-27) : en-tête « N tours », membres A1/A2, checklist multi-tours sérialisée par feuille', async () => {
+    mockGetAssignment.mockResolvedValue({
+      status: 200,
+      data: {
+        ...ASSIGNMENT,
+        session: {
+          ...ASSIGNMENT.session,
+          exercises: {
+            schemaVersion: 2,
+            items: [
+              { name: 'Échauffement', order: 0, type: 'warmup' },
+              {
+                kind: 'group',
+                name: 'Contraste',
+                order: 1,
+                groupType: 'superset',
+                rounds: 3,
+                items: [
+                  { name: 'Squat', order: 1, type: 'strength' },
+                  { name: 'Bonds', order: 2, type: 'custom' },
+                ],
+              },
+            ],
+          },
+        },
+      },
+    });
+    mockGetPerformance.mockResolvedValue({ status: 404, data: { error: 'NOT_FOUND' } });
+    mockSubmitPerformance.mockResolvedValue({ status: 201, data: { id: 'p-1' } });
+    render(<SessionDetailScreen />, { wrapper: Wrapper });
+
+    // En-tête de groupe : nom + « 3 tours ».
+    await waitFor(() => expect(screen.getByTestId('group-0')).toBeOnTheScreen());
+    expect(screen.getByTestId('group-0')).toHaveTextContent(/Contraste/);
+    expect(screen.getByTestId('group-0-rounds')).toHaveTextContent('3 tours');
+    // Compteur de feuilles : 3 (1 simple + 2 membres), pas 2 nœuds.
+    expect(screen.getByTestId('exercise-count')).toHaveTextContent(/0\/3/);
+    // Membres de superset étiquetés A1/A2, indexés à plat (leafIndex 1 et 2).
+    expect(screen.getByTestId('exercise-1')).toHaveTextContent(/A1 · Squat/);
+    expect(screen.getByTestId('exercise-2')).toHaveTextContent(/A2 · Bonds/);
+
+    // Membre de groupe → checklist multi-tours (une case « Tour k » par tour).
+    fireEvent.press(screen.getByTestId('exercise-1-round-0')); // Squat tour 1
+    fireEvent.press(screen.getByTestId('exercise-1-round-2')); // Squat tour 3 (saute le 2)
+    fireEvent.press(screen.getByTestId('submit-performance'));
+
+    await waitFor(() => expect(mockSubmitPerformance).toHaveBeenCalled());
+    const [, body] = mockSubmitPerformance.mock.calls[0];
+    expect(body.results.items).toHaveLength(3); // une entrée par feuille
+    const squat = body.results.items.find(
+      (r: { exerciseName: string }) => r.exerciseName === 'Squat',
+    );
+    // Tour sauté préservé en position (set 2 completed:false), ADR-27.
+    expect(squat.setResults).toEqual([
+      { set: 1, completed: true },
+      { set: 2, completed: false },
+      { set: 3, completed: true },
+    ]);
+  });
+
   it('mode Temps : lignes pré-remplies depuis params.reps, sérialise timeSeconds v2 (TLX-072/073)', async () => {
     mockGetAssignment.mockResolvedValue({
       status: 200,

@@ -3,6 +3,7 @@ import { useTheme } from '@talent-x/design-tokens';
 import { Feather } from '@expo/vector-icons';
 import { StyleSheet, Text, View } from 'react-native';
 import { Card } from '../components/ui';
+import { countLeaves, isExerciseGroup, type ExerciseNode } from '../sessions/exercises-doc';
 
 /**
  * Rendu athlète de la couche éditoriale `brief` (ADR-28) : en-tête de métriques
@@ -11,16 +12,29 @@ import { Card } from '../components/ui';
  * (mapper role-aware) et n'arrivent donc jamais ici.
  */
 
+/** Durée tenue d'un exercice (feuille) : (durée + repos) × séries (1 si non précisé). */
+function leafDurationSeconds(ex: Exercise): number {
+  const sets = ex.sets && ex.sets > 0 ? ex.sets : 1;
+  return ((ex.durationSeconds ?? 0) + (ex.restSeconds ?? 0)) * sets;
+}
+
 /**
  * Estimation de durée dérivée des blocs (ADR-28, règle 4) quand le coach n'a pas saisi
- * `durationMinutes` : somme des durées tenues + récupérations, par série. C'est un
- * plancher (les blocs en répétitions sans durée n'ajoutent rien) — d'où le marquage « estimée ».
+ * `durationMinutes` : somme des durées tenues + récupérations. C'est un **plancher** (les
+ * blocs en répétitions sans durée n'ajoutent rien) — d'où le marquage « estimée ». Pour un
+ * **groupe** (ADR-27), la durée d'un tour × `rounds` + récup r intra-tour et R inter-tours.
  */
-export function estimateDurationMinutes(items: Exercise[]): number {
-  const seconds = items.reduce((total, ex) => {
-    const sets = ex.sets && ex.sets > 0 ? ex.sets : 1;
-    const per = (ex.durationSeconds ?? 0) + (ex.restSeconds ?? 0);
-    return total + per * sets;
+export function estimateDurationMinutes(items: ExerciseNode[]): number {
+  const seconds = (items ?? []).reduce((total, node) => {
+    if (isExerciseGroup(node)) {
+      const members = node.items ?? [];
+      const rounds = node.rounds && node.rounds > 0 ? node.rounds : 1;
+      const work = members.reduce((s, m) => s + leafDurationSeconds(m), 0);
+      const intra = (node.restBetweenItemsSeconds ?? 0) * Math.max(members.length - 1, 0);
+      const inter = (node.restBetweenRoundsSeconds ?? 0) * Math.max(rounds - 1, 0);
+      return total + (work + intra) * rounds + inter;
+    }
+    return total + leafDurationSeconds(node);
   }, 0);
   return Math.round(seconds / 60);
 }
@@ -28,7 +42,7 @@ export function estimateDurationMinutes(items: Exercise[]): number {
 /** Libellé de durée : valeur du brief si saisie, sinon estimation marquée « estimée ». */
 export function durationMetric(
   brief: SessionBrief | undefined,
-  items: Exercise[],
+  items: ExerciseNode[],
 ): { value: string; hint?: string } {
   if (brief?.durationMinutes != null) {
     return { value: `${brief.durationMinutes} min` };
@@ -106,7 +120,7 @@ export function BriefMetrics({
   items,
 }: {
   brief: SessionBrief | undefined;
-  items: Exercise[];
+  items: ExerciseNode[];
 }) {
   const { spacing } = useTheme();
   const duration = durationMetric(brief, items);
@@ -123,7 +137,7 @@ export function BriefMetrics({
         testID="brief-metric-exercises"
         icon="list"
         label="Exercices"
-        value={`${items.length}`}
+        value={`${countLeaves(items)}`}
       />
       <Metric
         testID="brief-metric-difficulty"

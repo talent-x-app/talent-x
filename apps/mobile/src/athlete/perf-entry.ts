@@ -31,9 +31,13 @@ export interface BarRow {
   attempts: BarAttempt[];
 }
 
-/** État de saisie d'un exercice (champs numériques en chaînes, saisie libre). */
+/**
+ * État de saisie d'un exercice (champs numériques en chaînes, saisie libre). Le mode
+ * `checklist` porte **un booléen par tour** (`done[k]` = tour k réalisé) : 1 seul tour
+ * hors groupe (rétro-compat v1), N tours pour un membre de groupe (ADR-27, `rounds`).
+ */
 export type ExerciseEntry =
-  | { mode: 'checklist'; done: boolean }
+  | { mode: 'checklist'; done: boolean[] }
   | { mode: 'time'; times: string[] }
   | { mode: 'distance'; attempts: { distance: string; failed: boolean }[] }
   | { mode: 'bars'; bars: BarRow[] };
@@ -62,8 +66,13 @@ function param(ex: Exercise, key: string): number | undefined {
   return typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : undefined;
 }
 
-/** Nombre de lignes initial : pré-rempli depuis la cible du bloc (TLX-062/073). */
-export function initialRowCount(ex: Exercise): number {
+/**
+ * Nombre de lignes initial : pré-rempli depuis la cible du bloc (TLX-062/073). Pour un
+ * membre de **groupe** (ADR-27), `rounds` prime : la dimension « tour/série » est portée
+ * par le groupe (et `sets` est masqué côté constructeur), une ligne par tour.
+ */
+export function initialRowCount(ex: Exercise, rounds?: number): number {
+  if (rounds != null && rounds > 0) return rounds;
   const mode = entryModeFor(ex);
   if (mode === 'time') {
     // interval/sprint : nombre de répétitions ciblé ; sinon séries v1 ; sinon 1 course.
@@ -98,21 +107,24 @@ export function initialBars(ex: Exercise): BarRow[] {
   );
 }
 
-/** État de saisie vide d'un exercice, dimensionné sur sa cible. */
-export function makeEmptyEntry(ex: Exercise): ExerciseEntry {
+/**
+ * État de saisie vide d'un exercice, dimensionné sur sa cible. `rounds` (groupe parent,
+ * ADR-27) prime sur la cible du bloc : une ligne / une coche par tour.
+ */
+export function makeEmptyEntry(ex: Exercise, rounds?: number): ExerciseEntry {
   const mode = entryModeFor(ex);
-  if (mode === 'time') return { mode, times: Array(initialRowCount(ex)).fill('') };
+  if (mode === 'time') return { mode, times: Array(initialRowCount(ex, rounds)).fill('') };
   if (mode === 'distance') {
     return {
       mode,
-      attempts: Array.from({ length: initialRowCount(ex) }, () => ({
+      attempts: Array.from({ length: initialRowCount(ex, rounds) }, () => ({
         distance: '',
         failed: false,
       })),
     };
   }
   if (mode === 'bars') return { mode, bars: initialBars(ex) };
-  return { mode: 'checklist', done: false };
+  return { mode: 'checklist', done: Array(Math.max(rounds ?? 1, 1)).fill(false) };
 }
 
 /**
@@ -154,29 +166,51 @@ export function parseDistanceInput(raw: string): number | undefined {
 }
 
 /**
- * Sérialise l'état de saisie d'un exercice en `ExerciseResult` v2. Les lignes vides sont
- * ignorées ; un exercice mesuré sans aucune mesure retombe sur `completed: false` (v1).
+ * Sérialise des lignes en `SetResult[]` **en préservant la position** : une ligne vide
+ * intercalée avant la dernière ligne remplie devient `{ set, completed: false }` — le tour
+ * k reste le set k (ADR-27, mapping positionnel des tours d'un groupe). Les vides en queue
+ * sont coupés ; aucune ligne remplie → repli v1 `[{ set: 1, completed: false }]`.
+ */
+function serializePositional<T>(
+  rows: readonly T[],
+  measure: (row: T, set: number) => SetResult | undefined,
+): SetResult[] {
+  const measured = rows.map((row, i) => measure(row, i + 1));
+  let lastFilled = -1;
+  measured.forEach((m, i) => {
+    if (m) lastFilled = i;
+  });
+  if (lastFilled < 0) return [{ set: 1, completed: false }];
+  const sets: SetResult[] = [];
+  for (let i = 0; i <= lastFilled; i++) sets.push(measured[i] ?? { set: i + 1, completed: false });
+  return sets;
+}
+
+/**
+ * Sérialise l'état de saisie d'un exercice en `ExerciseResult` v2. Les lignes intercalées
+ * vides sont préservées en position (tour sauté → `{ set, completed: false }`, ADR-27) ;
+ * un exercice mesuré sans aucune mesure retombe sur `completed: false` (v1).
  */
 export function entryToResult(ex: Exercise, entry: ExerciseEntry): ExerciseResult {
   const base = { exerciseName: ex.name, order: ex.order };
   if (entry.mode === 'time') {
-    const sets: SetResult[] = [];
-    entry.times.forEach((raw) => {
-      const t = parseTimeInput(raw);
-      if (t != null) sets.push({ set: sets.length + 1, timeSeconds: t, completed: true });
-    });
-    return { ...base, setResults: sets.length ? sets : [{ set: 1, completed: false }] };
+    return {
+      ...base,
+      setResults: serializePositional(entry.times, (raw, set) => {
+        const t = parseTimeInput(raw);
+        return t != null ? { set, timeSeconds: t, completed: true } : undefined;
+      }),
+    };
   }
   if (entry.mode === 'distance') {
-    const sets: SetResult[] = [];
-    entry.attempts.forEach((a) => {
-      const d = parseDistanceInput(a.distance);
-      if (a.failed) sets.push({ set: sets.length + 1, failed: true, completed: true });
-      else if (d != null) {
-        sets.push({ set: sets.length + 1, distanceMeters: d, completed: true });
-      }
-    });
-    return { ...base, setResults: sets.length ? sets : [{ set: 1, completed: false }] };
+    return {
+      ...base,
+      setResults: serializePositional(entry.attempts, (a, set) => {
+        if (a.failed) return { set, failed: true, completed: true };
+        const d = parseDistanceInput(a.distance);
+        return d != null ? { set, distanceMeters: d, completed: true } : undefined;
+      }),
+    };
   }
   if (entry.mode === 'bars') {
     // Grille de barres (ADR-25) : un set par essai tenté (`distanceMeters` = hauteur,
@@ -196,7 +230,9 @@ export function entryToResult(ex: Exercise, entry: ExerciseEntry): ExerciseResul
     });
     return { ...base, setResults: sets.length ? sets : [{ set: 1, completed: false }] };
   }
-  return { ...base, setResults: [{ set: 1, completed: entry.done }] };
+  // Checklist : un set par tour (`done[k]` = tour k réalisé). 1 tour hors groupe (v1).
+  const done = entry.done.length ? entry.done : [false];
+  return { ...base, setResults: done.map((d, i) => ({ set: i + 1, completed: d })) };
 }
 
 /** Au moins une mesure / coche — pilote le compteur « réalisés » de l'écran. */
@@ -211,7 +247,7 @@ export function entryIsCompleted(entry: ExerciseEntry): boolean {
       (bar) => parseDistanceInput(bar.height) != null && bar.attempts.some((a) => a !== 'none'),
     );
   }
-  return entry.done;
+  return entry.done.some(Boolean);
 }
 
 /** Barre franchie (m) la plus haute d'une grille, ou `undefined` si aucune franchie. */
@@ -256,24 +292,35 @@ export function formatRecordValue(value: number, unit: 's' | 'm'): string {
   return value >= 60 ? formatTimeInput(value) : `${formatTimeInput(value)} s`;
 }
 
-/** Réhydrate l'état de saisie depuis une perf existante (mise à jour, rétro-compat v1). */
-export function entryFromResult(ex: Exercise, result: ExerciseResult | undefined): ExerciseEntry {
-  const empty = makeEmptyEntry(ex);
+/**
+ * Réhydrate l'état de saisie depuis une perf existante (mise à jour, rétro-compat v1).
+ * `rounds` (groupe parent, ADR-27) dimensionne l'état vide de repli. La réhydratation des
+ * modes mesurés est **positionnelle** : un tour sauté (`{ completed: false }`) redevient une
+ * ligne vide, préservant l'alignement tour↔ligne.
+ */
+export function entryFromResult(
+  ex: Exercise,
+  result: ExerciseResult | undefined,
+  rounds?: number,
+): ExerciseEntry {
+  const empty = makeEmptyEntry(ex, rounds);
   const sets = result?.setResults ?? [];
   if (empty.mode === 'time') {
-    const times = sets
-      .filter((s) => s.timeSeconds != null)
-      .map((s) => formatTimeInput(s.timeSeconds as number));
-    return times.length ? { mode: 'time', times } : empty;
+    if (!sets.some((s) => s.timeSeconds != null)) return empty;
+    return {
+      mode: 'time',
+      times: sets.map((s) => (s.timeSeconds != null ? formatTimeInput(s.timeSeconds) : '')),
+    };
   }
   if (empty.mode === 'distance') {
-    const attempts = sets
-      .filter((s) => s.distanceMeters != null || s.failed)
-      .map((s) => ({
+    if (!sets.some((s) => s.distanceMeters != null || s.failed)) return empty;
+    return {
+      mode: 'distance',
+      attempts: sets.map((s) => ({
         distance: s.distanceMeters != null ? String(s.distanceMeters) : '',
         failed: !!s.failed,
-      }));
-    return attempts.length ? { mode: 'distance', attempts } : empty;
+      })),
+    };
   }
   if (empty.mode === 'bars') {
     // Regroupe les essais par hauteur (ordre de 1ʳᵉ apparition = ordre des barres) ; chaque
@@ -296,5 +343,11 @@ export function entryFromResult(ex: Exercise, result: ExerciseResult | undefined
     });
     return { mode: 'bars', bars: rows };
   }
-  return { mode: 'checklist', done: sets.some((s) => s.completed) };
+  // Checklist : un booléen par tour saisi, sinon l'état vide dimensionné sur `rounds`.
+  return {
+    mode: 'checklist',
+    done: sets.length
+      ? sets.map((s) => !!s.completed)
+      : Array(Math.max(rounds ?? 1, 1)).fill(false),
+  };
 }
