@@ -16,7 +16,12 @@ jest.mock('@talent-x/api-client', () => ({
     completed: 'completed',
     skipped: 'skipped',
   },
-  SessionStatus: { draft: 'draft', published: 'published', archived: 'archived' },
+  SessionStatus: {
+    draft: 'draft',
+    published: 'published',
+    archived: 'archived',
+    template: 'template',
+  },
   CompetitionStatus: { draft: 'draft', published: 'published', cancelled: 'cancelled' },
 }));
 jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush }) }));
@@ -100,6 +105,31 @@ describe('CoachCalendarScreen (TLX-100 / C-09)', () => {
     mockListSessions.mockResolvedValueOnce({ status: 200, data: PAGE });
     fireEvent.press(screen.getByTestId('calendar-retry'));
     await waitFor(() => expect(screen.getByTestId('calendar-undated-s-1')).toBeOnTheScreen());
+  });
+
+  it('exclut les modèles (status template) du calendrier (C-10, ADR-29)', async () => {
+    mockListSessions.mockResolvedValue({
+      status: 200,
+      data: {
+        data: [
+          { ...PAGE.data[0] },
+          {
+            id: 't-1',
+            title: 'Modèle sprint',
+            status: 'template',
+            coachId: 'me',
+            exercises: { items: [] },
+          },
+        ],
+        meta: { total: 2, page: 1, limit: 20 },
+      },
+    });
+    render(<CoachCalendarScreen />, { wrapper: Wrapper });
+
+    await waitFor(() => expect(screen.getByTestId('calendar-undated-s-1')).toBeOnTheScreen());
+    // La séance publiée s'affiche, le modèle est filtré.
+    expect(screen.queryByTestId('calendar-undated-t-1')).toBeNull();
+    expect(screen.queryByText('Modèle sprint')).toBeNull();
   });
 
   it('fusionne les compétitions et ouvre l’édition au tap (ADR-24 §5)', async () => {

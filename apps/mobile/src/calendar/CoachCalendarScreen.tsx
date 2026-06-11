@@ -1,6 +1,7 @@
 import {
   listCompetitions,
   listSessions,
+  SessionStatus,
   type Competition,
   type Session,
 } from '@talent-x/api-client';
@@ -47,7 +48,10 @@ export function CoachCalendarScreen() {
   });
 
   const entries = [
-    ...(query.data ?? []).map(sessionToCalendarEntry),
+    // Les modèles (C-10, ADR-29) ne sont pas des séances planifiées → exclus du calendrier.
+    ...(query.data ?? [])
+      .filter((session) => session.status !== SessionStatus.template)
+      .map(sessionToCalendarEntry),
     ...(competitions.data ?? []).map(competitionToCalendarEntry),
   ];
 

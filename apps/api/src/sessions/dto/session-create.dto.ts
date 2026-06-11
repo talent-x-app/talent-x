@@ -17,6 +17,8 @@ export enum SessionStatus {
   Draft = 'draft',
   Published = 'published',
   Archived = 'archived',
+  /** Modèle réutilisable (bibliothèque C-10, ADR-29) : non daté, **non assignable**. */
+  Template = 'template',
 }
 
 /** Corps de `POST /sessions` — schéma `SessionCreate`. */

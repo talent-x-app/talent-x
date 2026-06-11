@@ -532,4 +532,70 @@ describe('Parcours critiques (E2E DB) — TLX-120', () => {
       expect(sprint!.value).toBe(7.3);
     });
   });
+
+  describe('Modèles de séance — bibliothèque C-10 (ADR-29)', () => {
+    it('crée un modèle, le liste, refuse de l’affecter (422) et le duplique en séance assignable', async () => {
+      const coach = await register('coach');
+
+      // 1) Le coach crée un **modèle** (statut `template`) — non daté, réutilisable.
+      const template = await http()
+        .post('/api/v1/sessions')
+        .set(bearer(coach.token))
+        .send({
+          title: 'Modèle — VMA 6×400m',
+          status: 'template',
+          exercises: {
+            schemaVersion: 3,
+            items: [
+              {
+                name: '6 × 400m',
+                order: 1,
+                type: 'interval',
+                params: { reps: 6, distanceMeters: 400 },
+              },
+            ],
+          },
+        })
+        .expect(201);
+      expect(template.body.status).toBe('template');
+      const templateId: string = template.body.id;
+
+      // 2) La bibliothèque = `GET /sessions?status=template` (filtre existant).
+      const library = await http()
+        .get('/api/v1/sessions?status=template')
+        .set(bearer(coach.token))
+        .expect(200);
+      expect(library.body.data.some((s: { id: string }) => s.id === templateId)).toBe(true);
+      expect(library.body.data.every((s: { status: string }) => s.status === 'template')).toBe(
+        true,
+      );
+
+      // 3) Un modèle n'est **pas assignable** → 422 `SESSION_NOT_ASSIGNABLE` (garde ADR-29),
+      //    avant même toute vérification de lien athlète.
+      const assignTemplate = await http()
+        .post(`/api/v1/sessions/${templateId}/assign`)
+        .set(bearer(coach.token))
+        .set('Idempotency-Key', `tpl-${templateId}`)
+        .send({ athleteIds: [randomUUID()] })
+        .expect(422);
+      expect(assignTemplate.body.error).toBe('SESSION_NOT_ASSIGNABLE');
+
+      // 4) « Utiliser ce modèle » = duplication → nouvelle séance en **brouillon** (assignable).
+      const copy = await http()
+        .post(`/api/v1/sessions/${templateId}/duplicate`)
+        .set(bearer(coach.token))
+        .expect(201);
+      expect(copy.body.status).toBe('draft');
+      expect(copy.body.id).not.toBe(templateId);
+
+      // La copie (draft) franchit le garde de modèle : elle échoue plus loin, sur le lien athlète
+      // inexistant (403) — preuve que le garde 422 est spécifique au statut `template`.
+      await http()
+        .post(`/api/v1/sessions/${copy.body.id}/assign`)
+        .set(bearer(coach.token))
+        .set('Idempotency-Key', `copy-${copy.body.id}`)
+        .send({ athleteIds: [randomUUID()] })
+        .expect(403);
+    });
+  });
 });

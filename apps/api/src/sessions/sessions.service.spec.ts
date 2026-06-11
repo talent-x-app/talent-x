@@ -285,6 +285,16 @@ describe('SessionsService', () => {
       expect(data.scheduledDate).toBeUndefined();
       expect(res.id).toBe('s-2');
     });
+
+    it('utiliser un modèle (template, C-10) : la copie est un brouillon assignable (ADR-29)', async () => {
+      const prisma = prismaMock();
+      prisma.session.findUniqueOrThrow.mockResolvedValue(sessionRow({ status: 'template' }));
+      prisma.session.create.mockResolvedValue(sessionRow({ id: 's-2', status: 'draft' }));
+      await service(prisma).duplicateSession('c-1', 's-1');
+
+      // Une copie de modèle redevient une séance réelle (brouillon) → de nouveau assignable.
+      expect(prisma.session.create.mock.calls[0][0].data.status).toBe(SessionStatus.Draft);
+    });
   });
 
   describe('archiveSession', () => {

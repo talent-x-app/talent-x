@@ -8,6 +8,9 @@
  * OpenAPI spec version: 1.0.0
  */
 
+/**
+ * Statut d'une séance. `template` = modèle réutilisable (bibliothèque C-10, ADR-29) : non daté et non assignable (assigner un `template` → 422 SESSION_NOT_ASSIGNABLE).
+ */
 export type SessionStatus = typeof SessionStatus[keyof typeof SessionStatus];
 
 
@@ -15,4 +18,5 @@ export const SessionStatus = {
   draft: 'draft',
   published: 'published',
   archived: 'archived',
+  template: 'template',
 } as const;

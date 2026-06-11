@@ -15,7 +15,7 @@ import { Button, Card } from '../components/ui';
 import { COACH_DASHBOARD_QUERY_KEY } from '../dashboard/dashboard-query';
 import { coachGroupsHref } from '../groups/navigation';
 import { AthleteListItem } from './athlete-ui';
-import { athleteDetailHref } from './navigation';
+import { athleteDetailHref, coachTemplatesHref } from './navigation';
 
 /**
  * Écran Athlètes coach (C-02 — TLX-044). Liste des athlètes liés, dérivée de
@@ -116,6 +116,16 @@ export function CoachAthletesScreen() {
         onPress={() => router.push(coachGroupsHref())}
       >
         Gérer mes groupes
+      </Button>
+
+      <Button
+        testID="coach-athletes-templates"
+        variant="secondary"
+        fullWidth
+        leftIcon={<Feather name="copy" size={18} color={colors.textPrimary} />}
+        onPress={() => router.push(coachTemplatesHref())}
+      >
+        Mes modèles de séance
       </Button>
 
       {athletes.length === 0 ? (

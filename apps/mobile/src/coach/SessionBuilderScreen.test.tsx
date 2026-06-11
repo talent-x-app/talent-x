@@ -18,7 +18,12 @@ jest.mock('@talent-x/api-client', () => ({
   createSession: (...a: unknown[]) => mockCreateSession(...a),
   getSession: (...a: unknown[]) => mockGetSession(...a),
   updateSession: (...a: unknown[]) => mockUpdateSession(...a),
-  SessionStatus: { draft: 'draft', published: 'published', archived: 'archived' },
+  SessionStatus: {
+    draft: 'draft',
+    published: 'published',
+    archived: 'archived',
+    template: 'template',
+  },
   LoadUnit: { kg: 'kg', lb: 'lb', percent_1rm: 'percent_1rm', bodyweight: 'bodyweight' },
   // Importé transitivement via navigation.ts → athlete-ui (helper assignSessionHref).
   AthleteStatus: { up_to_date: 'up_to_date', late: 'late', pending_review: 'pending_review' },
@@ -663,6 +668,66 @@ describe('SessionBuilderScreen (TLX-052 — C-05)', () => {
 
     expect(screen.getByTestId('session-builder-validation')).toHaveTextContent(/distance/i);
     expect(mockCreateSession).not.toHaveBeenCalled();
+  });
+
+  // --- Mode modèle (C-10, ADR-29) ---
+
+  it('mode modèle : chip Modèle → titre « Nouveau modèle », date masquée', () => {
+    render(<SessionBuilderScreen />, { wrapper: Wrapper });
+    // Par défaut (séance) : champ date présent.
+    expect(screen.getByTestId('session-field-date')).toBeOnTheScreen();
+
+    fireEvent.press(screen.getByTestId('session-status-template'));
+    expect(screen.getByTestId('session-builder-title')).toHaveTextContent('Nouveau modèle');
+    // Un modèle n'est pas daté → champ masqué.
+    expect(screen.queryByTestId('session-field-date')).toBeNull();
+  });
+
+  it('crée un modèle (status template) puis revient à la bibliothèque, pas à l’assignation', async () => {
+    mockCreateSession.mockResolvedValue({ status: 201, data: { id: 't-new', status: 'template' } });
+    render(<SessionBuilderScreen />, { wrapper: Wrapper });
+
+    fireEvent.changeText(screen.getByTestId('session-field-title'), 'Séance type sprint');
+    fireEvent.changeText(screen.getByTestId('block-0-name'), 'Sprint');
+    fireEvent.press(screen.getByTestId('block-0-type-sprint'));
+    fireEvent.changeText(screen.getByTestId('block-0-param-distanceMeters'), '60');
+    fireEvent.press(screen.getByTestId('session-status-template'));
+    fireEvent.press(screen.getByTestId('session-save'));
+
+    await waitFor(() => expect(mockCreateSession).toHaveBeenCalled());
+    expect(mockCreateSession.mock.calls[0][0].status).toBe('template');
+    // Retour à la bibliothèque de modèles, jamais vers l'assignation (non assignable).
+    expect(mockReplace).toHaveBeenCalledWith('/(coach)/templates');
+    expect(mockReplace).not.toHaveBeenCalledWith(
+      expect.objectContaining({ pathname: '/(coach)/assign/[id]' }),
+    );
+  });
+
+  it('initialStatus=template : ouvre directement en mode modèle', () => {
+    render(<SessionBuilderScreen initialStatus="template" />, { wrapper: Wrapper });
+    expect(screen.getByTestId('session-builder-title')).toHaveTextContent('Nouveau modèle');
+    expect(screen.queryByTestId('session-field-date')).toBeNull();
+  });
+
+  it('édition d’un modèle : titre dédié, sans bouton d’assignation (non assignable)', async () => {
+    mockGetSession.mockResolvedValue({
+      status: 200,
+      data: {
+        id: 't-1',
+        title: 'Modèle sprint',
+        status: 'template',
+        coachId: 'c-1',
+        exercises: { schemaVersion: 3, items: [{ name: 'Sprint', order: 1 }] },
+      },
+    });
+    render(<SessionBuilderScreen sessionId="t-1" />, { wrapper: Wrapper });
+
+    await waitFor(() =>
+      expect(screen.getByTestId('session-builder-title')).toHaveTextContent('Modifier le modèle'),
+    );
+    // Un modèle ne s'assigne pas → pas de bouton d'assignation.
+    expect(screen.queryByTestId('session-assign')).toBeNull();
+    expect(screen.queryByTestId('session-field-date')).toBeNull();
   });
 
   it('déplace un bloc dans le groupe voisin puis l’en sort (dans/hors)', () => {

@@ -56,6 +56,8 @@ export default function CoachLayout() {
         <Tabs.Screen name="session/new" options={{ href: null }} />
         <Tabs.Screen name="session/[id]" options={{ href: null }} />
         <Tabs.Screen name="session/[id]/edit" options={{ href: null }} />
+        {/* Bibliothèque de modèles de séance (C-10, TLX-064) : routable mais masquée du tab bar. */}
+        <Tabs.Screen name="templates" options={{ href: null }} />
         {/* Assignation de séance (C-06/C-07) : routable mais masquée du tab bar. */}
         <Tabs.Screen name="assign/[id]" options={{ href: null }} />
         {/* Compétitions (TLX-101, ADR-24) : liste / création / édition / engagement, hors tab bar. */}

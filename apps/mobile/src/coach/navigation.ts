@@ -1,4 +1,4 @@
-import type { DashboardAthlete } from '@talent-x/api-client';
+import { SessionStatus, type DashboardAthlete } from '@talent-x/api-client';
 import { athleteFullName } from './athlete-ui';
 
 /**
@@ -37,4 +37,17 @@ export function coachSessionDetailHref(sessionId: string) {
 /** Édition d'une séance (constructeur C-05) — depuis le détail lecture seule. */
 export function editSessionHref(sessionId: string) {
   return { pathname: '/(coach)/session/[id]/edit' as const, params: { id: sessionId } };
+}
+
+/** Bibliothèque de modèles de séance (C-10, ADR-29). */
+export function coachTemplatesHref() {
+  return '/(coach)/templates' as const;
+}
+
+/**
+ * Constructeur ouvert en **mode modèle** (C-10) : `session/new` avec le statut `template`
+ * pré-sélectionné. Le constructeur masque alors la date et l'assignation (ADR-29).
+ */
+export function newTemplateHref() {
+  return { pathname: '/(coach)/session/new' as const, params: { status: SessionStatus.template } };
 }

@@ -1003,6 +1003,10 @@ paths:
       tags:
       - Séances
       summary: Affecter une séance à des athlètes
+      description: >-
+        Affecte une séance (du coach) à des athlètes liés. Une séance de statut
+        `template` n'est pas assignable → 422 `SESSION_NOT_ASSIGNABLE` (ADR-29) :
+        la dupliquer d'abord (`POST /sessions/{id}/duplicate`).
       operationId: assignSession
       parameters:
       - $ref: '#/components/parameters/IdPath'
@@ -2517,10 +2521,15 @@ components:
           description: null après révocation.
     SessionStatus:
       type: string
+      description: >-
+        Statut d'une séance. `template` = modèle réutilisable (bibliothèque
+        C-10, ADR-29) : non daté et non assignable (assigner un `template` →
+        422 SESSION_NOT_ASSIGNABLE).
       enum:
       - draft
       - published
       - archived
+      - template
     Load:
       type: object
       properties:

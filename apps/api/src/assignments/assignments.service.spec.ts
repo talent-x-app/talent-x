@@ -1,4 +1,8 @@
-import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  NotFoundException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import type { OwnershipService } from '../common/authorization/ownership.service';
 import type { PrismaService } from '../prisma/prisma.service';
 import type { AuthenticatedUser } from '../common/decorators/current-user.decorator';
@@ -61,6 +65,7 @@ function ownershipMock(over: Partial<OwnershipService> = {}): OwnershipService {
 
 type PrismaMock = {
   sessionAssignment: Record<string, jest.Mock>;
+  session: Record<string, jest.Mock>;
   $transaction: jest.Mock;
 };
 
@@ -71,6 +76,10 @@ function prismaMock(): PrismaMock {
       create: jest.fn(),
       findMany: jest.fn(),
       count: jest.fn(),
+    },
+    // Garde-fou ADR-29 : statut de la séance lu avant assignation (défaut = assignable).
+    session: {
+      findUnique: jest.fn().mockResolvedValue({ status: 'published' }),
     },
     $transaction: jest.fn((arg: unknown) =>
       Array.isArray(arg) ? Promise.all(arg) : (arg as (tx: unknown) => unknown)(mock),
@@ -184,6 +193,25 @@ describe('AssignmentsService', () => {
       await expect(
         service(prisma, ownership).assignSession('c-1', 's-x', { athleteIds: ['a-1'] }),
       ).rejects.toThrow(NotFoundException);
+    });
+
+    it('422 SESSION_NOT_ASSIGNABLE si la séance est un modèle (template, ADR-29)', async () => {
+      const prisma = prismaMock();
+      const queue = queueMock();
+      prisma.session.findUnique.mockResolvedValue({ status: 'template' });
+      prisma.sessionAssignment.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service(prisma, ownershipMock(), queue).assignSession('c-1', 's-1', {
+          athleteIds: ['a-1'],
+        }),
+      ).rejects.toMatchObject({
+        constructor: UnprocessableEntityException,
+        response: { error: 'SESSION_NOT_ASSIGNABLE' },
+      });
+      // Aucune affectation créée ni notification émise.
+      expect(prisma.sessionAssignment.create).not.toHaveBeenCalled();
+      expect(queue.enqueue).not.toHaveBeenCalled();
     });
   });
 

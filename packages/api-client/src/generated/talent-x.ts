@@ -2475,6 +2475,7 @@ export const getAssignSessionUrl = (id: string,) => {
 }
 
 /**
+ * Affecte une séance (du coach) à des athlètes liés. Une séance de statut `template` n'est pas assignable → 422 `SESSION_NOT_ASSIGNABLE` (ADR-29) : la dupliquer d'abord (`POST /sessions/{id}/duplicate`).
  * @summary Affecter une séance à des athlètes
  */
 export const assignSession = async (id: string,

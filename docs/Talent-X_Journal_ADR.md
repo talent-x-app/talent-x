@@ -42,6 +42,7 @@ Chaque décision suit le format **ADR** : Statut, Date, Contexte, Décision, Con
 | ADR-26 | Lecture athlète de ses groupes & coach : endpoint additif `GET /groups/mine` + schéma dédié `AthleteGroup` (sans `inviteCode`, ADR-16) (complète OpenAPI · TX-SPEC-002 §6 · TLX-88) | Accepté |
 | ADR-27 | Schéma `exercises` v3 : groupes d'exercices à un niveau (`kind: group`, tours `rounds` + récup r/R, `groupType` superset\|circuit\|series) — séries de courses, contraste, circuits, gammes ; contrat `results`/records inchangés, jointure `order` d'abord + séquencement lecture→écriture (complète ADR-18 · TX-DATA-006 §9.1 · TLX-95) | Accepté |
 | ADR-28 | Brief de séance : document JSONB versionné `brief` (intention du jour, « en une phrase », durée, difficulté, réussi si / stop si, notes coach) + **double lecture coach/athlète appliquée au serveur** — champs coach retirés de toute sérialisation athlète (complète ADR-10 · TX-DATA-006 §5.4/§9 · OpenAPI) | Accepté |
+| ADR-29 | Modèles de séance (bibliothèque C-10) : un modèle = une `Session` de statut **`template`** (enum additif), non datée et **non assignable** (assigner un `template` → 422) ; bibliothèque = `GET /sessions?status=template`, « utiliser » = `duplicate` existant — zéro table/migration ; pas de fuite athlète (scope = affectation active) (complète OpenAPI · TX-SPEC-002 §5/§6 · TLX-064) | Accepté |
 
 ---
 
@@ -536,6 +537,29 @@ bloc (`percentVma`, `tempo`) passe par les `params` d'éditeurs (frontend pur, c
 ADR-18). Écartés : deux textes stockés (désynchronisation), colonnes dédiées, filtrage
 côté client (fuite des notes coach), champ `phase`, conventions Markdown dans
 `description`.
+
+---
+
+## ADR-29 — Modèles de séance (bibliothèque C-10) : statut `template`
+
+Décision complète : [`docs/adr/ADR-29-modeles-de-seance-bibliotheque.md`](adr/ADR-29-modeles-de-seance-bibliotheque.md).
+
+**Statut : Accepté** (2026-06-12 — débloque TLX-064 / C-10).
+
+**En bref.** C-10 demande une bibliothèque de séances **réutilisables, non datées et non
+assignables** côté coach, mais ni la « Carte C-10 » (absente des specs) ni le modèle de
+données ne définissent de notion de **modèle** (`SessionStatus` = `draft|published|archived`,
+pas de table dédiée). Le `duplicateSession` livré (TLX-050) annonçait déjà des « impacts
+modèles C-10 » : la feature est pensée **autour de la duplication**. Décision : un modèle =
+une `Session` de statut **`template`** (valeur d'enum additive) — même contenu `exercises`
+(ADR-18/27) + `brief` (ADR-28), **zéro table, zéro migration**. Bibliothèque =
+`GET /sessions?status=template` (filtre existant) ; « utiliser » = `POST /sessions/{id}/duplicate`
+(existant) → brouillon ; « enregistrer comme modèle » = create/update `status: template`.
+Seul invariant neuf : **assigner un `template` → 422** (`SESSION_NOT_ASSIGNABLE`) ; la
+non-fuite athlète est déjà acquise (scope de lecture = affectation active). Écartés : ressource
+dédiée `/session-templates` (≈2× le travail, découplage inutile au MVP, réversible plus tard),
+booléen `isTemplate` (états incohérents `published`+template), et « assignation réservée aux
+`published` » (règle non spécifiée, hors périmètre).
 
 ---
 

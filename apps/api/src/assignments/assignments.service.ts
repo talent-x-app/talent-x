@@ -1,4 +1,9 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import { Prisma, type Session, type SessionAssignment } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { OwnershipService } from '../common/authorization/ownership.service';
@@ -6,6 +11,7 @@ import type { AuthenticatedUser } from '../common/decorators/current-user.decora
 import type { Role } from '../common/decorators/roles.decorator';
 import { buildPageMeta } from '../common/pagination/page-meta';
 import { NotificationQueueService } from '../jobs/notification-queue.service';
+import { SessionStatus } from '../sessions/dto/session-create.dto';
 import { toSessionDto } from '../sessions/session.mapper';
 import { AssignRequestDto } from './dto/assign-request.dto';
 import { AssignmentQueryDto } from './dto/assignment-query.dto';
@@ -40,6 +46,7 @@ export class AssignmentsService {
     dto: AssignRequestDto,
   ): Promise<AssignmentListDto> {
     await this.ownership.assertSessionOwnedByCoach(coachId, sessionId);
+    await this.assertSessionAssignable(sessionId);
     const athleteIds = [...new Set(dto.athleteIds)];
     for (const athleteId of athleteIds) {
       await this.ownership.assertCoachLinkedToAthlete(coachId, athleteId);
@@ -104,6 +111,25 @@ export class AssignmentsService {
     }
     this.assertReadable(user, assignment, assignment.session);
     return toAssignmentDto(assignment, user.role, assignment.session);
+  }
+
+  /**
+   * Garde-fou ADR-29 : un modèle de séance (statut `template`, bibliothèque C-10) n'est
+   * **pas assignable** — il doit d'abord être dupliqué en séance réelle. 422
+   * `SESSION_NOT_ASSIGNABLE`. La séance est déjà connue comme appartenant au coach
+   * (ownership vérifié en amont) → simple lecture du statut.
+   */
+  private async assertSessionAssignable(sessionId: string): Promise<void> {
+    const session = await this.prisma.session.findUnique({
+      where: { id: sessionId },
+      select: { status: true },
+    });
+    if (session?.status === SessionStatus.Template) {
+      throw new UnprocessableEntityException({
+        error: 'SESSION_NOT_ASSIGNABLE',
+        message: 'Un modèle de séance ne peut pas être affecté : dupliquez-le d’abord.',
+      });
+    }
   }
 
   private scopeForUser(

@@ -36,7 +36,7 @@ import {
   makeEmptyBriefDraft,
   type BriefDraft,
 } from './brief-editor';
-import { assignSessionHref } from './navigation';
+import { assignSessionHref, coachTemplatesHref } from './navigation';
 
 /** Version courante du contrat JSONB des séances (schéma exercises **v3** — groupes, ADR-27). */
 const EXERCISES_SCHEMA_VERSION = 3;
@@ -48,20 +48,31 @@ const EXERCISES_SCHEMA_VERSION = 3;
  * selon `sessionId`. Les éditeurs typés par discipline (TLX-053→061) attendent l'ADR-18
  * (schéma v2). États : chargement (édition), erreur, validation.
  */
-export function SessionBuilderScreen({ sessionId }: { sessionId?: string }) {
+export function SessionBuilderScreen({
+  sessionId,
+  initialStatus,
+}: {
+  sessionId?: string;
+  /** Statut pré-sélectionné à la création (C-10 : `template` ouvre le mode modèle, ADR-29). */
+  initialStatus?: SessionStatus;
+}) {
   const { colors, typography, spacing } = useTheme();
   const router = useRouter();
   const toast = useToast();
   const queryClient = useQueryClient();
   const isEdit = sessionId != null;
+  const defaultStatus = initialStatus ?? SessionStatus.draft;
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [scheduledDate, setScheduledDate] = useState('');
-  const [status, setStatus] = useState<SessionStatus>(SessionStatus.draft);
+  const [status, setStatus] = useState<SessionStatus>(defaultStatus);
   const [nodes, setNodes] = useState<EditableNode[]>([makeEmptyBlock()]);
   const [brief, setBrief] = useState<BriefDraft>(makeEmptyBriefDraft());
   const [error, setError] = useState<string | null>(null);
+
+  // Mode modèle (C-10, ADR-29) : un modèle est non daté et non assignable.
+  const isTemplate = status === SessionStatus.template;
 
   // Mode édition : charge la séance existante puis hydrate le formulaire.
   const existing = useQuery({
@@ -97,11 +108,11 @@ export function SessionBuilderScreen({ sessionId }: { sessionId?: string }) {
       setTitle('');
       setDescription('');
       setScheduledDate('');
-      setStatus(SessionStatus.draft);
+      setStatus(defaultStatus);
       setNodes([makeEmptyBlock()]);
       setBrief(makeEmptyBriefDraft());
       setError(null);
-    }, [isEdit]),
+    }, [isEdit, defaultStatus]),
   );
 
   const mutation = useMutation({
@@ -137,15 +148,28 @@ export function SessionBuilderScreen({ sessionId }: { sessionId?: string }) {
       throw response;
     },
     onSuccess: (session) => {
+      // Invalidation non-exacte de ['sessions'] → couvre aussi la bibliothèque ['sessions','templates'].
       void queryClient.invalidateQueries({ queryKey: ['sessions'] });
       if (isEdit) void queryClient.invalidateQueries({ queryKey: ['session', sessionId] });
+      const savedTemplate = session.status === SessionStatus.template;
       toast.show({
-        title: isEdit ? 'Séance mise à jour' : 'Séance créée',
+        title: savedTemplate
+          ? isEdit
+            ? 'Modèle mis à jour'
+            : 'Modèle créé'
+          : isEdit
+            ? 'Séance mise à jour'
+            : 'Séance créée',
         variant: 'success',
       });
-      // Création : enchaîne sur l'assignation (C-06) — referme le cycle création → affectation
-      // (la séance n'est pas listée ailleurs). `replace` pour que « retour » ramène au dashboard.
-      if (isEdit) router.back();
+      if (isEdit) {
+        router.back();
+        return;
+      }
+      // Création d'un **modèle** (C-10) : retour à la bibliothèque (un modèle n'est pas assignable).
+      // Création d'une **séance** : enchaîne sur l'assignation (C-06) — referme le cycle
+      // création → affectation (la séance n'est pas listée ailleurs).
+      if (savedTemplate) router.replace(coachTemplatesHref());
       else router.replace(assignSessionHref(session.id, session.title));
     },
     onError: () => {
@@ -370,7 +394,13 @@ export function SessionBuilderScreen({ sessionId }: { sessionId?: string }) {
           letterSpacing: -0.5,
         }}
       >
-        {isEdit ? 'Modifier la séance' : 'Nouvelle séance'}
+        {isTemplate
+          ? isEdit
+            ? 'Modifier le modèle'
+            : 'Nouveau modèle'
+          : isEdit
+            ? 'Modifier la séance'
+            : 'Nouvelle séance'}
       </Text>
 
       {/* En-tête de séance (Carte C-05 §4). */}
@@ -390,13 +420,16 @@ export function SessionBuilderScreen({ sessionId }: { sessionId?: string }) {
           placeholder="Ex. 16 efforts courts à VO₂max, régularité avant tout"
           multiline
         />
-        <HeaderField
-          testID="session-field-date"
-          label="Date prévue (optionnel)"
-          value={scheduledDate}
-          onChangeText={setScheduledDate}
-          placeholder="AAAA-MM-JJ"
-        />
+        {/* Un modèle (C-10) n'est pas daté : champ masqué en mode modèle (ADR-29). */}
+        {isTemplate ? null : (
+          <HeaderField
+            testID="session-field-date"
+            label="Date prévue (optionnel)"
+            value={scheduledDate}
+            onChangeText={setScheduledDate}
+            placeholder="AAAA-MM-JJ"
+          />
+        )}
         <View style={{ gap: spacing[2] }}>
           <Text
             style={{
@@ -421,6 +454,13 @@ export function SessionBuilderScreen({ sessionId }: { sessionId?: string }) {
               onPress={() => setStatus(SessionStatus.published)}
             >
               Publiée
+            </Chip>
+            <Chip
+              testID="session-status-template"
+              selected={status === SessionStatus.template}
+              onPress={() => setStatus(SessionStatus.template)}
+            >
+              Modèle
             </Chip>
           </View>
         </View>
@@ -521,11 +561,18 @@ export function SessionBuilderScreen({ sessionId }: { sessionId?: string }) {
         loading={mutation.isPending}
         onPress={onSave}
       >
-        {isEdit ? 'Enregistrer les modifications' : 'Créer la séance'}
+        {isTemplate
+          ? isEdit
+            ? 'Enregistrer le modèle'
+            : 'Créer le modèle'
+          : isEdit
+            ? 'Enregistrer les modifications'
+            : 'Créer la séance'}
       </Button>
 
-      {/* Mode édition : assigner la séance existante à des athlètes (C-06, TLX-063). */}
-      {isEdit ? (
+      {/* Mode édition d'une séance réelle : assigner à des athlètes (C-06, TLX-063).
+          Masqué pour un modèle (non assignable, ADR-29) : il faut d'abord le dupliquer. */}
+      {isEdit && !isTemplate ? (
         <Button
           testID="session-assign"
           variant="secondary"

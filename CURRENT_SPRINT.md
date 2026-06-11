@@ -16,6 +16,46 @@ de débloquer les écrans coach C-01/C-02/C-03.
 
 - _(rien — backend du sprint terminé)_
 
+## Terminés — C-10 Bibliothèque de modèles de séance (TLX-064, ADR-29)
+
+- **ADR-29 accepté** (2026-06-12) : un **modèle = une `Session` de statut `template`** (enum additif,
+  pas de table dédiée) — non daté, **non assignable**. Bibliothèque = `GET /sessions?status=template`
+  (filtre existant), « utiliser » = `POST /sessions/{id}/duplicate` (existant → brouillon). Choisi
+  contre une ressource `/session-templates` séparée (≈2× le travail, découplage inutile au MVP) ; le
+  `duplicateSession` livré annonçait déjà des « impacts modèles C-10 ».
+- **(Contrat)** `SessionStatus` gagne `template` (OpenAPI → DTO Nest → client orval régénéré) ; 422
+  `SESSION_NOT_ASSIGNABLE` documenté sur `POST /sessions/{id}/assign`. **Migration expand-only**
+  `20260612090000_session_template_status` : la contrainte `chk_sessions_status` admet `template`
+  (aucune donnée existante touchée).
+- **(API)** garde-fou `AssignmentsService.assertSessionAssignable` — assigner un `template` → **422
+  `SESSION_NOT_ASSIGNABLE`** (avant toute vérif de lien athlète) ; les statuts `draft`/`published`/
+  `archived` restent assignables. Pas de fuite athlète : le scope de lecture athlète exige déjà une
+  affectation active (un modèle ne peut être affecté). +3 tests unitaires (assign template → 422,
+  duplicate template → brouillon).
+- **(Mobile)** écran **`CoachTemplatesScreen`** (route cachée `(coach)/templates`) — liste
+  `GET /sessions?status=template` (clé `['sessions','templates']`), « Créer un modèle » (constructeur
+  en mode modèle), « Utiliser ce modèle » (`duplicate` → ouvre le constructeur sur la copie),
+  tap carte → édition ; états chargement / erreur / vide, pull-to-refresh. **Constructeur C-05**
+  étendu : puce statut **« Modèle »**, date et bouton d'assignation masqués en mode modèle, nav
+  post-création vers la bibliothèque (jamais l'assignation), `initialStatus` via param `session/new`.
+  **Calendrier coach (C-09)** exclut les `template` (vue dérivée). Entrée « Mes modèles de séance »
+  sur l'écran Athlètes.
+- **Tests** : +6 écran bibliothèque, +4 constructeur (mode modèle), +1 calendrier (exclusion) ;
+  **mobile 407/407**, typecheck + lint clean ; **API unit 344/344** ; client `@talent-x/api-client`
+  rebuild + types de routes expo-router régénérés.
+- **Validé en réel (2026-06-12, API `nest start` :3000 + Docker DB :5433 + Expo web)** :
+  - **Backend (curl + intégration DB)** : création `status:template` persisté → `?status=template`
+    le liste → assign du modèle **422 `SESSION_NOT_ASSIGNABLE`** → `duplicate` → **brouillon**
+    `(copie)` → assign du brouillon franchit le garde (403 lien athlète, contrôle). Verrouillé par
+    `critical-paths.int-spec.ts` (**int 23/23**).
+  - **Expo web** : login coach → Athlètes → « Mes modèles » → bibliothèque (2 modèles, « 1 exercice »,
+    « Utiliser ») → « Utiliser ce modèle » → `/session/:id/edit` sur la **copie brouillon** (date +
+    assignation présentes) → puce **« Modèle »** → en-tête « Modifier le modèle », **date et
+    assignation masquées**, bouton « Enregistrer le modèle ». **Bug attrapé en vérif live (corrigé)** :
+    la carte de modèle imbriquait un bouton « Utiliser » dans une carte pressable (`<button>` dans
+    `<button>` → erreur d'hydratation web) → restructurée en boutons **frères** (en-tête `Pressable`
+    - action `Button`), vérifié au DOM (`sameParent`, non imbriqués).
+
 ## Terminés ce sprint (backend)
 
 - **TLX-050** (API) Séances — **8 endpoints** : CRUD `/sessions` (create/list/get/update/
