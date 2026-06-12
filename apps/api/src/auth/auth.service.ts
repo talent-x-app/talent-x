@@ -1,5 +1,6 @@
-import { randomUUID } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotImplementedException,
@@ -8,7 +9,9 @@ import {
 import { Prisma } from '@prisma/client';
 import { type AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { type Role } from '../common/decorators/roles.decorator';
+import { EmailQueueService } from '../jobs/email-queue.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { PASSWORD_RESET_TOKEN_TTL_SECONDS } from './auth.constants';
 import { type AuthSessionDto } from './dto/auth-session.dto';
 import { type AuthTokensDto } from './dto/auth-tokens.dto';
 import { type ForgotPasswordRequestDto } from './dto/forgot-password-request.dto';
@@ -20,7 +23,7 @@ import { type ResetPasswordRequestDto } from './dto/reset-password-request.dto';
 import { type TwoFactorSetupDto } from './dto/two-factor-setup.dto';
 import { type TwoFactorVerifyDto } from './dto/two-factor-verify.dto';
 import { PasswordService } from './password.service';
-import { hashRefreshToken, TokenService } from './token.service';
+import { hashRefreshToken, hashResetToken, TokenService } from './token.service';
 import { toUserDto } from './user.mapper';
 
 @Injectable()
@@ -29,6 +32,7 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly password: PasswordService,
     private readonly tokens: TokenService,
+    private readonly emailQueue: EmailQueueService,
   ) {}
 
   /**
@@ -208,12 +212,84 @@ export class AuthService {
     });
   }
 
-  forgotPassword(_dto: ForgotPasswordRequestDto): Promise<void> {
-    return this.notImplemented('forgotPassword');
+  /**
+   * Mot de passe oublié (TLX-104, TX-SEC-003 §11) : déclenche l'envoi d'un lien de
+   * réinitialisation. **Réponse neutre** — toujours 202, qu'un compte existe ou non
+   * (anti-énumération) : on n'émet un jeton et un email que si l'email correspond à
+   * un compte actif. Le jeton opaque est stocké haché (usage unique, expirant) ; le
+   * jeton en clair ne voyage que dans la file email. L'enqueue est tolérant aux
+   * pannes (jamais d'échec propagé) pour préserver la neutralité de la réponse.
+   */
+  async forgotPassword(dto: ForgotPasswordRequestDto): Promise<void> {
+    const user = await this.prisma.user.findFirst({
+      where: { email: { equals: dto.email, mode: 'insensitive' }, deletedAt: null },
+      select: { id: true, email: true },
+    });
+    if (!user) return; // Réponse neutre : aucun indice que le compte n'existe pas.
+
+    const rawToken = randomBytes(32).toString('base64url');
+    await this.prisma.passwordResetToken.create({
+      data: {
+        userId: user.id,
+        tokenHash: hashResetToken(rawToken),
+        expiresAt: new Date(Date.now() + PASSWORD_RESET_TOKEN_TTL_SECONDS * 1000),
+      },
+    });
+    await this.emailQueue.enqueuePasswordReset(user.email, rawToken);
   }
 
-  resetPassword(_dto: ResetPasswordRequestDto): Promise<void> {
-    return this.notImplemented('resetPassword');
+  /**
+   * Réinitialisation (TLX-104, TX-SEC-003 §11) : consomme un jeton à usage unique,
+   * met à jour le hash Argon2id et **révoque toutes les sessions** du compte (un
+   * reset coupe les accès existants). Le jeton est validé (existant, non consommé,
+   * non expiré, compte actif) puis consommé de façon atomique (anti-rejeu / course).
+   * Les autres jetons en attente du compte sont invalidés au passage.
+   */
+  async resetPassword(dto: ResetPasswordRequestDto): Promise<void> {
+    const record = await this.prisma.passwordResetToken.findFirst({
+      where: { tokenHash: hashResetToken(dto.token) },
+      select: { id: true, userId: true, usedAt: true, expiresAt: true },
+    });
+    if (!record || record.usedAt || record.expiresAt.getTime() <= Date.now()) {
+      throw this.invalidResetToken();
+    }
+    const user = await this.prisma.user.findFirst({
+      where: { id: record.userId, deletedAt: null },
+      select: { id: true },
+    });
+    if (!user) throw this.invalidResetToken();
+
+    // Hash hors transaction (Argon2 est coûteux : ne pas tenir la transaction ouverte).
+    const passwordHash = await this.password.hash(dto.newPassword);
+    const now = new Date();
+
+    await this.prisma.$transaction(async (tx) => {
+      // Consommation atomique : si une course a déjà consommé le jeton, count=0 → invalide.
+      const consumed = await tx.passwordResetToken.updateMany({
+        where: { id: record.id, usedAt: null },
+        data: { usedAt: now },
+      });
+      if (consumed.count === 0) throw this.invalidResetToken();
+
+      await tx.user.update({ where: { id: user.id }, data: { passwordHash } });
+      // Un reset invalide toutes les sessions actives (refresh tokens).
+      await tx.refreshToken.updateMany({
+        where: { userId: user.id, revokedAt: null },
+        data: { revokedAt: now },
+      });
+      // Invalide les autres jetons de reset en attente (un seul lien doit servir).
+      await tx.passwordResetToken.updateMany({
+        where: { userId: user.id, usedAt: null },
+        data: { usedAt: now },
+      });
+    });
+  }
+
+  private invalidResetToken(): never {
+    throw new BadRequestException({
+      error: 'INVALID_RESET_TOKEN',
+      message: 'Jeton de réinitialisation invalide ou expiré.',
+    });
   }
 
   enable2fa(_user: AuthenticatedUser): Promise<TwoFactorSetupDto> {

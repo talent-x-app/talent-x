@@ -12,6 +12,8 @@ import { DataExportArchiveBuilder } from './jobs/data-export-archive-builder';
 import { AccountPurgeService } from './jobs/account-purge.service';
 import { NotificationProcessor } from './jobs/notification.processor';
 import { LoggingPushProvider, PushProvider } from './jobs/push-provider';
+import { EmailProcessor } from './jobs/email.processor';
+import { LoggingEmailProvider, EmailProvider } from './jobs/email-provider';
 
 /**
  * Contexte d'exécution du worker (process séparé de l'API — TX-ARCH-001 §4.5).
@@ -38,6 +40,9 @@ import { LoggingPushProvider, PushProvider } from './jobs/push-provider';
     NotificationProcessor,
     // Provider logging tant que les credentials APNs/FCM n'existent pas (ADR-22 §4).
     { provide: PushProvider, useClass: LoggingPushProvider },
+    EmailProcessor,
+    // Provider logging tant que le fournisseur SMTP/email n'est pas branché (TLX-104).
+    { provide: EmailProvider, useClass: LoggingEmailProvider },
   ],
 })
 export class WorkerModule {}

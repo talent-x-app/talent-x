@@ -12,6 +12,41 @@ de débloquer les écrans coach C-01/C-02/C-03.
 - _(éditeurs typés terminés — TLX-054→061 livrés ↓)_
 - _(C-01 complet — TLX-081→085 livrés ↓)_
 
+## Terminés — TLX-104 Auth : réinitialisation de mot de passe (forgot/reset) (TX-SEC-003 §11)
+
+- **Écart audit TLX-121 résorbé** : `forgot-password` / `reset-password` étaient des stubs **501**
+  (routes + OpenAPI exposées). Implémentés **sans changement de contrat** (DTO + OpenAPI existaient).
+  `logout`/`logout-all` avaient déjà été livrés sous TLX-121.
+- **(Modèle)** migration expand-only `20260612120000_password_reset_tokens` : table de jetons à
+  **usage unique et expirant**, seul le **SHA-256** est stocké (`token_hash` unique) — le jeton clair
+  ne vit que dans l'email. `used_at` = consommation ; FK `ON DELETE CASCADE`.
+- **(API)** `forgotPassword` : **réponse neutre 202 systématique** (anti-énumération) — n'émet un
+  jeton + un email que si l'email correspond à un compte actif ; enqueue tolérant aux pannes (jamais
+  d'échec propagé). `resetPassword` : valide (existant / non consommé / non expiré / compte actif),
+  **consomme atomiquement** (anti-rejeu + course → 400 `INVALID_RESET_TOKEN`), met à jour le hash
+  Argon2id et **révoque toutes les sessions** (refresh tokens) + invalide les autres jetons en attente
+  — le tout en transaction.
+- **(Infra email)** nouveau pipeline calqué sur les notifications (ADR-22) : file BullMQ
+  `transactional-email` + `EmailQueueService` (producteur API) → `EmailProcessor` (worker, compose
+  sujet/corps/lien) → **`EmailProvider` abstrait** (`LoggingEmailProvider` en dev ; adaptateur SMTP/UE
+  à brancher par config — **suivi TLX-128**). `worker.ts` consomme désormais **3 files**. Lien de reset
+  = `${APP_PUBLIC_URL}/reset-password?token=…` (`APP_PUBLIC_URL` ajouté à `env.validation`, requis en
+  prod-like, défaut Expo web en dev). TTL jeton = `PASSWORD_RESET_TOKEN_TTL_SECONDS` (défaut 1 h).
+- **Tests** : +21 (service forgot/reset, queue producteur dont panne Redis avalée, processor +
+  composition du lien, controller, env.validation `APP_PUBLIC_URL`) + **5 intégration** DB-backed
+  (forgot 202 + jeton haché persisté, forgot neutre email inconnu, reset complet → login bascule +
+  sessions révoquées, jeton inconnu/consommé → 400). **API unit 375/375**, **int 16/16**, typecheck +
+  lint clean.
+- **Validé en réel (2026-06-12, API `nest start` :3001 + worker BullMQ + Redis + Docker DB :5433)** —
+  cycle complet par curl avec **token capturé depuis le log du worker** : register → `forgot-password`
+  **202** → worker compose l'email et logge le lien `…/reset-password?token=…` → `reset-password`
+  **204** → login ancien mdp **401** / nouveau mdp **200** → refresh de l'ancien token **409**
+  (sessions révoquées) → rejeu du même token de reset **400** (usage unique). Le maillon
+  **Redis → worker → EmailProvider** est joué en vrai (jobs réellement enfilés et consommés).
+- **Non testé en réel** (provider absent, comme APNs/FCM en TLX-110) : l'envoi SMTP effectif —
+  `LoggingEmailProvider` journalise. Adaptateur réel = **TLX-128**. UI mobile « mot de passe oublié »
+  hors périmètre de ce ticket (backend).
+
 ## Terminés — TLX-109 Assignation d'une séance à un groupe (ADR-30, lots 1+2)
 
 - **ADR-30 accepté** : le groupe est une **source** d'affectation, **pas** une maille d'exécution.

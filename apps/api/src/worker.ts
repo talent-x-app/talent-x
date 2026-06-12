@@ -8,11 +8,14 @@ import { redisConnectionFromUrl } from './jobs/redis-connection';
 import {
   DATA_EXPORT_QUEUE,
   NOTIFICATIONS_QUEUE,
+  TRANSACTIONAL_EMAIL_QUEUE,
+  type EmailJobPayload,
   type ExportJobPayload,
   type NotificationJobPayload,
 } from './jobs/jobs.constants';
 import { ExportProcessor } from './jobs/export.processor';
 import { NotificationProcessor } from './jobs/notification.processor';
+import { EmailProcessor } from './jobs/email.processor';
 import { WorkerModule } from './worker.module';
 
 /**
@@ -38,6 +41,7 @@ async function bootstrap(): Promise<void> {
 
   const exportProcessor = app.get(ExportProcessor);
   const notificationProcessor = app.get(NotificationProcessor);
+  const emailProcessor = app.get(EmailProcessor);
   const workers = [
     new Worker<ExportJobPayload>(
       DATA_EXPORT_QUEUE,
@@ -47,6 +51,11 @@ async function bootstrap(): Promise<void> {
     new Worker<NotificationJobPayload>(
       NOTIFICATIONS_QUEUE,
       async (job) => notificationProcessor.process(job.data),
+      { connection: redisConnectionFromUrl(redisUrl) },
+    ),
+    new Worker<EmailJobPayload>(
+      TRANSACTIONAL_EMAIL_QUEUE,
+      async (job) => emailProcessor.process(job.data),
       { connection: redisConnectionFromUrl(redisUrl) },
     ),
   ];

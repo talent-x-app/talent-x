@@ -20,3 +20,12 @@ export const REFRESH_TOKEN_TTL_SECONDS = positiveInt(
 
 /** Émetteur (claim `iss`) des access tokens. */
 export const JWT_ISSUER = process.env.JWT_ISSUER ?? 'talent-x';
+
+/**
+ * Durée de vie d'un jeton de réinitialisation de mot de passe (TLX-104,
+ * TX-SEC-003 §11 — « token expirant »), en secondes. Défaut : 1 heure.
+ */
+export const PASSWORD_RESET_TOKEN_TTL_SECONDS = positiveInt(
+  process.env.PASSWORD_RESET_TOKEN_TTL_SECONDS,
+  60 * 60,
+);

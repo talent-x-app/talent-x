@@ -14,7 +14,7 @@ import { validationExceptionFactory } from '../src/common/validation/validation-
 import { PrismaService } from '../src/prisma/prisma.service';
 import { OwnershipService } from '../src/common/authorization/ownership.service';
 import { ConsentGate } from '../src/common/authorization/consent.gate';
-import { hashRefreshToken } from '../src/auth/token.service';
+import { hashRefreshToken, hashResetToken } from '../src/auth/token.service';
 
 /**
  * Tests d'INTÉGRATION DB-backed (TLX-79) : exécutent les chemins nominaux contre
@@ -293,6 +293,97 @@ describe('Auth & RGPD (intégration DB)', () => {
       await expect(ownership.assertSessionOwnedByCoach(coach, session.id)).rejects.toBeInstanceOf(
         NotFoundException,
       );
+    });
+  });
+
+  describe('TLX-104 — mot de passe oublié / réinitialisation', () => {
+    const api = () => request(app.getHttpServer());
+
+    it('forgot-password : 202 + jeton persisté (haché) pour un compte actif', async () => {
+      const email = uniqueEmail();
+      const reg = await register('athlete', email);
+      const userId = reg.body.user.id;
+
+      const res = await api().post('/api/v1/auth/forgot-password').send({ email });
+      expect(res.status).toBe(202);
+
+      const token = await prisma.passwordResetToken.findFirst({ where: { userId } });
+      expect(token).not.toBeNull();
+      expect(token!.usedAt).toBeNull();
+      expect(token!.expiresAt.getTime()).toBeGreaterThan(Date.now());
+    });
+
+    it('forgot-password : 202 neutre + aucun jeton pour un email inconnu', async () => {
+      const res = await api()
+        .post('/api/v1/auth/forgot-password')
+        .send({ email: `ghost-${randomUUID()}@ex.test` });
+      expect(res.status).toBe(202);
+    });
+
+    it('reset-password : consomme le jeton, change le hash et révoque les sessions', async () => {
+      const email = uniqueEmail();
+      const reg = await register('athlete', email);
+      const userId = reg.body.user.id;
+      const oldRefresh = reg.body.refreshToken as string;
+
+      // Seed d'un jeton de reset valide (le clair n'existe que côté email en prod).
+      const rawToken = `reset-${randomUUID()}`;
+      const seeded = await prisma.passwordResetToken.create({
+        data: {
+          userId,
+          tokenHash: hashResetToken(rawToken),
+          expiresAt: new Date(Date.now() + 3600_000),
+        },
+      });
+
+      const newPassword = 'Br4ndNewP@ss';
+      const reset = await api()
+        .post('/api/v1/auth/reset-password')
+        .send({ token: rawToken, newPassword });
+      expect(reset.status).toBe(204);
+
+      // Le jeton est consommé.
+      const after = await prisma.passwordResetToken.findUnique({ where: { id: seeded.id } });
+      expect(after!.usedAt).not.toBeNull();
+
+      // L'ancien mot de passe ne marche plus, le nouveau oui.
+      const oldLogin = await api().post('/api/v1/auth/login').send({ email, password: PASSWORD });
+      expect(oldLogin.status).toBe(401);
+      const newLogin = await api()
+        .post('/api/v1/auth/login')
+        .send({ email, password: newPassword });
+      expect(newLogin.status).toBe(200);
+
+      // Les sessions antérieures sont révoquées : le refresh d'avant le reset est
+      // désormais révoqué → son usage déclenche la détection de réutilisation (409).
+      const refresh = await api().post('/api/v1/auth/refresh').send({ refreshToken: oldRefresh });
+      expect(refresh.status).toBe(409);
+    });
+
+    it('reset-password : jeton inconnu → 400 INVALID_RESET_TOKEN', async () => {
+      const res = await api()
+        .post('/api/v1/auth/reset-password')
+        .send({ token: 'does-not-exist', newPassword: 'Wh4tever!1' });
+      expect(res.status).toBe(400);
+      expect(res.body.error).toBe('INVALID_RESET_TOKEN');
+    });
+
+    it('reset-password : jeton déjà consommé → 400', async () => {
+      const email = uniqueEmail();
+      const reg = await register('athlete', email);
+      const rawToken = `reset-${randomUUID()}`;
+      await prisma.passwordResetToken.create({
+        data: {
+          userId: reg.body.user.id,
+          tokenHash: hashResetToken(rawToken),
+          expiresAt: new Date(Date.now() + 3600_000),
+          usedAt: new Date(),
+        },
+      });
+      const res = await api()
+        .post('/api/v1/auth/reset-password')
+        .send({ token: rawToken, newPassword: 'Wh4tever!1' });
+      expect(res.status).toBe(400);
     });
   });
 });

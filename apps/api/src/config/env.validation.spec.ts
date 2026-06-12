@@ -104,6 +104,7 @@ describe('validateEnv', () => {
     S3_BUCKET: 'talentx-exports',
     S3_ACCESS_KEY_ID: 'ak',
     S3_SECRET_ACCESS_KEY: 'sk',
+    APP_PUBLIC_URL: 'https://app.talent-x.example',
   };
 
   it('exige REDIS_URL en production', () => {
@@ -124,6 +125,16 @@ describe('validateEnv', () => {
 
   it('n’exige ni Redis ni S3 en dev/test', () => {
     expect(() => validateEnv({ ...base, NODE_ENV: 'development' })).not.toThrow();
+  });
+
+  it('exige APP_PUBLIC_URL en production et le passe through (TLX-104)', () => {
+    const { APP_PUBLIC_URL: _omit, ...withoutAppUrl } = prodReady;
+    expect(() => validateEnv(withoutAppUrl)).toThrow(/APP_PUBLIC_URL est requis en production/);
+    expect(validateEnv(prodReady).APP_PUBLIC_URL).toBe('https://app.talent-x.example');
+  });
+
+  it('rejette un APP_PUBLIC_URL non http(s)', () => {
+    expect(() => validateEnv({ ...base, APP_PUBLIC_URL: 'ftp://x' })).toThrow(/APP_PUBLIC_URL/);
   });
 
   it('rejette un S3_ENDPOINT non http(s)', () => {

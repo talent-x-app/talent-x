@@ -40,3 +40,24 @@ export interface NotificationJobPayload {
   resourceId: string;
   dedupeKey: string;
 }
+
+/** File des emails transactionnels (TLX-104). */
+export const TRANSACTIONAL_EMAIL_QUEUE = 'transactional-email';
+
+/** Nom du job d'email au sein de la file. */
+export const EMAIL_JOB_NAME = 'send-email';
+
+/** Catégories d'emails transactionnels (MVP : réinitialisation de mot de passe). */
+export type EmailKind = 'password_reset';
+
+/**
+ * Payload d'un job d'email. Le rendu (sujet, corps, lien) est composé par le
+ * worker à partir du `kind` et de `params` : ainsi le jeton de réinitialisation
+ * en clair ne transite que par la file (jamais persisté), comme le refresh token.
+ */
+export interface EmailJobPayload {
+  kind: EmailKind;
+  to: string;
+  /** Données de rendu propres au `kind` (ex. `{ token }` pour password_reset). */
+  params: Record<string, string>;
+}

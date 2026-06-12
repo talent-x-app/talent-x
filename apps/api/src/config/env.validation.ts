@@ -63,6 +63,12 @@ export interface EnvConfig {
    * (dev, ou prod derrière un réseau restreint). Secret d'environnement, jamais en dur.
    */
   METRICS_TOKEN?: string;
+  /**
+   * URL publique de l'app (base des liens transactionnels — ex. lien de
+   * réinitialisation de mot de passe, TLX-104). Non secret. Requis en
+   * staging/production ; défaut dev (`http://localhost:8081`, Expo web) si absent.
+   */
+  APP_PUBLIC_URL?: string;
 }
 
 const NODE_ENVS: readonly NodeEnv[] = ['development', 'test', 'staging', 'production'];
@@ -162,6 +168,16 @@ export function validateEnv(raw: Record<string, unknown>): EnvConfig {
   // rester ouvert derrière un réseau restreint). Aucune valeur par défaut.
   const metricsToken = (raw.METRICS_TOKEN as string)?.trim();
 
+  // URL publique de l'app (liens transactionnels — TLX-104). Requise en prod-like
+  // (le lien de reset doit pointer vers l'app réelle) ; défaut dev sinon.
+  const appPublicUrl = (raw.APP_PUBLIC_URL as string)?.trim();
+  if (appPublicUrl && !/^https?:\/\//.test(appPublicUrl)) {
+    errors.push('APP_PUBLIC_URL, si défini, doit être une URL http(s)://');
+  }
+  if (isProdLike && !appPublicUrl) {
+    errors.push(`APP_PUBLIC_URL est requis en ${nodeEnv} (liens transactionnels)`);
+  }
+
   if (errors.length > 0) {
     throw new Error(`Configuration d'environnement invalide :\n- ${errors.join('\n- ')}`);
   }
@@ -184,5 +200,6 @@ export function validateEnv(raw: Record<string, unknown>): EnvConfig {
     ...(jwtAdditionalPublicKeys ? { JWT_ADDITIONAL_PUBLIC_KEYS: jwtAdditionalPublicKeys } : {}),
     CONSENT_TEXT_VERSION: consentTextVersion,
     ...(metricsToken ? { METRICS_TOKEN: metricsToken } : {}),
+    ...(appPublicUrl ? { APP_PUBLIC_URL: appPublicUrl } : {}),
   };
 }

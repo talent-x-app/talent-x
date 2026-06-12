@@ -4,7 +4,8 @@ import { type PrismaService } from '../prisma/prisma.service';
 import { AuthService } from './auth.service';
 import { type PasswordService } from './password.service';
 import { type RegisterRequestDto } from './dto/register-request.dto';
-import { hashRefreshToken, type TokenService } from './token.service';
+import { hashRefreshToken, hashResetToken, type TokenService } from './token.service';
+import { type EmailQueueService } from '../jobs/email-queue.service';
 
 const dto: RegisterRequestDto = {
   email: 'New@Example.com',
@@ -43,7 +44,16 @@ function make(userOverrides: Record<string, jest.Mock> = {}) {
       .fn()
       .mockResolvedValue({ accessToken: 'a', refreshToken: 'r', expiresIn: 900 }),
   } as unknown as TokenService;
-  return { service: new AuthService(prisma, password, tokens), user, password, tokens };
+  const emailQueue = {
+    enqueuePasswordReset: jest.fn().mockResolvedValue(undefined),
+  } as unknown as EmailQueueService;
+  return {
+    service: new AuthService(prisma, password, tokens, emailQueue),
+    user,
+    password,
+    tokens,
+    emailQueue,
+  };
 }
 
 describe('AuthService.register (TLX-021)', () => {
@@ -152,7 +162,11 @@ function makeRefresh(opts: { record?: RefreshRecord | null; updateCount?: number
     issueAccessToken: jest.fn().mockReturnValue({ token: 'newA', expiresIn: 900 }),
     issueRefreshToken: jest.fn().mockResolvedValue('newR'),
   } as unknown as TokenService;
-  return { service: new AuthService(prisma, password, tokens), refreshToken, tokens };
+  return {
+    service: new AuthService(prisma, password, tokens, {} as unknown as EmailQueueService),
+    refreshToken,
+    tokens,
+  };
 }
 
 describe('AuthService.refresh (TLX-023)', () => {
@@ -230,6 +244,7 @@ function makeLogout() {
     prisma,
     {} as unknown as PasswordService,
     {} as unknown as TokenService,
+    {} as unknown as EmailQueueService,
   );
   return { service, refreshToken };
 }
@@ -266,5 +281,164 @@ describe('AuthService.logoutAll (TLX-022)', () => {
       where: { userId: 'u1', revokedAt: null },
       data: { revokedAt: expect.any(Date) },
     });
+  });
+});
+
+describe('AuthService.forgotPassword (TLX-104)', () => {
+  function makeForgot(user: { id: string; email: string } | null) {
+    const prisma = {
+      user: { findFirst: jest.fn().mockResolvedValue(user) },
+      passwordResetToken: { create: jest.fn().mockResolvedValue({ id: 'prt1' }) },
+    } as unknown as PrismaService;
+    const emailQueue = {
+      enqueuePasswordReset: jest.fn().mockResolvedValue(undefined),
+    } as unknown as EmailQueueService;
+    const service = new AuthService(
+      prisma,
+      { hash: jest.fn() } as unknown as PasswordService,
+      {} as unknown as TokenService,
+      emailQueue,
+    );
+    return { service, prisma, emailQueue };
+  }
+
+  it('compte actif : crée un jeton haché expirant et enfile l’email avec le jeton en clair', async () => {
+    const { service, prisma, emailQueue } = makeForgot({ id: 'u1', email: 'a@e.test' });
+
+    await service.forgotPassword({ email: 'A@e.test' });
+
+    const createArg = (prisma.passwordResetToken.create as jest.Mock).mock.calls[0][0];
+    expect(createArg.data.userId).toBe('u1');
+    expect(createArg.data.tokenHash).toMatch(/^[a-f0-9]{64}$/); // SHA-256 hex, pas le jeton clair
+    expect(createArg.data.expiresAt.getTime()).toBeGreaterThan(Date.now());
+    // Le jeton enfilé est le clair, et son hash == celui persisté (jamais l’inverse).
+    const [, rawToken] = (emailQueue.enqueuePasswordReset as jest.Mock).mock.calls[0];
+    expect(emailQueue.enqueuePasswordReset).toHaveBeenCalledWith('a@e.test', rawToken);
+    expect(hashResetToken(rawToken)).toBe(createArg.data.tokenHash);
+  });
+
+  it('email inconnu : réponse neutre — aucun jeton, aucun email (anti-énumération)', async () => {
+    const { service, prisma, emailQueue } = makeForgot(null);
+
+    await expect(service.forgotPassword({ email: 'ghost@e.test' })).resolves.toBeUndefined();
+    expect(prisma.passwordResetToken.create).not.toHaveBeenCalled();
+    expect(emailQueue.enqueuePasswordReset).not.toHaveBeenCalled();
+  });
+});
+
+describe('AuthService.resetPassword (TLX-104)', () => {
+  interface ResetRecord {
+    id: string;
+    userId: string;
+    usedAt: Date | null;
+    expiresAt: Date;
+  }
+
+  function makeReset(opts: {
+    record?: ResetRecord | null;
+    user?: { id: string } | null;
+    consumedCount?: number;
+  }) {
+    const record =
+      opts.record === undefined
+        ? { id: 'prt1', userId: 'u1', usedAt: null, expiresAt: new Date(Date.now() + 100_000) }
+        : opts.record;
+    const passwordResetToken = {
+      findFirst: jest.fn().mockResolvedValue(record),
+      updateMany: jest.fn().mockResolvedValue({ count: opts.consumedCount ?? 1 }),
+    };
+    const refreshToken = { updateMany: jest.fn().mockResolvedValue({ count: 2 }) };
+    const user = {
+      findFirst: jest.fn().mockResolvedValue(opts.user === undefined ? { id: 'u1' } : opts.user),
+      update: jest.fn().mockResolvedValue({ id: 'u1' }),
+    };
+    const tx = { passwordResetToken, refreshToken, user };
+    const prisma = {
+      passwordResetToken,
+      user,
+      refreshToken,
+      $transaction: jest.fn().mockImplementation((cb: (t: typeof tx) => unknown) => cb(tx)),
+    } as unknown as PrismaService;
+    const password = {
+      hash: jest.fn().mockResolvedValue('argon$new'),
+    } as unknown as PasswordService;
+    const service = new AuthService(
+      prisma,
+      password,
+      {} as unknown as TokenService,
+      {} as unknown as EmailQueueService,
+    );
+    return { service, passwordResetToken, refreshToken, user, password };
+  }
+
+  it('jeton valide : met à jour le hash, consomme le jeton et révoque les sessions', async () => {
+    const { service, passwordResetToken, refreshToken, user, password } = makeReset({});
+
+    await service.resetPassword({ token: 'raw', newPassword: 'N3wP@ssword' });
+
+    expect(passwordResetToken.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { tokenHash: hashResetToken('raw') } }),
+    );
+    expect(password.hash).toHaveBeenCalledWith('N3wP@ssword');
+    // Consommation atomique du jeton ciblé.
+    expect(passwordResetToken.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: 'prt1', usedAt: null } }),
+    );
+    expect(user.update).toHaveBeenCalledWith({
+      where: { id: 'u1' },
+      data: { passwordHash: 'argon$new' },
+    });
+    // Toutes les sessions actives révoquées.
+    expect(refreshToken.updateMany).toHaveBeenCalledWith({
+      where: { userId: 'u1', revokedAt: null },
+      data: { revokedAt: expect.any(Date) },
+    });
+  });
+
+  it('jeton inconnu → 400 INVALID_RESET_TOKEN', async () => {
+    const { service, user } = makeReset({ record: null });
+    await expect(
+      service.resetPassword({ token: 'x', newPassword: 'N3wP@ssword' }),
+    ).rejects.toMatchObject({ status: 400, response: { error: 'INVALID_RESET_TOKEN' } });
+    expect(user.update).not.toHaveBeenCalled();
+  });
+
+  it('jeton déjà consommé → 400', async () => {
+    const { service } = makeReset({
+      record: {
+        id: 'prt1',
+        userId: 'u1',
+        usedAt: new Date(),
+        expiresAt: new Date(Date.now() + 1000),
+      },
+    });
+    await expect(
+      service.resetPassword({ token: 'x', newPassword: 'N3wP@ssword' }),
+    ).rejects.toMatchObject({ status: 400 });
+  });
+
+  it('jeton expiré → 400', async () => {
+    const { service } = makeReset({
+      record: { id: 'prt1', userId: 'u1', usedAt: null, expiresAt: new Date(Date.now() - 1000) },
+    });
+    await expect(
+      service.resetPassword({ token: 'x', newPassword: 'N3wP@ssword' }),
+    ).rejects.toMatchObject({ status: 400 });
+  });
+
+  it('compte supprimé entre-temps → 400', async () => {
+    const { service, password } = makeReset({ user: null });
+    await expect(
+      service.resetPassword({ token: 'x', newPassword: 'N3wP@ssword' }),
+    ).rejects.toMatchObject({ status: 400 });
+    expect(password.hash).not.toHaveBeenCalled();
+  });
+
+  it('course : jeton consommé pendant la transaction (count=0) → 400, rollback', async () => {
+    const { service, user } = makeReset({ consumedCount: 0 });
+    await expect(
+      service.resetPassword({ token: 'x', newPassword: 'N3wP@ssword' }),
+    ).rejects.toMatchObject({ status: 400 });
+    expect(user.update).not.toHaveBeenCalled();
   });
 });

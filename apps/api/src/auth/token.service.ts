@@ -18,6 +18,14 @@ export function hashRefreshToken(raw: string): string {
 }
 
 /**
+ * Empreinte stockée d'un jeton de réinitialisation de mot de passe (TLX-104).
+ * Seul le hash est persisté ; le jeton en clair ne vit que dans l'email.
+ */
+export function hashResetToken(raw: string): string {
+  return createHash('sha256').update(raw).digest('hex');
+}
+
+/**
  * Émission des jetons (TLX-021+). Access token JWT RS256 signé par le keystore
  * (TLX-020) ; refresh token **opaque** rotatif, persisté sous forme hachée avec
  * un identifiant de famille (base de la détection de réutilisation — TLX-023).

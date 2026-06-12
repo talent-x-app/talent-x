@@ -9,6 +9,8 @@ describe('AuthController', () => {
     register: jest.fn(),
     login: jest.fn(),
     logout: jest.fn(),
+    forgotPassword: jest.fn(),
+    resetPassword: jest.fn(),
   } as unknown as jest.Mocked<AuthService>;
 
   beforeEach(async () => {
@@ -35,5 +37,17 @@ describe('AuthController', () => {
 
     await controller.logout({ refreshToken: 'r' }, user);
     expect(service.logout).toHaveBeenCalledWith({ refreshToken: 'r' }, user);
+  });
+
+  it('forgotPassword délègue le DTO au service (TLX-104)', async () => {
+    service.forgotPassword.mockResolvedValue(undefined);
+    await controller.forgotPassword({ email: 'a@e.test' });
+    expect(service.forgotPassword).toHaveBeenCalledWith({ email: 'a@e.test' });
+  });
+
+  it('resetPassword délègue le DTO au service (TLX-104)', async () => {
+    service.resetPassword.mockResolvedValue(undefined);
+    await controller.resetPassword({ token: 't', newPassword: 'N3wP@ssword' });
+    expect(service.resetPassword).toHaveBeenCalledWith({ token: 't', newPassword: 'N3wP@ssword' });
   });
 });
