@@ -57,6 +57,7 @@ import type {
   ListNotificationsParams,
   ListSessionsParams,
   LoginRequest,
+  ManualRecordRequest,
   NotFoundResponse,
   NotificationPage,
   NotificationPreferences,
@@ -3980,6 +3981,75 @@ export const listMyRecords = async ( options?: RequestInit): Promise<listMyRecor
     method: 'GET'
 
 
+  }
+);}
+
+
+
+export type createManualRecordResponse200 = {
+  data: PersonalRecord
+  status: 200
+}
+
+export type createManualRecordResponse400 = {
+  data: BadRequestResponse
+  status: 400
+}
+
+export type createManualRecordResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type createManualRecordResponse403 = {
+  data: ConsentRequiredResponse
+  status: 403
+}
+
+export type createManualRecordResponse422 = {
+  data: ValidationFailedResponse
+  status: 422
+}
+
+export type createManualRecordResponse429 = {
+  data: TooManyRequestsResponse
+  status: 429
+}
+
+export type createManualRecordResponse500 = {
+  data: ServerErrorResponse
+  status: 500
+}
+
+export type createManualRecordResponseSuccess = (createManualRecordResponse200) & {
+  headers: Headers;
+};
+export type createManualRecordResponseError = (createManualRecordResponse400 | createManualRecordResponse401 | createManualRecordResponse403 | createManualRecordResponse422 | createManualRecordResponse429 | createManualRecordResponse500) & {
+  headers: Headers;
+};
+
+export type createManualRecordResponse = (createManualRecordResponseSuccess | createManualRecordResponseError)
+
+export const getCreateManualRecordUrl = () => {
+
+
+
+
+  return `/athletes/me/records`
+}
+
+/**
+ * Valeur libre validée par épreuve : l'athlète décrit la famille + le paramètre, le serveur compose la clé canonique et remplace la marque (performanceId = null).
+ * @summary Déclarer ou corriger un record manuel (ADR-32)
+ */
+export const createManualRecord = async (manualRecordRequest: ManualRecordRequest, options?: RequestInit): Promise<createManualRecordResponse> => {
+
+  return customFetch<createManualRecordResponse>(getCreateManualRecordUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(manualRecordRequest)
   }
 );}
 

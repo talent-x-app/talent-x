@@ -784,4 +784,55 @@ describe('Parcours critiques (E2E DB) — TLX-120', () => {
         .expect(403);
     });
   });
+
+  describe('Records manuels — POST /athletes/me/records (TLX-116 / ADR-32)', () => {
+    it('déclare, remplace, valide l’épreuve et la porte data_processing', async () => {
+      const athlete = await register('athlete');
+
+      // Sans consentement → 403.
+      await http()
+        .post('/api/v1/athletes/me/records')
+        .set(bearer(athlete.token))
+        .send({ family: 'sprint', distanceMeters: 60, value: 7.45 })
+        .expect(403);
+
+      await grantConsent(athlete.token, 'data_processing');
+
+      // Déclaration : clé composée serveur, marque libre, badge manuel (performanceId absent).
+      const created = await http()
+        .post('/api/v1/athletes/me/records')
+        .set(bearer(athlete.token))
+        .send({ family: 'sprint', distanceMeters: 60, value: 7.45 })
+        .expect(200);
+      expect(created.body).toMatchObject({ eventKey: 'sprint:60m', value: 7.45, unit: 's' });
+      expect(created.body.performanceId).toBeUndefined();
+
+      // Correction (remplace, même clé, pas de garde « doit améliorer » — ici on dégrade).
+      const corrected = await http()
+        .post('/api/v1/athletes/me/records')
+        .set(bearer(athlete.token))
+        .send({ family: 'sprint', distanceMeters: 60, value: 7.6 })
+        .expect(200);
+      expect(corrected.body.value).toBe(7.6);
+
+      // Un seul record pour l'épreuve (upsert sur clé unique).
+      const list = await http()
+        .get('/api/v1/athletes/me/records')
+        .set(bearer(athlete.token))
+        .expect(200);
+      const sixty = list.body.items.filter(
+        (r: { eventKey: string }) => r.eventKey === 'sprint:60m',
+      );
+      expect(sixty).toHaveLength(1);
+      expect(sixty[0].value).toBe(7.6);
+
+      // Famille chronométrée sans distance → 422 INVALID_EVENT.
+      const bad = await http()
+        .post('/api/v1/athletes/me/records')
+        .set(bearer(athlete.token))
+        .send({ family: 'sprint', value: 7 })
+        .expect(422);
+      expect(bad.body.error).toBe('INVALID_EVENT');
+    });
+  });
 });

@@ -1,5 +1,16 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsUUID } from 'class-validator';
+import { IsInt, IsISO8601, IsIn, IsNumber, IsOptional, IsPositive, IsUUID } from 'class-validator';
+
+/** Familles d'épreuve adressables par un record manuel (ADR-32). */
+export const EVENT_FAMILIES = [
+  'sprint',
+  'hurdles',
+  'endurance',
+  'interval',
+  'jumps',
+  'vertical',
+  'throws',
+] as const;
 
 /** Proposition de record détectée sur une performance — schéma `RecordCandidate` (ADR-20). */
 export class RecordCandidateDto {
@@ -69,4 +80,43 @@ export class RecordConfirmDto {
   @ApiProperty({ format: 'uuid' })
   @IsUUID('4')
   performanceId!: string;
+}
+
+/**
+ * Corps de `POST /athletes/me/records` — schéma `ManualRecordRequest` (ADR-32). L'athlète
+ * **décrit** l'épreuve (famille + paramètre) et déclare une **valeur libre** ; le serveur
+ * compose la clé canonique et dérive unité/sens. La cohérence famille↔paramètre est validée
+ * côté service (422 `INVALID_EVENT`).
+ */
+export class ManualRecordRequestDto {
+  @ApiProperty({ enum: EVENT_FAMILIES })
+  @IsIn(EVENT_FAMILIES)
+  family!: (typeof EVENT_FAMILIES)[number];
+
+  @ApiPropertyOptional({ description: 'Distance en mètres (familles chronométrées).' })
+  @IsOptional()
+  @IsInt()
+  @IsPositive()
+  distanceMeters?: number;
+
+  @ApiPropertyOptional({ description: "Poids d'engin en kg (throws)." })
+  @IsOptional()
+  @IsNumber()
+  @IsPositive()
+  implementKg?: number;
+
+  @ApiPropertyOptional({ enum: ['high', 'pole'], description: 'Discipline (vertical).' })
+  @IsOptional()
+  @IsIn(['high', 'pole'])
+  discipline?: 'high' | 'pole';
+
+  @ApiProperty({ description: 'Marque déclarée (secondes ou mètres selon l’épreuve).' })
+  @IsNumber()
+  @IsPositive()
+  value!: number;
+
+  @ApiPropertyOptional({ format: 'date', description: 'Date de la marque (défaut : aujourd’hui).' })
+  @IsOptional()
+  @IsISO8601()
+  achievedAt?: string;
 }

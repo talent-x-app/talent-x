@@ -31,41 +31,54 @@ const TIMED_TYPES = new Set<string>([
   BlockType.Interval,
 ]);
 
-/** Param numérique strictement positif du conteneur libre `params` (ADR-18). */
-function param(exercise: Partial<ExerciseDto>, key: string): number | undefined {
-  const value = (exercise.params as Record<string, unknown> | undefined)?.[key];
+/** Familles d'épreuve adressables (clé canonique) — partagées auto (détection) ↔ manuel (ADR-32). */
+export type EventFamily =
+  | 'sprint'
+  | 'hurdles'
+  | 'endurance'
+  | 'interval'
+  | 'jumps'
+  | 'vertical'
+  | 'throws';
+
+const TIMED_FAMILIES = new Set<EventFamily>(['sprint', 'hurdles', 'endurance', 'interval']);
+
+function positive(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : undefined;
 }
 
-/** Épreuve d'un bloc typé — `undefined` si le bloc n'est pas éligible au record. */
-export function eventForExercise(
-  exercise: Partial<ExerciseDto>,
+/**
+ * Fabrique **canonique** d'épreuve (ADR-20/32) : compose `eventKey`/`label`/`unit`/`direction`
+ * à partir d'une **famille** et de ses paramètres. Source de vérité unique partagée par la
+ * détection (blocs typés) et les records manuels — garantit la **même clé** pour la même épreuve.
+ * `undefined` si la famille / le paramètre requis est invalide.
+ */
+export function composeEvent(
+  family: EventFamily,
+  params: { distanceMeters?: number; implementKg?: number; discipline?: string },
 ): Omit<EventBest, 'value'> | undefined {
-  const type = exercise.type;
-  if (type && TIMED_TYPES.has(type)) {
-    const distance = param(exercise, 'distanceMeters');
+  if (TIMED_FAMILIES.has(family)) {
+    const distance = positive(params.distanceMeters);
     if (distance == null) return undefined;
-    const suffix = type === BlockType.Hurdles ? ' haies' : '';
+    const suffix = family === 'hurdles' ? ' haies' : '';
     return {
-      eventKey: `${type}:${distance}m`,
+      eventKey: `${family}:${distance}m`,
       label: `${distance} m${suffix}`,
       unit: 's',
       direction: 'min',
     };
   }
-  if (type === BlockType.Jumps) {
+  if (family === 'jumps') {
     return { eventKey: 'jumps', label: 'Saut', unit: 'm', direction: 'max' };
   }
-  if (type === BlockType.VerticalJumps) {
-    // Saut vertical (ADR-25) : hauteur (défaut) ou perche, distingués par le param libre
-    // `discipline`. La barre franchie = max distanceMeters non-`failed` (sens identique aux sauts).
-    const pole = (exercise.params as Record<string, unknown> | undefined)?.discipline === 'pole';
-    return pole
+  if (family === 'vertical') {
+    if (params.discipline !== 'high' && params.discipline !== 'pole') return undefined;
+    return params.discipline === 'pole'
       ? { eventKey: 'vertical:pole', label: 'Perche', unit: 'm', direction: 'max' }
       : { eventKey: 'vertical:high', label: 'Hauteur', unit: 'm', direction: 'max' };
   }
-  if (type === BlockType.Throws) {
-    const implementKg = param(exercise, 'implementKg');
+  if (family === 'throws') {
+    const implementKg = positive(params.implementKg);
     if (implementKg == null) return undefined;
     return {
       eventKey: `throws:${implementKg}kg`,
@@ -73,6 +86,36 @@ export function eventForExercise(
       unit: 'm',
       direction: 'max',
     };
+  }
+  return undefined;
+}
+
+/** Param numérique strictement positif du conteneur libre `params` (ADR-18). */
+function param(exercise: Partial<ExerciseDto>, key: string): number | undefined {
+  return positive((exercise.params as Record<string, unknown> | undefined)?.[key]);
+}
+
+/**
+ * Épreuve d'un bloc typé — `undefined` si le bloc n'est pas éligible au record. Délègue la
+ * composition de la clé à `composeEvent` (fabrique canonique partagée avec les records manuels).
+ */
+export function eventForExercise(
+  exercise: Partial<ExerciseDto>,
+): Omit<EventBest, 'value'> | undefined {
+  const type = exercise.type;
+  if (type && TIMED_TYPES.has(type)) {
+    return composeEvent(type as EventFamily, { distanceMeters: param(exercise, 'distanceMeters') });
+  }
+  if (type === BlockType.Jumps) {
+    return composeEvent('jumps', {});
+  }
+  if (type === BlockType.VerticalJumps) {
+    // Saut vertical (ADR-25) : hauteur (défaut) ou perche, distingués par le param libre `discipline`.
+    const pole = (exercise.params as Record<string, unknown> | undefined)?.discipline === 'pole';
+    return composeEvent('vertical', { discipline: pole ? 'pole' : 'high' });
+  }
+  if (type === BlockType.Throws) {
+    return composeEvent('throws', { implementKg: param(exercise, 'implementKg') });
   }
   return undefined;
 }

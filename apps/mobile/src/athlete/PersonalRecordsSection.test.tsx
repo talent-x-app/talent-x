@@ -7,6 +7,7 @@ const mockListMyRecords = jest.fn();
 
 jest.mock('@talent-x/api-client', () => ({
   listMyRecords: (...a: unknown[]) => mockListMyRecords(...a),
+  createManualRecord: jest.fn(),
   AssignmentStatus: {
     assigned: 'assigned',
     in_progress: 'in_progress',
@@ -14,6 +15,7 @@ jest.mock('@talent-x/api-client', () => ({
     skipped: 'skipped',
   },
 }));
+jest.mock('../feedback', () => ({ useToast: () => ({ show: jest.fn(), dismiss: jest.fn() }) }));
 
 import { PersonalRecordsSection } from './PersonalRecordsSection';
 

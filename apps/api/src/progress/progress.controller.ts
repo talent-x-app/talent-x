@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Put } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Param, ParseUUIDPipe, Post, Put } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -7,7 +7,12 @@ import { CoachInsightsService } from './coach-insights.service';
 import { RecordsService } from './records.service';
 import { DashboardDto } from './dto/dashboard.dto';
 import { ProgressDto } from './dto/progress.dto';
-import { PersonalRecordDto, PersonalRecordListDto, RecordConfirmDto } from './dto/record.dto';
+import {
+  ManualRecordRequestDto,
+  PersonalRecordDto,
+  PersonalRecordListDto,
+  RecordConfirmDto,
+} from './dto/record.dto';
 import { StatsDto } from './dto/stats.dto';
 
 /**
@@ -39,6 +44,21 @@ export class ProgressController {
   @ApiResponse({ status: 200, description: 'Records personnels.', type: PersonalRecordListDto })
   listMyRecords(@CurrentUser('id') athleteId: string): Promise<PersonalRecordListDto> {
     return this.records.listMine(athleteId);
+  }
+
+  @Post('athletes/me/records')
+  @Roles('athlete')
+  @HttpCode(200)
+  @ApiOperation({
+    summary: 'Déclarer/corriger un record manuel (ADR-32)',
+    operationId: 'createManualRecord',
+  })
+  @ApiResponse({ status: 200, description: 'Record créé ou remplacé.', type: PersonalRecordDto })
+  createManualRecord(
+    @CurrentUser('id') athleteId: string,
+    @Body() dto: ManualRecordRequestDto,
+  ): Promise<PersonalRecordDto> {
+    return this.records.createManual(athleteId, dto);
   }
 
   @Put('athletes/me/records/:eventKey')

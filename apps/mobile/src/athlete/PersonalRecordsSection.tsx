@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Feather } from '@expo/vector-icons';
 import { ActivityIndicator, Text, View } from 'react-native';
 import { Button, Card } from '../components/ui';
+import { ManualRecordEditor } from './ManualRecordEditor';
 import { RecordRow } from './progress-charts';
 
 /** Clé de cache des records de l'athlète — invalidée à la confirmation (A-05). */
@@ -41,6 +42,9 @@ export function PersonalRecordsSection() {
       >
         Records personnels
       </Text>
+
+      {/* Éditeur de record manuel (A-07 — TLX-116) : initialiser / corriger une marque. */}
+      <ManualRecordEditor />
 
       {records.isLoading ? (
         <View testID="records-loading" style={{ paddingVertical: spacing[4] }}>

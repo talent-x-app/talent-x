@@ -12,6 +12,32 @@ de débloquer les écrans coach C-01/C-02/C-03.
 - _(éditeurs typés terminés — TLX-054→061 livrés ↓)_
 - _(C-01 complet — TLX-081→085 livrés ↓)_
 
+## Terminés — TLX-116 Records manuels — éditeur + endpoint d'initialisation des PB (ADR-32)
+
+- **ADR-32 accepté** (2 arbitrages validés) : endpoint **POST structuré** (le serveur compose la clé) ;
+  écriture = **remplace** (déclaration/correction, sans garde « doit améliorer »). Comble le trou : un
+  athlète chevronné ne pouvait pas **initialiser ses PB**, personne ne pouvait **corriger** une marque.
+- **(Fabrique canonique)** `composeEvent(family, params)` extrait dans `record-detection.ts` — **source
+  unique** épreuve→clé partagée par la détection auto (blocs typés) **et** le manuel → **même `eventKey`/
+  unité/sens** (pas de doublon « 60 m »). `eventForExercise` refactoré pour la déléguer (sortie
+  byte-identique, tests détection inchangés).
+- **(API)** `POST /athletes/me/records` (`ManualRecordRequest` : `family` + paramètre contextuel
+  `distanceMeters`/`implementKg`/`discipline` + `value` libre + `achievedAt?`). `RecordsService.createManual`
+  compose la clé (422 `INVALID_EVENT` si incohérent), refuse une date future (422 `INVALID_DATE`),
+  **upsert** `performance_id = null` (badge « manuel »), porte `data_processing`. **Zéro migration**
+  (`performance_id` nullable déjà ADR-20). Le `PUT /{eventKey}` confirm-from-perf reste inchangé.
+  OpenAPI → DTO → client orval régénéré.
+- **(Mobile)** `ManualRecordEditor` dans A-07 (`PersonalRecordsSection`, athlète seul ; coach en lecture
+  seule) : « Ajouter un record » → famille (chips) → paramètre contextuel (distance / poids d'engin /
+  hauteur·perche / aucun) → marque + date → `POST`, invalide le cache records. Validation client (marque
+  > 0 + paramètre requis).
+- **Tests** : **API 415/415** (+5 service, détection inchangée), **int 14/14** (+1 : déclare → corrige
+  (remplace) → un seul record, 422 sans distance, 403 sans consentement), **mobile 435/435** (+5 éditeur),
+  typecheck (api+mobile) + lint clean. **Validé en réel (2026-06-13, intégration DB-backed Postgres :5433)** :
+  POST `{sprint, 60, 7.45}` → record `sprint:60m` (manuel) → POST `{…, 7.6}` **remplace** (1 seul record) ;
+  `{sprint, value}` sans distance → **422 `INVALID_EVENT`** ; sans `data_processing` → **403**. UI couverte
+  par RTL sur le **vrai** éditeur.
+
 ## Terminés — TLX-112 Progression & records côté coach (C-03)
 
 - **Constat corrigé** : le coach avait les stats agrégées (C-03) mais **ni les graphes de progression**

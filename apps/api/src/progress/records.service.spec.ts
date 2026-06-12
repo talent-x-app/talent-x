@@ -189,4 +189,80 @@ describe('RecordsService (TLX-076, ADR-20)', () => {
       expect(prisma.personalRecord.upsert).not.toHaveBeenCalled();
     });
   });
+
+  describe('createManual (ADR-32)', () => {
+    it('compose la clé canonique et upsert (perf null), porte data_processing', async () => {
+      const prisma = prismaMock();
+      const consent = consentMock();
+      prisma.personalRecord.upsert.mockResolvedValue(
+        recordRow({ eventKey: 'sprint:60m', value: '7.2', performanceId: null }),
+      );
+
+      const res = await service(prisma, ownershipMock(), consent).createManual('a-1', {
+        family: 'sprint',
+        distanceMeters: 60,
+        value: 7.2,
+      });
+
+      expect(consent.assertActiveConsent).toHaveBeenCalledWith('a-1', 'data_processing');
+      const arg = prisma.personalRecord.upsert.mock.calls[0][0];
+      expect(arg.where).toEqual({
+        athleteId_eventKey: { athleteId: 'a-1', eventKey: 'sprint:60m' },
+      });
+      expect(arg.create).toMatchObject({
+        eventKey: 'sprint:60m',
+        label: '60 m',
+        value: 7.2,
+        unit: 's',
+        direction: 'min',
+        performanceId: null,
+      });
+      expect(arg.update).toMatchObject({ value: 7.2, performanceId: null });
+      expect(res.performanceId).toBeUndefined();
+    });
+
+    it('throws / vertical / jumps : clé + unité/sens dérivés serveur', async () => {
+      const prisma = prismaMock();
+      prisma.personalRecord.upsert.mockResolvedValue(recordRow());
+      const svc = service(prisma);
+
+      await svc.createManual('a-1', { family: 'throws', implementKg: 7.26, value: 18.5 });
+      await svc.createManual('a-1', { family: 'vertical', discipline: 'pole', value: 5.1 });
+      await svc.createManual('a-1', { family: 'jumps', value: 7.8 });
+
+      const keys = prisma.personalRecord.upsert.mock.calls.map((c) => c[0].create.eventKey);
+      expect(keys).toEqual(['throws:7.26kg', 'vertical:pole', 'jumps']);
+      const throwsCreate = prisma.personalRecord.upsert.mock.calls[0][0].create;
+      expect(throwsCreate).toMatchObject({ unit: 'm', direction: 'max' });
+    });
+
+    it('famille/paramètre incohérents → 422 INVALID_EVENT, pas d’upsert', async () => {
+      const prisma = prismaMock();
+      await expect(
+        service(prisma).createManual('a-1', { family: 'sprint', value: 7 }),
+      ).rejects.toMatchObject({ response: { error: 'INVALID_EVENT' } });
+      expect(prisma.personalRecord.upsert).not.toHaveBeenCalled();
+    });
+
+    it('date future → 422 INVALID_DATE', async () => {
+      const prisma = prismaMock();
+      const future = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
+      await expect(
+        service(prisma).createManual('a-1', {
+          family: 'jumps',
+          value: 7,
+          achievedAt: future,
+        }),
+      ).rejects.toMatchObject({ response: { error: 'INVALID_DATE' } });
+    });
+
+    it('sans date → utilise aujourd’hui', async () => {
+      const prisma = prismaMock();
+      prisma.personalRecord.upsert.mockResolvedValue(recordRow());
+      await service(prisma).createManual('a-1', { family: 'jumps', value: 7 });
+      const achievedAt = prisma.personalRecord.upsert.mock.calls[0][0].create.achievedAt as Date;
+      expect(achievedAt.getTime()).toBeLessThanOrEqual(Date.now());
+      expect(achievedAt.getTime()).toBeGreaterThan(Date.now() - 60_000);
+    });
+  });
 });

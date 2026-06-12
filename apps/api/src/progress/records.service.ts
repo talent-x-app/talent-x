@@ -10,8 +10,13 @@ import { OwnershipService } from '../common/authorization/ownership.service';
 import { ConsentGate } from '../common/authorization/consent.gate';
 import type { ExerciseDto } from '../sessions/dto/exercises.dto';
 import type { ExerciseResultDto } from '../assignments/dto/results.dto';
-import { bestMeasuresByEvent, isBetter } from './record-detection';
-import { PersonalRecordDto, PersonalRecordListDto, RecordCandidateDto } from './dto/record.dto';
+import { bestMeasuresByEvent, composeEvent, isBetter } from './record-detection';
+import {
+  ManualRecordRequestDto,
+  PersonalRecordDto,
+  PersonalRecordListDto,
+  RecordCandidateDto,
+} from './dto/record.dto';
 
 /**
  * Records personnels (TLX-076, ADR-20). Table matérialisée `personal_records`
@@ -80,6 +85,61 @@ export class RecordsService {
           previousValue: current ? Number(current.value) : undefined,
         };
       });
+  }
+
+  /**
+   * Record **manuel** (ADR-32) : l'athlète déclare une valeur libre pour une épreuve décrite
+   * par sa famille + paramètre. Le serveur compose la clé canonique (mêmes `eventKey`/unité/sens
+   * que la détection auto) et **remplace** la marque (`upsert`, `performance_id = null`), sans
+   * garde « doit améliorer » — c'est une déclaration / correction. Porte `data_processing`.
+   * 422 `INVALID_EVENT` si famille/paramètre incohérents.
+   */
+  async createManual(athleteId: string, dto: ManualRecordRequestDto): Promise<PersonalRecordDto> {
+    await this.consent.assertActiveConsent(athleteId, 'data_processing');
+
+    const event = composeEvent(dto.family, {
+      distanceMeters: dto.distanceMeters,
+      implementKg: dto.implementKg,
+      discipline: dto.discipline,
+    });
+    if (!event) {
+      throw new UnprocessableEntityException({
+        error: 'INVALID_EVENT',
+        message: 'Famille ou paramètre d’épreuve invalide pour un record manuel.',
+      });
+    }
+
+    const achievedAt = dto.achievedAt ? new Date(dto.achievedAt) : new Date();
+    if (achievedAt.getTime() > Date.now()) {
+      throw new UnprocessableEntityException({
+        error: 'INVALID_DATE',
+        message: 'La date de la marque ne peut pas être dans le futur.',
+      });
+    }
+
+    const record = await this.prisma.personalRecord.upsert({
+      where: { athleteId_eventKey: { athleteId, eventKey: event.eventKey } },
+      create: {
+        athleteId,
+        eventKey: event.eventKey,
+        label: event.label,
+        value: dto.value,
+        unit: event.unit,
+        direction: event.direction,
+        achievedAt,
+        performanceId: null,
+      },
+      // Déclaration / correction : remplace la marque et repasse en « manuel » (perf source effacée).
+      update: {
+        label: event.label,
+        value: dto.value,
+        unit: event.unit,
+        direction: event.direction,
+        achievedAt,
+        performanceId: null,
+      },
+    });
+    return toRecordDto(record);
   }
 
   /**

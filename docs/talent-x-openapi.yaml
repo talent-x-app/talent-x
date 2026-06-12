@@ -1677,6 +1677,39 @@ paths:
           $ref: '#/components/responses/TooManyRequests'
         '500':
           $ref: '#/components/responses/ServerError'
+    post:
+      tags:
+      - Progression
+      summary: Déclarer ou corriger un record manuel (ADR-32)
+      description: >-
+        Valeur libre validée par épreuve : l'athlète décrit la famille + le paramètre,
+        le serveur compose la clé canonique et remplace la marque (performanceId = null).
+      operationId: createManualRecord
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ManualRecordRequest'
+      responses:
+        '200':
+          description: Record créé ou remplacé (déclaration/correction manuelle).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonalRecord'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/ConsentRequired'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
   /athletes/me/records/{eventKey}:
     put:
       tags:
@@ -3327,6 +3360,45 @@ components:
           format: uuid
       required:
       - performanceId
+    ManualRecordRequest:
+      type: object
+      description: >-
+        Déclaration/correction d'un record manuel (ADR-32) : l'athlète décrit l'épreuve
+        (famille + paramètre) et fournit une valeur libre ; le serveur compose la clé et
+        dérive unité/sens. Incohérence famille↔paramètre → 422 INVALID_EVENT.
+      properties:
+        family:
+          type: string
+          enum:
+          - sprint
+          - hurdles
+          - endurance
+          - interval
+          - jumps
+          - vertical
+          - throws
+        distanceMeters:
+          type: integer
+          description: Distance en mètres (familles chronométrées sprint/hurdles/endurance/interval).
+        implementKg:
+          type: number
+          description: Poids d'engin en kg (throws).
+        discipline:
+          type: string
+          enum:
+          - high
+          - pole
+          description: Discipline (vertical).
+        value:
+          type: number
+          description: Marque déclarée (secondes ou mètres selon l'épreuve).
+        achievedAt:
+          type: string
+          format: date
+          description: "Date de la marque (défaut : aujourd'hui)."
+      required:
+      - family
+      - value
     PerformanceCreate:
       type: object
       properties:
