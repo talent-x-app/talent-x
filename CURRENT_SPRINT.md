@@ -12,6 +12,36 @@ de débloquer les écrans coach C-01/C-02/C-03.
 - _(éditeurs typés terminés — TLX-054→061 livrés ↓)_
 - _(C-01 complet — TLX-081→085 livrés ↓)_
 
+## Terminés — TLX-109 Assignation d'une séance à un groupe (ADR-30, lots 1+2)
+
+- **ADR-30 accepté** : le groupe est une **source** d'affectation, **pas** une maille d'exécution.
+  `groupIds` au contrat `AssignRequest` → résolution serveur vers les membres actifs → **une
+  `SessionAssignment` par athlète** (provenance `group_assignment_id`). L'aval (perf 1:1 affectation,
+  dashboard, records, statut « réalisée ») reste **inchangé**. Lots 1 (snapshot) + 2 (dynamique)
+  livrés ensemble.
+- **(Modèle)** migration expand-only `group_assignments` (intention durable, index unique partiel
+  `ux_group_assignment_active`) + colonne nullable `session_assignments.group_assignment_id`
+  (`ON DELETE SET NULL` — supprimer l'affectation de groupe ne touche pas l'historique d'exécution).
+- **(Contrat)** `AssignRequest` gagne `groupIds` (`athleteIds` optionnel, invariant « au moins un »
+  → 422 `ASSIGN_TARGET_REQUIRED`) ; nouvel endpoint `DELETE /sessions/{id}/assign/groups/{groupId}`.
+  OpenAPI → DTO → client orval régénéré.
+- **(API)** `assignSession` résout les groupes (ownership requis), fan-out avec provenance, dédup par
+  couple (athlète explicite l'emporte). **Réconciliation dynamique** : adhésion (`joinGroup`) →
+  matérialise les affectations de groupe **à venir / non datées** (jamais les passées) + notifie
+  l'athlète ; sortie (`leaveGroup`/`removeGroupMember`) → soft-delete les affectations de provenance
+  groupe **non commencées** (garde `completed`/`in_progress`/passées et les affectations individuelles) ;
+  `unassignGroup` → soft-delete l'affectation de groupe + ses affectations futures non commencées.
+- **(Mobile)** `CoachAssignScreen` : section **« Groupes »** sélectionnable (nom + effectif) au-dessus
+  des athlètes — « assigner tout le groupe » en un geste ; confirmation par **effectif réel** résolu
+  côté serveur.
+- **Tests** : +13 API (assign groupe, dédup, provenance, 422 cible requise, unassign, réconciliation
+  adhésion/sortie), +1 mobile. **API 359/359**, **mobile 408/408**, typecheck + lint clean.
+- **Validé en réel (2026-06-12, API `nest start` :3001 + Docker DB :5433)** — parcours scripté contre
+  la vraie base : coach crée groupe → a1 rejoint → séance future assignée **au groupe** (1 affectation
+  matérialisée) → a1 la voit → **a2 rejoint APRÈS et hérite de la séance à venir** → a2 quitte →
+  l'affectation future disparaît → désassignation du groupe → a1 ne la voit plus. **Tous les invariants
+  ADR-30 vérifiés end-to-end.**
+
 ## Terminés — TLX-121 Audit RGPD & sécurité avant lancement (jalon Lancement & Qualité)
 
 - **Audit du backend réel confronté à TX-SEC-003** — rapport `docs/audit/TLX-121-audit-rgpd-securite.md`.
