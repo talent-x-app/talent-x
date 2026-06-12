@@ -5,12 +5,14 @@ import { type ReactNode, useState } from 'react';
 
 const mockGetCoachDashboard = jest.fn();
 const mockAssignSession = jest.fn();
+const mockListGroups = jest.fn();
 const mockBack = jest.fn();
 const mockShow = jest.fn();
 
 jest.mock('@talent-x/api-client', () => ({
   getCoachDashboard: (...a: unknown[]) => mockGetCoachDashboard(...a),
   assignSession: (...a: unknown[]) => mockAssignSession(...a),
+  listGroups: (...a: unknown[]) => mockListGroups(...a),
   AthleteStatus: { up_to_date: 'up_to_date', late: 'late', pending_review: 'pending_review' },
 }));
 jest.mock('expo-router', () => ({ useRouter: () => ({ back: mockBack }) }));
@@ -56,7 +58,21 @@ const DASHBOARD = {
   ],
 };
 
-beforeEach(() => jest.clearAllMocks());
+const GROUPS = {
+  data: [
+    { id: 'g-1', name: 'Sprint élite', memberCount: 5 },
+    { id: 'g-2', name: 'Demi-fond', memberCount: 3 },
+  ],
+  meta: { page: 1, limit: 20, total: 2, totalPages: 1 },
+};
+
+const NO_GROUPS = { data: [], meta: { page: 1, limit: 20, total: 0, totalPages: 0 } };
+
+beforeEach(() => {
+  jest.clearAllMocks();
+  // Par défaut : aucun groupe (les tests groupe surchargent ce mock).
+  mockListGroups.mockResolvedValue({ status: 200, data: NO_GROUPS });
+});
 
 describe('CoachAssignScreen (TLX-063 — C-06/C-07)', () => {
   it('liste les athlètes liés et le titre de la séance', async () => {
@@ -80,14 +96,17 @@ describe('CoachAssignScreen (TLX-063 — C-06/C-07)', () => {
 
   it('sélectionne, assigne (Idempotency-Key + dueDate) puis affiche la confirmation', async () => {
     mockGetCoachDashboard.mockResolvedValue({ status: 200, data: DASHBOARD });
-    mockAssignSession.mockResolvedValue({ status: 201, data: { items: [] } });
+    mockAssignSession.mockResolvedValue({
+      status: 201,
+      data: { data: [{ id: 'asg-a' }, { id: 'asg-b' }] },
+    });
     render(<CoachAssignScreen sessionId="s-1" sessionTitle="Vitesse" />, { wrapper: Wrapper });
 
     await waitFor(() => expect(screen.getByTestId('assign-athlete-a-1')).toBeOnTheScreen());
     fireEvent.press(screen.getByTestId('assign-athlete-a-1'));
     fireEvent.press(screen.getByTestId('assign-athlete-a-2'));
     fireEvent.changeText(screen.getByTestId('assign-due-date'), '2026-06-20');
-    expect(screen.getByTestId('assign-submit')).toHaveTextContent('Assigner à 2 athlètes');
+    expect(screen.getByTestId('assign-submit')).toHaveTextContent('Assigner (2 cibles)');
     fireEvent.press(screen.getByTestId('assign-submit'));
 
     await waitFor(() => expect(mockAssignSession).toHaveBeenCalled());
@@ -109,7 +128,7 @@ describe('CoachAssignScreen (TLX-063 — C-06/C-07)', () => {
 
   it('omet dueDate si vide', async () => {
     mockGetCoachDashboard.mockResolvedValue({ status: 200, data: DASHBOARD });
-    mockAssignSession.mockResolvedValue({ status: 201, data: { items: [] } });
+    mockAssignSession.mockResolvedValue({ status: 201, data: { data: [{ id: 'asg-a' }] } });
     render(<CoachAssignScreen sessionId="s-1" />, { wrapper: Wrapper });
 
     await waitFor(() => expect(screen.getByTestId('assign-athlete-a-1')).toBeOnTheScreen());
@@ -118,6 +137,35 @@ describe('CoachAssignScreen (TLX-063 — C-06/C-07)', () => {
 
     await waitFor(() => expect(mockAssignSession).toHaveBeenCalled());
     expect(mockAssignSession.mock.calls[0][1].dueDate).toBeUndefined();
+  });
+
+  it('assigne à un groupe entier (ADR-30) : groupIds envoyé, confirmation par effectif serveur', async () => {
+    mockGetCoachDashboard.mockResolvedValue({ status: 200, data: DASHBOARD });
+    mockListGroups.mockResolvedValue({ status: 200, data: GROUPS });
+    // Le serveur résout le groupe → 5 affectations matérialisées.
+    mockAssignSession.mockResolvedValue({
+      status: 201,
+      data: { data: Array.from({ length: 5 }, (_, i) => ({ id: `asg-${i}` })) },
+    });
+    render(<CoachAssignScreen sessionId="s-1" sessionTitle="Vitesse" />, { wrapper: Wrapper });
+
+    await waitFor(() => expect(screen.getByTestId('assign-group-g-1')).toBeOnTheScreen());
+    expect(screen.getByTestId('assign-group-g-1')).toHaveTextContent(/Sprint élite/);
+    expect(screen.getByTestId('assign-group-g-1')).toHaveTextContent(/5 membres/);
+
+    fireEvent.press(screen.getByTestId('assign-group-g-1'));
+    expect(screen.getByTestId('assign-submit')).toHaveTextContent('Assigner (1 cible)');
+    fireEvent.press(screen.getByTestId('assign-submit'));
+
+    await waitFor(() => expect(mockAssignSession).toHaveBeenCalled());
+    const body = mockAssignSession.mock.calls[0][1];
+    expect(body.groupIds).toEqual(['g-1']);
+    expect(body.athleteIds).toBeUndefined();
+
+    await waitFor(() => expect(screen.getByTestId('assign-confirmation')).toBeOnTheScreen());
+    // Récap : 5 athlètes (résolus côté serveur) + libellé du groupe ciblé.
+    expect(screen.getByTestId('assign-confirmation-summary')).toHaveTextContent(/5 athlètes/);
+    expect(screen.getByTestId('assign-confirmation')).toHaveTextContent(/Groupe « Sprint élite »/);
   });
 
   it('toast d’erreur si l’assignation échoue', async () => {

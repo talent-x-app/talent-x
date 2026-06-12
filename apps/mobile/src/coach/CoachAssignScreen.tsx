@@ -1,9 +1,12 @@
 import {
   assignSession,
   getCoachDashboard,
+  listGroups,
   type AssignRequest,
   type Dashboard,
   type DashboardAthlete,
+  type Group,
+  type GroupPage,
 } from '@talent-x/api-client';
 import { useTheme } from '@talent-x/design-tokens';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -14,6 +17,7 @@ import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 
 import { Button, Card } from '../components/ui';
 import { useToast } from '../feedback';
 import { COACH_DASHBOARD_QUERY_KEY } from '../dashboard/dashboard-query';
+import { GROUPS_QUERY_KEY } from '../groups/groups-query';
 import { AthleteStatusBadge, athleteFullName, athleteInitials } from './athlete-ui';
 
 /**
@@ -44,33 +48,53 @@ export function CoachAssignScreen({
     },
   });
 
+  // Groupes du coach (ADR-30) — cache partagé avec les écrans Groupes (C-04).
+  const groupsQuery = useQuery({
+    queryKey: GROUPS_QUERY_KEY,
+    queryFn: async (): Promise<GroupPage> => {
+      const response = await listGroups();
+      if (response.status === 200) return response.data;
+      throw response;
+    },
+  });
+
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [selectedGroups, setSelectedGroups] = useState<Set<string>>(new Set());
   const [dueDate, setDueDate] = useState('');
-  // Liste des noms affectés une fois l'assignation réussie → bascule en mode confirmation (C-07).
-  const [confirmedNames, setConfirmedNames] = useState<string[] | null>(null);
+  // Récap d'affectation une fois réussie → bascule en mode confirmation (C-07).
+  const [confirmed, setConfirmed] = useState<{ count: number; targets: string[] } | null>(null);
 
   const athletes = dashboard.data?.athletes ?? [];
+  const groups = groupsQuery.data?.data ?? [];
 
   const mutation = useMutation({
-    mutationFn: async (): Promise<void> => {
+    mutationFn: async (): Promise<number> => {
       const athleteIds = [...selected];
+      const groupIds = [...selectedGroups];
       const body: AssignRequest = {
-        athleteIds,
+        athleteIds: athleteIds.length > 0 ? athleteIds : undefined,
+        groupIds: groupIds.length > 0 ? groupIds : undefined,
         dueDate: dueDate.trim() || undefined,
       };
-      // Idempotence : clé stable dérivée de la séance + sélection triée (l'effet idempotent
-      // vient de l'index unique partiel côté backend, l'en-tête est exigé par le contrat).
-      const idempotencyKey = `assign-${sessionId}-${[...athleteIds].sort().join('-')}`;
+      // Idempotence : clé stable dérivée de la séance + sélection triée (athlètes + groupes).
+      const idempotencyKey = `assign-${sessionId}-${[...athleteIds, ...groupIds].sort().join('-')}`;
       const response = await assignSession(sessionId, body, {
         headers: { 'Idempotency-Key': idempotencyKey },
       });
       if (response.status !== 201) throw response;
+      // Le serveur résout les groupes → nombre réel d'athlètes affectés.
+      return response.data.data.length;
     },
-    onSuccess: () => {
+    onSuccess: (count) => {
       void queryClient.invalidateQueries({ queryKey: ['assignments'] });
       void queryClient.invalidateQueries({ queryKey: COACH_DASHBOARD_QUERY_KEY });
-      const names = athletes.filter((a) => selected.has(a.id)).map((a) => athleteFullName(a));
-      setConfirmedNames(names);
+      const groupTargets = groups
+        .filter((g) => selectedGroups.has(g.id))
+        .map((g) => `Groupe « ${g.name} »`);
+      const athleteTargets = athletes
+        .filter((a) => selected.has(a.id))
+        .map((a) => athleteFullName(a));
+      setConfirmed({ count, targets: [...groupTargets, ...athleteTargets] });
     },
     onError: () => {
       toast.show({ title: "Échec de l'assignation", variant: 'danger' });
@@ -85,6 +109,17 @@ export function CoachAssignScreen({
       return next;
     });
   }
+
+  function toggleGroup(id: string) {
+    setSelectedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  const totalSelected = selected.size + selectedGroups.size;
 
   return (
     <ScrollView
@@ -111,10 +146,11 @@ export function CoachAssignScreen({
         </Text>
       </Pressable>
 
-      {confirmedNames != null ? (
+      {confirmed != null ? (
         <ConfirmationView
           sessionTitle={sessionTitle}
-          names={confirmedNames}
+          count={confirmed.count}
+          targets={confirmed.targets}
           onDone={() => router.back()}
         />
       ) : (
@@ -214,6 +250,33 @@ export function CoachAssignScreen({
                 />
               </View>
 
+              {/* Sélection par groupe (ADR-30) — tout le groupe en un geste. */}
+              {groups.length > 0 ? (
+                <View style={{ gap: spacing[3] }}>
+                  <Text
+                    style={{
+                      color: colors.textSecondary,
+                      fontFamily: typography.fontFamily.medium,
+                      fontSize: typography.bodySm.fontSize,
+                      textTransform: 'uppercase',
+                      letterSpacing: 0.6,
+                    }}
+                  >
+                    Groupes · {selectedGroups.size}/{groups.length}
+                  </Text>
+                  <View style={{ gap: spacing[2] }}>
+                    {groups.map((group) => (
+                      <SelectableGroup
+                        key={group.id}
+                        group={group}
+                        selected={selectedGroups.has(group.id)}
+                        onPress={() => toggleGroup(group.id)}
+                      />
+                    ))}
+                  </View>
+                </View>
+              ) : null}
+
               {/* Sélection des athlètes (C-06). */}
               <View style={{ gap: spacing[3] }}>
                 <Text
@@ -243,13 +306,13 @@ export function CoachAssignScreen({
                 testID="assign-submit"
                 size="lg"
                 fullWidth
-                disabled={selected.size === 0}
+                disabled={totalSelected === 0}
                 loading={mutation.isPending}
                 onPress={() => mutation.mutate()}
               >
-                {selected.size > 0
-                  ? `Assigner à ${selected.size} athlète${selected.size > 1 ? 's' : ''}`
-                  : 'Sélectionne un athlète'}
+                {totalSelected > 0
+                  ? `Assigner (${totalSelected} cible${totalSelected > 1 ? 's' : ''})`
+                  : 'Sélectionne un groupe ou un athlète'}
               </Button>
             </>
           )}
@@ -328,21 +391,92 @@ function SelectableAthlete({
   );
 }
 
-/** Écran de confirmation (C-07) : récapitulatif des athlètes affectés + retour. */
+/** Carte groupe sélectionnable (case + nom + effectif). */
+function SelectableGroup({
+  group,
+  selected,
+  onPress,
+}: {
+  group: Group;
+  selected: boolean;
+  onPress: () => void;
+}) {
+  const { colors, typography } = useTheme();
+  const count = group.memberCount ?? 0;
+  return (
+    <Card testID={`assign-group-${group.id}`} onPress={onPress}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+        <View
+          style={[
+            {
+              width: 24,
+              height: 24,
+              borderRadius: 7,
+              borderWidth: 2,
+              alignItems: 'center',
+              justifyContent: 'center',
+            },
+            selected
+              ? { backgroundColor: colors.accent, borderColor: colors.accent }
+              : { borderColor: colors.borderStrong },
+          ]}
+        >
+          {selected ? <Feather name="check" size={15} color={colors.accentText} /> : null}
+        </View>
+        <View
+          style={{
+            width: 40,
+            height: 40,
+            borderRadius: 12,
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: colors.accentSubtle,
+          }}
+        >
+          <Feather name="users" size={18} color={colors.accentText} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text
+            style={{
+              color: colors.textPrimary,
+              fontFamily: typography.fontFamily.medium,
+              fontSize: typography.body.fontSize,
+            }}
+          >
+            {group.name}
+          </Text>
+          <Text
+            style={{
+              color: colors.textSecondary,
+              fontFamily: typography.fontFamily.regular,
+              fontSize: typography.bodySm.fontSize,
+            }}
+          >
+            {count} membre{count > 1 ? 's' : ''}
+          </Text>
+        </View>
+      </View>
+    </Card>
+  );
+}
+
+/** Écran de confirmation (C-07) : récapitulatif des cibles affectées + retour. */
 function ConfirmationView({
   sessionTitle,
-  names,
+  count,
+  targets,
   onDone,
 }: {
   sessionTitle?: string;
-  names: string[];
+  count: number;
+  targets: string[];
   onDone: () => void;
 }) {
   const { colors, typography, spacing } = useTheme();
-  const plural = names.length > 1 ? 's' : '';
+  const plural = count > 1 ? 's' : '';
   const summary = sessionTitle
-    ? `« ${sessionTitle} » a été assignée à ${names.length} athlète${plural}.`
-    : `Séance assignée à ${names.length} athlète${plural}.`;
+    ? `« ${sessionTitle} » a été assignée à ${count} athlète${plural}.`
+    : `Séance assignée à ${count} athlète${plural}.`;
   return (
     <View testID="assign-confirmation" style={{ gap: spacing[5] }}>
       <View style={{ alignItems: 'center', gap: spacing[3], paddingVertical: spacing[4] }}>
@@ -383,9 +517,9 @@ function ConfirmationView({
 
       <Card>
         <View style={{ gap: spacing[3] }}>
-          {names.map((name, i) => (
+          {targets.map((target, i) => (
             <View
-              key={`${name}-${i}`}
+              key={`${target}-${i}`}
               style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[2] }}
             >
               <Feather name="user-check" size={16} color={colors.success} />
@@ -396,7 +530,7 @@ function ConfirmationView({
                   fontSize: typography.body.fontSize,
                 }}
               >
-                {name}
+                {target}
               </Text>
             </View>
           ))}
