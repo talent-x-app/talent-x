@@ -1002,9 +1002,11 @@ paths:
     post:
       tags:
       - Séances
-      summary: Affecter une séance à des athlètes
+      summary: Affecter une séance à des athlètes et/ou des groupes
       description: >-
-        Affecte une séance (du coach) à des athlètes liés. Une séance de statut
+        Affecte une séance (du coach) à des athlètes liés et/ou à des groupes
+        possédés (ADR-30) : les groupes sont résolus vers leurs membres actifs,
+        une affectation est matérialisée par athlète. Une séance de statut
         `template` n'est pas assignable → 422 `SESSION_NOT_ASSIGNABLE` (ADR-29) :
         la dupliquer d'abord (`POST /sessions/{id}/duplicate`).
       operationId: assignSession
@@ -1040,6 +1042,34 @@ paths:
           $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/IdempotencyConflict'
+  /sessions/{id}/assign/groups/{groupId}:
+    delete:
+      tags:
+      - Séances
+      summary: Désassigner une séance d'un groupe
+      description: >-
+        Retire l'affectation de groupe (ADR-30) : soft-delete l'affectation de groupe
+        active et les affectations de provenance encore `assigned` et à venir / non
+        datées. Préserve l'historique (completed/in_progress/skipped, séances passées)
+        et les affectations individuelles. 404 si aucune affectation de groupe active.
+      operationId: unassignSessionGroup
+      parameters:
+      - $ref: '#/components/parameters/IdPath'
+      - name: groupId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '204':
+          description: Affectation de groupe retirée.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /competitions:
     post:
       tags:
@@ -2784,8 +2814,21 @@ components:
           $ref: '#/components/schemas/SessionBrief'
     AssignRequest:
       type: object
+      description: >-
+        Cible d'affectation : des athlètes (`athleteIds`) et/ou des groupes
+        (`groupIds`). Au moins l'un des deux doit être non vide (422 sinon).
+        Les `groupIds` sont résolus côté serveur vers les membres actifs ; une
+        `SessionAssignment` est matérialisée par athlète (ADR-30). Idempotent
+        par couple (séance, athlète) : un athlète à la fois explicite et membre
+        d'un groupe ciblé n'est affecté qu'une fois.
       properties:
         athleteIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+          minItems: 1
+        groupIds:
           type: array
           items:
             type: string
@@ -2794,8 +2837,6 @@ components:
         dueDate:
           type: string
           format: date
-      required:
-      - athleteIds
     AssignmentStatus:
       type: string
       enum:

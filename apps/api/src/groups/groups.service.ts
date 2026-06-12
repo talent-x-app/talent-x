@@ -155,6 +155,7 @@ export class GroupsService {
       if (count === 0) {
         throw new NotFoundException("Cet athlète n'est pas membre actif du groupe.");
       }
+      await softDeleteFutureGroupAssignments(tx, id, athleteId, now);
       await endLinkIfLastGroup(tx, coachId, athleteId, now);
     });
   }
@@ -186,7 +187,7 @@ export class GroupsService {
     if (!group) {
       throw new NotFoundException("Code d'invitation invalide ou révoqué.");
     }
-    const { member, created } = await this.prisma.$transaction(async (tx) => {
+    const { member, created, newAssignmentIds } = await this.prisma.$transaction(async (tx) => {
       const existing = await tx.groupMember.findFirst({
         where: { groupId: group.id, athleteId, leftAt: null },
         include: { athlete: memberAthleteSelect },
@@ -198,16 +199,28 @@ export class GroupsService {
           include: { athlete: memberAthleteSelect },
         }));
       await ensureGroupLink(tx, group.coachId, athleteId, group.id);
-      return { member: row, created: !existing };
+      // Réconciliation (ADR-30) : un nouveau membre hérite des affectations de groupe
+      // **à venir et non datées** (jamais les séances passées/en retard).
+      const newAssignmentIds = existing
+        ? []
+        : await materializeGroupAssignmentsForMember(tx, group.id, athleteId);
+      return { member: row, created: !existing, newAssignmentIds };
     });
 
-    // Nouvelle adhésion → notifie le coach propriétaire (ADR-22 : group_update).
+    // Nouvelle adhésion → notifie le coach propriétaire (ADR-22 : group_update)…
     if (created) {
       await this.notificationQueue.enqueue(
         { type: 'group_update', recipientUserId: group.coachId, resourceId: group.id },
         // « : » est interdit dans un jobId BullMQ (séparateur interne de clés Redis).
         `group_update--${member.id}`,
       );
+      // …et l'athlète pour chaque séance à venir qu'il hérite du groupe (session_assigned).
+      for (const assignmentId of newAssignmentIds) {
+        await this.notificationQueue.enqueue(
+          { type: 'session_assigned', recipientUserId: athleteId, resourceId: assignmentId },
+          `session_assigned--${assignmentId}`,
+        );
+      }
     }
     return toGroupMemberDto(member);
   }
@@ -227,6 +240,7 @@ export class GroupsService {
       if (!group || count === 0) {
         throw new NotFoundException("Vous n'êtes pas membre actif de ce groupe.");
       }
+      await softDeleteFutureGroupAssignments(tx, id, athleteId, now);
       await endLinkIfLastGroup(tx, group.coachId, athleteId, now);
     });
   }
@@ -279,6 +293,78 @@ const memberAthleteSelect = {
 const activeMemberCount = {
   _count: { select: { members: { where: { leftAt: null } } } },
 } satisfies Prisma.GroupInclude;
+
+/** Minuit UTC du jour de `d` — borne « à venir » alignée sur les `dueDate` calendaires. */
+function startOfUtcDay(d: Date): Date {
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+}
+
+/**
+ * Réconciliation à l'adhésion (ADR-30) : matérialise pour `athleteId` une affectation
+ * par affectation de groupe **active, à venir ou non datée** (jamais les passées). Idempotent
+ * (saute les couples séance/athlète déjà affectés). Retourne les ids créés (→ notifications).
+ */
+async function materializeGroupAssignmentsForMember(
+  tx: Prisma.TransactionClient,
+  groupId: string,
+  athleteId: string,
+): Promise<string[]> {
+  const today = startOfUtcDay(new Date());
+  const groupAssignments = await tx.groupAssignment.findMany({
+    where: { groupId, deletedAt: null, OR: [{ dueDate: null }, { dueDate: { gte: today } }] },
+    select: { id: true, sessionId: true, dueDate: true },
+  });
+  const createdIds: string[] = [];
+  for (const ga of groupAssignments) {
+    const existing = await tx.sessionAssignment.findFirst({
+      where: { sessionId: ga.sessionId, athleteId, deletedAt: null },
+      select: { id: true },
+    });
+    if (!existing) {
+      const created = await tx.sessionAssignment.create({
+        data: {
+          sessionId: ga.sessionId,
+          athleteId,
+          dueDate: ga.dueDate ?? undefined,
+          groupAssignmentId: ga.id,
+        },
+        select: { id: true },
+      });
+      createdIds.push(created.id);
+    }
+  }
+  return createdIds;
+}
+
+/**
+ * Réconciliation à la sortie (ADR-30) : soft-delete les affectations de `athleteId`
+ * **issues de ce groupe**, encore `assigned` et **à venir / non datées** (non commencées).
+ * Préserve l'historique : `completed`/`in_progress`/`skipped` et les séances passées
+ * ne sont jamais touchés ; les affectations **individuelles** non plus (provenance nulle).
+ */
+async function softDeleteFutureGroupAssignments(
+  tx: Prisma.TransactionClient,
+  groupId: string,
+  athleteId: string,
+  now: Date,
+): Promise<void> {
+  const groupAssignments = await tx.groupAssignment.findMany({
+    where: { groupId },
+    select: { id: true },
+  });
+  const ids = groupAssignments.map((g) => g.id);
+  if (ids.length === 0) return;
+  await tx.sessionAssignment.updateMany({
+    where: {
+      athleteId,
+      groupAssignmentId: { in: ids },
+      status: 'assigned',
+      deletedAt: null,
+      OR: [{ dueDate: null }, { dueDate: { gte: startOfUtcDay(now) } }],
+    },
+    data: { deletedAt: now },
+  });
+}
 
 /** Assure un lien coach↔athlète actif (source `group`) sans doublon. */
 async function ensureGroupLink(

@@ -8,8 +8,13 @@
  * OpenAPI spec version: 1.0.0
  */
 
+/**
+ * Cible d'affectation : des athlètes (`athleteIds`) et/ou des groupes (`groupIds`). Au moins l'un des deux doit être non vide (422 sinon). Les `groupIds` sont résolus côté serveur vers les membres actifs ; une `SessionAssignment` est matérialisée par athlète (ADR-30). Idempotent par couple (séance, athlète) : un athlète à la fois explicite et membre d'un groupe ciblé n'est affecté qu'une fois.
+ */
 export interface AssignRequest {
   /** @minItems 1 */
-  athleteIds: string[];
+  athleteIds?: string[];
+  /** @minItems 1 */
+  groupIds?: string[];
   dueDate?: string;
 }

@@ -59,6 +59,7 @@ function ownershipMock(over: Partial<OwnershipService> = {}): OwnershipService {
   return {
     assertSessionOwnedByCoach: jest.fn().mockResolvedValue(undefined),
     assertCoachLinkedToAthlete: jest.fn().mockResolvedValue(undefined),
+    assertGroupOwnedByCoach: jest.fn().mockResolvedValue(undefined),
     ...over,
   } as unknown as OwnershipService;
 }
@@ -66,6 +67,8 @@ function ownershipMock(over: Partial<OwnershipService> = {}): OwnershipService {
 type PrismaMock = {
   sessionAssignment: Record<string, jest.Mock>;
   session: Record<string, jest.Mock>;
+  groupMember: Record<string, jest.Mock>;
+  groupAssignment: Record<string, jest.Mock>;
   $transaction: jest.Mock;
 };
 
@@ -76,10 +79,18 @@ function prismaMock(): PrismaMock {
       create: jest.fn(),
       findMany: jest.fn(),
       count: jest.fn(),
+      updateMany: jest.fn().mockResolvedValue({ count: 0 }),
     },
     // Garde-fou ADR-29 : statut de la séance lu avant assignation (défaut = assignable).
     session: {
       findUnique: jest.fn().mockResolvedValue({ status: 'published' }),
+    },
+    // Résolution de groupe (ADR-30) — défauts : aucun membre, aucune affectation de groupe.
+    groupMember: { findMany: jest.fn().mockResolvedValue([]) },
+    groupAssignment: {
+      findFirst: jest.fn().mockResolvedValue(null),
+      create: jest.fn(),
+      update: jest.fn(),
     },
     $transaction: jest.fn((arg: unknown) =>
       Array.isArray(arg) ? Promise.all(arg) : (arg as (tx: unknown) => unknown)(mock),
@@ -212,6 +223,104 @@ describe('AssignmentsService', () => {
       // Aucune affectation créée ni notification émise.
       expect(prisma.sessionAssignment.create).not.toHaveBeenCalled();
       expect(queue.enqueue).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('assignSession — par groupe (ADR-30)', () => {
+    it('422 ASSIGN_TARGET_REQUIRED si ni athleteIds ni groupIds', async () => {
+      const prisma = prismaMock();
+      await expect(service(prisma).assignSession('c-1', 's-1', {})).rejects.toMatchObject({
+        constructor: UnprocessableEntityException,
+        response: { error: 'ASSIGN_TARGET_REQUIRED' },
+      });
+      expect(prisma.sessionAssignment.create).not.toHaveBeenCalled();
+    });
+
+    it('résout le groupe vers ses membres actifs + crée une affectation par membre (provenance)', async () => {
+      const prisma = prismaMock();
+      const ownership = ownershipMock();
+      prisma.groupAssignment.create.mockResolvedValue({ id: 'ga-1' });
+      prisma.groupMember.findMany.mockResolvedValue([{ athleteId: 'a-1' }, { athleteId: 'a-2' }]);
+      prisma.sessionAssignment.findFirst.mockResolvedValue(null);
+      prisma.sessionAssignment.create
+        .mockResolvedValueOnce(assignmentRow({ id: 'x', athleteId: 'a-1' }))
+        .mockResolvedValueOnce(assignmentRow({ id: 'y', athleteId: 'a-2' }));
+
+      const res = await service(prisma, ownership).assignSession('c-1', 's-1', {
+        groupIds: ['g-1'],
+      });
+
+      expect(ownership.assertGroupOwnedByCoach).toHaveBeenCalledWith('c-1', 'g-1');
+      expect(prisma.groupAssignment.create).toHaveBeenCalledTimes(1);
+      expect(prisma.sessionAssignment.create).toHaveBeenCalledTimes(2);
+      // Provenance posée sur chaque affectation matérialisée.
+      expect(prisma.sessionAssignment.create.mock.calls[0][0].data.groupAssignmentId).toBe('ga-1');
+      expect(res.data).toHaveLength(2);
+    });
+
+    it('réutilise une affectation de groupe active (idempotent, pas de doublon)', async () => {
+      const prisma = prismaMock();
+      prisma.groupAssignment.findFirst.mockResolvedValue({ id: 'ga-existing' });
+      prisma.groupMember.findMany.mockResolvedValue([{ athleteId: 'a-1' }]);
+      prisma.sessionAssignment.findFirst.mockResolvedValue(null);
+      prisma.sessionAssignment.create.mockResolvedValue(
+        assignmentRow({ id: 'x', athleteId: 'a-1' }),
+      );
+
+      await service(prisma).assignSession('c-1', 's-1', { groupIds: ['g-1'] });
+
+      expect(prisma.groupAssignment.create).not.toHaveBeenCalled();
+      expect(prisma.sessionAssignment.create.mock.calls[0][0].data.groupAssignmentId).toBe(
+        'ga-existing',
+      );
+    });
+
+    it('athlète explicite ∩ membre du groupe : affecté une seule fois, provenance individuelle (null)', async () => {
+      const prisma = prismaMock();
+      prisma.groupAssignment.create.mockResolvedValue({ id: 'ga-1' });
+      prisma.groupMember.findMany.mockResolvedValue([{ athleteId: 'a-1' }]);
+      prisma.sessionAssignment.findFirst.mockResolvedValue(null);
+      prisma.sessionAssignment.create.mockResolvedValue(
+        assignmentRow({ id: 'x', athleteId: 'a-1' }),
+      );
+
+      const res = await service(prisma).assignSession('c-1', 's-1', {
+        athleteIds: ['a-1'],
+        groupIds: ['g-1'],
+      });
+
+      expect(prisma.sessionAssignment.create).toHaveBeenCalledTimes(1);
+      expect(prisma.sessionAssignment.create.mock.calls[0][0].data.groupAssignmentId).toBeNull();
+      expect(res.data).toHaveLength(1);
+    });
+  });
+
+  describe('unassignGroup (ADR-30)', () => {
+    it('soft-delete l’affectation de groupe + les affectations de provenance non commencées', async () => {
+      const prisma = prismaMock();
+      const ownership = ownershipMock();
+      prisma.groupAssignment.findFirst.mockResolvedValue({ id: 'ga-1' });
+
+      await service(prisma, ownership).unassignGroup('c-1', 's-1', 'g-1');
+
+      expect(ownership.assertSessionOwnedByCoach).toHaveBeenCalledWith('c-1', 's-1');
+      expect(ownership.assertGroupOwnedByCoach).toHaveBeenCalledWith('c-1', 'g-1');
+      expect(prisma.groupAssignment.update).toHaveBeenCalledWith({
+        where: { id: 'ga-1' },
+        data: { deletedAt: expect.any(Date) },
+      });
+      const updateArgs = prisma.sessionAssignment.updateMany.mock.calls[0][0];
+      expect(updateArgs.where).toMatchObject({ groupAssignmentId: 'ga-1', status: 'assigned' });
+      expect(updateArgs.data).toEqual({ deletedAt: expect.any(Date) });
+    });
+
+    it('404 si aucune affectation de groupe active', async () => {
+      const prisma = prismaMock();
+      prisma.groupAssignment.findFirst.mockResolvedValue(null);
+      await expect(service(prisma).unassignGroup('c-1', 's-1', 'g-1')).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(prisma.sessionAssignment.updateMany).not.toHaveBeenCalled();
     });
   });
 

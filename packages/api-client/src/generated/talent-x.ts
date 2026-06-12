@@ -2475,8 +2475,8 @@ export const getAssignSessionUrl = (id: string,) => {
 }
 
 /**
- * Affecte une séance (du coach) à des athlètes liés. Une séance de statut `template` n'est pas assignable → 422 `SESSION_NOT_ASSIGNABLE` (ADR-29) : la dupliquer d'abord (`POST /sessions/{id}/duplicate`).
- * @summary Affecter une séance à des athlètes
+ * Affecte une séance (du coach) à des athlètes liés et/ou à des groupes possédés (ADR-30) : les groupes sont résolus vers leurs membres actifs, une affectation est matérialisée par athlète. Une séance de statut `template` n'est pas assignable → 422 `SESSION_NOT_ASSIGNABLE` (ADR-29) : la dupliquer d'abord (`POST /sessions/{id}/duplicate`).
+ * @summary Affecter une séance à des athlètes et/ou des groupes
  */
 export const assignSession = async (id: string,
     assignRequest: AssignRequest, options?: RequestInit): Promise<assignSessionResponse> => {
@@ -2487,6 +2487,62 @@ export const assignSession = async (id: string,
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...options?.headers },
     body: JSON.stringify(assignRequest)
+  }
+);}
+
+
+
+export type unassignSessionGroupResponse204 = {
+  data: void
+  status: 204
+}
+
+export type unassignSessionGroupResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type unassignSessionGroupResponse403 = {
+  data: ForbiddenResponse
+  status: 403
+}
+
+export type unassignSessionGroupResponse404 = {
+  data: NotFoundResponse
+  status: 404
+}
+
+export type unassignSessionGroupResponseSuccess = (unassignSessionGroupResponse204) & {
+  headers: Headers;
+};
+export type unassignSessionGroupResponseError = (unassignSessionGroupResponse401 | unassignSessionGroupResponse403 | unassignSessionGroupResponse404) & {
+  headers: Headers;
+};
+
+export type unassignSessionGroupResponse = (unassignSessionGroupResponseSuccess | unassignSessionGroupResponseError)
+
+export const getUnassignSessionGroupUrl = (id: string,
+    groupId: string,) => {
+
+
+
+
+  return `/sessions/${id}/assign/groups/${groupId}`
+}
+
+/**
+ * Retire l'affectation de groupe (ADR-30) : soft-delete l'affectation de groupe active et les affectations de provenance encore `assigned` et à venir / non datées. Préserve l'historique (completed/in_progress/skipped, séances passées) et les affectations individuelles. 404 si aucune affectation de groupe active.
+ * @summary Désassigner une séance d'un groupe
+ */
+export const unassignSessionGroup = async (id: string,
+    groupId: string, options?: RequestInit): Promise<unassignSessionGroupResponse> => {
+
+  return customFetch<unassignSessionGroupResponse>(getUnassignSessionGroupUrl(id,groupId),
+  {
+    ...options,
+    method: 'DELETE'
+
+
   }
 );}
 

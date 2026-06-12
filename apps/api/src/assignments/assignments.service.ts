@@ -39,7 +39,13 @@ export class AssignmentsService {
     private readonly notificationQueue: NotificationQueueService,
   ) {}
 
-  /** Coach affecte une séance (sienne) à des athlètes liés. Idempotent par couple (séance, athlète). */
+  /**
+   * Coach affecte une séance (sienne) à des athlètes liés et/ou à des groupes possédés
+   * (ADR-30). Les groupes sont résolus vers leurs membres actifs et une affectation est
+   * matérialisée par athlète (provenance `groupAssignmentId`). Idempotent par couple
+   * (séance, athlète) : un athlète à la fois explicite et membre d'un groupe ciblé n'est
+   * affecté qu'une fois (l'affectation explicite, sans provenance, l'emporte).
+   */
   async assignSession(
     coachId: string,
     sessionId: string,
@@ -47,17 +53,52 @@ export class AssignmentsService {
   ): Promise<AssignmentListDto> {
     await this.ownership.assertSessionOwnedByCoach(coachId, sessionId);
     await this.assertSessionAssignable(sessionId);
-    const athleteIds = [...new Set(dto.athleteIds)];
-    for (const athleteId of athleteIds) {
+
+    const explicitAthleteIds = [...new Set(dto.athleteIds ?? [])];
+    const groupIds = [...new Set(dto.groupIds ?? [])];
+    if (explicitAthleteIds.length === 0 && groupIds.length === 0) {
+      throw new UnprocessableEntityException({
+        error: 'ASSIGN_TARGET_REQUIRED',
+        message: 'Préciser au moins un athlète ou un groupe à affecter.',
+      });
+    }
+    // Athlètes explicites : lien requis (les membres de groupe sont liés par construction).
+    for (const athleteId of explicitAthleteIds) {
       await this.ownership.assertCoachLinkedToAthlete(coachId, athleteId);
+    }
+    // Groupes : possession requise.
+    for (const groupId of groupIds) {
+      await this.ownership.assertGroupOwnedByCoach(coachId, groupId);
     }
     const dueDate = dto.dueDate ? new Date(dto.dueDate) : null;
 
-    const rows = await this.prisma.$transaction((tx) =>
-      Promise.all(
-        athleteIds.map((athleteId) => upsertActiveAssignment(tx, sessionId, athleteId, dueDate)),
-      ),
-    );
+    const rows = await this.prisma.$transaction(async (tx) => {
+      // Provenance par athlète : explicite → null ; sinon l'affectation de groupe.
+      const provenance = new Map<string, string | null>();
+      for (const athleteId of explicitAthleteIds) provenance.set(athleteId, null);
+
+      for (const groupId of groupIds) {
+        const groupAssignmentId = await upsertActiveGroupAssignment(
+          tx,
+          sessionId,
+          groupId,
+          dueDate,
+        );
+        const members = await tx.groupMember.findMany({
+          where: { groupId, leftAt: null },
+          select: { athleteId: true },
+        });
+        for (const { athleteId } of members) {
+          if (!provenance.has(athleteId)) provenance.set(athleteId, groupAssignmentId);
+        }
+      }
+
+      return Promise.all(
+        [...provenance].map(([athleteId, groupAssignmentId]) =>
+          upsertActiveAssignment(tx, sessionId, athleteId, dueDate, groupAssignmentId),
+        ),
+      );
+    });
 
     // Notifie chaque athlète nouvellement affecté (ADR-22 : session_assigned) ;
     // une ré-affectation idempotente n'émet rien.
@@ -76,6 +117,40 @@ export class AssignmentsService {
     }
     // Endpoint réservé au coach propriétaire → lecteur coach (pas de séance embarquée ici).
     return { data: rows.map((r) => toAssignmentDto(r.assignment, 'coach')) };
+  }
+
+  /**
+   * Désassigne une séance d'un groupe (ADR-30) : soft-delete l'affectation de groupe
+   * active (séance, groupe) **et** les affectations de provenance encore `assigned` et
+   * à venir / non datées. Préserve l'historique (completed/in_progress/skipped, passées)
+   * et les affectations individuelles. 404 si aucune affectation de groupe active.
+   */
+  async unassignGroup(coachId: string, sessionId: string, groupId: string): Promise<void> {
+    await this.ownership.assertSessionOwnedByCoach(coachId, sessionId);
+    await this.ownership.assertGroupOwnedByCoach(coachId, groupId);
+    const now = new Date();
+    await this.prisma.$transaction(async (tx) => {
+      const groupAssignment = await tx.groupAssignment.findFirst({
+        where: { sessionId, groupId, deletedAt: null },
+        select: { id: true },
+      });
+      if (!groupAssignment) {
+        throw new NotFoundException('Aucune affectation de groupe active pour cette séance.');
+      }
+      await tx.groupAssignment.update({
+        where: { id: groupAssignment.id },
+        data: { deletedAt: now },
+      });
+      await tx.sessionAssignment.updateMany({
+        where: {
+          groupAssignmentId: groupAssignment.id,
+          status: 'assigned',
+          deletedAt: null,
+          OR: [{ dueDate: null }, { dueDate: { gte: startOfUtcDay(now) } }],
+        },
+        data: { deletedAt: now },
+      });
+    });
   }
 
   /** Liste paginée, role-aware : athlète → ses affectations ; coach → celles de ses séances. */
@@ -156,16 +231,48 @@ export class AssignmentsService {
   }
 }
 
+/** Minuit UTC du jour de `d` — borne « à venir » alignée sur les `dueDate` calendaires. */
+function startOfUtcDay(d: Date): Date {
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+}
+
+/**
+ * Crée l'affectation de groupe active (séance, groupe) ou renvoie l'existante
+ * (idempotence : index unique partiel `ux_group_assignment_active`). Représente
+ * l'intention durable « cette séance est affectée à ce groupe » (ADR-30), base de
+ * la réconciliation à l'adhésion. La `dueDate` d'une affectation existante n'est pas
+ * réécrite (sémantique idempotente). Retourne l'id du `group_assignment`.
+ */
+async function upsertActiveGroupAssignment(
+  tx: Prisma.TransactionClient,
+  sessionId: string,
+  groupId: string,
+  dueDate: Date | null,
+): Promise<string> {
+  const existing = await tx.groupAssignment.findFirst({
+    where: { sessionId, groupId, deletedAt: null },
+    select: { id: true },
+  });
+  if (existing) return existing.id;
+  const created = await tx.groupAssignment.create({
+    data: { sessionId, groupId, dueDate: dueDate ?? undefined },
+    select: { id: true },
+  });
+  return created.id;
+}
+
 /**
  * Crée l'affectation active (séance, athlète) ou renvoie l'existante telle quelle
  * (idempotence : une ré-affectation ne modifie pas une affectation déjà en cours).
  * `created` distingue les deux cas (seules les créations émettent une notification).
+ * `groupAssignmentId` trace la provenance (NULL = affectation individuelle).
  */
 async function upsertActiveAssignment(
   tx: Prisma.TransactionClient,
   sessionId: string,
   athleteId: string,
   dueDate: Date | null,
+  groupAssignmentId: string | null = null,
 ): Promise<{ assignment: SessionAssignment; created: boolean }> {
   const existing = await tx.sessionAssignment.findFirst({
     where: { sessionId, athleteId, deletedAt: null },
@@ -174,7 +281,7 @@ async function upsertActiveAssignment(
     return { assignment: existing, created: false };
   }
   const assignment = await tx.sessionAssignment.create({
-    data: { sessionId, athleteId, dueDate: dueDate ?? undefined },
+    data: { sessionId, athleteId, dueDate: dueDate ?? undefined, groupAssignmentId },
   });
   return { assignment, created: true };
 }

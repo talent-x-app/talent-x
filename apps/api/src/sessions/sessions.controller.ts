@@ -124,7 +124,10 @@ export class SessionsController {
   @Post(':id/assign')
   @Roles('coach')
   @HttpCode(201)
-  @ApiOperation({ summary: 'Affecter une séance à des athlètes', operationId: 'assignSession' })
+  @ApiOperation({
+    summary: 'Affecter une séance à des athlètes et/ou des groupes',
+    operationId: 'assignSession',
+  })
   @ApiHeader({ name: 'Idempotency-Key', required: true, description: "Clé d'idempotence client." })
   @ApiResponse({ status: 201, description: 'Affectations créées.', type: AssignmentListDto })
   assignSession(
@@ -139,5 +142,21 @@ export class SessionsController {
       throw new BadRequestException('En-tête Idempotency-Key requis.');
     }
     return this.assignments.assignSession(coachId, id, dto);
+  }
+
+  @Delete(':id/assign/groups/:groupId')
+  @Roles('coach')
+  @HttpCode(204)
+  @ApiOperation({
+    summary: "Désassigner une séance d'un groupe",
+    operationId: 'unassignSessionGroup',
+  })
+  @ApiResponse({ status: 204, description: 'Affectation de groupe retirée.' })
+  unassignSessionGroup(
+    @CurrentUser('id') coachId: string,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('groupId', new ParseUUIDPipe()) groupId: string,
+  ): Promise<void> {
+    return this.assignments.unassignGroup(coachId, id, groupId);
   }
 }

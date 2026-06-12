@@ -34,6 +34,8 @@ type PrismaMock = {
   group: Record<string, jest.Mock>;
   groupMember: Record<string, jest.Mock>;
   coachAthleteLink: Record<string, jest.Mock>;
+  groupAssignment: Record<string, jest.Mock>;
+  sessionAssignment: Record<string, jest.Mock>;
   $transaction: jest.Mock;
 };
 
@@ -55,6 +57,13 @@ function prismaMock(): PrismaMock {
       updateMany: jest.fn(),
     },
     coachAthleteLink: { findFirst: jest.fn(), create: jest.fn(), updateMany: jest.fn() },
+    // Réconciliation ADR-30 : aucune affectation de groupe par défaut (no-op).
+    groupAssignment: { findMany: jest.fn().mockResolvedValue([]) },
+    sessionAssignment: {
+      findFirst: jest.fn().mockResolvedValue(null),
+      create: jest.fn(),
+      updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+    },
     // Tableau → Promise.all ; callback → exécuté avec le mock lui-même comme tx.
     $transaction: jest.fn((arg: unknown) =>
       Array.isArray(arg) ? Promise.all(arg) : (arg as (tx: unknown) => unknown)(mock),
@@ -324,6 +333,37 @@ describe('GroupsService', () => {
       await service(prisma).joinGroup('a-2', 'WXYZ2345');
       expect(prisma.coachAthleteLink.create).not.toHaveBeenCalled();
     });
+
+    it('réconciliation (ADR-30) : matérialise les affectations de groupe à venir et notifie l’athlète', async () => {
+      const prisma = prismaMock();
+      const queue = queueMock();
+      prisma.group.findFirst.mockResolvedValue({ id: 'g-1', coachId: 'c-1' });
+      prisma.groupMember.findFirst.mockResolvedValue(null);
+      prisma.groupMember.create.mockResolvedValue({
+        id: 'gm-1',
+        athleteId: 'a-2',
+        groupId: 'g-1',
+        joinedAt: new Date(),
+        athlete: null,
+      });
+      prisma.coachAthleteLink.findFirst.mockResolvedValue(null);
+      prisma.groupAssignment.findMany.mockResolvedValue([
+        { id: 'ga-1', sessionId: 's-1', dueDate: null },
+      ]);
+      prisma.sessionAssignment.findFirst.mockResolvedValue(null);
+      prisma.sessionAssignment.create.mockResolvedValue({ id: 'asg-new' });
+
+      await service(prisma, ownershipMock(), queue).joinGroup('a-2', 'ABCD2345');
+
+      expect(prisma.sessionAssignment.create).toHaveBeenCalledWith({
+        data: { sessionId: 's-1', athleteId: 'a-2', dueDate: undefined, groupAssignmentId: 'ga-1' },
+        select: { id: true },
+      });
+      expect(queue.enqueue).toHaveBeenCalledWith(
+        { type: 'session_assigned', recipientUserId: 'a-2', resourceId: 'asg-new' },
+        'session_assigned--asg-new',
+      );
+    });
   });
 
   describe('removeGroupMember', () => {
@@ -369,6 +409,24 @@ describe('GroupsService', () => {
       await expect(service(prisma).leaveGroup('a-1', 'g-1')).rejects.toBeInstanceOf(
         NotFoundException,
       );
+    });
+
+    it('réconciliation (ADR-30) : soft-delete les affectations de groupe à venir non commencées', async () => {
+      const prisma = prismaMock();
+      prisma.group.findFirst.mockResolvedValue({ coachId: 'c-1' });
+      prisma.groupMember.updateMany.mockResolvedValue({ count: 1 });
+      prisma.groupAssignment.findMany.mockResolvedValue([{ id: 'ga-1' }, { id: 'ga-2' }]);
+      prisma.groupMember.count.mockResolvedValue(0); // endLinkIfLastGroup
+
+      await service(prisma).leaveGroup('a-1', 'g-1');
+
+      const args = prisma.sessionAssignment.updateMany.mock.calls[0][0];
+      expect(args.where).toMatchObject({
+        athleteId: 'a-1',
+        groupAssignmentId: { in: ['ga-1', 'ga-2'] },
+        status: 'assigned',
+      });
+      expect(args.data).toEqual({ deletedAt: expect.any(Date) });
     });
   });
 });

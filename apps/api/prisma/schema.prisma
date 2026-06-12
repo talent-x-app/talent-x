@@ -41,24 +41,24 @@ model User {
   updatedAt        DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt        DateTime? @map("deleted_at") @db.Timestamptz(6)
 
-  consents         Consent[]
-  refreshTokens    RefreshToken[]
-  deviceTokens     DeviceToken[]
+  consents                Consent[]
+  refreshTokens           RefreshToken[]
+  deviceTokens            DeviceToken[]
   notificationPreferences NotificationPreferences?
-  notifications    Notification[]
-  exportJobs       ExportJob[]
-  coachedGroups    Group[]             @relation("GroupCoach")
-  groupMemberships GroupMember[]
-  coachLinks       CoachAthleteLink[]  @relation("LinkCoach")
-  athleteLinks     CoachAthleteLink[]  @relation("LinkAthlete")
-  coachedSessions  Session[]           @relation("SessionCoach")
-  assignments      SessionAssignment[]
-  performances     Performance[]
-  personalRecords  PersonalRecord[]
-  comments         Comment[]           @relation("CommentAuthor")
-  competitions     Competition[]       @relation("CompetitionCoach")
-  competitionEntries CompetitionEntry[]
-  auditLogs        AuditLog[]
+  notifications           Notification[]
+  exportJobs              ExportJob[]
+  coachedGroups           Group[]                  @relation("GroupCoach")
+  groupMemberships        GroupMember[]
+  coachLinks              CoachAthleteLink[]       @relation("LinkCoach")
+  athleteLinks            CoachAthleteLink[]       @relation("LinkAthlete")
+  coachedSessions         Session[]                @relation("SessionCoach")
+  assignments             SessionAssignment[]
+  performances            Performance[]
+  personalRecords         PersonalRecord[]
+  comments                Comment[]                @relation("CommentAuthor")
+  competitions            Competition[]            @relation("CompetitionCoach")
+  competitionEntries      CompetitionEntry[]
+  auditLogs               AuditLog[]
 
   // Index unique PARTIEL sur lower(email) WHERE deleted_at IS NULL → migration SQL.
   @@map("users")
@@ -178,21 +178,22 @@ model ExportJob {
 
 /// Groupe d'entraînement géré par un coach.
 model Group {
-  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  coachId     String    @map("coach_id") @db.Uuid
-  name        String
-  description String?
-  inviteCode  String    @unique @map("invite_code")
+  id                  String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  coachId             String    @map("coach_id") @db.Uuid
+  name                String
+  description         String?
+  inviteCode          String    @unique @map("invite_code")
   /// Horodatage de révocation du code (ADR-16). NULL = code actif ; sinon le
   /// code reste stocké (NOT NULL préservé) mais l'API le masque et refuse le join.
   inviteCodeRevokedAt DateTime? @map("invite_code_revoked_at") @db.Timestamptz(6)
-  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt   DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(6)
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt           DateTime? @map("deleted_at") @db.Timestamptz(6)
 
-  coach   User               @relation("GroupCoach", fields: [coachId], references: [id], onDelete: Restrict)
-  members GroupMember[]
-  links   CoachAthleteLink[]
+  coach            User               @relation("GroupCoach", fields: [coachId], references: [id], onDelete: Restrict)
+  members          GroupMember[]
+  links            CoachAthleteLink[]
+  groupAssignments GroupAssignment[]
 
   // Index PARTIEL ix_groups_coach WHERE deleted_at IS NULL → migration SQL.
   @@map("groups")
@@ -250,9 +251,10 @@ model Session {
   updatedAt              DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt              DateTime? @map("deleted_at") @db.Timestamptz(6)
 
-  coach       User                @relation("SessionCoach", fields: [coachId], references: [id], onDelete: Restrict)
-  assignments SessionAssignment[]
-  comments    Comment[]
+  coach            User                @relation("SessionCoach", fields: [coachId], references: [id], onDelete: Restrict)
+  assignments      SessionAssignment[]
+  groupAssignments GroupAssignment[]
+  comments         Comment[]
 
   // Index PARTIEL ix_sessions_coach WHERE deleted_at IS NULL → migration SQL.
   @@index([scheduledDate], map: "ix_sessions_date")
@@ -261,24 +263,50 @@ model Session {
 
 /// Affectation d'une séance à un athlète.
 model SessionAssignment {
-  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  sessionId  String    @map("session_id") @db.Uuid
-  athleteId  String    @map("athlete_id") @db.Uuid
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sessionId         String    @map("session_id") @db.Uuid
+  athleteId         String    @map("athlete_id") @db.Uuid
   /// 'assigned' | 'in_progress' | 'completed' | 'skipped' (CHECK en base)
-  status     String    @default("assigned")
-  assignedAt DateTime  @default(now()) @map("assigned_at") @db.Timestamptz(6)
-  dueDate    DateTime? @map("due_date") @db.Date
-  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt  DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt  DateTime? @map("deleted_at") @db.Timestamptz(6)
+  status            String    @default("assigned")
+  assignedAt        DateTime  @default(now()) @map("assigned_at") @db.Timestamptz(6)
+  dueDate           DateTime? @map("due_date") @db.Date
+  /// Provenance (ADR-30) : NULL = affectation individuelle ; sinon issue d'une affectation
+  /// de groupe (permet réconciliation adhésion/sortie et désassignation en masse).
+  groupAssignmentId String?   @map("group_assignment_id") @db.Uuid
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt         DateTime? @map("deleted_at") @db.Timestamptz(6)
 
-  session     Session      @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  athlete     User         @relation(fields: [athleteId], references: [id], onDelete: Cascade)
-  performance Performance?
+  session         Session          @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  athlete         User             @relation(fields: [athleteId], references: [id], onDelete: Cascade)
+  groupAssignment GroupAssignment? @relation(fields: [groupAssignmentId], references: [id], onDelete: SetNull)
+  performance     Performance?
 
   // Unique PARTIEL (session_id, athlete_id) WHERE deleted_at IS NULL → migration SQL.
   @@index([athleteId], map: "ix_assignment_athlete")
+  @@index([groupAssignmentId], map: "ix_assignment_group_assignment")
   @@map("session_assignments")
+}
+
+/// Affectation d'une séance à un GROUPE (ADR-30) — l'intention durable. Le fan-out
+/// matérialise une SessionAssignment par membre actif (provenance groupAssignmentId).
+/// Source d'affectation, pas une maille d'exécution.
+model GroupAssignment {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sessionId String    @map("session_id") @db.Uuid
+  groupId   String    @map("group_id") @db.Uuid
+  dueDate   DateTime? @map("due_date") @db.Date
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  session     Session             @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  group       Group               @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  assignments SessionAssignment[]
+
+  @@index([groupId], map: "ix_group_assignments_group")
+  @@index([sessionId], map: "ix_group_assignments_session")
+  @@map("group_assignments")
 }
 
 /// Performance saisie par l'athlète pour une affectation (1:1).
