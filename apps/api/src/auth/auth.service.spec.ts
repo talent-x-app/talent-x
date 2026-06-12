@@ -4,7 +4,7 @@ import { type PrismaService } from '../prisma/prisma.service';
 import { AuthService } from './auth.service';
 import { type PasswordService } from './password.service';
 import { type RegisterRequestDto } from './dto/register-request.dto';
-import { type TokenService } from './token.service';
+import { hashRefreshToken, type TokenService } from './token.service';
 
 const dto: RegisterRequestDto = {
   email: 'New@Example.com',
@@ -220,5 +220,51 @@ describe('AuthService.refresh (TLX-023)', () => {
   it('course : consommation déjà faite (count=0) → 409', async () => {
     const { service } = makeRefresh({ updateCount: 0 });
     await expect(service.refresh({ refreshToken: 'x' })).rejects.toBeInstanceOf(ConflictException);
+  });
+});
+
+function makeLogout() {
+  const refreshToken = { updateMany: jest.fn().mockResolvedValue({ count: 1 }) };
+  const prisma = { refreshToken } as unknown as PrismaService;
+  const service = new AuthService(
+    prisma,
+    {} as unknown as PasswordService,
+    {} as unknown as TokenService,
+  );
+  return { service, refreshToken };
+}
+
+const authedUser = { id: 'u1', role: 'coach' as const };
+
+describe('AuthService.logout (TLX-022)', () => {
+  it('révoque le refresh token courant, borné au titulaire', async () => {
+    const { service, refreshToken } = makeLogout();
+
+    await service.logout({ refreshToken: 'opaque' }, authedUser);
+
+    expect(refreshToken.updateMany).toHaveBeenCalledWith({
+      where: { tokenHash: hashRefreshToken('opaque'), userId: 'u1', revokedAt: null },
+      data: { revokedAt: expect.any(Date) },
+    });
+  });
+
+  it('sans refresh token dans le corps → no-op (toujours 204)', async () => {
+    const { service, refreshToken } = makeLogout();
+
+    await expect(service.logout({}, authedUser)).resolves.toBeUndefined();
+    expect(refreshToken.updateMany).not.toHaveBeenCalled();
+  });
+});
+
+describe('AuthService.logoutAll (TLX-022)', () => {
+  it('révoque toutes les sessions actives du titulaire', async () => {
+    const { service, refreshToken } = makeLogout();
+
+    await service.logoutAll(authedUser);
+
+    expect(refreshToken.updateMany).toHaveBeenCalledWith({
+      where: { userId: 'u1', revokedAt: null },
+      data: { revokedAt: expect.any(Date) },
+    });
   });
 });

@@ -10,6 +10,25 @@ interface LogRecord {
   trace?: string;
 }
 
+/** Clés dont la valeur ne doit jamais apparaître en clair dans les logs (TX-SEC-003 §11/§14). */
+const SENSITIVE_KEY = /(password|token|secret|authorization|refresh|cookie|otp|2fa)/i;
+const REDACTED = '[redacted]';
+
+/**
+ * Masque récursivement la valeur des clés sensibles d'un objet logué (garde-fou
+ * défensif : aucune ligne de log ne doit faire fuiter un jeton ou un identifiant).
+ * Les messages scalaires (le cas usuel) passent inchangés. Cycles bornés en profondeur.
+ */
+function redact(value: unknown, depth = 0): unknown {
+  if (depth > 6 || value === null || typeof value !== 'object') return value;
+  if (Array.isArray(value)) return value.map((item) => redact(item, depth + 1));
+  const out: Record<string, unknown> = {};
+  for (const [key, val] of Object.entries(value)) {
+    out[key] = SENSITIVE_KEY.test(key) ? REDACTED : redact(val, depth + 1);
+  }
+  return out;
+}
+
 /**
  * Logger applicatif : émet une ligne JSON par entrée (logs structurés, §7 TX-OPS-004),
  * enrichie du correlation ID de la requête courante. Branché via app.useLogger().
@@ -39,7 +58,7 @@ export class JsonLogger implements LoggerService {
     const record: LogRecord = {
       time: new Date().toISOString(),
       level,
-      message,
+      message: redact(message),
       ...(context ? { context } : {}),
       ...(getRequestId() ? { requestId: getRequestId() } : {}),
       ...(trace ? { trace } : {}),

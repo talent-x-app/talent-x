@@ -182,12 +182,30 @@ export class AuthService {
     });
   }
 
-  logout(_dto: LogoutRequestDto, _user: AuthenticatedUser): Promise<void> {
-    return this.notImplemented('logout');
+  /**
+   * Déconnexion (TLX-022, TX-SEC-003 §11) : révoque le refresh token courant
+   * (confinement d'une session volée). Idempotent et neutre — toujours 204 :
+   * un jeton absent, déjà révoqué, ou appartenant à un autre compte ne fait rien
+   * et ne renseigne pas l'appelant (anti-énumération). Le `userId` borne la
+   * révocation au titulaire authentifié.
+   */
+  async logout(dto: LogoutRequestDto, user: AuthenticatedUser): Promise<void> {
+    if (!dto.refreshToken) return;
+    await this.prisma.refreshToken.updateMany({
+      where: { tokenHash: hashRefreshToken(dto.refreshToken), userId: user.id, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
   }
 
-  logoutAll(_user: AuthenticatedUser): Promise<void> {
-    return this.notImplemented('logoutAll');
+  /**
+   * Déconnexion globale (TLX-022, TX-SEC-003 §11) : révoque toutes les sessions
+   * actives du titulaire (toutes les familles de refresh tokens). Idempotent.
+   */
+  async logoutAll(user: AuthenticatedUser): Promise<void> {
+    await this.prisma.refreshToken.updateMany({
+      where: { userId: user.id, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
   }
 
   forgotPassword(_dto: ForgotPasswordRequestDto): Promise<void> {

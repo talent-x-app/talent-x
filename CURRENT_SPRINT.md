@@ -12,6 +12,27 @@ de débloquer les écrans coach C-01/C-02/C-03.
 - _(éditeurs typés terminés — TLX-054→061 livrés ↓)_
 - _(C-01 complet — TLX-081→085 livrés ↓)_
 
+## Terminés — TLX-121 Audit RGPD & sécurité avant lancement (jalon Lancement & Qualité)
+
+- **Audit du backend réel confronté à TX-SEC-003** — rapport `docs/audit/TLX-121-audit-rgpd-securite.md`.
+  **Conformes vérifiés** : Argon2id (OWASP), access RS256 + rotation `kid`, refresh opaque rotatif +
+  détection de réutilisation (révocation de famille), login anti-énumération (decoy hash), RBAC +
+  ownership (lien actif) + `consent.gate` (retrait effectif immédiat car lecture de la dernière ligne
+  append-only), effacement soft + révocation refresh/device tokens + audit + purge différée (30 j),
+  export async (TTL configurables), `env.validation` fail-fast (aucun secret en dur), push minimal
+  (signal + `resourceId`, jamais de donnée santé).
+- **🔴 Écart bloquant corrigé** : `logout` / `logout-all` étaient des stubs **501** (routes exposées +
+  OpenAPI) → impossible de révoquer une session volée. Implémentés dans `auth.service` (`logout` =
+  révoque le refresh courant, borné au titulaire, idempotent/neutre 204 ; `logout-all` = révoque toutes
+  les sessions actives). +3 tests.
+- **🟡 Durcissement** : `json-logger` gagne une **redaction** récursive (clés `password|token|secret|
+authorization|refresh|cookie|otp|2fa` masquées) — garde-fou §11/§14, messages scalaires inchangés. +4 tests.
+- **Écarts résiduels ticketés** : forgot/reset-password (501) → **TLX-104** (High, pré-lancement, nécessite
+  table tokens + provider email) ; 2FA TOTP + chiffrement secret au repos (501, V2) → **TLX-105** (Medium).
+  Arbitrages juridiques §19 (mineurs, DPIA, transferts APNs/FCM/SMTP, DPO, DPA art. 28) = checklist de
+  mise en production, hors code.
+- **API unit 351/351** (+7), typecheck + lint clean. Linear **TLX-75 (TLX-121)**.
+
 ## En cours
 
 - _(rien — backend du sprint terminé)_
