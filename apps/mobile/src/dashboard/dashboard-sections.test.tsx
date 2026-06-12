@@ -11,9 +11,14 @@ import {
   AllClearCard,
   ToReviewSection,
   TodaySection,
+  TrainingLoadSection,
   athletesMissingConsent,
   athletesToReview,
+  athletesWithLoad,
+  athletesWithLoadAlert,
   athletesWithOverdue,
+  formatAcwr,
+  gaugeFraction,
   isDueToday,
   selectTodayAssignments,
 } from './dashboard-sections';
@@ -254,5 +259,64 @@ describe('TodaySection (TLX-083)', () => {
       { wrapper: Wrapper },
     );
     expect(screen.getByTestId('coach-dashboard-today-loading')).toBeOnTheScreen();
+  });
+});
+
+describe('Charge d’entraînement (TLX-113)', () => {
+  const withLoad = (id: string, zone: string, over: Record<string, unknown> = {}) =>
+    athlete({ id, load: { acute: 100, chronic: 90, zone, weeklyLoad: 100, sessions: 5, ...over } });
+
+  it('athletesWithLoad : filtre ≥1 séance, tri alerte (surcharge/sous-charge) d’abord', () => {
+    const list = [
+      withLoad('opt', 'optimal', { acwr: 1.0 }),
+      withLoad('over', 'overload', { acwr: 1.8 }),
+      withLoad('none', 'insufficient', { sessions: 0 }), // pas de séance → exclu
+      withLoad('under', 'underload', { acwr: 0.5 }),
+    ];
+    expect(athletesWithLoad(list).map((a) => a.id)).toEqual(['over', 'under', 'opt']);
+  });
+
+  it('athletesWithLoadAlert : seulement surcharge/sous-charge', () => {
+    const list = [withLoad('o', 'optimal'), withLoad('s', 'overload'), withLoad('u', 'underload')];
+    expect(
+      athletesWithLoadAlert(list)
+        .map((a) => a.id)
+        .sort(),
+    ).toEqual(['s', 'u']);
+  });
+
+  it('formatAcwr / gaugeFraction', () => {
+    expect(formatAcwr(1.234)).toBe('1.23');
+    expect(formatAcwr(undefined)).toBe('—');
+    expect(gaugeFraction(1.0)).toBe(0.5);
+    expect(gaugeFraction(3)).toBe(1); // borné à 1
+    expect(gaugeFraction(undefined)).toBe(0);
+  });
+
+  it('TrainingLoadSection : jauge + zone par athlète, surcharge en tête, cliquable', () => {
+    const onPress = jest.fn();
+    render(
+      <TrainingLoadSection
+        athletes={[
+          withLoad('a-1', 'optimal', { acwr: 1.1 }),
+          withLoad('a-2', 'overload', { acwr: 1.7 }),
+        ]}
+        onPressAthlete={onPress}
+      />,
+      { wrapper: Wrapper },
+    );
+    expect(screen.getByTestId('coach-dashboard-load-a-2-zone')).toHaveTextContent(/Surcharge/);
+    expect(screen.getByTestId('coach-dashboard-load-a-1-zone')).toHaveTextContent(/Optimal/);
+    expect(screen.getByTestId('coach-dashboard-load-a-2')).toHaveTextContent(/ACWR 1.70/);
+    fireEvent.press(screen.getByTestId('coach-dashboard-load-a-2'));
+    expect(onPress).toHaveBeenCalledWith(expect.objectContaining({ id: 'a-2' }));
+  });
+
+  it('TrainingLoadSection : rendue null sans lecture de charge', () => {
+    const { toJSON } = render(
+      <TrainingLoadSection athletes={[athlete({ id: 'x' })]} onPressAthlete={jest.fn()} />,
+      { wrapper: Wrapper },
+    );
+    expect(toJSON()).toBeNull();
   });
 });

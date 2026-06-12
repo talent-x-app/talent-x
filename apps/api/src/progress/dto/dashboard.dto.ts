@@ -10,6 +10,45 @@ export enum AthleteStatus {
   PendingReview = 'pending_review',
 }
 
+/** Zone d'interprétation de la charge (ACWR) — schéma `LoadZone` (TLX-113). */
+export enum LoadZone {
+  /** Historique insuffisant pour un ratio fiable. */
+  Insufficient = 'insufficient',
+  /** ACWR < 0.8 : sous-charge (désentraînement). */
+  Underload = 'underload',
+  /** ACWR 0.8–1.3 : zone sûre. */
+  Optimal = 'optimal',
+  /** ACWR > 1.3 : surcharge (risque accru de blessure). */
+  Overload = 'overload',
+}
+
+/** Charge d'entraînement d'un athlète (méthode sRPE/ACWR de Foster, TLX-113). */
+export class TrainingLoadDto {
+  @ApiProperty({ description: 'Charge aiguë (somme sRPE 7 j).' })
+  acute!: number;
+
+  @ApiProperty({ description: 'Charge chronique (moyenne hebdomadaire sur 28 j).' })
+  chronic!: number;
+
+  @ApiPropertyOptional({ description: 'Ratio aigu:chronique (ACWR) ; absent si chronique nulle.' })
+  acwr?: number;
+
+  @ApiProperty({ enum: LoadZone, description: 'Interprétation de l’ACWR (zone sûre 0.8–1.3).' })
+  zone!: LoadZone;
+
+  @ApiProperty({ description: 'Charge de la semaine en cours.' })
+  weeklyLoad!: number;
+
+  @ApiPropertyOptional({ description: 'Monotonie (moyenne/écart-type des charges quotidiennes).' })
+  monotony?: number;
+
+  @ApiPropertyOptional({ description: 'Contrainte = charge hebdo × monotonie.' })
+  strain?: number;
+
+  @ApiProperty({ description: 'Nombre de séances chargées prises en compte (28 j).' })
+  sessions!: number;
+}
+
 /** Athlète du coach enrichi de son statut dérivé — étend `UserSummary`. */
 export class DashboardAthleteDto {
   @ApiProperty({ format: 'uuid' })
@@ -37,6 +76,12 @@ export class DashboardAthleteDto {
     description: "Accès aux perfs bloqué tant que l'athlète n'a pas accordé coach_access.",
   })
   coachAccessGranted?: boolean;
+
+  @ApiPropertyOptional({
+    type: TrainingLoadDto,
+    description: 'Charge d’entraînement (TLX-113) ; présent seulement si coach_access accordé.',
+  })
+  load?: TrainingLoadDto;
 }
 
 /** Alertes & signaux agrégés (Carte C-01 §5). */

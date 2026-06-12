@@ -164,6 +164,41 @@ describe('CoachInsightsService', () => {
       expect(res.athletes[0].overdueCount).toBe(1);
       expect(res.athletes[0].toReviewCount).toBe(1);
     });
+
+    it('charge (TLX-113) : sRPE dérivé du RPE × durée planifiée, consent-gated', async () => {
+      const prisma = prismaMock();
+      prisma.coachAthleteLink.findMany.mockResolvedValue([link('a-1')]);
+      prisma.consent.findMany.mockResolvedValue([{ userId: 'a-1', granted: true }]);
+      prisma.sessionAssignment.findMany.mockResolvedValue([
+        asg({
+          status: 'completed',
+          session: { brief: { durationMinutes: 60 }, exercises: { items: [] } },
+          performance: { id: 'p1', rpe: 8, submittedAt: new Date(), comments: [] },
+        }),
+      ]);
+
+      const res = await service(prisma).getCoachDashboard(COACH);
+
+      // sRPE = 8 × 60 = 480 ; une séance prise en compte.
+      expect(res.athletes[0].load).toMatchObject({ acute: 480, sessions: 1 });
+      expect(res.athletes[0].load?.zone).toEqual(expect.any(String));
+    });
+
+    it('charge omise quand coach_access n’est pas accordé', async () => {
+      const prisma = prismaMock();
+      prisma.coachAthleteLink.findMany.mockResolvedValue([link('a-1')]);
+      prisma.consent.findMany.mockResolvedValue([{ userId: 'a-1', granted: false }]);
+      prisma.sessionAssignment.findMany.mockResolvedValue([
+        asg({
+          status: 'completed',
+          session: { brief: { durationMinutes: 60 }, exercises: { items: [] } },
+          performance: { id: 'p1', rpe: 8, submittedAt: new Date(), comments: [] },
+        }),
+      ]);
+
+      const res = await service(prisma).getCoachDashboard(COACH);
+      expect(res.athletes[0].load).toBeUndefined();
+    });
   });
 
   describe('getAthleteStats', () => {

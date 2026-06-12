@@ -7,23 +7,25 @@
  * Conventions transverses : préfixe /api/v1 ; jeton d'accès JWT (RS256) via en-tête Authorization ; pagination par enveloppe { data, meta } ; idempotence des écritures sensibles via Idempotency-Key ; opérations longues asynchrones (202 + ressource de statut) ; rate limiting signalé par les en-têtes RateLimit-*. L'autorisation combine rôle, appartenance (lien coach↔athlète), propriété et consentement ; voir TX-SPEC-002 §6.
  * OpenAPI spec version: 1.0.0
  */
-import type { AthleteStatus } from './athleteStatus';
-import type { TrainingLoad } from './trainingLoad';
+import type { LoadZone } from './loadZone';
 
 /**
- * Athlète lié du coach, enrichi de son statut dérivé — étend UserSummary (ADR-17).
+ * Charge d'entraînement d'un athlète (méthode sRPE/ACWR de Foster, TLX-113). Présent sur DashboardAthlete seulement si coach_access est accordé.
  */
-export interface DashboardAthlete {
-  id: string;
-  firstName?: string;
-  lastName?: string;
-  sport?: string;
-  status: AthleteStatus;
-  /** Affectations échues non réalisées. */
-  overdueCount: number;
-  /** Performances soumises en attente de retour du coach. */
-  toReviewCount: number;
-  /** Accès aux perfs bloqué tant que coach_access n'est pas accordé. */
-  coachAccessGranted?: boolean;
-  load?: TrainingLoad;
+export interface TrainingLoad {
+  /** Charge aiguë (somme sRPE 7 j). */
+  acute: number;
+  /** Charge chronique (moyenne hebdomadaire sur 28 j). */
+  chronic: number;
+  /** Ratio aigu:chronique ; absent si chronique nulle. */
+  acwr?: number;
+  zone: LoadZone;
+  /** Charge de la semaine en cours. */
+  weeklyLoad: number;
+  /** Monotonie (moyenne/écart-type des charges quotidiennes). */
+  monotony?: number;
+  /** Contrainte = charge hebdo × monotonie. */
+  strain?: number;
+  /** Nombre de séances chargées prises en compte (28 j). */
+  sessions: number;
 }

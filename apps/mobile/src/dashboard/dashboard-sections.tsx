@@ -1,4 +1,9 @@
-import { AssignmentStatus, type Assignment, type DashboardAthlete } from '@talent-x/api-client';
+import {
+  AssignmentStatus,
+  type Assignment,
+  type DashboardAthlete,
+  type LoadZone,
+} from '@talent-x/api-client';
 import { useTheme } from '@talent-x/design-tokens';
 import { Feather } from '@expo/vector-icons';
 import { Text, View } from 'react-native';
@@ -55,6 +60,50 @@ export function athletesWithOverdue(athletes: DashboardAthlete[]): DashboardAthl
 /** Athlètes dont le consentement `coach_access` manque (champ explicitement `false`). */
 export function athletesMissingConsent(athletes: DashboardAthlete[]): DashboardAthlete[] {
   return athletes.filter((a) => a.coachAccessGranted === false);
+}
+
+/** Métadonnées d'affichage par zone de charge (TLX-113). */
+export const LOAD_ZONE_META: Record<
+  LoadZone,
+  { label: string; tone: 'success' | 'warning' | 'danger' | 'muted' }
+> = {
+  insufficient: { label: 'Données insuffisantes', tone: 'muted' },
+  underload: { label: 'Sous-charge', tone: 'warning' },
+  optimal: { label: 'Optimal', tone: 'success' },
+  overload: { label: 'Surcharge', tone: 'danger' },
+};
+
+/** Ordre d'affichage : alertes (surcharge, sous-charge) d'abord. */
+const LOAD_ZONE_ORDER: Record<LoadZone, number> = {
+  overload: 0,
+  underload: 1,
+  optimal: 2,
+  insufficient: 3,
+};
+
+/** Athlètes avec une lecture de charge exploitable (≥1 séance), triés alerte d'abord. */
+export function athletesWithLoad(athletes: DashboardAthlete[]): DashboardAthlete[] {
+  return athletes
+    .filter((a) => a.load != null && a.load.sessions > 0)
+    .sort((x, y) => LOAD_ZONE_ORDER[x.load!.zone] - LOAD_ZONE_ORDER[y.load!.zone]);
+}
+
+/** Athlètes en alerte de charge (surcharge ou sous-charge). */
+export function athletesWithLoadAlert(athletes: DashboardAthlete[]): DashboardAthlete[] {
+  return athletesWithLoad(athletes).filter(
+    (a) => a.load!.zone === 'overload' || a.load!.zone === 'underload',
+  );
+}
+
+/** ACWR formaté (2 décimales) ou tiret si indéfini. */
+export function formatAcwr(acwr?: number): string {
+  return typeof acwr === 'number' ? acwr.toFixed(2) : '—';
+}
+
+/** Position 0..1 sur une jauge d'échelle ACWR 0..2 (bornée). */
+export function gaugeFraction(acwr?: number): number {
+  if (typeof acwr !== 'number') return 0;
+  return Math.max(0, Math.min(acwr / 2, 1));
 }
 
 /** Intitulé de section (uppercase, tokenisé) — partagé par les deux sections. */
@@ -300,6 +349,117 @@ export function AllClearCard() {
         </Text>
       </View>
     </Card>
+  );
+}
+
+/**
+ * Section « Charge d'entraînement » (TLX-113) : jauge ACWR par athlète (méthode sRPE/ACWR),
+ * surcharge/sous-charge mises en tête (alerte). Seuls les athlètes avec une lecture exploitable
+ * (coach_access accordé + ≥1 séance chargée) apparaissent. Rendue `null` sinon. Cliquable → C-03.
+ */
+export function TrainingLoadSection({
+  athletes,
+  onPressAthlete,
+}: {
+  athletes: DashboardAthlete[];
+  onPressAthlete: (athlete: DashboardAthlete) => void;
+}) {
+  const { colors, typography, spacing } = useTheme();
+  const withLoad = athletesWithLoad(athletes);
+  if (withLoad.length === 0) return null;
+
+  const toneColors = (tone: 'success' | 'warning' | 'danger' | 'muted') => {
+    switch (tone) {
+      case 'success':
+        return { fg: colors.success, bg: colors.successBg };
+      case 'warning':
+        return { fg: colors.warning, bg: colors.warningBg };
+      case 'danger':
+        return { fg: colors.danger, bg: colors.dangerBg };
+      default:
+        return { fg: colors.textMuted, bg: colors.surfaceSunken };
+    }
+  };
+
+  return (
+    <View style={{ gap: spacing[3] }}>
+      <SectionTitle>Charge d'entraînement</SectionTitle>
+      <View style={{ gap: spacing[2] }}>
+        {withLoad.map((athlete) => {
+          const load = athlete.load!;
+          const meta = LOAD_ZONE_META[load.zone];
+          const tone = toneColors(meta.tone);
+          return (
+            <Card
+              key={athlete.id}
+              testID={`coach-dashboard-load-${athlete.id}`}
+              onPress={() => onPressAthlete(athlete)}
+            >
+              <View style={{ gap: spacing[2] }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[2] }}>
+                  <Text
+                    style={{
+                      flex: 1,
+                      color: colors.textPrimary,
+                      fontFamily: typography.fontFamily.medium,
+                      fontSize: typography.body.fontSize,
+                    }}
+                  >
+                    {athleteFullName(athlete)}
+                  </Text>
+                  <View
+                    testID={`coach-dashboard-load-${athlete.id}-zone`}
+                    style={{
+                      paddingVertical: 3,
+                      paddingHorizontal: 8,
+                      borderRadius: 999,
+                      backgroundColor: tone.bg,
+                    }}
+                  >
+                    <Text
+                      style={{
+                        color: tone.fg,
+                        fontFamily: typography.fontFamily.medium,
+                        fontSize: typography.caption.fontSize,
+                      }}
+                    >
+                      {meta.label}
+                    </Text>
+                  </View>
+                </View>
+                {/* Jauge ACWR : barre 0..2, zone sûre 0.8–1.3 ; le curseur prend la couleur de zone. */}
+                <View
+                  style={{
+                    height: 8,
+                    borderRadius: 4,
+                    backgroundColor: colors.surfaceSunken,
+                    overflow: 'hidden',
+                  }}
+                >
+                  <View
+                    testID={`coach-dashboard-load-${athlete.id}-gauge`}
+                    style={{
+                      height: '100%',
+                      width: `${gaugeFraction(load.acwr) * 100}%`,
+                      backgroundColor: tone.fg,
+                    }}
+                  />
+                </View>
+                <Text
+                  style={{
+                    color: colors.textMuted,
+                    fontFamily: typography.fontFamily.regular,
+                    fontSize: typography.bodySm.fontSize,
+                  }}
+                >
+                  ACWR {formatAcwr(load.acwr)} · charge aiguë {load.acute}
+                </Text>
+              </View>
+            </Card>
+          );
+        })}
+      </View>
+    </View>
   );
 }
 

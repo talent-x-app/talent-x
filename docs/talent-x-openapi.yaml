@@ -3487,11 +3487,56 @@ components:
         coachAccessGranted:
           type: boolean
           description: Accès aux perfs bloqué tant que coach_access n'est pas accordé.
+        load:
+          $ref: '#/components/schemas/TrainingLoad'
       required:
       - id
       - status
       - overdueCount
       - toReviewCount
+    LoadZone:
+      type: string
+      description: Interprétation de l'ACWR — zone sûre 0.8–1.3 (TLX-113).
+      enum:
+      - insufficient
+      - underload
+      - optimal
+      - overload
+    TrainingLoad:
+      type: object
+      description: >-
+        Charge d'entraînement d'un athlète (méthode sRPE/ACWR de Foster, TLX-113).
+        Présent sur DashboardAthlete seulement si coach_access est accordé.
+      properties:
+        acute:
+          type: integer
+          description: Charge aiguë (somme sRPE 7 j).
+        chronic:
+          type: integer
+          description: Charge chronique (moyenne hebdomadaire sur 28 j).
+        acwr:
+          type: number
+          description: Ratio aigu:chronique ; absent si chronique nulle.
+        zone:
+          $ref: '#/components/schemas/LoadZone'
+        weeklyLoad:
+          type: integer
+          description: Charge de la semaine en cours.
+        monotony:
+          type: number
+          description: Monotonie (moyenne/écart-type des charges quotidiennes).
+        strain:
+          type: number
+          description: Contrainte = charge hebdo × monotonie.
+        sessions:
+          type: integer
+          description: Nombre de séances chargées prises en compte (28 j).
+      required:
+      - acute
+      - chronic
+      - zone
+      - weeklyLoad
+      - sessions
     DashboardAlerts:
       type: object
       description: Alertes & signaux agrégés (Carte C-01 §5).

@@ -700,4 +700,54 @@ describe('Parcours critiques (E2E DB) — TLX-120', () => {
       expect(del.body.error).toBe('ASSIGNMENT_COMPLETED');
     });
   });
+
+  describe('Charge d’entraînement — sRPE / ACWR (TLX-113)', () => {
+    /** Crée une séance (durée planifiée 60 min) + affectation réalisée + perf datée (RPE). */
+    async function loadedPerf(coachId: string, athleteId: string, rpe: number, submittedAt: Date) {
+      const session = await prisma.session.create({
+        data: {
+          coachId,
+          title: 'Charge',
+          status: 'published',
+          brief: { schemaVersion: 1, durationMinutes: 60 },
+        },
+      });
+      const assignment = await prisma.sessionAssignment.create({
+        data: { sessionId: session.id, athleteId, status: 'completed' },
+      });
+      await prisma.performance.create({
+        data: { assignmentId: assignment.id, athleteId, rpe, submittedAt },
+      });
+    }
+
+    it('dérive la charge sur le dashboard, consent-gated coach_access', async () => {
+      const coach = await register('coach');
+      const athlete = await register('athlete');
+      await grantConsent(athlete.token, 'coach_access');
+      await prisma.coachAthleteLink.create({
+        data: { coachId: coach.id, athleteId: athlete.id, source: 'direct' },
+      });
+
+      // Une séance réalisée aujourd'hui : sRPE = 8 × 60 = 480 → charge aiguë 480.
+      await loadedPerf(coach.id, athlete.id, 8, new Date());
+
+      const withConsent = await http()
+        .get('/api/v1/coach/dashboard')
+        .set(bearer(coach.token))
+        .expect(200);
+      const row = withConsent.body.athletes.find((a: { id: string }) => a.id === athlete.id);
+      expect(row.load).toMatchObject({ acute: 480, sessions: 1 });
+      expect(['insufficient', 'underload', 'optimal', 'overload']).toContain(row.load.zone);
+
+      // Retrait du consentement coach_access → la charge disparaît (RGPD).
+      await grantConsent(athlete.token, 'coach_access', false);
+      const withoutConsent = await http()
+        .get('/api/v1/coach/dashboard')
+        .set(bearer(coach.token))
+        .expect(200);
+      const gated = withoutConsent.body.athletes.find((a: { id: string }) => a.id === athlete.id);
+      expect(gated.load).toBeUndefined();
+      expect(gated.coachAccessGranted).toBe(false);
+    });
+  });
 });

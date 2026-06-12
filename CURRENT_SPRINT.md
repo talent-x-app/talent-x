@@ -12,6 +12,34 @@ de débloquer les écrans coach C-01/C-02/C-03.
 - _(éditeurs typés terminés — TLX-054→061 livrés ↓)_
 - _(C-01 complet — TLX-081→085 livrés ↓)_
 
+## Terminés — TLX-113 Monitoring de charge d'entraînement (sRPE / ACWR)
+
+- **Différenciateur flagship sur données déjà collectées** (RPE + durée planifiée + dates) — fait
+  passer du « carnet » à l'« outil de prévention des blessures ». **Arbitrages validés** : durée =
+  **planifiée** (`brief.durationMinutes`, fallback somme des `durationSeconds` des blocs) ; exposition =
+  **bloc `load` additif** par athlète sur `GET /coach/dashboard`, **consent-gated** (`coach_access`).
+- **(Module pur `progress/training-load.ts`)** méthode sRPE de Foster, testable isolément :
+  `sessionLoad` (RPE × durée), `plannedDurationMinutes` (brief → exercices, lecture défensive),
+  `computeTrainingLoad` (charge **aiguë** 7 j, **chronique** = moyenne hebdo 28 j, **ACWR** =
+  aiguë/chronique, **monotonie** = moyenne/écart-type quotidien, **contrainte** = hebdo × monotonie),
+  `classifyZone` (zone sûre **0.8–1.3** ; `insufficient` sans historique chronique). Déterministe
+  (`now` injecté), points hors 28 j / futurs ignorés. **+15 tests**.
+- **(API)** `getCoachDashboard` dérive la charge par athlète à la lecture (aucune table, aucun job) :
+  sRPE datés (perf `rpe` × durée planifiée de la séance) → `TrainingLoad`, exposé **seulement si
+  `coach_access` accordé** (le RPE est une donnée de l'athlète). +2 tests.
+- **(Contrat)** **additif** : `Dashboard.athletes[].load` (`TrainingLoad` : acute/chronic/acwr/zone/
+  weeklyLoad/monotony/strain/sessions) + enum `LoadZone`. OpenAPI → DTO Nest → client orval régénéré.
+  Extension d'ADR-17 (contrat dashboard typé mais extensible) ; pas de divergence → pas d'ADR.
+- **(Mobile)** section **« Charge d'entraînement »** sur le dashboard coach : **jauge ACWR** par athlète
+  (barre échelle 0..2 colorée par zone) + **badge zone**, **surcharge/sous-charge en tête** (alerte),
+  cliquable → C-03 ; masquée sans lecture exploitable, indépendante de « Tout est à jour ». Helpers purs
+  (`athletesWithLoad`/`athletesWithLoadAlert`/`formatAcwr`/`gaugeFraction`). +5 tests.
+- **Tests** : **API 409/409** (+17), **int 12/12** (+1), **mobile 428/428** (+5), typecheck (api+mobile)
+  - lint clean. **Validé en réel (2026-06-12, intégration DB-backed Postgres :5433)** : athlète consenti
+  - 1 séance réalisée (RPE 8 × durée planifiée 60) → dashboard `load.acute = 480`, zone calculée →
+    **retrait `coach_access` → `load` disparaît** (gate RGPD vérifié contre la vraie base). UI couverte par
+    RTL sur le **vrai** composant.
+
 ## Terminés — TLX-108 Cycle de vie des affectations (ADR-31)
 
 - **ADR-31 accepté** (3 arbitrages produit validés) : machine à états explicite, `skipped`

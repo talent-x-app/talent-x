@@ -25,6 +25,7 @@ import {
   AllClearCard,
   ToReviewSection,
   TodaySection,
+  TrainingLoadSection,
   athletesMissingConsent,
   athletesToReview,
   athletesWithOverdue,
@@ -182,31 +183,38 @@ export function CoachDashboardScreen() {
           aucun signal (TLX-085) ; sinon alertes détaillées (TLX-084) + À revoir / Aujourd'hui
           (TLX-082/083). */}
       {athletes.length > 0 ? (
-        allClear ? (
-          <AllClearCard />
-        ) : (
-          <>
-            <AlertsSection
-              athletes={athletes}
-              onPressAthlete={(athlete) => router.push(athleteDetailHref(athlete))}
-            />
-            <ToReviewSection
-              athletes={athletes}
-              onPressAthlete={(athlete) => router.push(athleteDetailHref(athlete))}
-            />
-            <TodaySection
-              assignments={todayAssignments}
-              nameById={athleteNameById}
-              isLoading={assignments.isLoading}
-              isError={assignments.isError}
-              onRetry={() => void assignments.refetch()}
-              onChanged={() => {
-                void assignments.refetch();
-                void dashboard.refetch();
-              }}
-            />
-          </>
-        )
+        <>
+          {allClear ? (
+            <AllClearCard />
+          ) : (
+            <>
+              <AlertsSection
+                athletes={athletes}
+                onPressAthlete={(athlete) => router.push(athleteDetailHref(athlete))}
+              />
+              <ToReviewSection
+                athletes={athletes}
+                onPressAthlete={(athlete) => router.push(athleteDetailHref(athlete))}
+              />
+              <TodaySection
+                assignments={todayAssignments}
+                nameById={athleteNameById}
+                isLoading={assignments.isLoading}
+                isError={assignments.isError}
+                onRetry={() => void assignments.refetch()}
+                onChanged={() => {
+                  void assignments.refetch();
+                  void dashboard.refetch();
+                }}
+              />
+            </>
+          )}
+          {/* Charge d'entraînement (TLX-113) — indépendant de « Tout est à jour ». */}
+          <TrainingLoadSection
+            athletes={athletes}
+            onPressAthlete={(athlete) => router.push(athleteDetailHref(athlete))}
+          />
+        </>
       ) : null}
 
       {/* Tes athlètes (Carte C-01 §7). */}

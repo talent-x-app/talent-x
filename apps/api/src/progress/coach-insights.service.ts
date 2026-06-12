@@ -2,8 +2,19 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { OwnershipService } from '../common/authorization/ownership.service';
 import { ConsentGate } from '../common/authorization/consent.gate';
-import { AthleteStatus, DashboardAthleteDto, DashboardDto } from './dto/dashboard.dto';
+import {
+  AthleteStatus,
+  DashboardAthleteDto,
+  DashboardDto,
+  type TrainingLoadDto,
+} from './dto/dashboard.dto';
 import { StatsDto } from './dto/stats.dto';
+import {
+  computeTrainingLoad,
+  plannedDurationMinutes,
+  sessionLoad,
+  type LoadPoint,
+} from './training-load';
 
 /** Statuts d'affectation comptant comme « à faire » (échéance / aujourd'hui). */
 export const PENDING_STATUSES = ['assigned', 'in_progress'] as const;
@@ -42,9 +53,13 @@ export class CoachInsightsService {
           athleteId: true,
           status: true,
           dueDate: true,
+          // Séance planifiée : source de durée pour la charge sRPE (TLX-113).
+          session: { select: { brief: true, exercises: true } },
           performance: {
             select: {
               id: true,
+              rpe: true,
+              submittedAt: true,
               comments: {
                 where: { authorId: coachId, deletedAt: null },
                 select: { id: true },
@@ -60,12 +75,15 @@ export class CoachInsightsService {
     const consentByAthlete = await this.coachAccessByAthlete(athleteIds);
 
     const { todayStart, tomorrowStart } = dayBounds();
+    const now = new Date();
     const perAthlete = new Map<string, { overdue: number; toReview: number }>();
     const bump = (id: string, key: 'overdue' | 'toReview') => {
       const cur = perAthlete.get(id) ?? { overdue: 0, toReview: 0 };
       cur[key] += 1;
       perAthlete.set(id, cur);
     };
+    // Charges de séance (sRPE) datées, par athlète, pour la dérivation de charge (TLX-113).
+    const loadPointsByAthlete = new Map<string, LoadPoint[]>();
 
     let today = 0;
     for (const a of assignments) {
@@ -78,10 +96,27 @@ export class CoachInsightsService {
       if (a.performance && a.performance.comments.length === 0) {
         bump(a.athleteId, 'toReview');
       }
+      if (a.performance) {
+        const duration = plannedDurationMinutes(
+          a.session?.brief as { durationMinutes?: number | null } | null,
+          a.session?.exercises as { items?: { durationSeconds?: number | null }[] } | null,
+        );
+        const load = sessionLoad(a.performance.rpe, duration);
+        if (load != null) {
+          const points = loadPointsByAthlete.get(a.athleteId) ?? [];
+          points.push({ date: a.performance.submittedAt, load });
+          loadPointsByAthlete.set(a.athleteId, points);
+        }
+      }
     }
 
     const athletes: DashboardAthleteDto[] = links.map((l) => {
       const counts = perAthlete.get(l.athleteId) ?? { overdue: 0, toReview: 0 };
+      const coachAccessGranted = consentByAthlete.get(l.athleteId) ?? false;
+      // Charge consent-gated (RPE = donnée de l'athlète) : calculée seulement si coach_access.
+      const load: TrainingLoadDto | undefined = coachAccessGranted
+        ? toTrainingLoadDto(computeTrainingLoad(loadPointsByAthlete.get(l.athleteId) ?? [], now))
+        : undefined;
       return {
         id: l.athlete.id,
         firstName: l.athlete.firstName ?? undefined,
@@ -90,7 +125,8 @@ export class CoachInsightsService {
         status: deriveStatus(counts.overdue, counts.toReview),
         overdueCount: counts.overdue,
         toReviewCount: counts.toReview,
-        coachAccessGranted: consentByAthlete.get(l.athleteId) ?? false,
+        coachAccessGranted,
+        ...(load ? { load } : {}),
       };
     });
 
@@ -177,6 +213,20 @@ export class CoachInsightsService {
     }
     return map;
   }
+}
+
+/** Mappe la synthèse de charge pure vers le DTO (champs `null` → absents). */
+function toTrainingLoadDto(load: ReturnType<typeof computeTrainingLoad>): TrainingLoadDto {
+  return {
+    acute: load.acute,
+    chronic: load.chronic,
+    ...(load.acwr != null ? { acwr: load.acwr } : {}),
+    zone: load.zone as TrainingLoadDto['zone'],
+    weeklyLoad: load.weeklyLoad,
+    ...(load.monotony != null ? { monotony: load.monotony } : {}),
+    ...(load.strain != null ? { strain: load.strain } : {}),
+    sessions: load.sessions,
+  };
 }
 
 /** Priorité du statut : retard > à revoir > à jour. */
