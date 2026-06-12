@@ -4122,6 +4122,80 @@ export const listAthleteRecords = async (id: string, options?: RequestInit): Pro
 
 
 
+export type getAthleteProgressResponse200 = {
+  data: Progress
+  status: 200
+}
+
+export type getAthleteProgressResponse400 = {
+  data: BadRequestResponse
+  status: 400
+}
+
+export type getAthleteProgressResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type getAthleteProgressResponse403 = {
+  data: ConsentRequiredResponse
+  status: 403
+}
+
+export type getAthleteProgressResponse404 = {
+  data: NotFoundResponse
+  status: 404
+}
+
+export type getAthleteProgressResponse422 = {
+  data: ValidationFailedResponse
+  status: 422
+}
+
+export type getAthleteProgressResponse429 = {
+  data: TooManyRequestsResponse
+  status: 429
+}
+
+export type getAthleteProgressResponse500 = {
+  data: ServerErrorResponse
+  status: 500
+}
+
+export type getAthleteProgressResponseSuccess = (getAthleteProgressResponse200) & {
+  headers: Headers;
+};
+export type getAthleteProgressResponseError = (getAthleteProgressResponse400 | getAthleteProgressResponse401 | getAthleteProgressResponse403 | getAthleteProgressResponse404 | getAthleteProgressResponse422 | getAthleteProgressResponse429 | getAthleteProgressResponse500) & {
+  headers: Headers;
+};
+
+export type getAthleteProgressResponse = (getAthleteProgressResponseSuccess | getAthleteProgressResponseError)
+
+export const getGetAthleteProgressUrl = (id: string,) => {
+
+
+
+
+  return `/athletes/${id}/progress`
+}
+
+/**
+ * Miroir de /athletes/me/progress côté coach — lien actif + coach_access (TLX-112).
+ * @summary Progression d'un athlète lié (consentement requis)
+ */
+export const getAthleteProgress = async (id: string, options?: RequestInit): Promise<getAthleteProgressResponse> => {
+
+  return customFetch<getAthleteProgressResponse>(getGetAthleteProgressUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
 export type getAthleteStatsResponse200 = {
   data: Stats
   status: 200

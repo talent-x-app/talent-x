@@ -1,19 +1,13 @@
-import { getMyProgress, type Progress, type ProgressSeries } from '@talent-x/api-client';
+import { getMyProgress, type Progress } from '@talent-x/api-client';
 import { useTheme } from '@talent-x/design-tokens';
 import { useQuery } from '@tanstack/react-query';
 import { Feather } from '@expo/vector-icons';
 import { useState } from 'react';
 import { ActivityIndicator, ScrollView, Text, View } from 'react-native';
-import { Button, Card, Chip } from '../components/ui';
-import { formatRecordValue } from './perf-entry';
+import { Button, Card } from '../components/ui';
 import { PersonalRecordsSection } from './PersonalRecordsSection';
-import {
-  PROGRESS_WINDOWS,
-  barHeights,
-  pointsInWindow,
-  seriesTrend,
-  type ProgressWindow,
-} from './progress-series';
+import { ProgressMetricsRow, ProgressSeriesCard, ProgressWindowChips } from './progress-charts';
+import { type ProgressWindow } from './progress-series';
 
 /** Réponse 403 dont le code métier indique un consentement manquant. */
 function isConsentRequired(error: unknown): boolean {
@@ -95,21 +89,10 @@ export function ProgressScreen() {
         </Card>
       ) : progress.data ? (
         <>
-          <MetricsRow progress={progress.data} />
+          <ProgressMetricsRow progress={progress.data} />
 
           {/* Fenêtre temporelle (ADR-21 : segmentation côté client). */}
-          <View style={{ flexDirection: 'row', gap: spacing[2] }}>
-            {PROGRESS_WINDOWS.map((w) => (
-              <Chip
-                key={w.value}
-                testID={`progress-window-${w.value}`}
-                selected={window === w.value}
-                onPress={() => setWindow(w.value)}
-              >
-                {w.label}
-              </Chip>
-            ))}
-          </View>
+          <ProgressWindowChips window={window} onChange={setWindow} />
 
           {progress.data.series.length === 0 ? (
             <Card testID="progress-empty">
@@ -131,7 +114,7 @@ export function ProgressScreen() {
             </Card>
           ) : (
             progress.data.series.map((series) => (
-              <SeriesCard key={series.eventKey} series={series} window={window} />
+              <ProgressSeriesCard key={series.eventKey} series={series} window={window} />
             ))
           )}
 
@@ -139,148 +122,5 @@ export function ProgressScreen() {
         </>
       ) : null}
     </ScrollView>
-  );
-}
-
-/** Bandeau métriques (dérivations StatsMetrics appliquées à soi — ADR-21). */
-function MetricsRow({ progress }: { progress: Progress }) {
-  const { spacing } = useTheme();
-  const m = progress.metrics;
-  return (
-    <View style={{ flexDirection: 'row', gap: spacing[3] }}>
-      <Metric label="Réalisées" value={`${m.completed}/${m.assignmentsTotal}`} />
-      <Metric label="Assiduité" value={`${Math.round(m.completionRate * 100)} %`} />
-      <Metric label="RPE moyen" value={m.avgRpe != null ? `${m.avgRpe}` : '—'} />
-    </View>
-  );
-}
-
-function Metric({ label, value }: { label: string; value: string }) {
-  const { colors, typography, spacing } = useTheme();
-  return (
-    <Card style={{ flex: 1 }}>
-      <View style={{ gap: spacing[1] }}>
-        <Text
-          style={{
-            color: colors.textPrimary,
-            fontFamily: typography.fontFamily.bold,
-            fontSize: typography.h3.fontSize,
-          }}
-        >
-          {value}
-        </Text>
-        <Text
-          style={{
-            color: colors.textMuted,
-            fontFamily: typography.fontFamily.medium,
-            fontSize: typography.caption.fontSize,
-          }}
-        >
-          {label}
-        </Text>
-      </View>
-    </Card>
-  );
-}
-
-const CHART_HEIGHT = 72;
-
-/** Carte d'épreuve : dernière marque, tendance et barres des marques de la fenêtre. */
-function SeriesCard({ series, window }: { series: ProgressSeries; window: ProgressWindow }) {
-  const { colors, typography, spacing, radius } = useTheme();
-  const points = pointsInWindow(series.points, window, new Date());
-  const trend = seriesTrend(points, series.direction);
-  const heights = barHeights(points);
-  const last = points[points.length - 1];
-
-  return (
-    <Card testID={`progress-series-${series.eventKey}`}>
-      <View style={{ gap: spacing[3] }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[2] }}>
-          <View style={{ flex: 1, gap: 2 }}>
-            <Text
-              style={{
-                color: colors.textPrimary,
-                fontFamily: typography.fontFamily.medium,
-                fontSize: typography.body.fontSize,
-              }}
-            >
-              {series.label}
-            </Text>
-            <Text
-              style={{
-                color: colors.textMuted,
-                fontFamily: typography.fontFamily.regular,
-                fontSize: typography.bodySm.fontSize,
-              }}
-            >
-              {points.length} marque{points.length > 1 ? 's' : ''} sur la période
-            </Text>
-          </View>
-          {trend ? (
-            <Feather
-              testID={`progress-trend-${series.eventKey}-${trend}`}
-              name={trend === 'up' ? 'trending-up' : trend === 'down' ? 'trending-down' : 'minus'}
-              size={18}
-              color={
-                trend === 'up'
-                  ? colors.success
-                  : trend === 'down'
-                    ? colors.danger
-                    : colors.textMuted
-              }
-            />
-          ) : null}
-          {last ? (
-            <Text
-              testID={`progress-last-${series.eventKey}`}
-              style={{
-                color: colors.accentText,
-                fontFamily: typography.fontFamily.bold,
-                fontSize: typography.h3.fontSize,
-              }}
-            >
-              {formatRecordValue(last.value, series.unit)}
-            </Text>
-          ) : null}
-        </View>
-
-        {points.length === 0 ? (
-          <Text
-            testID={`progress-series-${series.eventKey}-empty`}
-            style={{
-              color: colors.textMuted,
-              fontFamily: typography.fontFamily.regular,
-              fontSize: typography.bodySm.fontSize,
-            }}
-          >
-            Aucune marque sur cette période.
-          </Text>
-        ) : (
-          <View
-            style={{
-              height: CHART_HEIGHT,
-              flexDirection: 'row',
-              alignItems: 'flex-end',
-              gap: spacing[1],
-            }}
-          >
-            {heights.map((h, i) => (
-              <View
-                key={`${points[i].date}-${i}`}
-                testID={`progress-bar-${series.eventKey}-${i}`}
-                style={{
-                  flex: 1,
-                  maxWidth: 28,
-                  height: Math.round(CHART_HEIGHT * h),
-                  borderRadius: radius.sm,
-                  backgroundColor: i === heights.length - 1 ? colors.accent : colors.accentSubtle,
-                }}
-              />
-            ))}
-          </View>
-        )}
-      </View>
-    </Card>
   );
 }

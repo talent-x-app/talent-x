@@ -9,10 +9,35 @@ const mockBack = jest.fn();
 const mockPush = jest.fn();
 let mockParams: Record<string, string> = {};
 
+const mockGetAthleteProgress = jest.fn();
+const mockListAthleteRecords = jest.fn();
+
 jest.mock('@talent-x/api-client', () => ({
   getAthleteStats: (...args: unknown[]) => mockGetAthleteStats(...args),
   listAssignments: (...args: unknown[]) => mockListAssignments(...args),
+  getAthleteProgress: (...args: unknown[]) => mockGetAthleteProgress(...args),
+  listAthleteRecords: (...args: unknown[]) => mockListAthleteRecords(...args),
   AthleteStatus: { up_to_date: 'up_to_date', late: 'late', pending_review: 'pending_review' },
+  AssignmentStatus: {
+    assigned: 'assigned',
+    in_progress: 'in_progress',
+    completed: 'completed',
+    skipped: 'skipped',
+  },
+  BlockType: {
+    strength: 'strength',
+    interval: 'interval',
+    sprint: 'sprint',
+    endurance: 'endurance',
+    hurdles: 'hurdles',
+    jumps: 'jumps',
+    vertical_jumps: 'vertical_jumps',
+    throws: 'throws',
+    core: 'core',
+    warmup: 'warmup',
+    cooldown: 'cooldown',
+    custom: 'custom',
+  },
 }));
 jest.mock('expo-router', () => ({
   useRouter: () => ({ back: mockBack, push: mockPush }),
@@ -48,6 +73,9 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockParams = { id: 'a-1', name: 'Léa Dubois', status: 'late', sport: '200m' };
   mockListAssignments.mockResolvedValue({ status: 200, data: { data: [], meta: {} } });
+  // Par défaut : pas d'accès (les sections progression/records restent masquées).
+  mockGetAthleteProgress.mockResolvedValue({ status: 403, data: { error: 'CONSENT_REQUIRED' } });
+  mockListAthleteRecords.mockResolvedValue({ status: 403, data: { error: 'CONSENT_REQUIRED' } });
 });
 
 describe('AthleteDetailScreen (TLX-045)', () => {
@@ -139,5 +167,60 @@ describe('AthleteDetailScreen (TLX-045)', () => {
     await waitFor(() => expect(screen.getByTestId('athlete-stat-rpe-value')).toBeOnTheScreen());
     expect(screen.getByTestId('athlete-stat-rpe-value')).toHaveTextContent('—');
     expect(screen.getByTestId('athlete-stat-last')).toHaveTextContent('Aucune');
+  });
+
+  describe('Progression & records côté coach (TLX-112)', () => {
+    const PROGRESS = {
+      athleteId: 'a-1',
+      metrics: { assignmentsTotal: 3, completed: 3, missed: 0, completionRate: 1 },
+      series: [
+        {
+          eventKey: 'sprint:60m',
+          label: '60 m',
+          unit: 's',
+          direction: 'min',
+          points: [{ date: new Date().toISOString().slice(0, 10), value: 7.3 }],
+        },
+      ],
+    };
+    const RECORDS = {
+      items: [
+        {
+          id: 'r-1',
+          athleteId: 'a-1',
+          eventKey: 'sprint:60m',
+          label: '60 m',
+          value: 7.3,
+          unit: 's',
+          direction: 'min',
+          achievedAt: '2026-06-10',
+          performanceId: 'p-1',
+          updatedAt: '2026-06-10T10:00:00.000Z',
+        },
+      ],
+    };
+
+    it('affiche les graphes de progression et les records quand l’accès est accordé', async () => {
+      mockGetAthleteStats.mockResolvedValue({ status: 200, data: STATS });
+      mockGetAthleteProgress.mockResolvedValue({ status: 200, data: PROGRESS });
+      mockListAthleteRecords.mockResolvedValue({ status: 200, data: RECORDS });
+      render(<AthleteDetailScreen />, { wrapper: Wrapper });
+
+      await waitFor(() =>
+        expect(screen.getByTestId('progress-series-sprint:60m')).toBeOnTheScreen(),
+      );
+      expect(screen.getByTestId('progress-last-sprint:60m')).toHaveTextContent('7.3 s');
+      expect(screen.getByTestId('record-sprint:60m-value')).toHaveTextContent('7.3 s');
+    });
+
+    it('masque progression & records sans accès (403)', async () => {
+      mockGetAthleteStats.mockResolvedValue({ status: 200, data: STATS });
+      // les défauts beforeEach renvoient 403 pour progress/records
+      render(<AthleteDetailScreen />, { wrapper: Wrapper });
+
+      await waitFor(() => expect(screen.getByTestId('athlete-stat-done-value')).toBeOnTheScreen());
+      expect(screen.queryByTestId('progress-series-sprint:60m')).toBeNull();
+      expect(screen.queryByTestId('record-sprint:60m')).toBeNull();
+    });
   });
 });

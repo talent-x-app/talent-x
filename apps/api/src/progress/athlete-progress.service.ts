@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ConsentGate } from '../common/authorization/consent.gate';
+import { OwnershipService } from '../common/authorization/ownership.service';
 import type { ExerciseDto } from '../sessions/dto/exercises.dto';
 import type { ExerciseResultDto } from '../assignments/dto/results.dto';
 import { PENDING_STATUSES, dayBounds, round } from './coach-insights.service';
@@ -21,11 +22,28 @@ export class AthleteProgressService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly consent: ConsentGate,
+    private readonly ownership: OwnershipService,
   ) {}
 
+  /** Progression de l'athlète connecté (porte `data_processing`). */
   async getMyProgress(athleteId: string): Promise<ProgressDto> {
     await this.consent.assertActiveConsent(athleteId, 'data_processing');
+    return this.derive(athleteId);
+  }
 
+  /**
+   * Progression d'un athlète lié, côté coach (TLX-112) — **miroir** de `getMyProgress` :
+   * même dérivation, portes coach (lien actif + `coach_access`, mêmes règles que les
+   * records et stats coach). L'athlète voit ainsi exactement ce que voit son coach.
+   */
+  async getForCoach(coachId: string, athleteId: string): Promise<ProgressDto> {
+    await this.ownership.assertCoachLinkedToAthlete(coachId, athleteId);
+    await this.consent.assertActiveConsent(athleteId, 'coach_access');
+    return this.derive(athleteId);
+  }
+
+  /** Dérivation pure à la lecture (ADR-21) — partagée par les vues athlète et coach. */
+  private async derive(athleteId: string): Promise<ProgressDto> {
     const assignments = await this.prisma.sessionAssignment.findMany({
       where: { athleteId, deletedAt: null, session: { deletedAt: null } },
       select: {

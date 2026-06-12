@@ -1,16 +1,28 @@
 import {
+  getAthleteProgress,
   getAthleteStats,
   listAssignments,
+  listAthleteRecords,
   type AthleteStatus,
   type Assignment,
+  type PersonalRecord,
+  type Progress,
   type Stats,
 } from '@talent-x/api-client';
 import { useTheme } from '@talent-x/design-tokens';
 import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 import { Feather } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Button, Card } from '../components/ui';
+import {
+  ProgressMetricsRow,
+  ProgressSeriesCard,
+  ProgressWindowChips,
+  RecordRow,
+} from '../athlete/progress-charts';
+import { type ProgressWindow } from '../athlete/progress-series';
 import { AthleteStatusBadge } from './athlete-ui';
 
 /** Réponse 403 dont le code métier indique un consentement manquant. */
@@ -126,6 +138,11 @@ export function AthleteDetailScreen() {
       </View>
 
       <StatsSection stats={stats} />
+
+      {/* Progression & records côté coach (C-03 — TLX-112), consent-gated coach_access.
+          Rendus seulement si l'accès est accordé (le message de consentement vit dans Stats). */}
+      <CoachProgressSection id={id} />
+      <CoachRecordsSection id={id} />
 
       <ReviewableSessions
         assignments={reviewable}
@@ -269,6 +286,84 @@ function StatsSection({ stats }: { stats: UseQueryResult<Stats, unknown> }) {
           </Text>
         </View>
       </Card>
+    </View>
+  );
+}
+
+/**
+ * Progression de l'athlète côté coach (TLX-112) — `GET /athletes/:id/progress`, miroir de
+ * la vue A-06 (mêmes graphes). Consent-gated : sur 403 / erreur / sans donnée, rendue `null`
+ * (le message de consentement est porté par la section Statistiques).
+ */
+function CoachProgressSection({ id }: { id: string }) {
+  const { colors, typography, spacing } = useTheme();
+  const [window, setWindow] = useState<ProgressWindow>('month');
+  const progress = useQuery({
+    queryKey: ['athlete', id, 'progress'],
+    queryFn: async (): Promise<Progress> => {
+      const response = await getAthleteProgress(id);
+      if (response.status === 200) return response.data;
+      throw response;
+    },
+    retry: false,
+  });
+
+  if (!progress.data) return null;
+  const data = progress.data;
+
+  return (
+    <View style={{ gap: spacing[3] }}>
+      <SectionTitle>Progression</SectionTitle>
+      <ProgressMetricsRow progress={data} />
+      <ProgressWindowChips window={window} onChange={setWindow} />
+      {data.series.length === 0 ? (
+        <Card testID="athlete-progress-empty">
+          <Text
+            style={{
+              color: colors.textMuted,
+              fontFamily: typography.fontFamily.regular,
+              fontSize: typography.bodySm.fontSize,
+              textAlign: 'center',
+            }}
+          >
+            Pas encore de mesures sur des blocs typés renseignés.
+          </Text>
+        </Card>
+      ) : (
+        data.series.map((series) => (
+          <ProgressSeriesCard key={series.eventKey} series={series} window={window} />
+        ))
+      )}
+    </View>
+  );
+}
+
+/**
+ * Records de l'athlète côté coach (TLX-112) — `GET /athletes/:id/records` (déjà livré).
+ * Consent-gated : rendue `null` si erreur / aucun record (l'endpoint exige `coach_access`).
+ */
+function CoachRecordsSection({ id }: { id: string }) {
+  const { spacing } = useTheme();
+  const records = useQuery({
+    queryKey: ['athlete', id, 'records'],
+    queryFn: async (): Promise<PersonalRecord[]> => {
+      const response = await listAthleteRecords(id);
+      if (response.status === 200) return response.data.items;
+      throw response;
+    },
+    retry: false,
+  });
+
+  if (!records.data?.length) return null;
+
+  return (
+    <View style={{ gap: spacing[3] }}>
+      <SectionTitle>Records personnels</SectionTitle>
+      <View style={{ gap: spacing[2] }}>
+        {records.data.map((record) => (
+          <RecordRow key={record.id} record={record} />
+        ))}
+      </View>
     </View>
   );
 }

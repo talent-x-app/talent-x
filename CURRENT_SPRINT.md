@@ -12,6 +12,29 @@ de débloquer les écrans coach C-01/C-02/C-03.
 - _(éditeurs typés terminés — TLX-054→061 livrés ↓)_
 - _(C-01 complet — TLX-081→085 livrés ↓)_
 
+## Terminés — TLX-112 Progression & records côté coach (C-03)
+
+- **Constat corrigé** : le coach avait les stats agrégées (C-03) mais **ni les graphes de progression**
+  (`/athletes/me/progress` réservé à l'athlète) **ni les records** (`GET /athletes/{id}/records` livré
+  mais câblé nulle part) — l'athlète voyait plus que son coach, à rebours de la promesse « pilotage ».
+- **(API)** **un endpoint additif** `GET /athletes/{id}/progress` (coach) — **miroir** de
+  `/athletes/me/progress` : la dérivation d'`AthleteProgressService` est extraite en `derive(athleteId)`
+  (partagée), `getMyProgress` garde la porte `data_processing`, `getForCoach` applique les **portes
+  coach** (lien actif + `coach_access`, mêmes règles que records/stats). OpenAPI → DTO → client orval
+  régénéré. Records : endpoint déjà livré, juste consommé. +1 test unitaire.
+- **(Mobile)** rendu de progression **mutualisé** : composants extraits dans
+  `src/athlete/progress-charts.tsx` (`ProgressMetricsRow`, `ProgressSeriesCard`, `ProgressWindowChips`,
+  `RecordRow`) — `ProgressScreen` (A-06) et `PersonalRecordsSection` (A-07) refactorisés pour les
+  réutiliser (zéro changement visuel, mêmes testID). Le **détail athlète coach (C-03)** gagne
+  `CoachProgressSection` (graphes par épreuve + fenêtre Semaine/Mois/Année via `getAthleteProgress`) et
+  `CoachRecordsSection` (`listAthleteRecords`), **consent-gated** : masqués sans `coach_access` (le
+  message de consentement reste porté par la section Statistiques). +2 tests écran.
+- **Tests** : **API 410/410** (+1), **int 13/13** (+1), **mobile 430/430** (+2), typecheck (api+mobile)
+  - lint clean. **Validé en réel (2026-06-12, intégration DB-backed Postgres :5433)** : coach lié sans
+    consentement → `/athletes/:id/progress` **403 CONSENT_REQUIRED** ; avec `coach_access` → **200**
+    (metrics + series, même forme que `/me/progress`) ; coach **non lié** → **403** (ownership). UI coach
+    couverte par RTL sur les **vrais** composants partagés (graphes + records rendus, masqués sans accès).
+
 ## Terminés — TLX-113 Monitoring de charge d'entraînement (sRPE / ACWR)
 
 - **Différenciateur flagship sur données déjà collectées** (RPE + durée planifiée + dates) — fait

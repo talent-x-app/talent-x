@@ -67,6 +67,20 @@ export class ProgressController {
     return this.records.listForCoach(coachId, id);
   }
 
+  @Get('athletes/:id/progress')
+  @Roles('coach')
+  @ApiOperation({
+    summary: "Progression d'un athlète lié",
+    operationId: 'getAthleteProgress',
+  })
+  @ApiResponse({ status: 200, description: 'Progression.', type: ProgressDto })
+  getAthleteProgress(
+    @CurrentUser('id') coachId: string,
+    @Param('id', new ParseUUIDPipe()) id: string,
+  ): Promise<ProgressDto> {
+    return this.progress.getForCoach(coachId, id);
+  }
+
   @Get('athletes/:id/stats')
   @Roles('coach')
   @ApiOperation({ summary: "Statistiques d'un athlète", operationId: 'getAthleteStats' })

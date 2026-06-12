@@ -1,4 +1,5 @@
 import type { ConsentGate } from '../common/authorization/consent.gate';
+import type { OwnershipService } from '../common/authorization/ownership.service';
 import type { PrismaService } from '../prisma/prisma.service';
 import { AthleteProgressService } from './athlete-progress.service';
 
@@ -6,11 +7,21 @@ function consentMock(): ConsentGate {
   return { assertActiveConsent: jest.fn().mockResolvedValue(undefined) } as unknown as ConsentGate;
 }
 
-function service(rows: unknown[], consent = consentMock()): AthleteProgressService {
+function ownershipMock(): OwnershipService {
+  return {
+    assertCoachLinkedToAthlete: jest.fn().mockResolvedValue(undefined),
+  } as unknown as OwnershipService;
+}
+
+function service(
+  rows: unknown[],
+  consent = consentMock(),
+  ownership = ownershipMock(),
+): AthleteProgressService {
   const prisma = {
     sessionAssignment: { findMany: jest.fn().mockResolvedValue(rows) },
   } as unknown as PrismaService;
-  return new AthleteProgressService(prisma, consent);
+  return new AthleteProgressService(prisma, consent, ownership);
 }
 
 const SPRINT_SESSION = {
@@ -35,6 +46,16 @@ describe('AthleteProgressService (TLX-090, ADR-21)', () => {
     const consent = consentMock();
     await service([], consent).getMyProgress('a-1');
     expect(consent.assertActiveConsent).toHaveBeenCalledWith('a-1', 'data_processing');
+  });
+
+  it('getForCoach (TLX-112) : exige lien actif + coach_access, même dérivation', async () => {
+    const consent = consentMock();
+    const ownership = ownershipMock();
+    const res = await service([], consent, ownership).getForCoach('c-1', 'a-1');
+    expect(ownership.assertCoachLinkedToAthlete).toHaveBeenCalledWith('c-1', 'a-1');
+    expect(consent.assertActiveConsent).toHaveBeenCalledWith('a-1', 'coach_access');
+    expect(res.athleteId).toBe('a-1');
+    expect(res.series).toEqual([]);
   });
 
   it('dérive metrics (StatsMetrics) sur toutes les affectations', async () => {

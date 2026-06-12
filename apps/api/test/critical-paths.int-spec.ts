@@ -750,4 +750,38 @@ describe('Parcours critiques (E2E DB) — TLX-120', () => {
       expect(gated.coachAccessGranted).toBe(false);
     });
   });
+
+  describe('Progression côté coach — GET /athletes/:id/progress (TLX-112)', () => {
+    it('miroir consent-gated : 200 avec coach_access, 403 sans, 403 sans lien', async () => {
+      const coach = await register('coach');
+      const stranger = await register('coach');
+      const athlete = await register('athlete');
+      await prisma.coachAthleteLink.create({
+        data: { coachId: coach.id, athleteId: athlete.id, source: 'direct' },
+      });
+
+      // Sans coach_access → 403 CONSENT_REQUIRED.
+      const noConsent = await http()
+        .get(`/api/v1/athletes/${athlete.id}/progress`)
+        .set(bearer(coach.token))
+        .expect(403);
+      expect(noConsent.body.error).toBe('CONSENT_REQUIRED');
+
+      // Avec coach_access → 200, même forme que /me/progress (metrics + series).
+      await grantConsent(athlete.token, 'coach_access');
+      const ok = await http()
+        .get(`/api/v1/athletes/${athlete.id}/progress`)
+        .set(bearer(coach.token))
+        .expect(200);
+      expect(ok.body.athleteId).toBe(athlete.id);
+      expect(ok.body.metrics).toBeDefined();
+      expect(Array.isArray(ok.body.series)).toBe(true);
+
+      // Coach non lié → 403 (ownership), même si l'athlète a consenti.
+      await http()
+        .get(`/api/v1/athletes/${athlete.id}/progress`)
+        .set(bearer(stranger.token))
+        .expect(403);
+    });
+  });
 });
