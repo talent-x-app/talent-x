@@ -3,9 +3,12 @@ import { useTheme } from '@talent-x/design-tokens';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { useState } from 'react';
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { Button, Card } from '../components/ui';
+import { SearchField } from '../components/SearchField';
 import { toUserMessage, useToast } from '../feedback';
+import { filterByText } from '../search/text-filter';
 import { countLeaves } from '../sessions/exercises-doc';
 import { editSessionHref, newTemplateHref } from './navigation';
 import { SESSION_TEMPLATES_QUERY_KEY } from './templates-query';
@@ -23,6 +26,7 @@ export function CoachTemplatesScreen() {
   const router = useRouter();
   const toast = useToast();
   const queryClient = useQueryClient();
+  const [search, setSearch] = useState('');
 
   const query = useQuery({
     queryKey: SESSION_TEMPLATES_QUERY_KEY,
@@ -157,18 +161,42 @@ export function CoachTemplatesScreen() {
           </Text>
         </Card>
       ) : (
-        <View style={{ gap: spacing[3] }}>
-          {templates.map((template) => (
-            <TemplateListItem
-              key={template.id}
-              template={template}
-              onEdit={() => router.push(editSessionHref(template.id))}
-              onUse={() => use.mutate(template.id)}
-              using={use.isPending && use.variables === template.id}
-              useDisabled={use.isPending}
-            />
-          ))}
-        </View>
+        <>
+          {/* Recherche par titre (TLX-117) — filtre client sur la bibliothèque. */}
+          <SearchField
+            testID="templates-search"
+            value={search}
+            onChangeText={setSearch}
+            placeholder="Rechercher un modèle"
+          />
+          {filterByText(templates, search, (t) => t.title).length === 0 ? (
+            <Card testID="templates-no-match">
+              <Text
+                style={{
+                  color: colors.textMuted,
+                  fontFamily: typography.fontFamily.regular,
+                  fontSize: typography.body.fontSize,
+                  textAlign: 'center',
+                }}
+              >
+                Aucun modèle ne correspond à « {search.trim()} ».
+              </Text>
+            </Card>
+          ) : (
+            <View style={{ gap: spacing[3] }}>
+              {filterByText(templates, search, (t) => t.title).map((template) => (
+                <TemplateListItem
+                  key={template.id}
+                  template={template}
+                  onEdit={() => router.push(editSessionHref(template.id))}
+                  onUse={() => use.mutate(template.id)}
+                  using={use.isPending && use.variables === template.id}
+                  useDisabled={use.isPending}
+                />
+              ))}
+            </View>
+          )}
+        </>
       )}
     </ScrollView>
   );

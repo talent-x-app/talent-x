@@ -121,4 +121,17 @@ describe('AthleteSessionsScreen (TLX-065 / A-02)', () => {
     fireEvent.press(screen.getByTestId('sessions-retry'));
     await waitFor(() => expect(screen.getByText('Haut du corps')).toBeOnTheScreen());
   });
+
+  it('recherche : filtre par titre de séance + sans correspondance (TLX-117)', async () => {
+    mockListAssignments.mockResolvedValue({ status: 200, data: PAGE });
+    render(<AthleteSessionsScreen />, { wrapper: Wrapper });
+    await waitFor(() => expect(screen.getByTestId('session-item-as-1')).toBeOnTheScreen());
+
+    fireEvent.changeText(screen.getByTestId('sessions-search'), 'cardio');
+    expect(screen.getByTestId('session-item-as-2')).toBeOnTheScreen();
+    expect(screen.queryByTestId('session-item-as-1')).toBeNull();
+
+    fireEvent.changeText(screen.getByTestId('sessions-search'), 'zzz');
+    expect(screen.getByTestId('sessions-no-match')).toBeOnTheScreen();
+  });
 });

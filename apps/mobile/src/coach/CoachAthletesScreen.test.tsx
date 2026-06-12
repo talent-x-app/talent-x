@@ -106,4 +106,19 @@ describe('CoachAthletesScreen (TLX-044)', () => {
     fireEvent.press(screen.getByTestId('coach-athletes-retry'));
     await waitFor(() => expect(screen.getByText('Léa Dubois')).toBeOnTheScreen());
   });
+
+  it('recherche : filtre par nom (accents ignorés) + état sans correspondance (TLX-117)', async () => {
+    mockGetCoachDashboard.mockResolvedValue({ status: 200, data: DASHBOARD });
+    render(<CoachAthletesScreen />, { wrapper: Wrapper });
+    await waitFor(() => expect(screen.getByTestId('coach-athletes-item-a-1')).toBeOnTheScreen());
+
+    // « lea » (sans accent) ne garde que Léa Dubois.
+    fireEvent.changeText(screen.getByTestId('coach-athletes-search'), 'lea');
+    expect(screen.getByTestId('coach-athletes-item-a-1')).toBeOnTheScreen();
+    expect(screen.queryByTestId('coach-athletes-item-a-2')).toBeNull();
+
+    // Aucune correspondance → carte dédiée.
+    fireEvent.changeText(screen.getByTestId('coach-athletes-search'), 'zzz');
+    expect(screen.getByTestId('coach-athletes-no-match')).toBeOnTheScreen();
+  });
 });

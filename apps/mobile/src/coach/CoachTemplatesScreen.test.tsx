@@ -129,4 +129,22 @@ describe('CoachTemplatesScreen (C-10, TLX-064)', () => {
     fireEvent.press(screen.getByTestId('templates-retry'));
     await waitFor(() => expect(screen.getByTestId('template-item-t-1')).toBeOnTheScreen());
   });
+
+  it('recherche : filtre par titre de modèle + sans correspondance (TLX-117)', async () => {
+    mockListSessions.mockResolvedValue(
+      page([
+        template({ id: 't-1', title: 'Séance type sprint' }),
+        template({ id: 't-2', title: 'Endurance longue' }),
+      ]),
+    );
+    render(<CoachTemplatesScreen />, { wrapper: Wrapper });
+    await waitFor(() => expect(screen.getByTestId('template-item-t-1')).toBeOnTheScreen());
+
+    fireEvent.changeText(screen.getByTestId('templates-search'), 'endurance');
+    expect(screen.getByTestId('template-item-t-2')).toBeOnTheScreen();
+    expect(screen.queryByTestId('template-item-t-1')).toBeNull();
+
+    fireEvent.changeText(screen.getByTestId('templates-search'), 'zzz');
+    expect(screen.getByTestId('templates-no-match')).toBeOnTheScreen();
+  });
 });

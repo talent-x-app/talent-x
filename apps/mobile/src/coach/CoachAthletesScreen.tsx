@@ -11,10 +11,13 @@ import {
   View,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { useState } from 'react';
 import { Button, Card } from '../components/ui';
+import { SearchField } from '../components/SearchField';
 import { COACH_DASHBOARD_QUERY_KEY } from '../dashboard/dashboard-query';
 import { coachGroupsHref } from '../groups/navigation';
-import { AthleteListItem } from './athlete-ui';
+import { filterByText } from '../search/text-filter';
+import { AthleteListItem, athleteFullName } from './athlete-ui';
 import { athleteDetailHref, coachTemplatesHref } from './navigation';
 
 /**
@@ -26,6 +29,7 @@ import { athleteDetailHref, coachTemplatesHref } from './navigation';
 export function CoachAthletesScreen() {
   const { colors, typography, spacing } = useTheme();
   const router = useRouter();
+  const [query, setQuery] = useState('');
 
   const dashboard = useQuery({
     queryKey: COACH_DASHBOARD_QUERY_KEY,
@@ -142,16 +146,40 @@ export function CoachAthletesScreen() {
           </Text>
         </Card>
       ) : (
-        <View style={{ gap: spacing[2] }}>
-          {athletes.map((athlete) => (
-            <AthleteListItem
-              key={athlete.id}
-              athlete={athlete}
-              testID={`coach-athletes-item-${athlete.id}`}
-              onPress={() => router.push(athleteDetailHref(athlete))}
-            />
-          ))}
-        </View>
+        <>
+          {/* Recherche par nom (TLX-117) — filtre client sur les athlètes liés. */}
+          <SearchField
+            testID="coach-athletes-search"
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Rechercher un athlète"
+          />
+          {filterByText(athletes, query, athleteFullName).length === 0 ? (
+            <Card testID="coach-athletes-no-match">
+              <Text
+                style={{
+                  color: colors.textMuted,
+                  fontFamily: typography.fontFamily.regular,
+                  fontSize: typography.body.fontSize,
+                  textAlign: 'center',
+                }}
+              >
+                Aucun athlète ne correspond à « {query.trim()} ».
+              </Text>
+            </Card>
+          ) : (
+            <View style={{ gap: spacing[2] }}>
+              {filterByText(athletes, query, athleteFullName).map((athlete) => (
+                <AthleteListItem
+                  key={athlete.id}
+                  athlete={athlete}
+                  testID={`coach-athletes-item-${athlete.id}`}
+                  onPress={() => router.push(athleteDetailHref(athlete))}
+                />
+              ))}
+            </View>
+          )}
+        </>
       )}
     </ScrollView>
   );

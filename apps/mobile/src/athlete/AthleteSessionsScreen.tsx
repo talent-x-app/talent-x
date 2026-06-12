@@ -2,9 +2,12 @@ import { listAssignments, type Assignment } from '@talent-x/api-client';
 import { useTheme } from '@talent-x/design-tokens';
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
+import { useState } from 'react';
 import { ActivityIndicator, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { Button, Card } from '../components/ui';
-import { AssignmentListItem } from './athlete-session-ui';
+import { SearchField } from '../components/SearchField';
+import { filterByText } from '../search/text-filter';
+import { AssignmentListItem, sessionTitle } from './athlete-session-ui';
 
 /** Affectations à venir d'abord, terminées/manquées ensuite ; sinon par date décroissante. */
 const STATUS_ORDER: Record<string, number> = {
@@ -33,6 +36,7 @@ function sortAssignments(list: Assignment[]): Assignment[] {
 export function AthleteSessionsScreen() {
   const { colors, typography, spacing } = useTheme();
   const router = useRouter();
+  const [search, setSearch] = useState('');
 
   const query = useQuery({
     queryKey: ['assignments'],
@@ -119,20 +123,44 @@ export function AthleteSessionsScreen() {
           </Text>
         </Card>
       ) : (
-        <View style={{ gap: spacing[3] }}>
-          {assignments.map((assignment) => (
-            <AssignmentListItem
-              key={assignment.id}
-              assignment={assignment}
-              onPress={() =>
-                router.push({
-                  pathname: '/(athlete)/session/[id]' as const,
-                  params: { id: assignment.id },
-                })
-              }
-            />
-          ))}
-        </View>
+        <>
+          {/* Recherche par titre de séance (TLX-117) — filtre client. */}
+          <SearchField
+            testID="sessions-search"
+            value={search}
+            onChangeText={setSearch}
+            placeholder="Rechercher une séance"
+          />
+          {filterByText(assignments, search, sessionTitle).length === 0 ? (
+            <Card testID="sessions-no-match">
+              <Text
+                style={{
+                  color: colors.textMuted,
+                  fontFamily: typography.fontFamily.regular,
+                  fontSize: typography.body.fontSize,
+                  textAlign: 'center',
+                }}
+              >
+                Aucune séance ne correspond à « {search.trim()} ».
+              </Text>
+            </Card>
+          ) : (
+            <View style={{ gap: spacing[3] }}>
+              {filterByText(assignments, search, sessionTitle).map((assignment) => (
+                <AssignmentListItem
+                  key={assignment.id}
+                  assignment={assignment}
+                  onPress={() =>
+                    router.push({
+                      pathname: '/(athlete)/session/[id]' as const,
+                      params: { id: assignment.id },
+                    })
+                  }
+                />
+              ))}
+            </View>
+          )}
+        </>
       )}
     </ScrollView>
   );

@@ -12,6 +12,23 @@ de débloquer les écrans coach C-01/C-02/C-03.
 - _(éditeurs typés terminés — TLX-054→061 livrés ↓)_
 - _(C-01 complet — TLX-081→085 livrés ↓)_
 
+## Terminés — TLX-117 Recherche & filtres (athlètes, séances, modèles)
+
+- **Constat** : aucune recherche nulle part — au-delà de ~20 items les listes deviennent inutilisables.
+  **Frontend pur** (filtre client sur les listes déjà chargées) ; **aucun contrat, aucun backend**. Le
+  paramètre serveur `query` (conditionnel « si volumétrie ») est **différé** (le filtre client suffit au MVP).
+- **(Module pur `search/text-filter.ts`)** `normalizeText` (minuscule + suppression des diacritiques NFD),
+  `matchesQuery` (sous-chaîne, **insensible casse/accents** — « lea » trouve « Léa » ; requête vide → vrai),
+  `filterByText` (requête vide → **même référence**, ordre préservé). +3 tests.
+- **(Composant `components/SearchField.tsx`)** champ de recherche du design system : loupe + saisie +
+  bouton d'effacement (×) quand non vide. +1 test.
+- **(Câblage)** recherche ajoutée sur les **3 listes** (état sans-correspondance dédié) :
+  **Athlètes** (C-02, par nom via `athleteFullName`), **Modèles** (C-10, par titre), **Séances athlète**
+  (A-02, par titre de séance). Le champ n'apparaît que si la liste sous-jacente est non vide ; tri/pagination
+  existants préservés. +3 tests écran (filtre + sans-correspondance).
+- **Tests** : **mobile 442/442** (+7), typecheck + lint clean (aucun test API : zéro changement backend).
+  UI couverte par RTL sur les vrais écrans (saisie → liste filtrée → carte « aucune correspondance »).
+
 ## Terminés — TLX-116 Records manuels — éditeur + endpoint d'initialisation des PB (ADR-32)
 
 - **ADR-32 accepté** (2 arbitrages validés) : endpoint **POST structuré** (le serveur compose la clé) ;
