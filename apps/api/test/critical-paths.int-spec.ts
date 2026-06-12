@@ -598,4 +598,106 @@ describe('Parcours critiques (E2E DB) — TLX-120', () => {
         .expect(403);
     });
   });
+
+  describe('Cycle de vie des affectations — ADR-31 (TLX-108)', () => {
+    /** Coach + athlète liés + une affectation échue (assigned, dueDate passée). */
+    async function setup() {
+      const coach = await register('coach');
+      const athlete = await register('athlete');
+      await grantConsent(athlete.token, 'coach_access');
+      await prisma.coachAthleteLink.create({
+        data: { coachId: coach.id, athleteId: athlete.id, source: 'direct' },
+      });
+      const session = await prisma.session.create({
+        data: { coachId: coach.id, title: 'Sprint', status: 'published' },
+      });
+      const assignment = await prisma.sessionAssignment.create({
+        data: { sessionId: session.id, athleteId: athlete.id, dueDate: new Date('2026-01-05') },
+      });
+      return { coach, athlete, assignment };
+    }
+
+    it('replan (coach), skip athlète sort du retard, assiduité exclut skipped, transitions gardées', async () => {
+      const { coach, athlete, assignment } = await setup();
+
+      // Échue → comptée en retard au dashboard coach.
+      const before = await http()
+        .get('/api/v1/coach/dashboard')
+        .set(bearer(coach.token))
+        .expect(200);
+      expect(before.body.summary.alerts.missedSessions).toBe(1);
+
+      // Coach replanifie (dueDate). Athlète ne peut pas → 403.
+      await http()
+        .patch(`/api/v1/assignments/${assignment.id}`)
+        .set(bearer(athlete.token))
+        .send({ dueDate: '2026-09-01' })
+        .expect(403);
+      const replan = await http()
+        .patch(`/api/v1/assignments/${assignment.id}`)
+        .set(bearer(coach.token))
+        .send({ dueDate: '2026-01-06' })
+        .expect(200);
+      expect(replan.body.dueDate).toBe('2026-01-06');
+
+      // Athlète signale une indispo (skipped + motif).
+      const skipped = await http()
+        .patch(`/api/v1/assignments/${assignment.id}`)
+        .set(bearer(athlete.token))
+        .send({ status: 'skipped', skipReason: 'injury' })
+        .expect(200);
+      expect(skipped.body.status).toBe('skipped');
+      expect(skipped.body.skipReason).toBe('injury');
+
+      // Le retard est soldé : disparaît des alertes du dashboard.
+      const after = await http()
+        .get('/api/v1/coach/dashboard')
+        .set(bearer(coach.token))
+        .expect(200);
+      expect(after.body.summary.alerts.missedSessions).toBe(0);
+
+      // Stats d'assiduité : skipped compté, exclu du dénominateur (1 total − 1 skip → rate 0).
+      const stats = await http()
+        .get(`/api/v1/athletes/${athlete.id}/stats`)
+        .set(bearer(coach.token))
+        .expect(200);
+      expect(stats.body.metrics).toMatchObject({ skipped: 1, missed: 0, completionRate: 0 });
+
+      // Transition illégale skipped → in_progress → 422.
+      await http()
+        .patch(`/api/v1/assignments/${assignment.id}`)
+        .set(bearer(athlete.token))
+        .send({ status: 'in_progress' })
+        .expect(422);
+
+      // Désassignation : athlète interdit (403), coach OK (204), puis introuvable (404).
+      await http()
+        .delete(`/api/v1/assignments/${assignment.id}`)
+        .set(bearer(athlete.token))
+        .expect(403);
+      await http()
+        .delete(`/api/v1/assignments/${assignment.id}`)
+        .set(bearer(coach.token))
+        .expect(204);
+      await http().get(`/api/v1/assignments/${assignment.id}`).set(bearer(coach.token)).expect(404);
+    });
+
+    it('désassignation interdite sur une affectation réalisée → 422 ASSIGNMENT_COMPLETED', async () => {
+      const { coach, athlete, assignment } = await setup();
+      await grantConsent(athlete.token, 'data_processing');
+      // L'athlète soumet une perf → l'affectation passe completed.
+      await http()
+        .post(`/api/v1/assignments/${assignment.id}/performance`)
+        .set(bearer(athlete.token))
+        .set('Idempotency-Key', `perf-${assignment.id}`)
+        .send({ rpe: 6, results: { schemaVersion: 1, items: [] } })
+        .expect(201);
+
+      const del = await http()
+        .delete(`/api/v1/assignments/${assignment.id}`)
+        .set(bearer(coach.token))
+        .expect(422);
+      expect(del.body.error).toBe('ASSIGNMENT_COMPLETED');
+    });
+  });
 });

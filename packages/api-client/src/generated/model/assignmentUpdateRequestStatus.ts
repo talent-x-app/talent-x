@@ -9,21 +9,13 @@
  */
 
 /**
- * Indicateurs dérivés pour un athlète, sur les séances du coach demandeur (ADR-17).
+ * Nouveau statut (machine à états ADR-31). Coach et/ou athlète selon la transition.
  */
-export interface StatsMetrics {
-  /** Affectations actives (non supprimées). */
-  assignmentsTotal: number;
-  /** Affectations réalisées (status completed). */
-  completed: number;
-  /** Affectations échues non réalisées (exclut skipped). */
-  missed: number;
-  /** Affectations marquées skipped (indispo, ADR-31) — exclues du taux d'assiduité. */
-  skipped: number;
-  /** Taux d'assiduité = completed / (total − skipped), 0..1. */
-  completionRate: number;
-  /** RPE moyen des performances soumises (1..10). */
-  avgRpe?: number;
-  /** Dernière performance soumise. */
-  lastPerformanceAt?: string;
-}
+export type AssignmentUpdateRequestStatus = typeof AssignmentUpdateRequestStatus[keyof typeof AssignmentUpdateRequestStatus];
+
+
+export const AssignmentUpdateRequestStatus = {
+  assigned: 'assigned',
+  in_progress: 'in_progress',
+  skipped: 'skipped',
+} as const;

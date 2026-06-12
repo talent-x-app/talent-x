@@ -8,10 +8,15 @@ export class StatsMetricsDto {
   @ApiProperty({ description: 'Affectations réalisées (status completed).' })
   completed!: number;
 
-  @ApiProperty({ description: 'Affectations échues non réalisées.' })
+  @ApiProperty({ description: 'Affectations échues non réalisées (exclut skipped).' })
   missed!: number;
 
-  @ApiProperty({ description: 'Taux de réalisation (completed / total), 0..1, arrondi à 0,01.' })
+  @ApiProperty({ description: 'Affectations skipped (indispo, ADR-31) — exclues de l’assiduité.' })
+  skipped!: number;
+
+  @ApiProperty({
+    description: 'Taux d’assiduité = completed / (total − skipped), 0..1, arrondi à 0,01.',
+  })
   completionRate!: number;
 
   @ApiPropertyOptional({ description: 'RPE moyen des performances soumises (1..10).' })

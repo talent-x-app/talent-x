@@ -2,11 +2,13 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   Get,
   Headers,
   HttpCode,
   Param,
   ParseUUIDPipe,
+  Patch,
   Post,
   Put,
   Query,
@@ -17,6 +19,7 @@ import { AssignmentsService } from './assignments.service';
 import { PerformancesService } from './performances.service';
 import { AssignmentQueryDto } from './dto/assignment-query.dto';
 import { AssignmentDto, AssignmentPageDto } from './dto/assignment.dto';
+import { AssignmentUpdateRequestDto } from './dto/assignment-update.dto';
 import { PerformanceCreateDto, PerformanceDto } from './dto/performance.dto';
 
 /**
@@ -54,6 +57,34 @@ export class AssignmentsController {
     @Param('id', new ParseUUIDPipe()) id: string,
   ): Promise<AssignmentDto> {
     return this.assignments.getAssignment(user, id);
+  }
+
+  @Patch(':id')
+  @ApiOperation({
+    summary: 'Mettre à jour une affectation (replanifier, skip, démarrer)',
+    operationId: 'updateAssignment',
+  })
+  @ApiResponse({ status: 200, description: 'Affectation mise à jour.', type: AssignmentDto })
+  updateAssignment(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: AssignmentUpdateRequestDto,
+  ): Promise<AssignmentDto> {
+    return this.assignments.patchAssignment(user, id, dto);
+  }
+
+  @Delete(':id')
+  @HttpCode(204)
+  @ApiOperation({
+    summary: 'Désassigner (retirer une affectation)',
+    operationId: 'deleteAssignment',
+  })
+  @ApiResponse({ status: 204, description: 'Affectation retirée.' })
+  deleteAssignment(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', new ParseUUIDPipe()) id: string,
+  ): Promise<void> {
+    return this.assignments.removeAssignment(user, id);
   }
 
   @Post(':id/performance')

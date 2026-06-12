@@ -21,6 +21,11 @@ import {
   AssignmentPageDto,
   AssignmentStatus,
 } from './dto/assignment.dto';
+import {
+  AssignmentPatchStatus,
+  AssignmentUpdateRequestDto,
+  SkipReason,
+} from './dto/assignment-update.dto';
 
 /**
  * Affectations (TLX-051). Autorisation (matrice TX-SPEC-002 §6) :
@@ -189,6 +194,141 @@ export class AssignmentsService {
   }
 
   /**
+   * Met à jour une affectation (ADR-31 — cycle de vie). Replanification (`dueDate`,
+   * coach propriétaire), transitions de statut bornées (`in_progress`/`skipped`/
+   * `assigned`, jamais `completed`) avec RBAC par transition (cf. §3), motif de skip.
+   * Mise à jour partielle : au moins un champ requis (422 `ASSIGNMENT_UPDATE_EMPTY`).
+   */
+  async patchAssignment(
+    user: AuthenticatedUser,
+    id: string,
+    dto: AssignmentUpdateRequestDto,
+  ): Promise<AssignmentDto> {
+    const hasStatus = dto.status !== undefined;
+    const hasDueDate = dto.dueDate !== undefined; // null = retirer l'échéance (champ fourni)
+    if (!hasStatus && !hasDueDate && dto.skipReason === undefined) {
+      throw new UnprocessableEntityException({
+        error: 'ASSIGNMENT_UPDATE_EMPTY',
+        message: 'Aucun champ à mettre à jour.',
+      });
+    }
+
+    const assignment = await this.prisma.sessionAssignment.findFirst({
+      where: { id, deletedAt: null },
+      include: { session: true },
+    });
+    if (!assignment) throw new NotFoundException('Affectation introuvable.');
+
+    const isCoachOwner = user.role === 'coach' && assignment.session.coachId === user.id;
+    const isAthleteOwner = user.role === 'athlete' && assignment.athleteId === user.id;
+    if (!isCoachOwner && !isAthleteOwner) {
+      throw new ForbiddenException('Cette affectation ne vous est pas accessible.');
+    }
+
+    const data: Prisma.SessionAssignmentUpdateInput = {};
+
+    // Replanification : réservée au coach propriétaire.
+    if (hasDueDate) {
+      if (!isCoachOwner) {
+        throw new ForbiddenException(
+          'Seul le coach propriétaire peut replanifier une affectation.',
+        );
+      }
+      // hasDueDate ⇒ champ fourni ; null/'' → retire l'échéance, sinon date ISO.
+      data.dueDate = dto.dueDate ? new Date(dto.dueDate) : null;
+    }
+
+    // Transition de statut (machine à états ADR-31 + RBAC par transition).
+    if (hasStatus) {
+      const target = dto.status as AssignmentPatchStatus;
+      this.assertTransition(assignment.status, target, { isCoachOwner, isAthleteOwner });
+      data.status = target;
+      if (target === AssignmentPatchStatus.Skipped) {
+        if (!dto.skipReason) {
+          throw new UnprocessableEntityException({
+            error: 'SKIP_REASON_REQUIRED',
+            message: 'Préciser un motif (injury/absence/weather/other) pour signaler une indispo.',
+          });
+        }
+        data.skipReason = dto.skipReason;
+      } else {
+        // Quitter le statut skipped efface le motif (assigned/in_progress n'en portent pas).
+        data.skipReason = null;
+      }
+    }
+
+    const updated = await this.prisma.sessionAssignment.update({
+      where: { id: assignment.id },
+      data,
+      include: { session: true },
+    });
+    return toAssignmentDto(updated, user.role, updated.session);
+  }
+
+  /**
+   * Désassignation soft (ADR-31) : réservée au coach propriétaire. Interdite sur une
+   * affectation réalisée (422 `ASSIGNMENT_COMPLETED` — préserve la performance 1:1).
+   * Le soft-delete libère l'index unique partiel → réaffectation possible ensuite.
+   */
+  async removeAssignment(user: AuthenticatedUser, id: string): Promise<void> {
+    const assignment = await this.prisma.sessionAssignment.findFirst({
+      where: { id, deletedAt: null },
+      include: { session: { select: { coachId: true } } },
+    });
+    if (!assignment) throw new NotFoundException('Affectation introuvable.');
+    if (!(user.role === 'coach' && assignment.session.coachId === user.id)) {
+      throw new ForbiddenException('Seul le coach propriétaire peut désassigner.');
+    }
+    if (assignment.status === AssignmentStatus.Completed) {
+      throw new UnprocessableEntityException({
+        error: 'ASSIGNMENT_COMPLETED',
+        message: 'Une affectation réalisée ne peut pas être désassignée (performance enregistrée).',
+      });
+    }
+    await this.prisma.sessionAssignment.update({
+      where: { id: assignment.id },
+      data: { deletedAt: new Date() },
+    });
+  }
+
+  /**
+   * Valide une transition de statut (ADR-31 §1) et le RBAC associé (§3). `completed`
+   * n'est jamais une cible ici (réservé à la soumission de perf). 422 sinon.
+   */
+  private assertTransition(
+    current: string,
+    target: AssignmentPatchStatus,
+    actor: { isCoachOwner: boolean; isAthleteOwner: boolean },
+  ): void {
+    if (current === AssignmentStatus.Completed) {
+      throw new UnprocessableEntityException({
+        error: 'ASSIGNMENT_COMPLETED',
+        message: 'Une affectation réalisée ne change plus de statut.',
+      });
+    }
+    // Transitions autorisées (current -> target) ; same-status toléré (no-op).
+    const allowed: Record<AssignmentPatchStatus, readonly string[]> = {
+      [AssignmentPatchStatus.InProgress]: ['assigned', 'in_progress'],
+      [AssignmentPatchStatus.Skipped]: ['assigned', 'in_progress', 'skipped'],
+      [AssignmentPatchStatus.Assigned]: ['assigned', 'in_progress', 'skipped'],
+    };
+    if (!allowed[target].includes(current)) {
+      throw new UnprocessableEntityException({
+        error: 'ASSIGNMENT_STATUS_TRANSITION',
+        message: `Transition de statut invalide : ${current} → ${target}.`,
+      });
+    }
+    // RBAC : démarrer (in_progress) est réservé à l'athlète titulaire ; skip/un-skip
+    // sont ouverts à l'athlète titulaire ET au coach propriétaire.
+    if (target === AssignmentPatchStatus.InProgress && !actor.isAthleteOwner) {
+      throw new ForbiddenException('Seul l’athlète titulaire peut démarrer la séance.');
+    }
+    if (!actor.isCoachOwner && !actor.isAthleteOwner) {
+      throw new ForbiddenException('Cette affectation ne vous est pas accessible.');
+    }
+  }
+
+  /**
    * Garde-fou ADR-29 : un modèle de séance (statut `template`, bibliothèque C-10) n'est
    * **pas assignable** — il doit d'abord être dupliqué en séance réelle. 422
    * `SESSION_NOT_ASSIGNABLE`. La séance est déjà connue comme appartenant au coach
@@ -297,6 +437,7 @@ function toAssignmentDto(
     athleteId: assignment.athleteId,
     status: assignment.status as AssignmentStatus,
     dueDate: assignment.dueDate ? assignment.dueDate.toISOString().slice(0, 10) : undefined,
+    skipReason: (assignment.skipReason as SkipReason | null) ?? undefined,
     // Double lecture (ADR-28) : le brief embarqué est filtré selon le rôle du lecteur.
     session: session ? toSessionDto(session, role) : undefined,
     createdAt: assignment.createdAt.toISOString(),

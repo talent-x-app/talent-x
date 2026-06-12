@@ -12,6 +12,43 @@ de débloquer les écrans coach C-01/C-02/C-03.
 - _(éditeurs typés terminés — TLX-054→061 livrés ↓)_
 - _(C-01 complet — TLX-081→085 livrés ↓)_
 
+## Terminés — TLX-108 Cycle de vie des affectations (ADR-31)
+
+- **ADR-31 accepté** (3 arbitrages produit validés) : machine à états explicite, `skipped`
+  posable par l'**athlète** (« je ne peux pas » + motif) **et** le **coach**, réversible ;
+  `skipped` **exclu du dénominateur** de l'assiduité ; notification au coach **hors périmètre** ;
+  `DELETE` interdit sur une affectation réalisée.
+- **Constat comblé** : `skipped`/`in_progress` existaient dans l'enum + le `CHECK` mais n'étaient
+  **jamais posés** ; pas de `PATCH`/`DELETE /assignments/{id}`. Conséquence : une séance ratée restait
+  « en retard » **à vie**, insoldable ; l'athlète muet ; le coach sans replan/désassign.
+- **(Contrat)** additif : `PATCH /assignments/{id}` (`AssignmentUpdateRequest` : `status` borné —
+  jamais `completed` —, `dueDate` nullable = replan, `skipReason`) + `DELETE /assignments/{id}`
+  (désassignation soft). `Assignment.skipReason`, `StatsMetrics.skipped` ajoutés. OpenAPI → DTO Nest →
+  client orval régénéré.
+- **(Modèle)** migration expand-only `20260612130000_assignment_skip_reason` : colonne `skip_reason`
+  (CHECK `injury|absence|weather|other`). `in_progress`/`skipped` déjà admis par le CHECK statut → pas
+  de migration d'enum.
+- **(API)** `patchAssignment` (machine à états + **RBAC par transition** : athlète démarre/skip/un-skip,
+  coach replan/skip/un-skip ; `completed` réservé à la perf ; 422 `ASSIGNMENT_STATUS_TRANSITION` /
+  `SKIP_REASON_REQUIRED` / `ASSIGNMENT_COMPLETED` / `ASSIGNMENT_UPDATE_EMPTY`) + `removeAssignment`
+  (soft-delete coach, 422 sur `completed`). **Dérivations dashboard `overdue` inchangées** (excluent
+  déjà `skipped`) → le retard devient soldable ; **assiduité** = `completed/(total − skipped)`
+  (coach-insights **et** progress athlète).
+- **(Mobile)** module partagé `src/assignments/assignment-lifecycle.tsx` : **`SkipSessionCard`**
+  (athlète — « Je ne peux pas faire cette séance » → motif → `skipped`, état signalé + retour arrière ;
+  masquée si réalisée) câblée au détail séance (A-03) ; **`CoachAssignmentActions`** (replanifier via
+  champ date + désassigner avec confirmation, message dédié sur 422) câblée aux lignes « Aujourd'hui »
+  du dashboard coach (refresh dashboard + liste au changement).
+- **Tests** : +18 service (patch/remove : transitions, RBAC, motif requis, un-skip, 404/403/422) +
+  **+2 intégration DB-backed** (replan coach, skip athlète sort du retard, assiduité exclut skipped,
+  transition illégale, désassign RBAC + 422 réalisée) + 6 mobile (skip/un-skip athlète, replan/désassign
+  coach + 422). **API 392/392**, **int 16/16**, **mobile 423/423**, typecheck (api+mobile) + lint clean.
+- **Validé en réel (2026-06-12, intégration DB-backed Postgres :5433)** — le cycle de vie joué contre la
+  **vraie base** via HTTP : affectation échue → retard au dashboard → coach replanifie (athlète interdit 403) → athlète signale indispo (`skipped` + motif) → **retard soldé** (alerts 0) → stats `skipped:1,
+missed:0, completionRate:0` → transition illégale `skipped→in_progress` 422 → désassign athlète 403 /
+  coach 204 / relecture 404 ; et désassign d'une séance réalisée → 422 `ASSIGNMENT_COMPLETED`. UI mobile
+  couverte par RTL sur les **vrais** composants (précédent TLX-106).
+
 ## Terminés — TLX-104 Auth : réinitialisation de mot de passe (forgot/reset) (TX-SEC-003 §11)
 
 - **Écart audit TLX-121 résorbé** : `forgot-password` / `reset-password` étaient des stubs **501**

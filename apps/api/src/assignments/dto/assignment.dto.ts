@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { PageMetaDto } from '../../common/pagination/page-meta';
 import { SessionDto } from '../../sessions/dto/session.dto';
+import { SkipReason } from './assignment-update.dto';
 
 /** Statut d'une affectation — schéma `AssignmentStatus`. */
 export enum AssignmentStatus {
@@ -26,6 +27,12 @@ export class AssignmentDto {
 
   @ApiPropertyOptional({ format: 'date' })
   dueDate?: string;
+
+  @ApiPropertyOptional({
+    enum: SkipReason,
+    description: 'Motif quand status=skipped (ADR-31).',
+  })
+  skipReason?: SkipReason;
 
   @ApiPropertyOptional({ type: SessionDto, description: 'Séance embarquée (lectures détaillées).' })
   session?: SessionDto;

@@ -10,6 +10,8 @@ const mockPush = jest.fn();
 jest.mock('@talent-x/api-client', () => ({
   getCoachDashboard: (...args: unknown[]) => mockGetCoachDashboard(...args),
   listAssignments: (...args: unknown[]) => mockListAssignments(...args),
+  updateAssignment: jest.fn(),
+  deleteAssignment: jest.fn(),
   // Enums orval réexportés tels quels (valeurs littérales).
   AthleteStatus: { up_to_date: 'up_to_date', late: 'late', pending_review: 'pending_review' },
   AssignmentStatus: {
@@ -18,8 +20,16 @@ jest.mock('@talent-x/api-client', () => ({
     completed: 'completed',
     skipped: 'skipped',
   },
+  AssignmentUpdateRequestStatus: {
+    assigned: 'assigned',
+    in_progress: 'in_progress',
+    skipped: 'skipped',
+  },
+  SkipReason: { injury: 'injury', absence: 'absence', weather: 'weather', other: 'other' },
 }));
 jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush }) }));
+// Les lignes « Aujourd'hui » rendent les actions coach (ADR-31) → useToast.
+jest.mock('../feedback', () => ({ useToast: () => ({ show: jest.fn(), dismiss: jest.fn() }) }));
 
 import { CoachDashboardScreen } from './CoachDashboardScreen';
 

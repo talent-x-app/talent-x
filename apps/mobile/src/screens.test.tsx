@@ -18,6 +18,8 @@ jest.mock('@talent-x/api-client', () => ({
   listAssignments: () => new Promise(() => {}),
   getMe: () => new Promise(() => {}),
   getMyGroups: () => new Promise(() => {}),
+  updateAssignment: jest.fn(),
+  deleteAssignment: jest.fn(),
   AthleteStatus: { up_to_date: 'up_to_date', late: 'late', pending_review: 'pending_review' },
   AssignmentStatus: {
     assigned: 'assigned',
@@ -25,6 +27,12 @@ jest.mock('@talent-x/api-client', () => ({
     completed: 'completed',
     skipped: 'skipped',
   },
+  AssignmentUpdateRequestStatus: {
+    assigned: 'assigned',
+    in_progress: 'in_progress',
+    skipped: 'skipped',
+  },
+  SkipReason: { injury: 'injury', absence: 'absence', weather: 'weather', other: 'other' },
 }));
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';

@@ -9,6 +9,7 @@
  */
 import type { AssignmentStatus } from './assignmentStatus';
 import type { Session } from './session';
+import type { SkipReason } from './skipReason';
 
 export interface Assignment {
   id: string;
@@ -16,6 +17,7 @@ export interface Assignment {
   athleteId: string;
   status: AssignmentStatus;
   dueDate?: string;
+  skipReason?: SkipReason;
   session?: Session;
   createdAt?: string;
   updatedAt?: string;

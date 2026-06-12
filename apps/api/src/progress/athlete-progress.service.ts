@@ -40,6 +40,7 @@ export class AthleteProgressService {
     const total = assignments.length;
     let completed = 0;
     let missed = 0;
+    let skipped = 0;
     const rpes: number[] = [];
     let lastPerformanceAt: Date | undefined;
 
@@ -51,6 +52,7 @@ export class AthleteProgressService {
 
     for (const a of assignments) {
       if (a.status === 'completed') completed += 1;
+      if (a.status === 'skipped') skipped += 1;
       const pending = (PENDING_STATUSES as readonly string[]).includes(a.status);
       if (a.dueDate && pending && a.dueDate < todayStart) missed += 1;
       if (!a.performance) continue;
@@ -92,7 +94,9 @@ export class AthleteProgressService {
         assignmentsTotal: total,
         completed,
         missed,
-        completionRate: total ? round(completed / total, 2) : 0,
+        skipped,
+        // Assiduité (ADR-31) : skipped exclu du dénominateur.
+        completionRate: total - skipped > 0 ? round(completed / (total - skipped), 2) : 0,
         avgRpe: rpes.length ? round(rpes.reduce((s, r) => s + r, 0) / rpes.length, 1) : undefined,
         lastPerformanceAt: lastPerformanceAt?.toISOString(),
       },

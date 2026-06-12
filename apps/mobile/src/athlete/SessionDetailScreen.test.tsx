@@ -20,12 +20,20 @@ jest.mock('@talent-x/api-client', () => ({
   listComments: (...a: unknown[]) => mockListComments(...a),
   createComment: jest.fn(),
   getCoachDashboard: jest.fn(),
+  updateAssignment: jest.fn(),
+  deleteAssignment: jest.fn(),
   AssignmentStatus: {
     assigned: 'assigned',
     in_progress: 'in_progress',
     completed: 'completed',
     skipped: 'skipped',
   },
+  AssignmentUpdateRequestStatus: {
+    assigned: 'assigned',
+    in_progress: 'in_progress',
+    skipped: 'skipped',
+  },
+  SkipReason: { injury: 'injury', absence: 'absence', weather: 'weather', other: 'other' },
   AthleteStatus: { up_to_date: 'up_to_date', late: 'late', pending_review: 'pending_review' },
   BlockType: {
     strength: 'strength',

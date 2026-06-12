@@ -5,6 +5,7 @@ import { Text, View } from 'react-native';
 import { Card } from '../components/ui';
 import { athleteFullName } from '../coach/athlete-ui';
 import { AssignmentStatusBadge, sessionTitle } from '../athlete/athlete-session-ui';
+import { CoachAssignmentActions } from '../assignments/assignment-lifecycle';
 
 /**
  * Sections détaillées du tableau de bord coach (C-01 §4) — TLX-082/083, enfants de TLX-081.
@@ -313,12 +314,15 @@ export function TodaySection({
   isLoading,
   isError,
   onRetry,
+  onChanged,
 }: {
   assignments: Assignment[];
   nameById: Map<string, string>;
   isLoading: boolean;
   isError: boolean;
   onRetry: () => void;
+  /** Rappelé après une replanification/désassignation (ADR-31) pour rafraîchir les vues. */
+  onChanged?: () => void;
 }) {
   const { colors, typography, spacing } = useTheme();
 
@@ -365,28 +369,32 @@ export function TodaySection({
         <View style={{ gap: spacing[2] }}>
           {assignments.map((assignment) => (
             <Card key={assignment.id} testID={`coach-dashboard-today-${assignment.id}`}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[3] }}>
-                <View style={{ flex: 1, gap: 2 }}>
-                  <Text
-                    style={{
-                      color: colors.textPrimary,
-                      fontFamily: typography.fontFamily.medium,
-                      fontSize: typography.body.fontSize,
-                    }}
-                  >
-                    {sessionTitle(assignment)}
-                  </Text>
-                  <Text
-                    style={{
-                      color: colors.textMuted,
-                      fontFamily: typography.fontFamily.regular,
-                      fontSize: typography.bodySm.fontSize,
-                    }}
-                  >
-                    {nameById.get(assignment.athleteId) ?? 'Athlète'}
-                  </Text>
+              <View style={{ gap: spacing[3] }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[3] }}>
+                  <View style={{ flex: 1, gap: 2 }}>
+                    <Text
+                      style={{
+                        color: colors.textPrimary,
+                        fontFamily: typography.fontFamily.medium,
+                        fontSize: typography.body.fontSize,
+                      }}
+                    >
+                      {sessionTitle(assignment)}
+                    </Text>
+                    <Text
+                      style={{
+                        color: colors.textMuted,
+                        fontFamily: typography.fontFamily.regular,
+                        fontSize: typography.bodySm.fontSize,
+                      }}
+                    >
+                      {nameById.get(assignment.athleteId) ?? 'Athlète'}
+                    </Text>
+                  </View>
+                  <AssignmentStatusBadge status={assignment.status} />
                 </View>
-                <AssignmentStatusBadge status={assignment.status} />
+                {/* ADR-31 (TLX-108) : replanifier / désassigner depuis le quotidien du coach. */}
+                <CoachAssignmentActions assignment={assignment} onChanged={onChanged} />
               </View>
             </Card>
           ))}

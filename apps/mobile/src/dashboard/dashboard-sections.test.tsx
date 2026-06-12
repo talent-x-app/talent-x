@@ -1,6 +1,10 @@
 import { ThemeProvider } from '@talent-x/design-tokens';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen } from '@testing-library/react-native';
-import { type ReactNode } from 'react';
+import { type ReactNode, useState } from 'react';
+
+// Les lignes « Aujourd'hui » rendent les actions coach (ADR-31) → useToast.
+jest.mock('../feedback', () => ({ useToast: () => ({ show: jest.fn(), dismiss: jest.fn() }) }));
 
 import {
   AlertsSection,
@@ -15,7 +19,14 @@ import {
 } from './dashboard-sections';
 
 function Wrapper({ children }: { children: ReactNode }) {
-  return <ThemeProvider>{children}</ThemeProvider>;
+  const [client] = useState(
+    () => new QueryClient({ defaultOptions: { queries: { retry: false } } }),
+  );
+  return (
+    <QueryClientProvider client={client}>
+      <ThemeProvider>{children}</ThemeProvider>
+    </QueryClientProvider>
+  );
 }
 
 const NOW = new Date('2026-06-09T12:00:00.000Z');

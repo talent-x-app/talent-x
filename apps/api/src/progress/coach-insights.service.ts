@@ -127,11 +127,13 @@ export class CoachInsightsService {
     const total = assignments.length;
     let completed = 0;
     let missed = 0;
+    let skipped = 0;
     const rpes: number[] = [];
     let lastPerformanceAt: Date | undefined;
 
     for (const a of assignments) {
       if (a.status === 'completed') completed += 1;
+      if (a.status === 'skipped') skipped += 1;
       const pending = (PENDING_STATUSES as readonly string[]).includes(a.status);
       if (a.dueDate && pending && a.dueDate < todayStart) missed += 1;
       if (a.performance) {
@@ -142,13 +144,18 @@ export class CoachInsightsService {
       }
     }
 
+    // Assiduité (ADR-31) : une séance skipped (indispo) ne pénalise pas l'athlète →
+    // exclue du dénominateur. completionRate = completed / (total − skipped).
+    const denominator = total - skipped;
+
     return {
       athleteId,
       metrics: {
         assignmentsTotal: total,
         completed,
         missed,
-        completionRate: total ? round(completed / total, 2) : 0,
+        skipped,
+        completionRate: denominator > 0 ? round(completed / denominator, 2) : 0,
         avgRpe: rpes.length ? round(rpes.reduce((s, r) => s + r, 0) / rpes.length, 1) : undefined,
         lastPerformanceAt: lastPerformanceAt?.toISOString(),
       },

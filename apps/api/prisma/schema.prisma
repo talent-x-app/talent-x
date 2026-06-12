@@ -287,6 +287,9 @@ model SessionAssignment {
   athleteId         String    @map("athlete_id") @db.Uuid
   /// 'assigned' | 'in_progress' | 'completed' | 'skipped' (CHECK en base)
   status            String    @default("assigned")
+  /// Motif d'indisponibilité quand status='skipped' (ADR-31) : 'injury' | 'absence'
+  /// | 'weather' | 'other' (CHECK en base). NULL hors skip.
+  skipReason        String?   @map("skip_reason")
   assignedAt        DateTime  @default(now()) @map("assigned_at") @db.Timestamptz(6)
   dueDate           DateTime? @map("due_date") @db.Date
   /// Provenance (ADR-30) : NULL = affectation individuelle ; sinon issue d'une affectation

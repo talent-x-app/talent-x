@@ -7,23 +7,16 @@
  * Conventions transverses : préfixe /api/v1 ; jeton d'accès JWT (RS256) via en-tête Authorization ; pagination par enveloppe { data, meta } ; idempotence des écritures sensibles via Idempotency-Key ; opérations longues asynchrones (202 + ressource de statut) ; rate limiting signalé par les en-têtes RateLimit-*. L'autorisation combine rôle, appartenance (lien coach↔athlète), propriété et consentement ; voir TX-SPEC-002 §6.
  * OpenAPI spec version: 1.0.0
  */
+import type { AssignmentUpdateRequestStatus } from './assignmentUpdateRequestStatus';
+import type { SkipReason } from './skipReason';
 
 /**
- * Indicateurs dérivés pour un athlète, sur les séances du coach demandeur (ADR-17).
+ * Mise à jour partielle d'une affectation (ADR-31). Au moins un champ requis. Transitions de statut bornées (jamais 'completed', réservé à la soumission de perf). 'skipReason' n'est pris en compte que si status='skipped'.
  */
-export interface StatsMetrics {
-  /** Affectations actives (non supprimées). */
-  assignmentsTotal: number;
-  /** Affectations réalisées (status completed). */
-  completed: number;
-  /** Affectations échues non réalisées (exclut skipped). */
-  missed: number;
-  /** Affectations marquées skipped (indispo, ADR-31) — exclues du taux d'assiduité. */
-  skipped: number;
-  /** Taux d'assiduité = completed / (total − skipped), 0..1. */
-  completionRate: number;
-  /** RPE moyen des performances soumises (1..10). */
-  avgRpe?: number;
-  /** Dernière performance soumise. */
-  lastPerformanceAt?: string;
+export interface AssignmentUpdateRequest {
+  /** Nouveau statut (machine à états ADR-31). Coach et/ou athlète selon la transition. */
+  status?: AssignmentUpdateRequestStatus;
+  /** Replanification (coach propriétaire). null retire l'échéance. */
+  dueDate?: string | null;
+  skipReason?: SkipReason;
 }

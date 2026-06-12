@@ -12,6 +12,7 @@ import type {
   Assignment,
   AssignmentList,
   AssignmentPage,
+  AssignmentUpdateRequest,
   AthleteGroupList,
   AuthSession,
   AuthTokens,
@@ -3269,6 +3270,150 @@ export const getAssignment = async (id: string, options?: RequestInit): Promise<
   {
     ...options,
     method: 'GET'
+
+
+  }
+);}
+
+
+
+export type updateAssignmentResponse200 = {
+  data: Assignment
+  status: 200
+}
+
+export type updateAssignmentResponse400 = {
+  data: BadRequestResponse
+  status: 400
+}
+
+export type updateAssignmentResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type updateAssignmentResponse403 = {
+  data: ForbiddenResponse
+  status: 403
+}
+
+export type updateAssignmentResponse404 = {
+  data: NotFoundResponse
+  status: 404
+}
+
+export type updateAssignmentResponse422 = {
+  data: ValidationFailedResponse
+  status: 422
+}
+
+export type updateAssignmentResponse429 = {
+  data: TooManyRequestsResponse
+  status: 429
+}
+
+export type updateAssignmentResponse500 = {
+  data: ServerErrorResponse
+  status: 500
+}
+
+export type updateAssignmentResponseSuccess = (updateAssignmentResponse200) & {
+  headers: Headers;
+};
+export type updateAssignmentResponseError = (updateAssignmentResponse400 | updateAssignmentResponse401 | updateAssignmentResponse403 | updateAssignmentResponse404 | updateAssignmentResponse422 | updateAssignmentResponse429 | updateAssignmentResponse500) & {
+  headers: Headers;
+};
+
+export type updateAssignmentResponse = (updateAssignmentResponseSuccess | updateAssignmentResponseError)
+
+export const getUpdateAssignmentUrl = (id: string,) => {
+
+
+
+
+  return `/assignments/${id}`
+}
+
+/**
+ * Cycle de vie (ADR-31). Coach propriétaire : replanifie (dueDate), désassigne, annule (skipped). Athlète titulaire : signale une indispo (skipped + motif), démarre (in_progress). 'completed' n'est jamais posé ici (réservé à la soumission de perf). Transition illégale → 422.
+ * @summary Mettre à jour une affectation (replanifier, skip, démarrer)
+ */
+export const updateAssignment = async (id: string,
+    assignmentUpdateRequest: AssignmentUpdateRequest, options?: RequestInit): Promise<updateAssignmentResponse> => {
+
+  return customFetch<updateAssignmentResponse>(getUpdateAssignmentUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(assignmentUpdateRequest)
+  }
+);}
+
+
+
+export type deleteAssignmentResponse204 = {
+  data: void
+  status: 204
+}
+
+export type deleteAssignmentResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type deleteAssignmentResponse403 = {
+  data: ForbiddenResponse
+  status: 403
+}
+
+export type deleteAssignmentResponse404 = {
+  data: NotFoundResponse
+  status: 404
+}
+
+export type deleteAssignmentResponse422 = {
+  data: ValidationFailedResponse
+  status: 422
+}
+
+export type deleteAssignmentResponse429 = {
+  data: TooManyRequestsResponse
+  status: 429
+}
+
+export type deleteAssignmentResponse500 = {
+  data: ServerErrorResponse
+  status: 500
+}
+
+export type deleteAssignmentResponseSuccess = (deleteAssignmentResponse204) & {
+  headers: Headers;
+};
+export type deleteAssignmentResponseError = (deleteAssignmentResponse401 | deleteAssignmentResponse403 | deleteAssignmentResponse404 | deleteAssignmentResponse422 | deleteAssignmentResponse429 | deleteAssignmentResponse500) & {
+  headers: Headers;
+};
+
+export type deleteAssignmentResponse = (deleteAssignmentResponseSuccess | deleteAssignmentResponseError)
+
+export const getDeleteAssignmentUrl = (id: string,) => {
+
+
+
+
+  return `/assignments/${id}`
+}
+
+/**
+ * Désassignation soft par le coach propriétaire (ADR-31). Interdit sur une affectation réalisée (422 ASSIGNMENT_COMPLETED — préserve la performance).
+ * @summary Désassigner (retirer une affectation)
+ */
+export const deleteAssignment = async (id: string, options?: RequestInit): Promise<deleteAssignmentResponse> => {
+
+  return customFetch<deleteAssignmentResponse>(getDeleteAssignmentUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
 
 
   }

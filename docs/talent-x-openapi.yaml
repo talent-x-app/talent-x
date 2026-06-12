@@ -1368,6 +1368,70 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+    patch:
+      tags:
+      - Affectations & performances
+      summary: Mettre à jour une affectation (replanifier, skip, démarrer)
+      description: >-
+        Cycle de vie (ADR-31). Coach propriétaire : replanifie (dueDate),
+        désassigne, annule (skipped). Athlète titulaire : signale une indispo
+        (skipped + motif), démarre (in_progress). 'completed' n'est jamais posé
+        ici (réservé à la soumission de perf). Transition illégale → 422.
+      operationId: updateAssignment
+      parameters:
+      - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssignmentUpdateRequest'
+      responses:
+        '200':
+          description: Affectation mise à jour.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Assignment'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    delete:
+      tags:
+      - Affectations & performances
+      summary: Désassigner (retirer une affectation)
+      description: >-
+        Désassignation soft par le coach propriétaire (ADR-31). Interdit sur une
+        affectation réalisée (422 ASSIGNMENT_COMPLETED — préserve la performance).
+      operationId: deleteAssignment
+      parameters:
+      - $ref: '#/components/parameters/IdPath'
+      responses:
+        '204':
+          description: Affectation retirée.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
   /assignments/{id}/performance:
     post:
       tags:
@@ -2861,6 +2925,8 @@ components:
         dueDate:
           type: string
           format: date
+        skipReason:
+          $ref: '#/components/schemas/SkipReason'
         session:
           $ref: '#/components/schemas/Session'
         createdAt:
@@ -2874,6 +2940,35 @@ components:
       - sessionId
       - athleteId
       - status
+    SkipReason:
+      type: string
+      description: Motif d'indisponibilité quand l'affectation est skipped (ADR-31).
+      enum:
+      - injury
+      - absence
+      - weather
+      - other
+    AssignmentUpdateRequest:
+      type: object
+      description: >-
+        Mise à jour partielle d'une affectation (ADR-31). Au moins un champ requis.
+        Transitions de statut bornées (jamais 'completed', réservé à la soumission
+        de perf). 'skipReason' n'est pris en compte que si status='skipped'.
+      properties:
+        status:
+          type: string
+          enum:
+          - assigned
+          - in_progress
+          - skipped
+          description: Nouveau statut (machine à états ADR-31). Coach et/ou athlète selon la transition.
+        dueDate:
+          type: string
+          format: date
+          nullable: true
+          description: Replanification (coach propriétaire). null retire l'échéance.
+        skipReason:
+          $ref: '#/components/schemas/SkipReason'
     AssignmentList:
       type: object
       properties:
@@ -3328,10 +3423,13 @@ components:
           description: Affectations réalisées (status completed).
         missed:
           type: integer
-          description: Affectations échues non réalisées.
+          description: Affectations échues non réalisées (exclut skipped).
+        skipped:
+          type: integer
+          description: Affectations marquées skipped (indispo, ADR-31) — exclues du taux d'assiduité.
         completionRate:
           type: number
-          description: Taux de réalisation (completed / total), 0..1.
+          description: Taux d'assiduité = completed / (total − skipped), 0..1.
         avgRpe:
           type: number
           description: RPE moyen des performances soumises (1..10).
@@ -3343,6 +3441,7 @@ components:
       - assignmentsTotal
       - completed
       - missed
+      - skipped
       - completionRate
     Stats:
       type: object

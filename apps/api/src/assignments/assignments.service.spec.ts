@@ -449,4 +449,184 @@ describe('AssignmentsService', () => {
       expect(res.data[0].session?.brief).not.toHaveProperty('coachNotes');
     });
   });
+
+  describe('patchAssignment (ADR-31 — cycle de vie)', () => {
+    /** Pose findFirst (affectation + session) et un update « echo » des données. */
+    function withAssignment(prisma: PrismaMock, over: Record<string, unknown> = {}) {
+      const row = { ...assignmentRow(over), session: sessionRow({ coachId: 'c-1' }) };
+      prisma.sessionAssignment.findFirst.mockResolvedValue(row);
+      prisma.sessionAssignment.update = jest.fn(({ data }: { data: Record<string, unknown> }) =>
+        Promise.resolve({ ...row, ...data, session: row.session }),
+      );
+      return row;
+    }
+
+    it('coach replanifie : update dueDate (Date), 200', async () => {
+      const prisma = prismaMock();
+      withAssignment(prisma);
+      const res = await service(prisma).patchAssignment(COACH, 'asg-1', { dueDate: '2026-08-01' });
+      expect(prisma.sessionAssignment.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: { dueDate: new Date('2026-08-01') } }),
+      );
+      expect(res.dueDate).toBe('2026-08-01');
+    });
+
+    it('coach replanifie dueDate=null : retire l’échéance', async () => {
+      const prisma = prismaMock();
+      withAssignment(prisma, { dueDate: new Date('2026-07-01') });
+      await service(prisma).patchAssignment(COACH, 'asg-1', { dueDate: null });
+      expect(prisma.sessionAssignment.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: { dueDate: null } }),
+      );
+    });
+
+    it('athlète démarre (assigned → in_progress)', async () => {
+      const prisma = prismaMock();
+      withAssignment(prisma, { status: 'assigned' } as never);
+      const res = await service(prisma).patchAssignment(ATHLETE, 'asg-1', {
+        status: 'in_progress',
+      } as never);
+      expect(res.status).toBe('in_progress');
+    });
+
+    it('athlète signale une indispo (skipped + motif)', async () => {
+      const prisma = prismaMock();
+      withAssignment(prisma, { status: 'assigned' } as never);
+      const res = await service(prisma).patchAssignment(ATHLETE, 'asg-1', {
+        status: 'skipped',
+        skipReason: 'injury',
+      } as never);
+      expect(prisma.sessionAssignment.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: { status: 'skipped', skipReason: 'injury' } }),
+      );
+      expect(res.skipReason).toBe('injury');
+    });
+
+    it('skip sans motif → 422 SKIP_REASON_REQUIRED', async () => {
+      const prisma = prismaMock();
+      withAssignment(prisma, { status: 'assigned' } as never);
+      await expect(
+        service(prisma).patchAssignment(ATHLETE, 'asg-1', { status: 'skipped' } as never),
+      ).rejects.toMatchObject({ response: { error: 'SKIP_REASON_REQUIRED' } });
+    });
+
+    it('un-skip (skipped → assigned) efface le motif', async () => {
+      const prisma = prismaMock();
+      withAssignment(prisma, { status: 'skipped', skipReason: 'injury' });
+      await service(prisma).patchAssignment(COACH, 'asg-1', { status: 'assigned' } as never);
+      expect(prisma.sessionAssignment.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: { status: 'assigned', skipReason: null } }),
+      );
+    });
+
+    it('athlète ne peut pas replanifier → 403', async () => {
+      const prisma = prismaMock();
+      withAssignment(prisma);
+      await expect(
+        service(prisma).patchAssignment(ATHLETE, 'asg-1', { dueDate: '2026-08-01' }),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    it('coach ne peut pas « démarrer » à la place de l’athlète → 403', async () => {
+      const prisma = prismaMock();
+      withAssignment(prisma, { status: 'assigned' } as never);
+      await expect(
+        service(prisma).patchAssignment(COACH, 'asg-1', { status: 'in_progress' } as never),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    it('affectation réalisée : transition refusée → 422 ASSIGNMENT_COMPLETED', async () => {
+      const prisma = prismaMock();
+      withAssignment(prisma, { status: 'completed' });
+      await expect(
+        service(prisma).patchAssignment(COACH, 'asg-1', {
+          status: 'skipped',
+          skipReason: 'other',
+        } as never),
+      ).rejects.toMatchObject({ response: { error: 'ASSIGNMENT_COMPLETED' } });
+    });
+
+    it('transition illégale skipped → in_progress → 422 ASSIGNMENT_STATUS_TRANSITION', async () => {
+      const prisma = prismaMock();
+      withAssignment(prisma, { status: 'skipped' });
+      await expect(
+        service(prisma).patchAssignment(ATHLETE, 'asg-1', { status: 'in_progress' } as never),
+      ).rejects.toMatchObject({ response: { error: 'ASSIGNMENT_STATUS_TRANSITION' } });
+    });
+
+    it('corps vide → 422 ASSIGNMENT_UPDATE_EMPTY', async () => {
+      const prisma = prismaMock();
+      await expect(service(prisma).patchAssignment(COACH, 'asg-1', {})).rejects.toMatchObject({
+        response: { error: 'ASSIGNMENT_UPDATE_EMPTY' },
+      });
+    });
+
+    it('introuvable → 404', async () => {
+      const prisma = prismaMock();
+      prisma.sessionAssignment.findFirst.mockResolvedValue(null);
+      await expect(
+        service(prisma).patchAssignment(COACH, 'asg-1', {
+          status: 'skipped',
+          skipReason: 'other',
+        } as never),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('utilisateur non lié → 403', async () => {
+      const prisma = prismaMock();
+      prisma.sessionAssignment.findFirst.mockResolvedValue({
+        ...assignmentRow({ athleteId: 'a-9' }),
+        session: sessionRow({ coachId: 'c-9' }),
+      });
+      await expect(
+        service(prisma).patchAssignment(ATHLETE, 'asg-1', { status: 'in_progress' } as never),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+  });
+
+  describe('removeAssignment (ADR-31 — désassignation)', () => {
+    it('coach propriétaire : soft-delete (deletedAt)', async () => {
+      const prisma = prismaMock();
+      prisma.sessionAssignment.findFirst.mockResolvedValue({
+        ...assignmentRow({ status: 'assigned' } as never),
+        session: { coachId: 'c-1' },
+      });
+      prisma.sessionAssignment.update = jest.fn().mockResolvedValue({});
+      await service(prisma).removeAssignment(COACH, 'asg-1');
+      expect(prisma.sessionAssignment.update).toHaveBeenCalledWith({
+        where: { id: 'asg-1' },
+        data: { deletedAt: expect.any(Date) },
+      });
+    });
+
+    it('athlète → 403', async () => {
+      const prisma = prismaMock();
+      prisma.sessionAssignment.findFirst.mockResolvedValue({
+        ...assignmentRow(),
+        session: { coachId: 'c-1' },
+      });
+      await expect(service(prisma).removeAssignment(ATHLETE, 'asg-1')).rejects.toBeInstanceOf(
+        ForbiddenException,
+      );
+    });
+
+    it('affectation réalisée → 422 ASSIGNMENT_COMPLETED', async () => {
+      const prisma = prismaMock();
+      prisma.sessionAssignment.findFirst.mockResolvedValue({
+        ...assignmentRow({ status: 'completed' }),
+        session: { coachId: 'c-1' },
+      });
+      await expect(service(prisma).removeAssignment(COACH, 'asg-1')).rejects.toMatchObject({
+        response: { error: 'ASSIGNMENT_COMPLETED' },
+      });
+    });
+
+    it('introuvable → 404', async () => {
+      const prisma = prismaMock();
+      prisma.sessionAssignment.findFirst.mockResolvedValue(null);
+      await expect(service(prisma).removeAssignment(COACH, 'asg-1')).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+    });
+  });
 });

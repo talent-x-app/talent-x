@@ -9,21 +9,14 @@
  */
 
 /**
- * Indicateurs dérivés pour un athlète, sur les séances du coach demandeur (ADR-17).
+ * Motif d'indisponibilité quand l'affectation est skipped (ADR-31).
  */
-export interface StatsMetrics {
-  /** Affectations actives (non supprimées). */
-  assignmentsTotal: number;
-  /** Affectations réalisées (status completed). */
-  completed: number;
-  /** Affectations échues non réalisées (exclut skipped). */
-  missed: number;
-  /** Affectations marquées skipped (indispo, ADR-31) — exclues du taux d'assiduité. */
-  skipped: number;
-  /** Taux d'assiduité = completed / (total − skipped), 0..1. */
-  completionRate: number;
-  /** RPE moyen des performances soumises (1..10). */
-  avgRpe?: number;
-  /** Dernière performance soumise. */
-  lastPerformanceAt?: string;
-}
+export type SkipReason = typeof SkipReason[keyof typeof SkipReason];
+
+
+export const SkipReason = {
+  injury: 'injury',
+  absence: 'absence',
+  weather: 'weather',
+  other: 'other',
+} as const;

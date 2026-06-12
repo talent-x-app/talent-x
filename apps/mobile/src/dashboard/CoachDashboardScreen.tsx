@@ -200,6 +200,10 @@ export function CoachDashboardScreen() {
               isLoading={assignments.isLoading}
               isError={assignments.isError}
               onRetry={() => void assignments.refetch()}
+              onChanged={() => {
+                void assignments.refetch();
+                void dashboard.refetch();
+              }}
             />
           </>
         )

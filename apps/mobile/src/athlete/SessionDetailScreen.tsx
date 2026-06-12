@@ -23,6 +23,7 @@ import {
   View,
 } from 'react-native';
 import { Button, Card, Chip, Slider } from '../components/ui';
+import { SkipSessionCard } from '../assignments/assignment-lifecycle';
 import { useToast } from '../feedback';
 import { FeedbackThread } from '../comments/FeedbackThread';
 import { formatExerciseTarget } from '../sessions/exercise-target';
@@ -303,6 +304,10 @@ export function SessionDetailScreen() {
               >
                 {alreadySaved ? 'Modifier ma performance' : 'Saisir ma performance'}
               </Button>
+
+              {/* ADR-31 (TLX-108) : signaler une indisponibilité (skip réversible) tant que la
+                  perf n'est pas soumise — sort la séance des retards du coach. */}
+              {!alreadySaved ? <SkipSessionCard assignment={assignment.data} /> : null}
 
               {/* A-09 : fil de feedback avec le coach (une fois la perf enregistrée). */}
               {existing.data ? (
