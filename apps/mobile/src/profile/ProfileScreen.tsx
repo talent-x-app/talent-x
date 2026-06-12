@@ -10,6 +10,7 @@ import { toUserMessage, useToast } from '../feedback';
 import { NotificationPreferencesSection } from '../notifications/NotificationPreferencesSection';
 import { NotificationsLink } from '../notifications/NotificationsLink';
 import { MyGroupSection } from '../groups/MyGroupSection';
+import { PrivacySection } from './PrivacySection';
 
 /** Clé de cache du profil courant (partagée avec d'éventuels invalidations). */
 export const ME_QUERY_KEY = ['me'] as const;
@@ -241,6 +242,8 @@ export function ProfileScreen() {
           {/* Centre de notifications + préférences (TLX-111, ADR-23). */}
           <NotificationsLink />
           <NotificationPreferencesSection />
+          {/* Confidentialité & droits RGPD : consentements, export, suppression (TLX-106). */}
+          <PrivacySection role={user.role} />
           <Button testID="profile-edit" size="lg" fullWidth onPress={() => startEditing(user)}>
             Modifier mon profil
           </Button>

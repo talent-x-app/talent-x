@@ -12,6 +12,8 @@ const mockShow = jest.fn();
 const mockListNotifications = jest.fn();
 const mockGetPreferences = jest.fn();
 const mockUpdatePreferences = jest.fn();
+const mockGetConsents = jest.fn();
+const mockUpdateConsent = jest.fn();
 
 jest.mock('@talent-x/api-client', () => ({
   getMe: (...args: unknown[]) => mockGetMe(...args),
@@ -19,6 +21,18 @@ jest.mock('@talent-x/api-client', () => ({
   listNotifications: (...args: unknown[]) => mockListNotifications(...args),
   getNotificationPreferences: (...args: unknown[]) => mockGetPreferences(...args),
   updateNotificationPreferences: (...args: unknown[]) => mockUpdatePreferences(...args),
+  // PrivacySection (TLX-106) est rendu par ProfileScreen : on stub ses appels.
+  getConsents: (...args: unknown[]) => mockGetConsents(...args),
+  updateConsent: (...args: unknown[]) => mockUpdateConsent(...args),
+  requestExport: jest.fn(),
+  getExport: jest.fn(),
+  deleteMe: jest.fn(),
+  ConsentType: {
+    data_processing: 'data_processing',
+    coach_access: 'coach_access',
+    marketing: 'marketing',
+  },
+  JobStatus: { pending: 'pending', processing: 'processing', ready: 'ready', failed: 'failed' },
 }));
 jest.mock('expo-router', () => ({ useRouter: () => ({ replace: mockReplace, push: mockPush }) }));
 jest.mock('../auth/SessionProvider', () => ({
@@ -79,6 +93,10 @@ beforeEach(() => {
       groupUpdates: true,
       marketing: false,
     },
+  });
+  mockGetConsents.mockResolvedValue({
+    status: 200,
+    data: { data: [{ type: 'data_processing', granted: true }] },
   });
 });
 

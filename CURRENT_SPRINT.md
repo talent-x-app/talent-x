@@ -67,6 +67,37 @@ authorization|refresh|cookie|otp|2fa` masquées) — garde-fou §11/§14, messag
 
 - _(rien — backend du sprint terminé)_
 
+## Terminés — TLX-106 Confidentialité & droits RGPD dans l'app (TX-SEC-003 §6/§8/§9)
+
+- **Lacune front rendue exécutable** : les endpoints RGPD existaient et étaient conformes (audit
+  TLX-121) mais **aucune UI mobile** ne les pilotait — l'athlète/coach ne pouvait ni gérer ses
+  consentements, ni exporter ses données, ni supprimer son compte depuis l'app. **Frontend pur sur
+  endpoints existants, zéro backend, zéro contrat.**
+- **(Mobile)** `src/profile/PrivacySection.tsx` — section **« Confidentialité & données »** ajoutée à
+  l'écran Profil partagé (athlète + coach) :
+  - **Consentements (RB-05, retrait aussi simple que l'octroi)** — interrupteurs **role-aware**
+    (athlète : `data_processing` + `coach_access` + `marketing` ; coach : `marketing` seul),
+    `getConsents` / `updateConsent`, **mise à jour optimiste** avec rollback + toast sur échec.
+  - **Export (art. 20)** — `requestExport` (202) puis **polling** `getExport` (pending/processing →
+    ready/failed via `refetchInterval`), bouton « Télécharger l'archive » (`Linking.openURL` sur la
+    `downloadUrl` présignée), état échec + réessayer.
+  - **Suppression de compte (art. 17)** — **confirmation forte en deux temps**, `deleteMe` (202) →
+    `signOut` + redirection login.
+- **Tests** : +9 `PrivacySection.test.tsx` (affichage role-aware, toggle → `updateConsent`, rollback
+  optimiste, export 202→ready→download, export échec, suppression deux temps → signOut+redirect,
+  annulation) ; mock de `ProfileScreen.test` complété (`ConsentType`/`JobStatus` + fonctions RGPD,
+  car le Profil rend désormais `PrivacySection`). **Mobile 417/417**, typecheck + lint clean.
+- **Validé en réel (2026-06-12, API `nest start` :3001 + worker BullMQ + Docker DB :5433 + MinIO)** —
+  **couche données RGPD jouée end-to-end** contre la vraie base avec comptes jetables :
+  - **Consentements** : `getConsents` `{data:[]}` initial → `updateConsent coach_access=true` persisté
+    (`textVersion 2026-01`) → relu → **retrait `=false`** (octroi/retrait symétriques).
+  - **Export** : `POST /export` **202** `{status:pending}` → worker → **`ready`** avec `downloadUrl`
+    présignée MinIO (`talentx-exports/…`, `expiresAt` J+1).
+  - **Suppression** : `DELETE /users/me` **202** → `GET /users/me` **404** (effacement immédiat de l'app).
+- **Non rejoué** : smoke Expo web de la section (UI couverte par RTL sur le **vrai** composant + vrai
+  `ThemeProvider` ; câblage = un seul import dans `ProfileScreen`). La **couche données** RGPD, elle,
+  est validée en réel ci-dessus.
+
 ## Terminés — C-10 Bibliothèque de modèles de séance (TLX-064, ADR-29)
 
 - **ADR-29 accepté** (2026-06-12) : un **modèle = une `Session` de statut `template`** (enum additif,
