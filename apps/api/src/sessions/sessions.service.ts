@@ -1,4 +1,9 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import { Prisma, type Session } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { OwnershipService } from '../common/authorization/ownership.service';
@@ -30,6 +35,14 @@ export class SessionsService {
   ) {}
 
   async createSession(coachId: string, dto: SessionCreateDto): Promise<SessionDto> {
+    // `self_logged` est réservé au journal d'entraînement athlète (ADR-36) : un coach ne
+    // crée pas de séance libre via cet endpoint.
+    if (dto.status === SessionStatus.SelfLogged) {
+      throw new UnprocessableEntityException({
+        error: 'INVALID_SESSION_STATUS',
+        message: 'Le statut self_logged est réservé au journal d’entraînement de l’athlète.',
+      });
+    }
     const session = await this.prisma.session.create({
       data: {
         coachId,

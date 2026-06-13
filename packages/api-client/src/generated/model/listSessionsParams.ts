@@ -28,7 +28,7 @@ limit?: LimitParamParameter;
  */
 sort?: SortParamParameter;
 /**
- * Statut d'une séance. `template` = modèle réutilisable (bibliothèque C-10, ADR-29) : non daté et non assignable (assigner un `template` → 422 SESSION_NOT_ASSIGNABLE).
+ * Statut d'une séance. `template` = modèle réutilisable (bibliothèque C-10, ADR-29) : non daté et non assignable (assigner un `template` → 422 SESSION_NOT_ASSIGNABLE). `self_logged` = séance libre consignée par l'athlète (journal d'entraînement, ADR-36 ; coach_id = athlète) : non créable via POST /sessions, produite par POST /athletes/me/training-log.
  */
 status?: SessionStatusFilterParameter;
 };

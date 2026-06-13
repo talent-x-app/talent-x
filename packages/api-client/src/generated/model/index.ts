@@ -141,6 +141,7 @@ export * from './statsMetrics';
 export * from './tokenReuseResponse';
 export * from './tooManyRequestsResponse';
 export * from './trainingLoad';
+export * from './trainingLogRequest';
 export * from './twoFactorSetup';
 export * from './twoFactorVerify';
 export * from './unauthorizedResponse';

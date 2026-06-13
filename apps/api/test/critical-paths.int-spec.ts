@@ -881,6 +881,108 @@ describe('Parcours critiques (E2E DB) — TLX-120', () => {
     });
   });
 
+  describe('Journal d’entraînement — POST /athletes/me/training-log (TLX-111 / ADR-36)', () => {
+    it('séance libre : alimente progression/records, exclue du dashboard coach, visible en progress coach consenti', async () => {
+      const coach = await register('coach');
+      const athlete = await register('athlete');
+      await grantConsent(athlete.token, 'data_processing');
+      await grantConsent(athlete.token, 'coach_access');
+      await prisma.coachAthleteLink.create({
+        data: { coachId: coach.id, athleteId: athlete.id, source: 'direct' },
+      });
+
+      // Sans consentement data_processing → 403 (porte réutilisée). On le retire le temps du test.
+      await grantConsent(athlete.token, 'data_processing', false);
+      await http()
+        .post('/api/v1/athletes/me/training-log')
+        .set(bearer(athlete.token))
+        .send({
+          title: 'Footing 8 km',
+          date: '2026-06-10',
+          exercises: {
+            schemaVersion: 2,
+            items: [
+              { name: '5000m', order: 0, type: 'endurance', params: { distanceMeters: 5000 } },
+            ],
+          },
+          results: {
+            schemaVersion: 2,
+            items: [
+              { exerciseName: '5000m', order: 0, setResults: [{ set: 1, timeSeconds: 1500 }] },
+            ],
+          },
+        })
+        .expect(403);
+      await grantConsent(athlete.token, 'data_processing');
+
+      // Séance libre enregistrée → 201 + candidat record (endurance:5000m).
+      const logged = await http()
+        .post('/api/v1/athletes/me/training-log')
+        .set(bearer(athlete.token))
+        .send({
+          title: 'Footing 8 km',
+          date: '2026-06-10',
+          exercises: {
+            schemaVersion: 2,
+            items: [
+              { name: '5000m', order: 0, type: 'endurance', params: { distanceMeters: 5000 } },
+            ],
+          },
+          results: {
+            schemaVersion: 2,
+            items: [
+              { exerciseName: '5000m', order: 0, setResults: [{ set: 1, timeSeconds: 1500 }] },
+            ],
+          },
+          rpe: 5,
+          notes: 'tranquille',
+        })
+        .expect(201);
+      const performanceId: string = logged.body.id;
+      expect(performanceId).toEqual(expect.any(String));
+      const candidateKeys = (logged.body.recordCandidates ?? []).map(
+        (c: { eventKey: string }) => c.eventKey,
+      );
+      expect(candidateKeys).toContain('endurance:5000m');
+
+      // La séance libre crée une séance self_logged possédée par l'athlète (coach_id = athlète).
+      const perf = await prisma.performance.findUnique({
+        where: { id: performanceId },
+        include: { assignment: { include: { session: true } } },
+      });
+      expect(perf!.assignment.status).toBe('completed');
+      expect(perf!.assignment.session.status).toBe('self_logged');
+      expect(perf!.assignment.session.coachId).toBe(athlete.id);
+
+      // Progression athlète : la marque libre alimente une série + le SB de l'année (ADR-34).
+      const progress = await http()
+        .get('/api/v1/athletes/me/progress')
+        .set(bearer(athlete.token))
+        .expect(200);
+      const series = progress.body.series.find(
+        (s: { eventKey: string }) => s.eventKey === 'endurance:5000m',
+      );
+      expect(series).toBeDefined();
+      expect(series.points).toEqual(expect.arrayContaining([{ date: '2026-06-10', value: 1500 }]));
+
+      // Dashboard coach : la séance libre n'apparaît PAS (coach-scopé) → rien à revoir pour le coach.
+      const dash = await http().get('/api/v1/coach/dashboard').set(bearer(coach.token)).expect(200);
+      const row = dash.body.athletes.find((a: { id: string }) => a.id === athlete.id);
+      expect(row.toReviewCount).toBe(0);
+
+      // Progression coach (consent-gated coach_access) : la marque libre EST visible (athleteId-scopé).
+      const coachProgress = await http()
+        .get(`/api/v1/athletes/${athlete.id}/progress`)
+        .set(bearer(coach.token))
+        .expect(200);
+      expect(
+        coachProgress.body.series.some(
+          (s: { eventKey: string }) => s.eventKey === 'endurance:5000m',
+        ),
+      ).toBe(true);
+    });
+  });
+
   describe('Records manuels — POST /athletes/me/records (TLX-116 / ADR-32)', () => {
     it('déclare, remplace, valide l’épreuve et la porte data_processing', async () => {
       const athlete = await register('athlete');

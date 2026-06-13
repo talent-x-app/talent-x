@@ -7,17 +7,23 @@
  * Conventions transverses : préfixe /api/v1 ; jeton d'accès JWT (RS256) via en-tête Authorization ; pagination par enveloppe { data, meta } ; idempotence des écritures sensibles via Idempotency-Key ; opérations longues asynchrones (202 + ressource de statut) ; rate limiting signalé par les en-têtes RateLimit-*. L'autorisation combine rôle, appartenance (lien coach↔athlète), propriété et consentement ; voir TX-SPEC-002 §6.
  * OpenAPI spec version: 1.0.0
  */
+import type { ExercisesDoc } from './exercisesDoc';
+import type { ResultsDoc } from './resultsDoc';
 
 /**
- * Statut d'une séance. `template` = modèle réutilisable (bibliothèque C-10, ADR-29) : non daté et non assignable (assigner un `template` → 422 SESSION_NOT_ASSIGNABLE). `self_logged` = séance libre consignée par l'athlète (journal d'entraînement, ADR-36 ; coach_id = athlète) : non créable via POST /sessions, produite par POST /athletes/me/training-log.
+ * Séance libre consignée par l'athlète (journal d'entraînement, ADR-36). Crée atomiquement une séance `self_logged` (coach_id = athlète), une affectation `completed` et la performance. Alimente progression/records/ assiduité de l'athlète (porte data_processing).
  */
-export type SessionStatus = typeof SessionStatus[keyof typeof SessionStatus];
-
-
-export const SessionStatus = {
-  draft: 'draft',
-  published: 'published',
-  archived: 'archived',
-  template: 'template',
-  self_logged: 'self_logged',
-} as const;
+export interface TrainingLogRequest {
+  /** Titre de la séance libre (ex. « Footing 8 km »). */
+  title: string;
+  /** Date de l'entraînement (séance, échéance et date de la perf). */
+  date: string;
+  exercises: ExercisesDoc;
+  results: ResultsDoc;
+  /**
+     * @minimum 1
+     * @maximum 10
+     */
+  rpe?: number;
+  notes?: string;
+}

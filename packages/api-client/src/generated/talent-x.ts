@@ -80,6 +80,7 @@ import type {
   Stats,
   TokenReuseResponse,
   TooManyRequestsResponse,
+  TrainingLogRequest,
   TwoFactorSetup,
   TwoFactorVerify,
   UnauthorizedResponse,
@@ -4050,6 +4051,70 @@ export const createManualRecord = async (manualRecordRequest: ManualRecordReques
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...options?.headers },
     body: JSON.stringify(manualRecordRequest)
+  }
+);}
+
+
+
+export type logTrainingSessionResponse201 = {
+  data: Performance
+  status: 201
+}
+
+export type logTrainingSessionResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type logTrainingSessionResponse403 = {
+  data: ConsentRequiredResponse
+  status: 403
+}
+
+export type logTrainingSessionResponse422 = {
+  data: ValidationFailedResponse
+  status: 422
+}
+
+export type logTrainingSessionResponse429 = {
+  data: TooManyRequestsResponse
+  status: 429
+}
+
+export type logTrainingSessionResponse500 = {
+  data: ServerErrorResponse
+  status: 500
+}
+
+export type logTrainingSessionResponseSuccess = (logTrainingSessionResponse201) & {
+  headers: Headers;
+};
+export type logTrainingSessionResponseError = (logTrainingSessionResponse401 | logTrainingSessionResponse403 | logTrainingSessionResponse422 | logTrainingSessionResponse429 | logTrainingSessionResponse500) & {
+  headers: Headers;
+};
+
+export type logTrainingSessionResponse = (logTrainingSessionResponseSuccess | logTrainingSessionResponseError)
+
+export const getLogTrainingSessionUrl = () => {
+
+
+
+
+  return `/athletes/me/training-log`
+}
+
+/**
+ * L'athlète consigne une séance hors assignation (footing, séance libre). Le serveur crée atomiquement une séance `self_logged`, une affectation `completed` et la performance — alimentant progression/records/assiduité. Porte data_processing.
+ * @summary Enregistrer une séance libre (journal d'entraînement, ADR-36)
+ */
+export const logTrainingSession = async (trainingLogRequest: TrainingLogRequest, options?: RequestInit): Promise<logTrainingSessionResponse> => {
+
+  return customFetch<logTrainingSessionResponse>(getLogTrainingSessionUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(trainingLogRequest)
   }
 );}
 

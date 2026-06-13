@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { ActivityIndicator, ScrollView, Text, View } from 'react-native';
 import { Button, Card } from '../components/ui';
 import { AttendanceSection } from './AttendanceSection';
+import { FreeSessionLog } from './FreeSessionLog';
 import { PersonalRecordsSection } from './PersonalRecordsSection';
 import { ProgressMetricsRow, ProgressSeriesCard, ProgressWindowChips } from './progress-charts';
 import { type ProgressWindow } from './progress-series';
@@ -91,6 +92,9 @@ export function ProgressScreen() {
       ) : progress.data ? (
         <>
           <ProgressMetricsRow progress={progress.data} />
+
+          {/* Journal d'entraînement (TLX-111, ADR-36) : consigner une séance libre. */}
+          <FreeSessionLog />
 
           {/* Assiduité : série + taux du mois (TLX-115), dérivée du cache ['assignments']. */}
           <AttendanceSection />

@@ -48,6 +48,9 @@ export const SESSION_STATUS_META: Record<SessionStatus, { label: string; tone: C
   // Les modèles (C-10, ADR-29) sont filtrés en amont du calendrier ; entrée présente pour la
   // complétude du type (un modèle n'apparaît jamais comme entrée planifiée).
   [SessionStatus.template]: { label: 'Modèle', tone: 'neutral' },
+  // Séance libre athlète (TLX-111, ADR-36) : appartient à l'athlète (coach_id = athlète) ;
+  // n'apparaît pas dans le calendrier coach. Entrée présente pour la complétude du type.
+  [SessionStatus.self_logged]: { label: 'Séance libre', tone: 'neutral' },
 };
 
 /** Libellé + tonalité par statut de compétition (ADR-24). */

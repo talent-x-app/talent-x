@@ -19,6 +19,12 @@ export enum SessionStatus {
   Archived = 'archived',
   /** Modèle réutilisable (bibliothèque C-10, ADR-29) : non daté, **non assignable**. */
   Template = 'template',
+  /**
+   * Séance **libre** consignée par l'athlète (journal d'entraînement, ADR-36) : `coach_id`
+   * porte l'athlète lui-même. Non créable via `POST /sessions` (réservé au coach) — produite
+   * par `POST /athletes/me/training-log`.
+   */
+  SelfLogged = 'self_logged',
 }
 
 /** Corps de `POST /sessions` — schéma `SessionCreate`. */

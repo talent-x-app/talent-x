@@ -12,9 +12,11 @@ import { ActivityIndicator, Text, View } from 'react-native';
 import { Button, Card } from '../components/ui';
 import { ManualRecordEditor } from './ManualRecordEditor';
 import { RecordRow } from './progress-charts';
+import { MY_RECORDS_QUERY_KEY } from './records-query';
 
-/** Clé de cache des records de l'athlète — invalidée à la confirmation (A-05). */
-export const MY_RECORDS_QUERY_KEY = ['records', 'me'] as const;
+/** Clé de cache des records de l'athlète — invalidée à la confirmation (A-05). Réexportée pour
+ * compat des importateurs existants (l'éditeur manuel l'importe depuis ce module). */
+export { MY_RECORDS_QUERY_KEY };
 
 /**
  * Section « Records personnels » (A-07 — TLX-091). Liste les records matérialisés de

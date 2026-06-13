@@ -1710,6 +1710,39 @@ paths:
           $ref: '#/components/responses/TooManyRequests'
         '500':
           $ref: '#/components/responses/ServerError'
+  /athletes/me/training-log:
+    post:
+      tags:
+      - Progression
+      summary: Enregistrer une séance libre (journal d'entraînement, ADR-36)
+      description: >-
+        L'athlète consigne une séance hors assignation (footing, séance libre). Le serveur
+        crée atomiquement une séance `self_logged`, une affectation `completed` et la
+        performance — alimentant progression/records/assiduité. Porte data_processing.
+      operationId: logTrainingSession
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TrainingLogRequest'
+      responses:
+        '201':
+          description: Séance libre enregistrée (performance, candidats records inclus).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Performance'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/ConsentRequired'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
   /athletes/me/records/{eventKey}:
     put:
       tags:
@@ -2681,12 +2714,15 @@ components:
       description: >-
         Statut d'une séance. `template` = modèle réutilisable (bibliothèque
         C-10, ADR-29) : non daté et non assignable (assigner un `template` →
-        422 SESSION_NOT_ASSIGNABLE).
+        422 SESSION_NOT_ASSIGNABLE). `self_logged` = séance libre consignée par
+        l'athlète (journal d'entraînement, ADR-36 ; coach_id = athlète) : non
+        créable via POST /sessions, produite par POST /athletes/me/training-log.
       enum:
       - draft
       - published
       - archived
       - template
+      - self_logged
     Load:
       type: object
       properties:
@@ -3411,6 +3447,36 @@ components:
         notes:
           type: string
       required:
+      - results
+    TrainingLogRequest:
+      type: object
+      description: >-
+        Séance libre consignée par l'athlète (journal d'entraînement, ADR-36).
+        Crée atomiquement une séance `self_logged` (coach_id = athlète), une
+        affectation `completed` et la performance. Alimente progression/records/
+        assiduité de l'athlète (porte data_processing).
+      properties:
+        title:
+          type: string
+          description: Titre de la séance libre (ex. « Footing 8 km »).
+        date:
+          type: string
+          format: date
+          description: Date de l'entraînement (séance, échéance et date de la perf).
+        exercises:
+          $ref: '#/components/schemas/ExercisesDoc'
+        results:
+          $ref: '#/components/schemas/ResultsDoc'
+        rpe:
+          type: integer
+          minimum: 1
+          maximum: 10
+        notes:
+          type: string
+      required:
+      - title
+      - date
+      - exercises
       - results
     Comment:
       type: object

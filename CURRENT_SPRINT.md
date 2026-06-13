@@ -12,6 +12,40 @@ de débloquer les écrans coach C-01/C-02/C-03.
 - _(éditeurs typés terminés — TLX-054→061 livrés ↓)_
 - _(C-01 complet — TLX-081→085 livrés ↓)_
 
+## Terminés — TLX-111 Journal d'entraînement — séance libre hors assignation (ADR-36)
+
+- **Lacune comblée** : une perf exigeait une affectation (RB-03/09) → l'athlète ne pouvait pas consigner
+  une **séance libre** (footing, entraînement en vacances). Rétention + canal d'acquisition (athlète sans
+  coach). **ADR-36 accepté** (modèle **Option 1** validé).
+- **(ADR-36)** la saisie libre crée **atomiquement** les 3 maillons existants : séance **`self_logged`**
+  (`coach_id = athlète`, statut additif — CHECK expand-only), affectation **`completed`**, perf —
+  **réutilisant toute** la maille (progression/records/assiduité athleteId-scopés) **sans rework**. Le
+  `coach_id = athlète` (smell) est levé par le statut explicite. Option 2 (`coach_id` nullable) écartée
+  (rayon de souffle large).
+- **(Migration)** expand-only `20260613100000_session_self_logged_status` : `chk_sessions_status` admet
+  `self_logged`. Aucune donnée touchée.
+- **(API)** `POST /athletes/me/training-log` (`TrainingLogRequest` : titre, date, blocs typés, résultats,
+  RPE, notes) → `TrainingLogService.logTrainingSession` (transaction séance+affectation+perf, porte
+  `data_processing`, candidats records renvoyés comme à la soumission ADR-20). Garde : `createSession`
+  refuse `self_logged` (422 `INVALID_SESSION_STATUS`, réservé à l'athlète). OpenAPI → DTO → client orval
+  régénéré.
+- **(Visibilité)** la séance libre **n'apparaît pas** au dashboard/stats coach (coach-scopés sur
+  `session.coach_id`) → pas de distorsion du plan ; **visible** en progression/records coach **sous
+  `coach_access`** (athleteId-scopés, TLX-112). Calendrier coach : libellé « Séance libre » (jamais
+  affichée, coach_id = athlète).
+- **(Mobile)** `FreeSessionLog` (repliable, calqué sur `ManualRecordEditor`) sur **Progression (A-06)** :
+  titre + date + famille d'épreuve + paramètre + marque + RPE/notes → `logTrainingSession`, invalide
+  progression/records/assiduité. Clé `MY_RECORDS_QUERY_KEY` **extraite** (`records-query.ts`, découplage
+  type `dashboard-query`) — supprime un import circulaire éditeur↔section.
+- **Tests** : **API unit 438/438** (+13), **intégration 35/35** (+1), **mobile 479/479** (+4), typecheck
+  (api + api-client + mobile) + lint clean.
+- **Validé en réel (2026-06-13, intégration DB-backed Postgres :5433)** : sans `data_processing` → **403** ;
+  séance libre endurance 5000m/1500s → **201** + candidat `endurance:5000m` → perf liée à une séance
+  **`self_logged` `coach_id = athlète`**, affectation **`completed`** → **progression athlète** alimentée
+  (`series[endurance:5000m]` point `2026-06-10/1500`) → **dashboard coach `toReviewCount = 0`** (exclu) →
+  **progression coach (consentie)** voit l'épreuve. UI couverte par RTL sur le **vrai** composant.
+- **Non rejoué en réel** (smoke Expo web) : le rendu visuel du formulaire → suivi **TLX-132**.
+
 ## Terminés — TLX-114 Saison vs carrière — SB (season best) & marques par année (ADR-34)
 
 - **Langage athlète comblé** : le PB existait (ADR-20) mais ni **SB** (meilleure marque de la saison)

@@ -10,7 +10,7 @@ import { useState } from 'react';
 import { Text, TextInput, View } from 'react-native';
 import { Button, Card, Chip } from '../components/ui';
 import { useToast } from '../feedback';
-import { MY_RECORDS_QUERY_KEY } from './PersonalRecordsSection';
+import { MY_RECORDS_QUERY_KEY } from './records-query';
 
 type ParamKind = 'distance' | 'throws' | 'discipline' | 'none';
 

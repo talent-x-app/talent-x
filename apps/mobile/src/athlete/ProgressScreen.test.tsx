@@ -12,6 +12,7 @@ jest.mock('@talent-x/api-client', () => ({
   listMyRecords: (...a: unknown[]) => mockListMyRecords(...a),
   listAssignments: (...a: unknown[]) => mockListAssignments(...a),
   createManualRecord: jest.fn(),
+  logTrainingSession: jest.fn(),
   AssignmentStatus: {
     assigned: 'assigned',
     in_progress: 'in_progress',

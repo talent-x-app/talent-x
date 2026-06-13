@@ -97,6 +97,18 @@ describe('SessionsService', () => {
       expect(result).toMatchObject({ id: 's-1', coachId: 'c-1', status: 'draft' });
     });
 
+    it('refuse le statut self_logged (réservé au journal d’entraînement athlète, ADR-36)', async () => {
+      const prisma = prismaMock();
+      await expect(
+        service(prisma).createSession('c-1', {
+          title: 'Libre ?',
+          status: SessionStatus.SelfLogged,
+          exercises: { items: [{ name: '60m', order: 0 }] },
+        }),
+      ).rejects.toMatchObject({ response: { error: 'INVALID_SESSION_STATUS' } });
+      expect(prisma.session.create).not.toHaveBeenCalled();
+    });
+
     it('préserve type et params des blocs typés (contrat v2, ADR-18)', async () => {
       const prisma = prismaMock();
       prisma.session.create.mockResolvedValue(sessionRow());
