@@ -82,8 +82,11 @@ function prismaMock(): PrismaMock {
       updateMany: jest.fn().mockResolvedValue({ count: 0 }),
     },
     // Garde-fou ADR-29 : statut de la séance lu avant assignation (défaut = assignable).
+    // Récurrence (ADR-35) : duplication serveur des occurrences 2..N.
     session: {
       findUnique: jest.fn().mockResolvedValue({ status: 'published' }),
+      findUniqueOrThrow: jest.fn().mockResolvedValue(sessionRow()),
+      create: jest.fn(),
     },
     // Résolution de groupe (ADR-30) — défauts : aucun membre, aucune affectation de groupe.
     groupMember: { findMany: jest.fn().mockResolvedValue([]) },
@@ -292,6 +295,120 @@ describe('AssignmentsService', () => {
       expect(prisma.sessionAssignment.create).toHaveBeenCalledTimes(1);
       expect(prisma.sessionAssignment.create.mock.calls[0][0].data.groupAssignmentId).toBeNull();
       expect(res.data).toHaveLength(1);
+    });
+  });
+
+  describe('assignSession — récurrence (ADR-35)', () => {
+    it('matérialise N occurrences : occ.1 = séance d’origine, occ.2..N = duplications datées', async () => {
+      const prisma = prismaMock();
+      // Toujours « créé » (séances distinctes par occurrence).
+      prisma.sessionAssignment.findFirst.mockResolvedValue(null);
+      let n = 0;
+      prisma.sessionAssignment.create.mockImplementation(({ data }) =>
+        Promise.resolve(
+          assignmentRow({ id: `asg-${++n}`, sessionId: data.sessionId, dueDate: data.dueDate }),
+        ),
+      );
+      prisma.session.create
+        .mockResolvedValueOnce({ id: 's-occ-2' })
+        .mockResolvedValueOnce({ id: 's-occ-3' });
+
+      // 2026-06-09 mardi → 3 occurrences jusqu'au 2026-06-23.
+      const res = await service(prisma).assignSession('c-1', 's-1', {
+        athleteIds: ['a-1'],
+        dueDate: '2026-06-09',
+        recurrence: { frequency: 'weekly', until: '2026-06-23' } as never,
+      });
+
+      // 3 occurrences × 1 athlète.
+      expect(res.data).toHaveLength(3);
+      // 2 duplications serveur (occurrences 2 et 3) au contenu identique.
+      expect(prisma.session.create).toHaveBeenCalledTimes(2);
+      expect(prisma.session.create.mock.calls[0][0].data).toMatchObject({
+        coachId: 'c-1',
+        title: 'Sprint',
+        status: 'published',
+      });
+      // Occurrence 1 portée par la séance d'origine, occ. 2/3 par les copies.
+      const createdSessionIds = prisma.sessionAssignment.create.mock.calls.map(
+        (c) => c[0].data.sessionId,
+      );
+      expect(createdSessionIds).toEqual(['s-1', 's-occ-2', 's-occ-3']);
+      // Dates espacées de 7 jours.
+      const dueDates = prisma.sessionAssignment.create.mock.calls.map((c) =>
+        c[0].data.dueDate.toISOString().slice(0, 10),
+      );
+      expect(dueDates).toEqual(['2026-06-09', '2026-06-16', '2026-06-23']);
+    });
+
+    it('une seule notification par athlète pour toute la série (occurrence 1)', async () => {
+      const prisma = prismaMock();
+      const queue = queueMock();
+      prisma.sessionAssignment.findFirst.mockResolvedValue(null);
+      let n = 0;
+      prisma.sessionAssignment.create.mockImplementation(({ data }) =>
+        Promise.resolve(
+          assignmentRow({ id: `asg-${++n}`, athleteId: data.athleteId, sessionId: data.sessionId }),
+        ),
+      );
+      prisma.session.create.mockResolvedValue({ id: 's-occ' });
+
+      await service(prisma, ownershipMock(), queue).assignSession('c-1', 's-1', {
+        athleteIds: ['a-1'],
+        dueDate: '2026-06-09',
+        recurrence: { frequency: 'weekly', until: '2026-06-16' } as never,
+      });
+
+      // 2 occurrences créées mais 1 seule notification (athlète a-1, occurrence 1).
+      expect(queue.enqueue).toHaveBeenCalledTimes(1);
+      expect(queue.enqueue).toHaveBeenCalledWith(
+        { type: 'session_assigned', recipientUserId: 'a-1', resourceId: 'asg-1' },
+        'session_assigned--asg-1',
+      );
+    });
+
+    it('422 RECURRENCE_REQUIRES_DUE_DATE si recurrence sans dueDate', async () => {
+      const prisma = prismaMock();
+      await expect(
+        service(prisma).assignSession('c-1', 's-1', {
+          athleteIds: ['a-1'],
+          recurrence: { frequency: 'weekly', until: '2026-06-23' } as never,
+        }),
+      ).rejects.toMatchObject({
+        constructor: UnprocessableEntityException,
+        response: { error: 'RECURRENCE_REQUIRES_DUE_DATE' },
+      });
+      expect(prisma.sessionAssignment.create).not.toHaveBeenCalled();
+    });
+
+    it('422 INVALID_RECURRENCE si until < dueDate', async () => {
+      const prisma = prismaMock();
+      await expect(
+        service(prisma).assignSession('c-1', 's-1', {
+          athleteIds: ['a-1'],
+          dueDate: '2026-06-09',
+          recurrence: { frequency: 'weekly', until: '2026-06-08' } as never,
+        }),
+      ).rejects.toMatchObject({
+        constructor: UnprocessableEntityException,
+        response: { error: 'INVALID_RECURRENCE' },
+      });
+      expect(prisma.sessionAssignment.create).not.toHaveBeenCalled();
+    });
+
+    it('422 RECURRENCE_TOO_LONG au-delà de 52 occurrences', async () => {
+      const prisma = prismaMock();
+      await expect(
+        service(prisma).assignSession('c-1', 's-1', {
+          athleteIds: ['a-1'],
+          dueDate: '2026-01-06',
+          recurrence: { frequency: 'weekly', until: '2027-06-09' } as never,
+        }),
+      ).rejects.toMatchObject({
+        constructor: UnprocessableEntityException,
+        response: { error: 'RECURRENCE_TOO_LONG' },
+      });
+      expect(prisma.sessionAssignment.create).not.toHaveBeenCalled();
     });
   });
 

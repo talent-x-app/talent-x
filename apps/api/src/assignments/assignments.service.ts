@@ -14,6 +14,7 @@ import { NotificationQueueService } from '../jobs/notification-queue.service';
 import { SessionStatus } from '../sessions/dto/session-create.dto';
 import { toSessionDto } from '../sessions/session.mapper';
 import { AssignRequestDto } from './dto/assign-request.dto';
+import { occurrenceDates, RECURRENCE_MAX_OCCURRENCES } from './recurrence';
 import { AssignmentQueryDto } from './dto/assignment-query.dto';
 import {
   AssignmentDto,
@@ -75,40 +76,42 @@ export class AssignmentsService {
     for (const groupId of groupIds) {
       await this.ownership.assertGroupOwnedByCoach(coachId, groupId);
     }
-    const dueDate = dto.dueDate ? new Date(dto.dueDate) : null;
+    // Récurrence (ADR-35) : suite de dates d'occurrence (≥ 1). Sans `recurrence`,
+    // une seule occurrence à `dueDate` (ou non datée) → comportement actuel.
+    const occurrences = this.resolveOccurrenceDates(dto);
 
     const rows = await this.prisma.$transaction(async (tx) => {
-      // Provenance par athlète : explicite → null ; sinon l'affectation de groupe.
-      const provenance = new Map<string, string | null>();
-      for (const athleteId of explicitAthleteIds) provenance.set(athleteId, null);
+      // Occurrences 2..N = duplications serveur de la séance d'origine (contenu identique,
+      // ADR-35 §2). Source chargée une fois ; aucune lecture si pas de récurrence.
+      const source =
+        occurrences.length > 1
+          ? await tx.session.findUniqueOrThrow({ where: { id: sessionId } })
+          : null;
 
-      for (const groupId of groupIds) {
-        const groupAssignmentId = await upsertActiveGroupAssignment(
+      const all: Array<{ assignment: SessionAssignment; created: boolean; occurrence: number }> =
+        [];
+      for (let i = 0; i < occurrences.length; i++) {
+        const occSessionId =
+          i === 0 ? sessionId : await duplicateSessionForOccurrence(tx, source!, coachId);
+        const dueDate = occurrences[i] ? new Date(occurrences[i] as string) : null;
+        const fan = await fanOutAssignments(
           tx,
-          sessionId,
-          groupId,
+          occSessionId,
           dueDate,
+          explicitAthleteIds,
+          groupIds,
         );
-        const members = await tx.groupMember.findMany({
-          where: { groupId, leftAt: null },
-          select: { athleteId: true },
-        });
-        for (const { athleteId } of members) {
-          if (!provenance.has(athleteId)) provenance.set(athleteId, groupAssignmentId);
-        }
+        for (const r of fan) all.push({ ...r, occurrence: i });
       }
-
-      return Promise.all(
-        [...provenance].map(([athleteId, groupAssignmentId]) =>
-          upsertActiveAssignment(tx, sessionId, athleteId, dueDate, groupAssignmentId),
-        ),
-      );
+      return all;
     });
 
     // Notifie chaque athlète nouvellement affecté (ADR-22 : session_assigned) ;
-    // une ré-affectation idempotente n'émet rien.
-    for (const { assignment, created } of rows) {
-      if (created) {
+    // une ré-affectation idempotente n'émet rien. Pour une série (ADR-35 §4), une
+    // **seule** notification par athlète, portée par l'occurrence 1 (les occurrences
+    // 2..N sont des séances dupliquées, toujours « créées » mais déjà couvertes).
+    for (const { assignment, created, occurrence } of rows) {
+      if (created && occurrence === 0) {
         await this.notificationQueue.enqueue(
           {
             type: 'session_assigned',
@@ -121,7 +124,40 @@ export class AssignmentsService {
       }
     }
     // Endpoint réservé au coach propriétaire → lecteur coach (pas de séance embarquée ici).
+    // La réponse liste les affectations de **toutes** les occurrences (ADR-35).
     return { data: rows.map((r) => toAssignmentDto(r.assignment, 'coach')) };
+  }
+
+  /**
+   * Dates des occurrences à matérialiser (ADR-35). Sans `recurrence` : une seule
+   * occurrence (`dueDate` ou non datée). Avec : exige `dueDate` (422
+   * `RECURRENCE_REQUIRES_DUE_DATE`), `until ≥ dueDate` (422 `INVALID_RECURRENCE`),
+   * borne à 52 occurrences (422 `RECURRENCE_TOO_LONG`).
+   */
+  private resolveOccurrenceDates(dto: AssignRequestDto): Array<string | null> {
+    if (!dto.recurrence) return [dto.dueDate ?? null];
+
+    if (!dto.dueDate) {
+      throw new UnprocessableEntityException({
+        error: 'RECURRENCE_REQUIRES_DUE_DATE',
+        message: 'Une échéance (dueDate) est requise pour répéter une affectation.',
+      });
+    }
+    const { until } = dto.recurrence;
+    if (until.slice(0, 10) < dto.dueDate.slice(0, 10)) {
+      throw new UnprocessableEntityException({
+        error: 'INVALID_RECURRENCE',
+        message: "La date de fin doit être postérieure ou égale à l'échéance.",
+      });
+    }
+    const dates = occurrenceDates(dto.dueDate, until, RECURRENCE_MAX_OCCURRENCES);
+    if (dates.length > RECURRENCE_MAX_OCCURRENCES) {
+      throw new UnprocessableEntityException({
+        error: 'RECURRENCE_TOO_LONG',
+        message: `Une récurrence ne peut dépasser ${RECURRENCE_MAX_OCCURRENCES} occurrences.`,
+      });
+    }
+    return dates;
   }
 
   /**
@@ -374,6 +410,67 @@ export class AssignmentsService {
 /** Minuit UTC du jour de `d` — borne « à venir » alignée sur les `dueDate` calendaires. */
 function startOfUtcDay(d: Date): Date {
   return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+}
+
+/**
+ * Fan-out ADR-30 pour **une** occurrence (séance, date) : résout les groupes vers leurs
+ * membres actifs (provenance `groupAssignmentId`), dédup par athlète (l'affectation
+ * explicite, sans provenance, l'emporte), et matérialise une `SessionAssignment` par
+ * athlète. Réutilisé tel quel pour chaque occurrence d'une récurrence (ADR-35 §2).
+ */
+async function fanOutAssignments(
+  tx: Prisma.TransactionClient,
+  sessionId: string,
+  dueDate: Date | null,
+  explicitAthleteIds: string[],
+  groupIds: string[],
+): Promise<Array<{ assignment: SessionAssignment; created: boolean }>> {
+  // Provenance par athlète : explicite → null ; sinon l'affectation de groupe.
+  const provenance = new Map<string, string | null>();
+  for (const athleteId of explicitAthleteIds) provenance.set(athleteId, null);
+
+  for (const groupId of groupIds) {
+    const groupAssignmentId = await upsertActiveGroupAssignment(tx, sessionId, groupId, dueDate);
+    const members = await tx.groupMember.findMany({
+      where: { groupId, leftAt: null },
+      select: { athleteId: true },
+    });
+    for (const { athleteId } of members) {
+      if (!provenance.has(athleteId)) provenance.set(athleteId, groupAssignmentId);
+    }
+  }
+
+  return Promise.all(
+    [...provenance].map(([athleteId, groupAssignmentId]) =>
+      upsertActiveAssignment(tx, sessionId, athleteId, dueDate, groupAssignmentId),
+    ),
+  );
+}
+
+/**
+ * Duplique une séance pour une occurrence de récurrence (ADR-35 §2) : copie serveur au
+ * **contenu identique** (titre, description, statut, exercises, brief) — pas de suffixe ni
+ * de remise à zéro (contrairement à `duplicateSession` côté bibliothèque). La date de
+ * l'occurrence porte sur l'affectation, pas sur la séance. Retourne l'id de la copie.
+ */
+async function duplicateSessionForOccurrence(
+  tx: Prisma.TransactionClient,
+  source: Session,
+  coachId: string,
+): Promise<string> {
+  const copy = await tx.session.create({
+    data: {
+      coachId,
+      title: source.title,
+      description: source.description,
+      status: source.status,
+      exercises: source.exercises as Prisma.InputJsonValue,
+      exercisesSchemaVersion: source.exercisesSchemaVersion,
+      ...(source.brief != null ? { brief: source.brief as Prisma.InputJsonValue } : {}),
+    },
+    select: { id: true },
+  });
+  return copy.id;
 }
 
 /**

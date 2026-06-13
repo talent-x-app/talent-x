@@ -98,7 +98,12 @@ describe('CoachAssignScreen (TLX-063 — C-06/C-07)', () => {
     mockGetCoachDashboard.mockResolvedValue({ status: 200, data: DASHBOARD });
     mockAssignSession.mockResolvedValue({
       status: 201,
-      data: { data: [{ id: 'asg-a' }, { id: 'asg-b' }] },
+      data: {
+        data: [
+          { id: 'asg-a', athleteId: 'a-1', sessionId: 's-1' },
+          { id: 'asg-b', athleteId: 'a-2', sessionId: 's-1' },
+        ],
+      },
     });
     render(<CoachAssignScreen sessionId="s-1" sessionTitle="Vitesse" />, { wrapper: Wrapper });
 
@@ -128,7 +133,10 @@ describe('CoachAssignScreen (TLX-063 — C-06/C-07)', () => {
 
   it('omet dueDate si vide', async () => {
     mockGetCoachDashboard.mockResolvedValue({ status: 200, data: DASHBOARD });
-    mockAssignSession.mockResolvedValue({ status: 201, data: { data: [{ id: 'asg-a' }] } });
+    mockAssignSession.mockResolvedValue({
+      status: 201,
+      data: { data: [{ id: 'asg-a', athleteId: 'a-1', sessionId: 's-1' }] },
+    });
     render(<CoachAssignScreen sessionId="s-1" />, { wrapper: Wrapper });
 
     await waitFor(() => expect(screen.getByTestId('assign-athlete-a-1')).toBeOnTheScreen());
@@ -142,10 +150,16 @@ describe('CoachAssignScreen (TLX-063 — C-06/C-07)', () => {
   it('assigne à un groupe entier (ADR-30) : groupIds envoyé, confirmation par effectif serveur', async () => {
     mockGetCoachDashboard.mockResolvedValue({ status: 200, data: DASHBOARD });
     mockListGroups.mockResolvedValue({ status: 200, data: GROUPS });
-    // Le serveur résout le groupe → 5 affectations matérialisées.
+    // Le serveur résout le groupe → 5 affectations matérialisées (athlètes distincts).
     mockAssignSession.mockResolvedValue({
       status: 201,
-      data: { data: Array.from({ length: 5 }, (_, i) => ({ id: `asg-${i}` })) },
+      data: {
+        data: Array.from({ length: 5 }, (_, i) => ({
+          id: `asg-${i}`,
+          athleteId: `member-${i}`,
+          sessionId: 's-1',
+        })),
+      },
     });
     render(<CoachAssignScreen sessionId="s-1" sessionTitle="Vitesse" />, { wrapper: Wrapper });
 
@@ -166,6 +180,63 @@ describe('CoachAssignScreen (TLX-063 — C-06/C-07)', () => {
     // Récap : 5 athlètes (résolus côté serveur) + libellé du groupe ciblé.
     expect(screen.getByTestId('assign-confirmation-summary')).toHaveTextContent(/5 athlètes/);
     expect(screen.getByTestId('assign-confirmation')).toHaveTextContent(/Groupe « Sprint élite »/);
+  });
+
+  it('récurrence (ADR-35) : « répéter chaque mardi » → envoie recurrence + confirmation N occurrences', async () => {
+    mockGetCoachDashboard.mockResolvedValue({ status: 200, data: DASHBOARD });
+    // Le serveur matérialise 3 occurrences (séances distinctes) pour 1 athlète.
+    mockAssignSession.mockResolvedValue({
+      status: 201,
+      data: {
+        data: [
+          { id: 'asg-1', athleteId: 'a-1', sessionId: 's-1' },
+          { id: 'asg-2', athleteId: 'a-1', sessionId: 's-occ-2' },
+          { id: 'asg-3', athleteId: 'a-1', sessionId: 's-occ-3' },
+        ],
+      },
+    });
+    render(<CoachAssignScreen sessionId="s-1" sessionTitle="Vitesse" />, { wrapper: Wrapper });
+
+    await waitFor(() => expect(screen.getByTestId('assign-athlete-a-1')).toBeOnTheScreen());
+    // L'option de répétition n'apparaît qu'avec une échéance valide.
+    expect(screen.queryByTestId('assign-repeat-toggle')).toBeNull();
+    fireEvent.changeText(screen.getByTestId('assign-due-date'), '2026-06-09'); // mardi
+    const toggle = screen.getByTestId('assign-repeat-toggle');
+    expect(toggle).toHaveTextContent(/chaque mardi/);
+
+    fireEvent.press(toggle);
+    fireEvent.changeText(screen.getByTestId('assign-repeat-until'), '2026-06-23');
+    fireEvent.press(screen.getByTestId('assign-athlete-a-1'));
+    fireEvent.press(screen.getByTestId('assign-submit'));
+
+    await waitFor(() => expect(mockAssignSession).toHaveBeenCalled());
+    const body = mockAssignSession.mock.calls[0][1];
+    expect(body.dueDate).toBe('2026-06-09');
+    expect(body.recurrence).toEqual({ frequency: 'weekly', until: '2026-06-23' });
+
+    await waitFor(() => expect(screen.getByTestId('assign-confirmation')).toBeOnTheScreen());
+    // 1 athlète, 3 occurrences.
+    expect(screen.getByTestId('assign-confirmation-summary')).toHaveTextContent(/1 athlète/);
+    expect(screen.getByTestId('assign-confirmation-summary')).toHaveTextContent(/répétée 3 fois/);
+  });
+
+  it('n’envoie pas recurrence si la case « répéter » est décochée', async () => {
+    mockGetCoachDashboard.mockResolvedValue({ status: 200, data: DASHBOARD });
+    mockAssignSession.mockResolvedValue({
+      status: 201,
+      data: { data: [{ id: 'asg-a', athleteId: 'a-1', sessionId: 's-1' }] },
+    });
+    render(<CoachAssignScreen sessionId="s-1" />, { wrapper: Wrapper });
+
+    await waitFor(() => expect(screen.getByTestId('assign-athlete-a-1')).toBeOnTheScreen());
+    fireEvent.changeText(screen.getByTestId('assign-due-date'), '2026-06-09');
+    // Toggle disponible mais laissé décoché.
+    expect(screen.getByTestId('assign-repeat-toggle')).toBeOnTheScreen();
+    fireEvent.press(screen.getByTestId('assign-athlete-a-1'));
+    fireEvent.press(screen.getByTestId('assign-submit'));
+
+    await waitFor(() => expect(mockAssignSession).toHaveBeenCalled());
+    expect(mockAssignSession.mock.calls[0][1].recurrence).toBeUndefined();
   });
 
   it('toast d’erreur si l’assignation échoue', async () => {

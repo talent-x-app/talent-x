@@ -119,6 +119,8 @@ export * from './readinessStatus';
 export * from './recordCandidate';
 export * from './recordCandidateUnit';
 export * from './recordConfirm';
+export * from './recurrenceRule';
+export * from './recurrenceRuleFrequency';
 export * from './refreshRequest';
 export * from './registerRequest';
 export * from './resetPasswordRequest';

@@ -12,6 +12,41 @@ de débloquer les écrans coach C-01/C-02/C-03.
 - _(éditeurs typés terminés — TLX-054→061 livrés ↓)_
 - _(C-01 complet — TLX-081→085 livrés ↓)_
 
+## Terminés — TLX-127 Récurrence d'assignation — « répéter chaque mardi jusqu'au… » (ADR-35)
+
+- **Valeur cœur livrée** : un coach répète une séance « chaque <jour> jusqu'au <date> » en un geste,
+  au lieu de ré-assigner chaque semaine. Détaché de TLX-109 (récurrence sortie du périmètre ADR-30 §4).
+  **ADR-35 accepté** (matérialisation à la création + **Option A** : duplication de séance par date).
+- **(ADR-35)** occurrences **matérialisées à l'assignation** (pas de règle paresseuse) ; chaque
+  occurrence = une **séance dupliquée** assignée à sa date (occ.1 = la séance d'origine à `dueDate`,
+  occ.2..N = copies serveur au **contenu identique** : titre/description/statut/exercises/brief). Réutilise
+  **tel quel** le fan-out ADR-30 (athlètes + groupes + provenance + réconciliation) par occurrence →
+  **zéro changement d'index, de table, d'idempotence** (`ux_assignment_active` respecté occurrence par
+  occurrence). Dashboard/calendrier/désassignation/records/RGPD opèrent sans rework (occurrences ordinaires).
+- **(Module pur `assignments/recurrence.ts`)** `occurrenceDates(dueDate, until, max)` — suite hebdomadaire
+  UTC, même jour de semaine que `dueDate`, `until` inclus ; borne génération à `max + 1` pour détecter le
+  dépassement sans matérialiser. `RECURRENCE_MAX_OCCURRENCES = 52`. **+9 tests**.
+- **(API)** `assignSession` : `resolveOccurrenceDates` (sans `recurrence` → comportement actuel ; avec →
+  422 `RECURRENCE_REQUIRES_DUE_DATE` / `INVALID_RECURRENCE` / `RECURRENCE_TOO_LONG`), boucle d'occurrences
+  (fan-out extrait en `fanOutAssignments`, duplication `duplicateSessionForOccurrence`). **Notif unique par
+  athlète pour la série** (ADR-35 §4 : `session_assigned` porté par l'occurrence 1 seulement). La réponse
+  liste les affectations de **toutes** les occurrences. **+5 tests service**.
+- **(Contrat)** additif `AssignRequest.recurrence` + schéma `RecurrenceRule` (`frequency: weekly`, `until`).
+  OpenAPI → DTO Nest (`RecurrenceRuleDto`, `@ValidateNested`) → client orval régénéré + rebuild.
+- **(Mobile)** `CoachAssignScreen` : bloc **« Répéter chaque <jour> »** (visible seulement avec une
+  échéance valide, jour dérivé de `dueDate`) + champ « jusqu'au » → envoie `recurrence`. Confirmation (C-07)
+  précise « répétée N fois » (occurrences = séances distinctes de la réponse, athlètes = `athleteId` uniques).
+  Helper pur `recurrence-label.ts` (`weekdayLabel`, **+4 tests**) ; **+2 tests écran**.
+- **Tests** : **API unit 457/457** (+5), **intégration 37/37** (+2 : « chaque mardi » → 4 séances datées,
+  recurrence sans dueDate → 422), **mobile** (+6), typecheck (api + api-client + mobile) + lint clean.
+- **Validé en réel (2026-06-13, intégration DB-backed Postgres :5433)** : `POST /assign` avec
+  `recurrence {weekly, until 2026-06-30}` sur dueDate mardi 2026-06-09 → **4 affectations** sur **4 séances
+  distinctes** (1 originale + 3 copies au contenu identique), l'athlète voit 4 affectations datées de mardi
+  en mardi (09/16/23/30) ; recurrence sans dueDate → **422 `RECURRENCE_REQUIRES_DUE_DATE`** (relu de la base).
+- **Hors périmètre (ADR-35 §5, → TLX-126)** : gestion « par série » (éditer/annuler toutes les occurrences
+  futures en un geste) — pas de table `series` au MVP ; désassignation par occurrence via les endpoints
+  existants. **Non rejoué en réel** (smoke Expo web) : le rendu visuel du bloc « Répéter » → couvert par RTL.
+
 ## Terminés — TLX-111 Journal d'entraînement — séance libre hors assignation (ADR-36)
 
 - **Lacune comblée** : une perf exigeait une affectation (RB-03/09) → l'athlète ne pouvait pas consigner

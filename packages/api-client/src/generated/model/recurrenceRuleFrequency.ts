@@ -7,16 +7,13 @@
  * Conventions transverses : préfixe /api/v1 ; jeton d'accès JWT (RS256) via en-tête Authorization ; pagination par enveloppe { data, meta } ; idempotence des écritures sensibles via Idempotency-Key ; opérations longues asynchrones (202 + ressource de statut) ; rate limiting signalé par les en-têtes RateLimit-*. L'autorisation combine rôle, appartenance (lien coach↔athlète), propriété et consentement ; voir TX-SPEC-002 §6.
  * OpenAPI spec version: 1.0.0
  */
-import type { RecurrenceRule } from './recurrenceRule';
 
 /**
- * Cible d'affectation : des athlètes (`athleteIds`) et/ou des groupes (`groupIds`). Au moins l'un des deux doit être non vide (422 sinon). Les `groupIds` sont résolus côté serveur vers les membres actifs ; une `SessionAssignment` est matérialisée par athlète (ADR-30). Idempotent par couple (séance, athlète) : un athlète à la fois explicite et membre d'un groupe ciblé n'est affecté qu'une fois.
+ * Cadence. Seule `weekly` au MVP (enum extensible).
  */
-export interface AssignRequest {
-  /** @minItems 1 */
-  athleteIds?: string[];
-  /** @minItems 1 */
-  groupIds?: string[];
-  dueDate?: string;
-  recurrence?: RecurrenceRule;
-}
+export type RecurrenceRuleFrequency = typeof RecurrenceRuleFrequency[keyof typeof RecurrenceRuleFrequency];
+
+
+export const RecurrenceRuleFrequency = {
+  weekly: 'weekly',
+} as const;

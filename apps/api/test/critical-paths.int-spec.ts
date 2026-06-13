@@ -1033,4 +1033,74 @@ describe('Parcours critiques (E2E DB) — TLX-120', () => {
       expect(bad.body.error).toBe('INVALID_EVENT');
     });
   });
+
+  describe('Récurrence d’assignation — ADR-35 (TLX-127)', () => {
+    it('« chaque mardi jusqu’au… » → N séances datées, chaque athlète voit N affectations', async () => {
+      const coach = await register('coach');
+      const athlete = await register('athlete');
+      await prisma.coachAthleteLink.create({
+        data: { coachId: coach.id, athleteId: athlete.id, source: 'direct' },
+      });
+      const session = await prisma.session.create({
+        data: { coachId: coach.id, title: 'Sprint hebdo', status: 'published' },
+      });
+      const sessionId: string = session.id;
+
+      // 2026-06-09 mardi → occurrences les 09, 16, 23, 30 juin (4 occurrences, until inclus).
+      const assign = await http()
+        .post(`/api/v1/sessions/${sessionId}/assign`)
+        .set(bearer(coach.token))
+        .set('Idempotency-Key', `assign-rec-${sessionId}`)
+        .send({
+          athleteIds: [athlete.id],
+          dueDate: '2026-06-09',
+          recurrence: { frequency: 'weekly', until: '2026-06-30' },
+        })
+        .expect(201);
+      expect(assign.body.data).toHaveLength(4);
+
+      // Occurrence 1 portée par la séance d'origine ; 3 séances dupliquées au contenu identique.
+      const sessionIds: string[] = assign.body.data.map((a: { sessionId: string }) => a.sessionId);
+      expect(sessionIds).toContain(sessionId);
+      expect(new Set(sessionIds).size).toBe(4);
+      const copies = await prisma.session.findMany({
+        where: { coachId: coach.id, id: { in: sessionIds.filter((id) => id !== sessionId) } },
+      });
+      expect(copies).toHaveLength(3);
+      copies.forEach((c) => {
+        expect(c.title).toBe('Sprint hebdo');
+        expect(c.status).toBe('published');
+      });
+
+      // L'athlète voit ses 4 affectations, datées de mardi en mardi.
+      const list = await http().get('/api/v1/assignments').set(bearer(athlete.token)).expect(200);
+      const mine = list.body.data.filter((a: { sessionId: string }) =>
+        sessionIds.includes(a.sessionId),
+      );
+      expect(mine).toHaveLength(4);
+      const dueDates = mine.map((a: { dueDate: string }) => a.dueDate).sort();
+      expect(dueDates).toEqual(['2026-06-09', '2026-06-16', '2026-06-23', '2026-06-30']);
+    });
+
+    it('recurrence sans dueDate → 422 RECURRENCE_REQUIRES_DUE_DATE', async () => {
+      const coach = await register('coach');
+      const athlete = await register('athlete');
+      await prisma.coachAthleteLink.create({
+        data: { coachId: coach.id, athleteId: athlete.id, source: 'direct' },
+      });
+      const session = await prisma.session.create({
+        data: { coachId: coach.id, title: 'Sans date', status: 'published' },
+      });
+      const res = await http()
+        .post(`/api/v1/sessions/${session.id}/assign`)
+        .set(bearer(coach.token))
+        .set('Idempotency-Key', `assign-nodate-${session.id}`)
+        .send({
+          athleteIds: [athlete.id],
+          recurrence: { frequency: 'weekly', until: '2026-06-30' },
+        })
+        .expect(422);
+      expect(res.body.error).toBe('RECURRENCE_REQUIRES_DUE_DATE');
+    });
+  });
 });

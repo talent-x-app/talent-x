@@ -19,6 +19,7 @@ import { ResponsiveContent } from '../responsive/ResponsiveContent';
 import { useToast } from '../feedback';
 import { COACH_DASHBOARD_QUERY_KEY } from '../dashboard/dashboard-query';
 import { GROUPS_QUERY_KEY } from '../groups/groups-query';
+import { weekdayLabel } from '../assignments/recurrence-label';
 import { AthleteStatusBadge, athleteFullName, athleteInitials } from './athlete-ui';
 
 /**
@@ -62,20 +63,35 @@ export function CoachAssignScreen({
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [selectedGroups, setSelectedGroups] = useState<Set<string>>(new Set());
   const [dueDate, setDueDate] = useState('');
+  // Récurrence (ADR-35) : répéter chaque semaine jusqu'à `until`. Exige une échéance.
+  const [repeat, setRepeat] = useState(false);
+  const [repeatUntil, setRepeatUntil] = useState('');
   // Récap d'affectation une fois réussie → bascule en mode confirmation (C-07).
-  const [confirmed, setConfirmed] = useState<{ count: number; targets: string[] } | null>(null);
+  const [confirmed, setConfirmed] = useState<{
+    athletes: number;
+    occurrences: number;
+    targets: string[];
+  } | null>(null);
 
   const athletes = dashboard.data?.athletes ?? [];
   const groups = groupsQuery.data?.data ?? [];
 
+  const dueWeekday = weekdayLabel(dueDate);
+  // La répétition n'est proposée/envoyée que si l'échéance est une date valide (ADR-35).
+  const canRepeat = dueWeekday != null;
+  const recurrenceActive = canRepeat && repeat && repeatUntil.trim().length > 0;
+
   const mutation = useMutation({
-    mutationFn: async (): Promise<number> => {
+    mutationFn: async (): Promise<{ athletes: number; occurrences: number }> => {
       const athleteIds = [...selected];
       const groupIds = [...selectedGroups];
       const body: AssignRequest = {
         athleteIds: athleteIds.length > 0 ? athleteIds : undefined,
         groupIds: groupIds.length > 0 ? groupIds : undefined,
         dueDate: dueDate.trim() || undefined,
+        recurrence: recurrenceActive
+          ? { frequency: 'weekly', until: repeatUntil.trim() }
+          : undefined,
       };
       // Idempotence : clé stable dérivée de la séance + sélection triée (athlètes + groupes).
       const idempotencyKey = `assign-${sessionId}-${[...athleteIds, ...groupIds].sort().join('-')}`;
@@ -83,10 +99,15 @@ export function CoachAssignScreen({
         headers: { 'Idempotency-Key': idempotencyKey },
       });
       if (response.status !== 201) throw response;
-      // Le serveur résout les groupes → nombre réel d'athlètes affectés.
-      return response.data.data.length;
+      // La réponse liste les affectations de toutes les occurrences (ADR-35) → on déduit
+      // le nombre d'athlètes (uniques) et d'occurrences (séances distinctes).
+      const rows = response.data.data;
+      return {
+        athletes: new Set(rows.map((r) => r.athleteId)).size,
+        occurrences: new Set(rows.map((r) => r.sessionId)).size,
+      };
     },
-    onSuccess: (count) => {
+    onSuccess: ({ athletes: athleteCount, occurrences }) => {
       void queryClient.invalidateQueries({ queryKey: ['assignments'] });
       void queryClient.invalidateQueries({ queryKey: COACH_DASHBOARD_QUERY_KEY });
       const groupTargets = groups
@@ -95,7 +116,11 @@ export function CoachAssignScreen({
       const athleteTargets = athletes
         .filter((a) => selected.has(a.id))
         .map((a) => athleteFullName(a));
-      setConfirmed({ count, targets: [...groupTargets, ...athleteTargets] });
+      setConfirmed({
+        athletes: athleteCount,
+        occurrences,
+        targets: [...groupTargets, ...athleteTargets],
+      });
     },
     onError: () => {
       toast.show({ title: "Échec de l'assignation", variant: 'danger' });
@@ -151,7 +176,8 @@ export function CoachAssignScreen({
         {confirmed != null ? (
           <ConfirmationView
             sessionTitle={sessionTitle}
-            count={confirmed.count}
+            count={confirmed.athletes}
+            occurrences={confirmed.occurrences}
             targets={confirmed.targets}
             onDone={() => router.back()}
           />
@@ -251,6 +277,82 @@ export function CoachAssignScreen({
                     }}
                   />
                 </View>
+
+                {/* Récurrence (ADR-35) — « répéter chaque <jour> jusqu'au <date> ».
+                    Disponible seulement avec une échéance valide (qui fixe le jour). */}
+                {canRepeat ? (
+                  <View style={{ gap: spacing[2] }}>
+                    <Pressable
+                      testID="assign-repeat-toggle"
+                      onPress={() => setRepeat((v) => !v)}
+                      accessibilityRole="checkbox"
+                      accessibilityState={{ checked: repeat }}
+                      style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[3] }}
+                    >
+                      <View
+                        style={[
+                          {
+                            width: 24,
+                            height: 24,
+                            borderRadius: 7,
+                            borderWidth: 2,
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          },
+                          repeat
+                            ? { backgroundColor: colors.accent, borderColor: colors.accent }
+                            : { borderColor: colors.borderStrong },
+                        ]}
+                      >
+                        {repeat ? (
+                          <Feather name="check" size={15} color={colors.accentText} />
+                        ) : null}
+                      </View>
+                      <Text
+                        style={{
+                          flex: 1,
+                          color: colors.textPrimary,
+                          fontFamily: typography.fontFamily.medium,
+                          fontSize: typography.body.fontSize,
+                        }}
+                      >
+                        Répéter chaque {dueWeekday}
+                      </Text>
+                    </Pressable>
+
+                    {repeat ? (
+                      <View style={{ gap: spacing[2], paddingLeft: spacing[8] }}>
+                        <Text
+                          style={{
+                            color: colors.textSecondary,
+                            fontFamily: typography.fontFamily.regular,
+                            fontSize: typography.bodySm.fontSize,
+                          }}
+                        >
+                          Jusqu'au (inclus)
+                        </Text>
+                        <TextInput
+                          testID="assign-repeat-until"
+                          value={repeatUntil}
+                          onChangeText={setRepeatUntil}
+                          placeholder="AAAA-MM-JJ"
+                          placeholderTextColor={colors.textMuted}
+                          style={{
+                            height: 48,
+                            paddingHorizontal: spacing[4],
+                            borderRadius: 12,
+                            borderWidth: 1,
+                            borderColor: colors.borderStrong,
+                            backgroundColor: colors.surface,
+                            color: colors.textPrimary,
+                            fontFamily: typography.fontFamily.regular,
+                            fontSize: typography.body.fontSize,
+                          }}
+                        />
+                      </View>
+                    ) : null}
+                  </View>
+                ) : null}
 
                 {/* Sélection par groupe (ADR-30) — tout le groupe en un geste. */}
                 {groups.length > 0 ? (
@@ -467,19 +569,23 @@ function SelectableGroup({
 function ConfirmationView({
   sessionTitle,
   count,
+  occurrences,
   targets,
   onDone,
 }: {
   sessionTitle?: string;
   count: number;
+  occurrences: number;
   targets: string[];
   onDone: () => void;
 }) {
   const { colors, typography, spacing } = useTheme();
   const plural = count > 1 ? 's' : '';
-  const summary = sessionTitle
-    ? `« ${sessionTitle} » a été assignée à ${count} athlète${plural}.`
-    : `Séance assignée à ${count} athlète${plural}.`;
+  const base = sessionTitle
+    ? `« ${sessionTitle} » a été assignée à ${count} athlète${plural}`
+    : `Séance assignée à ${count} athlète${plural}`;
+  // Récurrence (ADR-35) : préciser le nombre d'occurrences quand la séance est répétée.
+  const summary = occurrences > 1 ? `${base}, répétée ${occurrences} fois.` : `${base}.`;
   return (
     <View testID="assign-confirmation" style={{ gap: spacing[5] }}>
       <View style={{ alignItems: 'center', gap: spacing[3], paddingVertical: spacing[4] }}>

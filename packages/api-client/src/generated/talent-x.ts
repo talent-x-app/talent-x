@@ -2478,7 +2478,7 @@ export const getAssignSessionUrl = (id: string,) => {
 }
 
 /**
- * Affecte une séance (du coach) à des athlètes liés et/ou à des groupes possédés (ADR-30) : les groupes sont résolus vers leurs membres actifs, une affectation est matérialisée par athlète. Une séance de statut `template` n'est pas assignable → 422 `SESSION_NOT_ASSIGNABLE` (ADR-29) : la dupliquer d'abord (`POST /sessions/{id}/duplicate`).
+ * Affecte une séance (du coach) à des athlètes liés et/ou à des groupes possédés (ADR-30) : les groupes sont résolus vers leurs membres actifs, une affectation est matérialisée par athlète. Une séance de statut `template` n'est pas assignable → 422 `SESSION_NOT_ASSIGNABLE` (ADR-29) : la dupliquer d'abord (`POST /sessions/{id}/duplicate`). Avec `recurrence` (ADR-35), l'affectation est répétée sur des occurrences datées (une séance dupliquée par date) — la réponse liste les affectations de toutes les occurrences.
  * @summary Affecter une séance à des athlètes et/ou des groupes
  */
 export const assignSession = async (id: string,

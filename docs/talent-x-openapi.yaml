@@ -1008,7 +1008,10 @@ paths:
         possédés (ADR-30) : les groupes sont résolus vers leurs membres actifs,
         une affectation est matérialisée par athlète. Une séance de statut
         `template` n'est pas assignable → 422 `SESSION_NOT_ASSIGNABLE` (ADR-29) :
-        la dupliquer d'abord (`POST /sessions/{id}/duplicate`).
+        la dupliquer d'abord (`POST /sessions/{id}/duplicate`). Avec `recurrence`
+        (ADR-35), l'affectation est répétée sur des occurrences datées (une séance
+        dupliquée par date) — la réponse liste les affectations de toutes les
+        occurrences.
       operationId: assignSession
       parameters:
       - $ref: '#/components/parameters/IdPath'
@@ -3000,6 +3003,31 @@ components:
         dueDate:
           type: string
           format: date
+        recurrence:
+          $ref: '#/components/schemas/RecurrenceRule'
+    RecurrenceRule:
+      type: object
+      description: >-
+        Répétition de l'affectation (ADR-35) : matérialise une occurrence datée
+        par cadence jusqu'à `until` inclus. Chaque occurrence est une séance
+        dupliquée assignée à sa date (occurrence 1 = la séance d'origine à
+        `dueDate`). Exige `dueDate` (première occurrence + jour de semaine
+        implicite) → 422 `RECURRENCE_REQUIRES_DUE_DATE` sinon ; `until ≥ dueDate`
+        → 422 `INVALID_RECURRENCE` sinon ; au plus 52 occurrences → 422
+        `RECURRENCE_TOO_LONG` au-delà.
+      properties:
+        frequency:
+          type: string
+          description: Cadence. Seule `weekly` au MVP (enum extensible).
+          enum:
+          - weekly
+        until:
+          type: string
+          format: date
+          description: Dernière occurrence possible (incluse).
+      required:
+      - frequency
+      - until
     AssignmentStatus:
       type: string
       enum:
