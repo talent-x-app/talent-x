@@ -309,7 +309,9 @@ export function SessionDetailScreen() {
                   perf n'est pas soumise — sort la séance des retards du coach. */}
               {!alreadySaved ? <SkipSessionCard assignment={assignment.data} /> : null}
 
-              {/* A-09 : fil de feedback avec le coach (une fois la perf enregistrée). */}
+              {/* Échange avec le coach : une fois la perf enregistrée, fil de feedback sur la
+                  perf (A-09) ; avant, discussion pré-séance sur la séance (TLX-118) — l'athlète
+                  peut poser une question sur la séance à venir (cible = séance). */}
               {existing.data ? (
                 <FeedbackThread
                   performanceId={existing.data.id}
@@ -317,7 +319,15 @@ export function SessionDetailScreen() {
                   sendLabel="Envoyer"
                   emptyHint="Pas encore de retour de ton coach sur cette séance."
                 />
-              ) : null}
+              ) : (
+                <FeedbackThread
+                  sessionId={assignment.data.sessionId}
+                  title="Discussion"
+                  composerPlaceholder="Une question sur cette séance ?"
+                  sendLabel="Envoyer"
+                  emptyHint="Aucun message sur cette séance. Pose une question à ton coach."
+                />
+              )}
             </>
           ) : (
             <>

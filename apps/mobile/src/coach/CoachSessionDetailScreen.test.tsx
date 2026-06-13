@@ -4,11 +4,15 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react-nativ
 import { type ReactNode, useState } from 'react';
 
 const mockGetSession = jest.fn();
+const mockListComments = jest.fn();
+const mockCreateComment = jest.fn();
 const mockPush = jest.fn();
 const mockBack = jest.fn();
 
 jest.mock('@talent-x/api-client', () => ({
   getSession: (...a: unknown[]) => mockGetSession(...a),
+  listComments: (...a: unknown[]) => mockListComments(...a),
+  createComment: (...a: unknown[]) => mockCreateComment(...a),
   SessionStatus: { draft: 'draft', published: 'published', archived: 'archived' },
   CompetitionStatus: { draft: 'draft', published: 'published', archived: 'archived' },
   AssignmentStatus: {
@@ -25,6 +29,7 @@ jest.mock('expo-router', () => ({
   useRouter: () => ({ push: mockPush, back: mockBack }),
   useLocalSearchParams: () => ({ id: 's-1' }),
 }));
+jest.mock('../feedback', () => ({ useToast: () => ({ show: jest.fn(), dismiss: jest.fn() }) }));
 
 import { CoachSessionDetailScreen } from './CoachSessionDetailScreen';
 
@@ -69,7 +74,10 @@ const SESSION = {
   },
 };
 
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => {
+  jest.clearAllMocks();
+  mockListComments.mockResolvedValue({ status: 200, data: { data: [], meta: {} } });
+});
 
 describe('CoachSessionDetailScreen (C-05 — détail lecture seule)', () => {
   it('rend la séance en lecture seule : statut, brief coach, groupes (sans saisie)', async () => {
@@ -108,5 +116,21 @@ describe('CoachSessionDetailScreen (C-05 — détail lecture seule)', () => {
     mockGetSession.mockResolvedValue({ status: 500, data: { error: 'INTERNAL_ERROR' } });
     render(<CoachSessionDetailScreen />, { wrapper: Wrapper });
     await waitFor(() => expect(screen.getByTestId('coach-session-error')).toBeOnTheScreen());
+  });
+
+  it('expose la discussion de séance (TLX-118) : poste sur la séance', async () => {
+    mockGetSession.mockResolvedValue({ status: 200, data: SESSION });
+    mockCreateComment.mockResolvedValue({ status: 201, data: { id: 'cs-1' } });
+    render(<CoachSessionDetailScreen />, { wrapper: Wrapper });
+
+    await waitFor(() => expect(screen.getByTestId('feedback-input')).toBeOnTheScreen());
+    expect(mockListComments).toHaveBeenCalledWith({ sessionId: 's-1' });
+    fireEvent.changeText(screen.getByTestId('feedback-input'), 'Pensez à la mobilité.');
+    fireEvent.press(screen.getByTestId('feedback-send'));
+    await waitFor(() => expect(mockCreateComment).toHaveBeenCalled());
+    expect(mockCreateComment).toHaveBeenCalledWith({
+      sessionId: 's-1',
+      body: 'Pensez à la mobilité.',
+    });
   });
 });

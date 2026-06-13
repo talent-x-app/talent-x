@@ -105,3 +105,51 @@ describe('FeedbackThread (TLX-086/092)', () => {
     );
   });
 });
+
+/** Rend le fil ciblant une **séance** (discussion pré-séance, TLX-118). */
+function renderSessionThread() {
+  return render(
+    <FeedbackThread
+      sessionId="sess-1"
+      title="Discussion"
+      composerPlaceholder="Une question ?"
+      sendLabel="Envoyer"
+      emptyHint="Aucun message sur cette séance."
+    />,
+    { wrapper: Wrapper },
+  );
+}
+
+describe('FeedbackThread — cible séance (TLX-118)', () => {
+  it('liste les commentaires de la séance via sessionId', async () => {
+    mockListComments.mockResolvedValue({
+      status: 200,
+      data: {
+        data: [{ id: 'cs-1', authorId: 'a-1', sessionId: 'sess-1', body: 'On commence quand ?' }],
+        meta: {},
+      },
+    });
+    renderSessionThread();
+
+    await waitFor(() => expect(screen.getByTestId('comment-cs-1')).toBeOnTheScreen());
+    expect(screen.getByText('On commence quand ?')).toBeOnTheScreen();
+    expect(screen.getByText('Discussion')).toBeOnTheScreen();
+    expect(mockListComments).toHaveBeenCalledWith({ sessionId: 'sess-1' });
+  });
+
+  it('poste sur la séance (createComment avec sessionId)', async () => {
+    mockListComments.mockResolvedValue({ status: 200, data: { data: [], meta: {} } });
+    mockCreateComment.mockResolvedValue({ status: 201, data: { id: 'cs-2' } });
+    renderSessionThread();
+
+    await waitFor(() => expect(screen.getByTestId('feedback-send')).toBeOnTheScreen());
+    fireEvent.changeText(screen.getByTestId('feedback-input'), 'Quel échauffement ?');
+    fireEvent.press(screen.getByTestId('feedback-send'));
+
+    await waitFor(() => expect(mockCreateComment).toHaveBeenCalled());
+    expect(mockCreateComment).toHaveBeenCalledWith({
+      sessionId: 'sess-1',
+      body: 'Quel échauffement ?',
+    });
+  });
+});

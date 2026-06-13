@@ -11,20 +11,33 @@ import { COACH_DASHBOARD_QUERY_KEY } from '../dashboard/dashboard-query';
 export const performanceCommentsKey = (performanceId: string) =>
   ['performance', performanceId, 'comments'] as const;
 
+/** Clé de cache du fil de commentaires d'une séance (discussion pré-séance, TLX-118). */
+export const sessionCommentsKey = (sessionId: string) =>
+  ['session', sessionId, 'comments'] as const;
+
 /**
- * Fil de feedback rattaché à une **performance** (TLX-086/092). Partagé entre la revue
- * coach (C-08) et le détail séance athlète (A-09) : affiche les commentaires existants
- * (`GET /comments?performanceId=…`) et permet de répondre (`POST /comments`). Côté coach,
- * poster sort la perf de « à revoir » (le tableau de bord est invalidé). Lecture et
- * écriture sont autorisées au titulaire (athlète) comme au coach lié+consenti.
+ * Fil de feedback/discussion rattaché à une **performance** (TLX-086/092) **ou** à une
+ * **séance** (TLX-118). Une seule cible doit être fournie (`performanceId` XOR `sessionId`,
+ * comme le contrat `/comments`). Partagé entre la revue coach (C-08), le détail séance
+ * athlète (A-09) et la discussion pré-séance (athlète + coach). Affiche les commentaires
+ * existants (`GET /comments`) et permet de répondre (`POST /comments`). Côté **perf**, poster
+ * un feedback coach sort la perf de « à revoir » → le tableau de bord est invalidé. Lecture et
+ * écriture sont autorisées aux parties liées (titulaire/coach), selon l'autorisation serveur.
  */
 export function FeedbackThread({
   performanceId,
+  sessionId,
+  title = 'Feedback',
   composerPlaceholder,
   sendLabel,
   emptyHint,
 }: {
-  performanceId: string;
+  /** Cible performance (exclusif avec `sessionId`). */
+  performanceId?: string;
+  /** Cible séance (exclusif avec `performanceId`). */
+  sessionId?: string;
+  /** Intitulé de la section (ex. « Feedback » sur une perf, « Discussion » sur une séance). */
+  title?: string;
   composerPlaceholder: string;
   sendLabel: string;
   emptyHint: string;
@@ -34,10 +47,16 @@ export function FeedbackThread({
   const queryClient = useQueryClient();
   const [body, setBody] = useState('');
 
+  // Cible du contrat /comments (séance XOR perf) + clé de cache associée.
+  const target = sessionId ? { sessionId } : { performanceId: performanceId! };
+  const queryKey = sessionId
+    ? sessionCommentsKey(sessionId)
+    : performanceCommentsKey(performanceId!);
+
   const comments = useQuery({
-    queryKey: performanceCommentsKey(performanceId),
+    queryKey,
     queryFn: async (): Promise<Comment[]> => {
-      const response = await listComments({ performanceId });
+      const response = await listComments(target);
       if (response.status === 200) return response.data.data;
       throw response;
     },
@@ -46,16 +65,18 @@ export function FeedbackThread({
 
   const mutation = useMutation({
     mutationFn: async (): Promise<Comment> => {
-      const response = await createComment({ performanceId, body: body.trim() });
+      const response = await createComment({ ...target, body: body.trim() });
       if (response.status === 201) return response.data;
       throw response;
     },
     onSuccess: () => {
       setBody('');
-      void queryClient.invalidateQueries({ queryKey: performanceCommentsKey(performanceId) });
-      // Côté coach, un feedback sort la perf de « à revoir » → rafraîchir le dashboard
-      // (no-op inoffensif côté athlète, qui n'a pas cette requête en cache).
-      void queryClient.invalidateQueries({ queryKey: COACH_DASHBOARD_QUERY_KEY });
+      void queryClient.invalidateQueries({ queryKey });
+      // Côté coach, un feedback sur une **perf** sort la perf de « à revoir » → rafraîchir le
+      // dashboard. Inutile pour une discussion de séance (qui ne change aucun statut dérivé).
+      if (performanceId) {
+        void queryClient.invalidateQueries({ queryKey: COACH_DASHBOARD_QUERY_KEY });
+      }
       toast.show({ title: 'Message envoyé', variant: 'success' });
     },
     onError: () => {
@@ -80,7 +101,7 @@ export function FeedbackThread({
           letterSpacing: 0.6,
         }}
       >
-        Feedback
+        {title}
       </Text>
 
       {comments.isLoading ? (

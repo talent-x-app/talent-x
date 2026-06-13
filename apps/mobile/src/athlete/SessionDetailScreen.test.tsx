@@ -123,6 +123,17 @@ describe('SessionDetailScreen (TLX-065/071 — A-03/A-04)', () => {
     expect(screen.getByTestId('rpe-slider')).toBeOnTheScreen();
   });
 
+  it('expose la discussion de séance avant la saisie (TLX-118)', async () => {
+    mockGetAssignment.mockResolvedValue({ status: 200, data: ASSIGNMENT });
+    mockGetPerformance.mockResolvedValue({ status: 404, data: { error: 'NOT_FOUND' } });
+    render(<SessionDetailScreen />, { wrapper: Wrapper });
+
+    await waitFor(() => expect(screen.getByTestId('feedback-input')).toBeOnTheScreen());
+    // Fil ciblant la séance (pas une perf, qui n'existe pas encore).
+    expect(screen.getByText('Discussion')).toBeOnTheScreen();
+    expect(mockListComments).toHaveBeenCalledWith({ sessionId: 's-1' });
+  });
+
   it('affiche la cible dérivée des params typés d’un bloc (TLX-062)', async () => {
     mockGetAssignment.mockResolvedValue({
       status: 200,

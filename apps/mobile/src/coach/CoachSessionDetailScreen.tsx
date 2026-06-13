@@ -8,6 +8,7 @@ import { Button, Card } from '../components/ui';
 import { SESSION_STATUS_META } from '../calendar/calendar-model';
 import { formatSessionDate } from '../athlete/athlete-session-ui';
 import { SessionContent } from '../sessions/session-content-ui';
+import { FeedbackThread } from '../comments/FeedbackThread';
 import { CoachBriefReview } from './brief-editor';
 import { assignSessionHref, editSessionHref } from './navigation';
 
@@ -166,6 +167,16 @@ export function CoachSessionDetailScreen() {
           >
             Assigner à des athlètes
           </Button>
+
+          {/* TLX-118 : discussion de séance — le coach répond aux questions des athlètes
+              affectés (cible = séance, même fil que côté athlète). */}
+          <FeedbackThread
+            sessionId={id}
+            title="Discussion"
+            composerPlaceholder="Répondre aux athlètes…"
+            sendLabel="Envoyer"
+            emptyHint="Aucun message sur cette séance pour l'instant."
+          />
         </>
       )}
     </ScrollView>

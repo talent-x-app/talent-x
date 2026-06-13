@@ -12,6 +12,30 @@ de débloquer les écrans coach C-01/C-02/C-03.
 - _(éditeurs typés terminés — TLX-054→061 livrés ↓)_
 - _(C-01 complet — TLX-081→085 livrés ↓)_
 
+## Terminés — TLX-118 Fil de discussion pré-séance (commentaires de séance en UI)
+
+- **Constat** : l'API `/comments` cible **séance XOR perf** (TLX-086) mais l'UI n'exposait le fil que
+  sur la **perf** — l'athlète ne pouvait pas poser une question sur la **séance à venir**. **Frontend
+  pur, zéro contrat, zéro backend** (endpoints déjà livrés et validés réel en TLX-086).
+- **(Composant `comments/FeedbackThread.tsx`)** généralisé pour accepter une cible **séance**
+  (`sessionId`) **ou** perf (`performanceId`, exactement une — comme le contrat) + **titre de section
+  configurable** (`title`, défaut « Feedback »). `sessionCommentsKey` ajouté (clé de cache distincte
+  `['session', id, 'comments']`). L'invalidation du tableau de bord coach reste **réservée à la cible
+  perf** (une discussion de séance ne change aucun statut dérivé). Chemin perf **inchangé** (appelants
+  C-08/A-09 intacts).
+- **(Mobile)** discussion de séance câblée **des deux côtés** : **athlète** (`SessionDetailScreen`,
+  A-03) — fil « Discussion » sur la séance **tant que la perf n'est pas saisie** (puis bascule sur le
+  fil de feedback de la perf, A-09 — either/or, pas de `testID` dupliqué) ; **coach**
+  (`CoachSessionDetailScreen`) — fil « Discussion » sous les actions Éditer/Assigner, pour répondre aux
+  athlètes affectés. Autorisation portée par le serveur (coach propriétaire / athlète affecté).
+- **Tests** : +2 `FeedbackThread` (cible séance : liste + post via `sessionId`), +1 coach (discussion
+  rendue + post séance), +1 athlète (fil « Discussion » avant saisie, ciblant la séance) ; mocks
+  commentaires/toast ajoutés au test coach. **Mobile 467/467** (+4), typecheck + lint clean. UI couverte
+  par RTL sur les **vrais** écrans.
+- **Non rejoué en réel** (smoke Expo web + DB) : le **chemin commentaire-séance** end-to-end → suivi
+  **TLX-129** (la couche `/comments` séance XOR perf est déjà validée réel en TLX-086 ; ici = câblage UI
+  d'un composant et d'un endpoint déjà éprouvés).
+
 ## Terminés — TLX-115 Assiduité athlète — séries (streaks) & taux de complétion
 
 - **Constat** : la complétion est dérivée pour le coach (ADR-17) mais l'athlète n'avait **aucun
