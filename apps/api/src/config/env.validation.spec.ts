@@ -184,6 +184,30 @@ describe('validateEnv', () => {
     expect(() => validateEnv({ ...base, ...partial })).toThrow(/APNs incomplète/);
   });
 
+  // --- Credentials email Brevo (TLX-128) ---
+
+  const emailEnv = {
+    BREVO_API_KEY: 'xkeysib-abc',
+    EMAIL_FROM_ADDRESS: 'no-reply@talent-x.example',
+  };
+
+  it('n’exige aucun credential email (optionnels partout)', () => {
+    expect(() => validateEnv(base)).not.toThrow();
+  });
+
+  it('passe through les credentials email quand le groupe est complet', () => {
+    const cfg = validateEnv({ ...base, ...emailEnv, EMAIL_FROM_NAME: 'Talent-X' });
+    expect(cfg.BREVO_API_KEY).toBe('xkeysib-abc');
+    expect(cfg.EMAIL_FROM_ADDRESS).toBe('no-reply@talent-x.example');
+    expect(cfg.EMAIL_FROM_NAME).toBe('Talent-X');
+  });
+
+  it('rejette une config email partielle (tout-ou-rien)', () => {
+    expect(() => validateEnv({ ...base, BREVO_API_KEY: 'k' })).toThrow(
+      /email \(Brevo\) incomplète/,
+    );
+  });
+
   it('passe through les variables JWT quand présentes et bien formées', () => {
     const cfg = validateEnv({
       ...base,

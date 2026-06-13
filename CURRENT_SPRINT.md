@@ -12,6 +12,35 @@ de débloquer les écrans coach C-01/C-02/C-03.
 - _(éditeurs typés terminés — TLX-054→061 livrés ↓)_
 - _(C-01 complet — TLX-081→085 livrés ↓)_
 
+## Terminés — TLX-128 Email transactionnel : adaptateur réel (Brevo, UE) derrière `EmailProvider`
+
+- **Dernier maillon du pipeline email** : seul `LoggingEmailProvider` était branché (TLX-104)
+  → les emails de réinitialisation n'atteignaient personne hors du log. Le pipeline (file BullMQ
+  `transactional-email`, composition du lien côté worker, `attempts: 3` backoff exponentiel) était
+  prêt et ne dépendait que de l'interface `EmailProvider`. **Backend pur, zéro contrat, zéro migration.**
+- **(Choix fournisseur)** **Brevo** (ex-Sendinblue, société **française** — données UE) → **sous-traitant
+  UE** (art. 28, registre TX-SEC-003 §10/§17), **pas de transfert hors UE** à documenter (contrairement
+  à APNs/FCM). API HTTP v3 appelée via **`fetch` injectable** (même schéma que `FcmClient`) → **aucune
+  nouvelle dépendance**, réseau mockable. Option « API transactionnelle UE » explicitement permise par le ticket.
+- **(Config `jobs/mail/email-config.ts`)** parsing pur des credentials d'environnement (jamais en dur,
+  TX-SEC-003 §12) → `EmailConfig | null` ; groupe **tout-ou-rien** (`BREVO_API_KEY` + `EMAIL_FROM_ADDRESS`
+  requis, `EMAIL_FROM_NAME` optionnel défaut « Talent-X ») : config partielle → refus au démarrage via
+  `validateEmailEnv` branché dans `validateEnv`. Aucun credential → retombe sur `LoggingEmailProvider`.
+- **(Adaptateur `jobs/mail/brevo-email-provider.ts`)** `POST /v3/smtp/email` (en-tête `api-key`), corps
+  `{ sender, to, subject, textContent }`. **Différence clé vs push** : un email vise **un seul
+  destinataire** → réponse non-2xx **ou** panne réseau → **lève** (et non « avale ») pour que BullMQ
+  **retente** (`attempts: 3`) ; un 2xx consomme le job. Corps d'erreur logué tronqué, jamais propagé.
+- **(Factory `jobs/mail/email-provider.factory.ts`)** sélectionne `LoggingEmailProvider` (dev/CI, aucun
+  credential) ou `BrevoEmailProvider` (≥ credentials) — câblée au `worker.module` par `useFactory(ConfigService)`.
+  L'`EmailProcessor` est **inchangé**. `.env.example` documente les 3 variables (optionnelles).
+- **Tests** : **API unit 522/522** (+19 : config tout-ou-rien ×8, envoi/échec/retry/réseau/forme de requête
+  Brevo ×6, factory ×3, env email passthrough/partiel ×2), typecheck (src+spec) + lint clean. Réseau mocké
+  via `fetch` injectable.
+- **Non testé en réel** (aucun compte/clé Brevo ici, mêmes raisons qu'APNs/FCM en TLX-107) : l'**envoi HTTP
+  effectif** vers `api.brevo.com`. La sélection par config, le mapping d'erreur et la forme de requête sont
+  couverts par les tests à `fetch` mocké ; le round-trip réseau réel = **suivi TLX-136** (compte de test Brevo).
+  Le pipeline en amont (enqueue → worker → provider) est déjà validé réel en TLX-104.
+
 ## Terminés — TLX-92 Finitions UX parcours athlète (cloche notifications, retour de nav, libellé engagement)
 
 - **3 points mineurs de l'audit parcours front (live device 2026-06-10)** regroupés. **Frontend** +

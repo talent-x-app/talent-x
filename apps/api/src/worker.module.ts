@@ -14,7 +14,8 @@ import { NotificationProcessor } from './jobs/notification.processor';
 import { PushProvider } from './jobs/push-provider';
 import { createPushProvider } from './jobs/push/push-provider.factory';
 import { EmailProcessor } from './jobs/email.processor';
-import { LoggingEmailProvider, EmailProvider } from './jobs/email-provider';
+import { EmailProvider } from './jobs/email-provider';
+import { createEmailProvider } from './jobs/mail/email-provider.factory';
 
 /**
  * Contexte d'exécution du worker (process séparé de l'API — TX-ARCH-001 §4.5).
@@ -47,8 +48,13 @@ import { LoggingEmailProvider, EmailProvider } from './jobs/email-provider';
       inject: [ConfigService],
     },
     EmailProcessor,
-    // Provider logging tant que le fournisseur SMTP/email n'est pas branché (TLX-104).
-    { provide: EmailProvider, useClass: LoggingEmailProvider },
+    // Adaptateur email réel (Brevo, UE) si les credentials sont configurés, sinon
+    // LoggingEmailProvider (dev/CI) — sélection par config (TLX-128).
+    {
+      provide: EmailProvider,
+      useFactory: (config: ConfigService) => createEmailProvider((key) => config.get<string>(key)),
+      inject: [ConfigService],
+    },
   ],
 })
 export class WorkerModule {}

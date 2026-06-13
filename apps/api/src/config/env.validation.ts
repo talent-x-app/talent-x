@@ -7,6 +7,7 @@
  */
 
 import { validatePushEnv } from '../jobs/push/push-config';
+import { validateEmailEnv } from '../jobs/mail/email-config';
 
 export type NodeEnv = 'development' | 'test' | 'staging' | 'production';
 
@@ -85,6 +86,15 @@ export interface EnvConfig {
   FCM_PROJECT_ID?: string;
   FCM_CLIENT_EMAIL?: string;
   FCM_PRIVATE_KEY?: string;
+  /**
+   * Credentials email transactionnel (Brevo, UE — TLX-128). Optionnels partout :
+   * leur absence fait retomber le worker sur `LoggingEmailProvider`. Tout-ou-rien
+   * (validé par `validateEmailEnv`). `BREVO_API_KEY` est un secret d'environnement,
+   * jamais en dur. Détail : `jobs/mail/email-config.ts`.
+   */
+  BREVO_API_KEY?: string;
+  EMAIL_FROM_ADDRESS?: string;
+  EMAIL_FROM_NAME?: string;
 }
 
 const NODE_ENVS: readonly NodeEnv[] = ['development', 'test', 'staging', 'production'];
@@ -197,6 +207,9 @@ export function validateEnv(raw: Record<string, unknown>): EnvConfig {
   // Credentials push APNs/FCM (TLX-107) : optionnels, mais tout-ou-rien par plateforme.
   errors.push(...validatePushEnv((key) => raw[key] as string | undefined));
 
+  // Credentials email Brevo (TLX-128) : optionnels, mais tout-ou-rien.
+  errors.push(...validateEmailEnv((key) => raw[key] as string | undefined));
+
   if (errors.length > 0) {
     throw new Error(`Configuration d'environnement invalide :\n- ${errors.join('\n- ')}`);
   }
@@ -231,6 +244,11 @@ export function validateEnv(raw: Record<string, unknown>): EnvConfig {
       'FCM_PROJECT_ID',
       'FCM_CLIENT_EMAIL',
       'FCM_PRIVATE_KEY',
+      // Credentials email transmis tels quels (résolus par la factory de provider
+      // au démarrage du worker — TLX-128).
+      'BREVO_API_KEY',
+      'EMAIL_FROM_ADDRESS',
+      'EMAIL_FROM_NAME',
     ]),
   };
 }
