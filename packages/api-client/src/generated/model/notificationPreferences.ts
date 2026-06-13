@@ -11,6 +11,7 @@
 export interface NotificationPreferences {
   sessionAssigned?: boolean;
   performanceFeedback?: boolean;
+  performanceSubmitted?: boolean;
   groupUpdates?: boolean;
   marketing?: boolean;
 }

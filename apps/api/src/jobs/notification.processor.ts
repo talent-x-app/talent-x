@@ -9,10 +9,11 @@ import { PushProvider, type PushMessage } from './push-provider';
  */
 const PREFERENCE_GATE: Record<
   NotificationType,
-  'sessionAssigned' | 'performanceFeedback' | 'groupUpdates'
+  'sessionAssigned' | 'performanceFeedback' | 'performanceSubmitted' | 'groupUpdates'
 > = {
   session_assigned: 'sessionAssigned',
   performance_feedback: 'performanceFeedback',
+  performance_submitted: 'performanceSubmitted',
   group_update: 'groupUpdates',
 };
 
@@ -28,6 +29,10 @@ const MESSAGES: Record<NotificationType, { title: string; body: string }> = {
   performance_feedback: {
     title: 'Nouveau feedback',
     body: 'Ton coach a commenté une performance.',
+  },
+  performance_submitted: {
+    title: 'Performance à revoir',
+    body: 'Un athlète a soumis une performance.',
   },
   group_update: {
     title: 'Groupe mis à jour',

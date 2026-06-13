@@ -36,6 +36,7 @@ export class DeviceTokenDto {
 export const NOTIFICATION_TYPES = [
   'session_assigned',
   'performance_feedback',
+  'performance_submitted',
   'group_update',
 ] as const;
 export type NotificationTypeValue = (typeof NOTIFICATION_TYPES)[number];
@@ -94,6 +95,13 @@ export class NotificationPreferencesDto {
   @IsOptional()
   @IsBoolean()
   performanceFeedback?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Performance soumise par un athlète, à revoir (coach — défaut true).',
+  })
+  @IsOptional()
+  @IsBoolean()
+  performanceSubmitted?: boolean;
 
   @ApiPropertyOptional({ description: 'Vie du groupe (défaut true).' })
   @IsOptional()

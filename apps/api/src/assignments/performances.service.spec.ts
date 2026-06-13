@@ -4,6 +4,7 @@ import type { ConsentGate } from '../common/authorization/consent.gate';
 import type { PrismaService } from '../prisma/prisma.service';
 import type { AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import type { RecordsService } from '../progress/records.service';
+import type { NotificationQueueService } from '../jobs/notification-queue.service';
 import { PerformancesService } from './performances.service';
 
 const ATHLETE: AuthenticatedUser = { id: 'a-1', role: 'athlete' };
@@ -18,6 +19,8 @@ function assignmentRow(over: Record<string, unknown> = {}) {
     athleteId: 'a-1',
     status: 'assigned',
     deletedAt: null,
+    // Inclus par `submitPerformance` (notification coach performance_submitted, TLX-139).
+    session: { coachId: 'c-1' },
     ...over,
   };
 }
@@ -83,13 +86,24 @@ function recordsMock(over: Partial<RecordsService> = {}): RecordsService {
   } as unknown as RecordsService;
 }
 
+function queueMock(): NotificationQueueService {
+  return { enqueue: jest.fn().mockResolvedValue(undefined) } as unknown as NotificationQueueService;
+}
+
 function service(
   prisma: PrismaMock,
   ownership = ownershipMock(),
   consent = consentMock(),
   records = recordsMock(),
+  queue = queueMock(),
 ): PerformancesService {
-  return new PerformancesService(prisma as unknown as PrismaService, ownership, consent, records);
+  return new PerformancesService(
+    prisma as unknown as PrismaService,
+    ownership,
+    consent,
+    records,
+    queue,
+  );
 }
 
 describe('PerformancesService', () => {
@@ -177,6 +191,61 @@ describe('PerformancesService', () => {
       expect(prisma.performance.create).not.toHaveBeenCalled();
       expect(prisma.sessionAssignment.update).not.toHaveBeenCalled();
       expect(res.id).toBe('perf-1');
+    });
+
+    it('notifie le coach (performance_submitted) à la 1ʳᵉ soumission (TLX-139, ADR-22)', async () => {
+      const prisma = prismaMock();
+      const queue = queueMock();
+      prisma.sessionAssignment.findFirst.mockResolvedValue(assignmentRow());
+      prisma.performance.findUnique.mockResolvedValue(null);
+      prisma.performance.create.mockResolvedValue(performanceRow());
+      prisma.sessionAssignment.update.mockResolvedValue(assignmentRow({ status: 'completed' }));
+
+      await service(prisma, ownershipMock(), consentMock(), recordsMock(), queue).submitPerformance(
+        ATHLETE,
+        'asg-1',
+        DTO,
+      );
+
+      expect(queue.enqueue).toHaveBeenCalledTimes(1);
+      expect(queue.enqueue).toHaveBeenCalledWith(
+        { type: 'performance_submitted', recipientUserId: 'c-1', resourceId: 'asg-1' },
+        'performance_submitted--asg-1',
+      );
+    });
+
+    it('rejeu idempotent : n’émet aucune notification au coach', async () => {
+      const prisma = prismaMock();
+      const queue = queueMock();
+      prisma.sessionAssignment.findFirst.mockResolvedValue(assignmentRow());
+      prisma.performance.findUnique.mockResolvedValue(performanceRow());
+
+      await service(prisma, ownershipMock(), consentMock(), recordsMock(), queue).submitPerformance(
+        ATHLETE,
+        'asg-1',
+        DTO,
+      );
+
+      expect(queue.enqueue).not.toHaveBeenCalled();
+    });
+
+    it('séance dont le coach est l’athlète lui-même : aucune auto-notification (ADR-36)', async () => {
+      const prisma = prismaMock();
+      const queue = queueMock();
+      prisma.sessionAssignment.findFirst.mockResolvedValue(
+        assignmentRow({ session: { coachId: 'a-1' } }),
+      );
+      prisma.performance.findUnique.mockResolvedValue(null);
+      prisma.performance.create.mockResolvedValue(performanceRow());
+      prisma.sessionAssignment.update.mockResolvedValue(assignmentRow({ status: 'completed' }));
+
+      await service(prisma, ownershipMock(), consentMock(), recordsMock(), queue).submitPerformance(
+        ATHLETE,
+        'asg-1',
+        DTO,
+      );
+
+      expect(queue.enqueue).not.toHaveBeenCalled();
     });
 
     it('403 si l’affectation appartient à un autre athlète', async () => {
@@ -272,16 +341,24 @@ describe('PerformancesService', () => {
   });
 
   describe('updatePerformance', () => {
-    it('met à jour la performance du titulaire', async () => {
+    it('met à jour la performance du titulaire (sans renotifier le coach)', async () => {
       const prisma = prismaMock();
+      const queue = queueMock();
       prisma.sessionAssignment.findFirst.mockResolvedValue(assignmentRow());
       prisma.performance.findUnique.mockResolvedValue(performanceRow());
       prisma.performance.update.mockResolvedValue(performanceRow({ notes: 'maj' }));
-      const res = await service(prisma).updatePerformance(ATHLETE, 'asg-1', {
+      const res = await service(
+        prisma,
+        ownershipMock(),
+        consentMock(),
+        recordsMock(),
+        queue,
+      ).updatePerformance(ATHLETE, 'asg-1', {
         ...DTO,
         notes: 'maj',
       });
       expect(res.notes).toBe('maj');
+      expect(queue.enqueue).not.toHaveBeenCalled();
     });
 
     it('404 si pas encore soumise', async () => {

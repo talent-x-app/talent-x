@@ -25,8 +25,14 @@ export const NOTIFICATION_JOB_NAME = 'send-push';
 /**
  * Taxonomie des événements notifiables (ADR-22) — chaque type est gardé par la
  * préférence du même nom côté destinataire. `marketing` n'a aucune émission au MVP.
+ * `performance_submitted` (TLX-139) est le miroir coach de `session_assigned` :
+ * émis quand un athlète soumet une perf (affectation → `completed`).
  */
-export type NotificationType = 'session_assigned' | 'performance_feedback' | 'group_update';
+export type NotificationType =
+  | 'session_assigned'
+  | 'performance_feedback'
+  | 'performance_submitted'
+  | 'group_update';
 
 /**
  * Payload d'un job de notification — minimal et non sensible (ADR-10) : un signal

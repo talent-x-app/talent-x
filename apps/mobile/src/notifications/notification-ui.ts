@@ -8,7 +8,7 @@ import type { NotificationType } from '@talent-x/api-client';
 
 export interface NotificationPresentation {
   /** Icône Feather. */
-  icon: 'calendar' | 'message-circle' | 'users';
+  icon: 'calendar' | 'message-circle' | 'check-circle' | 'users';
   title: string;
   description: string;
 }
@@ -24,6 +24,11 @@ export const NOTIFICATION_PRESENTATIONS: Record<NotificationType, NotificationPr
     title: 'Nouveau feedback',
     description: 'Ton coach a commenté une performance.',
   },
+  performance_submitted: {
+    icon: 'check-circle',
+    title: 'Performance à revoir',
+    description: 'Un athlète a soumis une performance.',
+  },
   group_update: {
     icon: 'users',
     title: 'Groupe mis à jour',
@@ -33,9 +38,10 @@ export const NOTIFICATION_PRESENTATIONS: Record<NotificationType, NotificationPr
 
 /**
  * Cible de navigation d'une notification, selon le rôle connecté.
- * resourceId = affectation (session_assigned, performance_feedback) ou groupe
- * (group_update — pas d'écran groupe dédié : liste des athlètes). `null` si la
- * notification n'est pas navigable pour ce rôle (sécurité d'affichage).
+ * resourceId = affectation (session_assigned, performance_feedback côté athlète ;
+ * performance_submitted côté coach → revue C-08) ou groupe (group_update — pas
+ * d'écran groupe dédié : liste des athlètes). `null` si la notification n'est pas
+ * navigable pour ce rôle (sécurité d'affichage).
  */
 export function notificationHref(
   role: 'athlete' | 'coach',
@@ -44,6 +50,9 @@ export function notificationHref(
 ): { pathname: string; params?: Record<string, string> } | null {
   if (role === 'athlete' && (type === 'session_assigned' || type === 'performance_feedback')) {
     return { pathname: '/(athlete)/session/[id]', params: { id: resourceId } };
+  }
+  if (role === 'coach' && type === 'performance_submitted') {
+    return { pathname: '/(coach)/review/[id]', params: { id: resourceId } };
   }
   if (role === 'coach' && type === 'group_update') {
     return { pathname: '/(coach)/athletes' };

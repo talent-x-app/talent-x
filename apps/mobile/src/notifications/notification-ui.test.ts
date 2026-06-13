@@ -1,4 +1,8 @@
-import { formatRelativeDate, notificationHref } from './notification-ui';
+import {
+  NOTIFICATION_PRESENTATIONS,
+  formatRelativeDate,
+  notificationHref,
+} from './notification-ui';
 
 describe('notification-ui (TLX-111, ADR-23)', () => {
   describe('notificationHref', () => {
@@ -13,6 +17,13 @@ describe('notification-ui (TLX-111, ADR-23)', () => {
       });
     });
 
+    it('coach : performance soumise → revue (affectation) (TLX-139)', () => {
+      expect(notificationHref('coach', 'performance_submitted', 'asg-9')).toEqual({
+        pathname: '/(coach)/review/[id]',
+        params: { id: 'asg-9' },
+      });
+    });
+
     it('coach : adhésion groupe → liste des athlètes', () => {
       expect(notificationHref('coach', 'group_update', 'g-1')).toEqual({
         pathname: '/(coach)/athletes',
@@ -22,6 +33,18 @@ describe('notification-ui (TLX-111, ADR-23)', () => {
     it('types non navigables pour le rôle → null', () => {
       expect(notificationHref('coach', 'session_assigned', 'asg-1')).toBeNull();
       expect(notificationHref('athlete', 'group_update', 'g-1')).toBeNull();
+      // L'athlète ne reçoit jamais performance_submitted (signal coach).
+      expect(notificationHref('athlete', 'performance_submitted', 'asg-1')).toBeNull();
+    });
+  });
+
+  describe('NOTIFICATION_PRESENTATIONS', () => {
+    it('performance_submitted : libellé coach « Performance à revoir » (TLX-139)', () => {
+      expect(NOTIFICATION_PRESENTATIONS.performance_submitted).toEqual({
+        icon: 'check-circle',
+        title: 'Performance à revoir',
+        description: 'Un athlète a soumis une performance.',
+      });
     });
   });
 

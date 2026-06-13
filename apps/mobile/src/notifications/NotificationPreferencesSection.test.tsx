@@ -32,6 +32,7 @@ function Wrapper({ children }: { children: ReactNode }) {
 const DEFAULTS = {
   sessionAssigned: true,
   performanceFeedback: true,
+  performanceSubmitted: true,
   groupUpdates: true,
   marketing: false,
 };
@@ -41,7 +42,7 @@ beforeEach(() => {
 });
 
 describe('NotificationPreferencesSection (TLX-111 — ADR-22)', () => {
-  it('affiche les 4 interrupteurs aux valeurs du serveur', async () => {
+  it('affiche les interrupteurs (dont « Performance à revoir ») aux valeurs du serveur', async () => {
     mockGetPreferences.mockResolvedValue({ status: 200, data: DEFAULTS });
     render(<NotificationPreferencesSection />, { wrapper: Wrapper });
 
@@ -49,7 +50,29 @@ describe('NotificationPreferencesSection (TLX-111 — ADR-22)', () => {
       expect(screen.getByTestId('notification-pref-sessionAssigned')).toBeOnTheScreen(),
     );
     expect(screen.getByTestId('notification-pref-sessionAssigned').props.value).toBe(true);
+    expect(screen.getByTestId('notification-pref-performanceSubmitted').props.value).toBe(true);
     expect(screen.getByTestId('notification-pref-marketing').props.value).toBe(false);
+  });
+
+  it('bascule « Performance à revoir » → PUT partiel performanceSubmitted (TLX-139)', async () => {
+    mockGetPreferences.mockResolvedValue({ status: 200, data: DEFAULTS });
+    mockUpdatePreferences.mockResolvedValue({
+      status: 200,
+      data: { ...DEFAULTS, performanceSubmitted: false },
+    });
+    render(<NotificationPreferencesSection />, { wrapper: Wrapper });
+    await waitFor(() =>
+      expect(screen.getByTestId('notification-pref-performanceSubmitted')).toBeOnTheScreen(),
+    );
+
+    fireEvent(screen.getByTestId('notification-pref-performanceSubmitted'), 'valueChange', false);
+
+    await waitFor(() =>
+      expect(mockUpdatePreferences).toHaveBeenCalledWith({ performanceSubmitted: false }),
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId('notification-pref-performanceSubmitted').props.value).toBe(false),
+    );
   });
 
   it('bascule un interrupteur → PUT partiel + bascule optimiste', async () => {

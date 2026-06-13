@@ -15,7 +15,7 @@ import type { NotificationType } from './notificationType';
 export interface Notification {
   id: string;
   type: NotificationType;
-  /** Ressource à ouvrir — affectation pour session_assigned et performance_feedback (le fil de feedback vit sur le détail de séance), groupe pour group_update. */
+  /** Ressource à ouvrir — affectation pour session_assigned, performance_feedback et performance_submitted (le fil de feedback / la revue vivent sur le détail de séance), groupe pour group_update. */
   resourceId: string;
   /** Absent tant que non lue. */
   readAt?: string;

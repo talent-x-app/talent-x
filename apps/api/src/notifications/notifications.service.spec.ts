@@ -144,6 +144,7 @@ describe('NotificationsService (TLX-110/111, ADR-22/23)', () => {
       expect(res).toEqual({
         sessionAssigned: true,
         performanceFeedback: true,
+        performanceSubmitted: true,
         groupUpdates: true,
         marketing: false,
       });
@@ -156,6 +157,7 @@ describe('NotificationsService (TLX-110/111, ADR-22/23)', () => {
         userId: 'u-1',
         sessionAssigned: false,
         performanceFeedback: true,
+        performanceSubmitted: false,
         groupUpdates: false,
         marketing: true,
         updatedAt: new Date(),
@@ -164,6 +166,7 @@ describe('NotificationsService (TLX-110/111, ADR-22/23)', () => {
       expect(res).toEqual({
         sessionAssigned: false,
         performanceFeedback: true,
+        performanceSubmitted: false,
         groupUpdates: false,
         marketing: true,
       });
@@ -175,6 +178,7 @@ describe('NotificationsService (TLX-110/111, ADR-22/23)', () => {
         userId: 'u-1',
         sessionAssigned: false,
         performanceFeedback: true,
+        performanceSubmitted: true,
         groupUpdates: true,
         marketing: false,
         updatedAt: new Date(),
@@ -188,6 +192,26 @@ describe('NotificationsService (TLX-110/111, ADR-22/23)', () => {
       expect(arg.create).toEqual({ userId: 'u-1', sessionAssigned: false });
       expect(res.sessionAssigned).toBe(false);
       expect(res.marketing).toBe(false);
+    });
+
+    it('PUT de performanceSubmitted (TLX-139) : écrit la garde coach', async () => {
+      const prisma = prismaMock();
+      prisma.notificationPreferences.upsert.mockResolvedValue({
+        userId: 'u-1',
+        sessionAssigned: true,
+        performanceFeedback: true,
+        performanceSubmitted: false,
+        groupUpdates: true,
+        marketing: false,
+        updatedAt: new Date(),
+      });
+
+      const res = await make(prisma).updatePreferences('u-1', { performanceSubmitted: false });
+
+      const arg = prisma.notificationPreferences.upsert.mock.calls[0][0];
+      expect(arg.update).toEqual({ performanceSubmitted: false });
+      expect(arg.create).toEqual({ userId: 'u-1', performanceSubmitted: false });
+      expect(res.performanceSubmitted).toBe(false);
     });
   });
 });

@@ -15,6 +15,7 @@ export const NOTIFICATION_PREFERENCES_QUERY_KEY = ['notification-preferences'] a
 const PREFERENCE_ROWS: { key: keyof NotificationPreferences; label: string }[] = [
   { key: 'sessionAssigned', label: 'Séance affectée' },
   { key: 'performanceFeedback', label: 'Feedback du coach' },
+  { key: 'performanceSubmitted', label: 'Performance à revoir' },
   { key: 'groupUpdates', label: 'Vie du groupe' },
   { key: 'marketing', label: 'Actualités Talent-X' },
 ];

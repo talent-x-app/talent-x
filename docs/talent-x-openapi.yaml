@@ -3944,6 +3944,7 @@ components:
       enum:
       - session_assigned
       - performance_feedback
+      - performance_submitted
       - group_update
     Notification:
       type: object
@@ -3957,9 +3958,9 @@ components:
         resourceId:
           type: string
           format: uuid
-          description: Ressource à ouvrir — affectation pour session_assigned et
-            performance_feedback (le fil de feedback vit sur le détail de séance),
-            groupe pour group_update.
+          description: Ressource à ouvrir — affectation pour session_assigned,
+            performance_feedback et performance_submitted (le fil de feedback / la
+            revue vivent sur le détail de séance), groupe pour group_update.
         readAt:
           type: string
           format: date-time
@@ -4029,6 +4030,8 @@ components:
         sessionAssigned:
           type: boolean
         performanceFeedback:
+          type: boolean
+        performanceSubmitted:
           type: boolean
         groupUpdates:
           type: boolean

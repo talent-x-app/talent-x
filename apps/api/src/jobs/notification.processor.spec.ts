@@ -122,6 +122,46 @@ describe('NotificationProcessor (TLX-110, ADR-22)', () => {
     expect(provider.send).toHaveBeenCalledTimes(1);
   });
 
+  it('performance_submitted (TLX-139) : message coach dédié, gardé par performanceSubmitted', async () => {
+    const prisma = prismaMock();
+    const provider = providerMock();
+    // Seul performanceSubmitted est off → la notification est silencieuse.
+    prisma.notificationPreferences.findUnique.mockResolvedValue({
+      userId: 'u-1',
+      sessionAssigned: true,
+      performanceFeedback: true,
+      performanceSubmitted: false,
+      groupUpdates: true,
+      marketing: false,
+    });
+    prisma.deviceToken.findMany.mockResolvedValue(DEVICES);
+
+    await make(prisma, provider).process({
+      ...PAYLOAD,
+      type: 'performance_submitted',
+      dedupeKey: 'performance_submitted--asg-1',
+    });
+
+    expect(provider.send).not.toHaveBeenCalled();
+    expect(prisma.notification.upsert).not.toHaveBeenCalled();
+  });
+
+  it('performance_submitted : envoi avec le libellé coach quand la préférence est active', async () => {
+    const prisma = prismaMock();
+    const provider = providerMock();
+    prisma.deviceToken.findMany.mockResolvedValue(DEVICES);
+
+    await make(prisma, provider).process({
+      ...PAYLOAD,
+      type: 'performance_submitted',
+      dedupeKey: 'performance_submitted--asg-1',
+    });
+
+    const [, message] = (provider.send as jest.Mock).mock.calls[0];
+    expect(message.title).toBe('Performance à revoir');
+    expect(message.data).toEqual({ type: 'performance_submitted', resourceId: 'asg-1' });
+  });
+
   it('aucun device actif → aucun envoi', async () => {
     const prisma = prismaMock();
     const provider = providerMock();

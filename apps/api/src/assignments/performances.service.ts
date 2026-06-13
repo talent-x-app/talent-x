@@ -5,6 +5,7 @@ import { OwnershipService } from '../common/authorization/ownership.service';
 import { ConsentGate } from '../common/authorization/consent.gate';
 import type { AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { RecordsService } from '../progress/records.service';
+import { NotificationQueueService } from '../jobs/notification-queue.service';
 import type { ExerciseDto } from '../sessions/dto/exercises.dto';
 import { PerformanceCreateDto, PerformanceDto } from './dto/performance.dto';
 import type { ResultsDocDto } from './dto/results.dto';
@@ -28,6 +29,7 @@ export class PerformancesService {
     private readonly ownership: OwnershipService,
     private readonly consent: ConsentGate,
     private readonly records: RecordsService,
+    private readonly notificationQueue: NotificationQueueService,
   ) {}
 
   /** Athlète titulaire saisit sa performance. Idempotent : renvoie l'existante si déjà soumise. */
@@ -36,18 +38,26 @@ export class PerformancesService {
     assignmentId: string,
     dto: PerformanceCreateDto,
   ): Promise<PerformanceDto> {
-    const assignment = await this.loadAssignment(assignmentId);
+    const assignment = await this.prisma.sessionAssignment.findFirst({
+      where: { id: assignmentId, deletedAt: null },
+      include: { session: { select: { coachId: true } } },
+    });
+    if (!assignment) {
+      throw new NotFoundException('Affectation introuvable.');
+    }
     if (assignment.athleteId !== user.id) {
       throw new ForbiddenException('Cette affectation ne vous appartient pas.');
     }
     await this.consent.assertActiveConsent(user.id, 'data_processing');
 
+    let created = false;
     const performance = await this.prisma.$transaction(async (tx) => {
       const existing = await tx.performance.findUnique({ where: { assignmentId } });
       if (existing) {
         return existing;
       }
-      const created = await tx.performance.create({
+      created = true;
+      const row = await tx.performance.create({
         data: {
           assignmentId,
           athleteId: user.id,
@@ -61,8 +71,24 @@ export class PerformancesService {
         where: { id: assignmentId },
         data: { status: 'completed' },
       });
-      return created;
+      return row;
     });
+
+    // Miroir coach de `session_assigned` (ADR-22) : avertit le coach qu'une perf est
+    // à revoir. Uniquement à la 1ʳᵉ soumission (jamais sur rejeu idempotent ni MAJ).
+    // Garde anti-auto-notification : une séance libre (ADR-36) a `coach_id = athlète`
+    // — elle ne passe pas par ici, mais on ne notifie jamais l'athlète lui-même.
+    if (created && assignment.session.coachId !== assignment.athleteId) {
+      await this.notificationQueue.enqueue(
+        {
+          type: 'performance_submitted',
+          recipientUserId: assignment.session.coachId,
+          resourceId: assignmentId,
+        },
+        // « : » interdit dans un jobId BullMQ (séparateur interne de clés Redis).
+        `performance_submitted--${assignmentId}`,
+      );
+    }
     return this.withRecordCandidates(toPerformanceDto(performance), assignmentId);
   }
 

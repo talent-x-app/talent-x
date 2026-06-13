@@ -18,6 +18,7 @@ import {
 const PREFERENCE_DEFAULTS: Required<NotificationPreferencesDto> = {
   sessionAssigned: true,
   performanceFeedback: true,
+  performanceSubmitted: true,
   groupUpdates: true,
   marketing: false,
 };
@@ -91,6 +92,7 @@ export class NotificationsService {
     return {
       sessionAssigned: row.sessionAssigned,
       performanceFeedback: row.performanceFeedback,
+      performanceSubmitted: row.performanceSubmitted,
       groupUpdates: row.groupUpdates,
       marketing: row.marketing,
     };
@@ -106,6 +108,9 @@ export class NotificationsService {
       ...(dto.performanceFeedback !== undefined && {
         performanceFeedback: dto.performanceFeedback,
       }),
+      ...(dto.performanceSubmitted !== undefined && {
+        performanceSubmitted: dto.performanceSubmitted,
+      }),
       ...(dto.groupUpdates !== undefined && { groupUpdates: dto.groupUpdates }),
       ...(dto.marketing !== undefined && { marketing: dto.marketing }),
     };
@@ -117,6 +122,7 @@ export class NotificationsService {
     return {
       sessionAssigned: row.sessionAssigned,
       performanceFeedback: row.performanceFeedback,
+      performanceSubmitted: row.performanceSubmitted,
       groupUpdates: row.groupUpdates,
       marketing: row.marketing,
     };

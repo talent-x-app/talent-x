@@ -17,5 +17,6 @@ export type NotificationType = typeof NotificationType[keyof typeof Notification
 export const NotificationType = {
   session_assigned: 'session_assigned',
   performance_feedback: 'performance_feedback',
+  performance_submitted: 'performance_submitted',
   group_update: 'group_update',
 } as const;
