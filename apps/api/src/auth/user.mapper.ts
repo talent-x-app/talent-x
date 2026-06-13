@@ -10,7 +10,9 @@ export function toUserDto(user: User): UserDto {
     role: user.role as Role,
     firstName: user.firstName,
     lastName: user.lastName,
-    photoUrl: user.photoUrl ?? undefined,
+    // L'avatar (clé objet, TLX-124) n'est exposé que présigné via GET /users/me ;
+    // la réponse d'auth ne porte pas la clé brute (inutilisable côté client).
+    photoUrl: undefined,
     sport: user.sport ?? undefined,
     bio: user.bio ?? undefined,
     createdAt: user.createdAt.toISOString(),

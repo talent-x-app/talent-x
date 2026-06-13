@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { ObjectStorageService } from '../storage/object-storage.service';
 
 /** Suffixe d'e-mail des comptes anonymisés — sert aussi de marqueur « déjà purgé » (ADR-15 §3). */
 const ANONYMIZED_EMAIL_SUFFIX = '@anonymized.invalid';
@@ -21,6 +22,7 @@ export class AccountPurgeService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
+    private readonly storage: ObjectStorageService,
   ) {}
 
   @Cron(CronExpression.EVERY_DAY_AT_3AM)
@@ -33,17 +35,19 @@ export class AccountPurgeService {
         deletedAt: { lte: cutoff },
         NOT: { email: { endsWith: ANONYMIZED_EMAIL_SUFFIX } },
       },
-      select: { id: true },
+      // `photoUrl` lu ici (avant purge, qui le met à null) pour effacer l'objet S3.
+      select: { id: true, photoUrl: true },
     });
     if (candidates.length === 0) {
       return;
     }
 
     let purged = 0;
-    for (const { id } of candidates) {
+    for (const { id, photoUrl } of candidates) {
       try {
         await this.purgeUser(id);
         purged += 1;
+        await this.deleteAvatarObject(photoUrl);
       } catch (error) {
         // On ne casse pas le lot : le compte sera retenté au prochain passage
         // (toujours candidat tant que l'e-mail n'est pas anonymisé).
@@ -51,6 +55,19 @@ export class AccountPurgeService {
       }
     }
     this.logger.log(`Comptes purgés/anonymisés : ${purged}/${candidates.length}`);
+  }
+
+  /**
+   * Efface l'objet avatar du stockage (ADR-15 : l'effacement couvre la donnée d'identité,
+   * pas seulement la ligne DB). Best-effort : un échec ne bloque pas le lot.
+   */
+  private async deleteAvatarObject(photoUrl: string | null): Promise<void> {
+    if (!photoUrl || !photoUrl.startsWith('avatars/')) return;
+    try {
+      await this.storage.deleteObject(photoUrl);
+    } catch (error) {
+      this.logger.warn(`Suppression de l'avatar ${photoUrl} échouée : ${(error as Error).message}`);
+    }
   }
 
   /** Applique le manifeste d'effacement (ADR-15 §2) à un compte, en transaction. */

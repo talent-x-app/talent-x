@@ -1,9 +1,10 @@
 import type { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service';
+import type { ObjectStorageService } from '../storage/object-storage.service';
 import { AccountPurgeService } from './account-purge.service';
 
-function setup(candidates: Array<{ id: string }>) {
+function setup(candidates: Array<{ id: string; photoUrl?: string | null }>) {
   const tagged = (op: string) => jest.fn().mockReturnValue({ op });
   const userUpdate = jest.fn().mockReturnValue({ op: 'user.update' });
   const auditScrub = jest.fn().mockReturnValue({ op: 'audit.scrub' });
@@ -23,12 +24,15 @@ function setup(candidates: Array<{ id: string }>) {
     $transaction: transaction,
   } as unknown as PrismaService;
   const config = { get: () => 30 } as unknown as ConfigService;
+  const deleteObject = jest.fn().mockResolvedValue(undefined);
+  const storage = { deleteObject } as unknown as ObjectStorageService;
   return {
-    service: new AccountPurgeService(prisma, config),
+    service: new AccountPurgeService(prisma, config, storage),
     findMany,
     userUpdate,
     auditScrub,
     transaction,
+    deleteObject,
   };
 }
 
@@ -88,5 +92,21 @@ describe('AccountPurgeService', () => {
 
     await expect(service.purgeExpired()).resolves.toBeUndefined();
     expect(transaction).toHaveBeenCalledTimes(2);
+  });
+
+  it('efface l’objet avatar du stockage (ADR-15, TLX-124)', async () => {
+    const { service, deleteObject } = setup([{ id: 'u1', photoUrl: 'avatars/u1/abc' }]);
+
+    await service.purgeExpired();
+
+    expect(deleteObject).toHaveBeenCalledWith('avatars/u1/abc');
+  });
+
+  it('ne tente aucune suppression de stockage sans avatar', async () => {
+    const { service, deleteObject } = setup([{ id: 'u1', photoUrl: null }]);
+
+    await service.purgeExpired();
+
+    expect(deleteObject).not.toHaveBeenCalled();
   });
 });

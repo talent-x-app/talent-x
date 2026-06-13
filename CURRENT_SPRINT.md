@@ -12,6 +12,42 @@ de débloquer les écrans coach C-01/C-02/C-03.
 - _(éditeurs typés terminés — TLX-054→061 livrés ↓)_
 - _(C-01 complet — TLX-081→085 livrés ↓)_
 
+## Terminés — TLX-124 Photo de profil — upload avatar (présigné S3, spec §3.1)
+
+- **Promesse comblée** : avatars = initiales partout ; `photoUrl` existait au modèle mais aucun upload.
+  Livré : upload **présigné S3** (le serveur ne touche jamais les octets) + affichage sur le Profil.
+  **Donnée d'identité à accès limité (§3)** : on ne stocke que la **clé objet** ; lecture du profil =
+  URL **présignée temporaire** (jamais d'URL publique).
+- **(Stockage)** `ObjectStorageService` gagne `getPresignedUploadUrl` (PUT lié au `contentType`) +
+  `headObject` (taille/type pour validation a posteriori). `isNotFound` mappe les 404 S3.
+- **(API)** `AvatarService` + 3 endpoints sur `/users/me/avatar` :
+  - `POST` → URL présignée (PUT) + clé `avatars/<userId>/<uuid>` ; format borné → 422 `INVALID_CONTENT_TYPE`.
+  - `PUT` (confirme `objectKey`) → cloisonnement (403 hors namespace), `headObject` : présence
+    (422 `AVATAR_NOT_UPLOADED`), taille ≤ 5 Mo (422 `AVATAR_TOO_LARGE`, objet supprimé), type géré ;
+    remplace l'ancien avatar (suppression best-effort) ; `photo_url = clé objet`.
+  - `DELETE` → 204, objet supprimé + `photo_url` effacé (idempotent).
+    `ProfileService` (`GET/PUT /users/me`) **présigne** `photoUrl` en lecture (défensif : repli initiales si
+    stockage indisponible). Mapper d'auth : ne renvoie plus la clé brute (avatar via `/users/me` seulement).
+    `photoUrl` **retiré de `UserUpdate`** (géré par les endpoints dédiés). Purge RGPD (ADR-15) **supprime
+    aussi l'objet avatar** du stockage (lu avant anonymisation).
+- **(Contrat)** additif : schémas `AvatarUploadRequest`/`AvatarUploadTarget`/`AvatarConfirmRequest`,
+  3 paths `/users/me/avatar`, `photoUrl` retiré de `UserUpdate`. OpenAPI → DTO → client orval régénéré + build.
+- **(Mobile)** `ProfileScreen` : avatar **photo** (`<Image>`) sinon initiales, liens « Ajouter/Changer la
+  photo » + « Supprimer ». Helper pur **`avatar-upload.ts`** (`uploadAvatar` : présign → PUT direct → confirm,
+  `fetch` injectable). Picker via `expo-image-picker` (recadrage carré 1:1). **expo-image-picker ajouté** (SDK 54).
+- **Tests** : **API unit 466/466** (+14 : avatar service, présign profil, purge avatar, storage),
+  **intégration 40/40** (+3 : présign upload, `INVALID_CONTENT_TYPE`, 403 cloisonnement),
+  **mobile 492/492** (+13 : `uploadAvatar` 3 cas, affichage photo, changer/annuler/supprimer), typecheck
+  (api + api-client + mobile) + lint clean.
+- **Validé en réel (2026-06-13, intégration DB-backed Postgres :5433 + MinIO :9000, script jetable ts-node** —
+  le round-trip S3 réel ne tourne pas sous la VM ts-jest : `ERR_VM_DYNAMIC_IMPORT_CALLBACK_MISSING_FLAG` du
+  SDK AWS, comme l'export RGPD validé par script) : `POST` → 201 clé namespacée → **PUT octets MinIO 200** →
+  `PUT confirm` → 200 **photoUrl signé** (`X-Amz-Signature`), DB = clé objet → `GET /users/me` photoUrl signé →
+  image 6 Mo → **422 `AVATAR_TOO_LARGE`** → clé jamais téléversée → **422 `AVATAR_NOT_UPLOADED`** → `DELETE`
+  204 → photoUrl `undefined`.
+- **Non rejoué en réel** (smoke Expo web) : rendu visuel du Profil + sélecteur d'image (UI couverte par RTL
+  sur le vrai écran ; le picker natif/web reste à confirmer en navigateur).
+
 ## Terminés — TLX-127 Récurrence d'assignation — « répéter chaque mardi jusqu'au… » (ADR-35)
 
 - **Valeur cœur livrée** : un coach répète une séance « chaque <jour> jusqu'au <date> » en un geste,

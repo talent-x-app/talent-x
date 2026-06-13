@@ -8,12 +8,11 @@
  * OpenAPI spec version: 1.0.0
  */
 
-/**
- * Mise à jour partielle du profil. La photo (`photoUrl`) n'est pas éditable ici (TLX-124) : elle se gère via les endpoints avatar dédiés (`/users/me/avatar`).
- */
-export interface UserUpdate {
-  firstName?: string;
-  lastName?: string;
-  sport?: string;
-  bio?: string;
+export interface AvatarUploadTarget {
+  /** URL présignée (PUT) où téléverser les octets de l'image. */
+  uploadUrl: string;
+  /** Clé objet à confirmer après l'upload. */
+  objectKey: string;
+  /** Expiration de l'URL d'upload. */
+  expiresAt: string;
 }

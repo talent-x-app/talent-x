@@ -16,6 +16,9 @@ import type {
   AthleteGroupList,
   AuthSession,
   AuthTokens,
+  AvatarConfirmRequest,
+  AvatarUploadRequest,
+  AvatarUploadTarget,
   BadRequestResponse,
   Comment,
   CommentCreate,
@@ -855,6 +858,192 @@ export const getDeleteMeUrl = () => {
 export const deleteMe = async ( options?: RequestInit): Promise<deleteMeResponse> => {
 
   return customFetch<deleteMeResponse>(getDeleteMeUrl(),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+export type createAvatarUploadResponse201 = {
+  data: AvatarUploadTarget
+  status: 201
+}
+
+export type createAvatarUploadResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type createAvatarUploadResponse422 = {
+  data: ValidationFailedResponse
+  status: 422
+}
+
+export type createAvatarUploadResponse429 = {
+  data: TooManyRequestsResponse
+  status: 429
+}
+
+export type createAvatarUploadResponse500 = {
+  data: ServerErrorResponse
+  status: 500
+}
+
+export type createAvatarUploadResponseSuccess = (createAvatarUploadResponse201) & {
+  headers: Headers;
+};
+export type createAvatarUploadResponseError = (createAvatarUploadResponse401 | createAvatarUploadResponse422 | createAvatarUploadResponse429 | createAvatarUploadResponse500) & {
+  headers: Headers;
+};
+
+export type createAvatarUploadResponse = (createAvatarUploadResponseSuccess | createAvatarUploadResponseError)
+
+export const getCreateAvatarUploadUrl = () => {
+
+
+
+
+  return `/users/me/avatar`
+}
+
+/**
+ * Photo de profil (TLX-124). Renvoie une URL présignée (PUT) et la clé objet : le client téléverse directement l'image au stockage S3, puis confirme via `PUT /users/me/avatar`. Format borné (JPEG/PNG/WebP) → 422 `INVALID_CONTENT_TYPE`.
+ * @summary Demander une URL d'upload présignée pour l'avatar
+ */
+export const createAvatarUpload = async (avatarUploadRequest: AvatarUploadRequest, options?: RequestInit): Promise<createAvatarUploadResponse> => {
+
+  return customFetch<createAvatarUploadResponse>(getCreateAvatarUploadUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(avatarUploadRequest)
+  }
+);}
+
+
+
+export type confirmAvatarResponse200 = {
+  data: User
+  status: 200
+}
+
+export type confirmAvatarResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type confirmAvatarResponse403 = {
+  data: ForbiddenResponse
+  status: 403
+}
+
+export type confirmAvatarResponse404 = {
+  data: NotFoundResponse
+  status: 404
+}
+
+export type confirmAvatarResponse422 = {
+  data: ValidationFailedResponse
+  status: 422
+}
+
+export type confirmAvatarResponse429 = {
+  data: TooManyRequestsResponse
+  status: 429
+}
+
+export type confirmAvatarResponse500 = {
+  data: ServerErrorResponse
+  status: 500
+}
+
+export type confirmAvatarResponseSuccess = (confirmAvatarResponse200) & {
+  headers: Headers;
+};
+export type confirmAvatarResponseError = (confirmAvatarResponse401 | confirmAvatarResponse403 | confirmAvatarResponse404 | confirmAvatarResponse422 | confirmAvatarResponse429 | confirmAvatarResponse500) & {
+  headers: Headers;
+};
+
+export type confirmAvatarResponse = (confirmAvatarResponseSuccess | confirmAvatarResponseError)
+
+export const getConfirmAvatarUrl = () => {
+
+
+
+
+  return `/users/me/avatar`
+}
+
+/**
+ * Adopte l'objet téléversé comme avatar après validation serveur (présence, taille/format bornés). 403 si la clé n'appartient pas au titulaire ; 422 `AVATAR_NOT_UPLOADED` / `AVATAR_TOO_LARGE` / `INVALID_CONTENT_TYPE`.
+ * @summary Confirmer l'avatar téléversé
+ */
+export const confirmAvatar = async (avatarConfirmRequest: AvatarConfirmRequest, options?: RequestInit): Promise<confirmAvatarResponse> => {
+
+  return customFetch<confirmAvatarResponse>(getConfirmAvatarUrl(),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(avatarConfirmRequest)
+  }
+);}
+
+
+
+export type deleteAvatarResponse204 = {
+  data: void
+  status: 204
+}
+
+export type deleteAvatarResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type deleteAvatarResponse404 = {
+  data: NotFoundResponse
+  status: 404
+}
+
+export type deleteAvatarResponse429 = {
+  data: TooManyRequestsResponse
+  status: 429
+}
+
+export type deleteAvatarResponse500 = {
+  data: ServerErrorResponse
+  status: 500
+}
+
+export type deleteAvatarResponseSuccess = (deleteAvatarResponse204) & {
+  headers: Headers;
+};
+export type deleteAvatarResponseError = (deleteAvatarResponse401 | deleteAvatarResponse404 | deleteAvatarResponse429 | deleteAvatarResponse500) & {
+  headers: Headers;
+};
+
+export type deleteAvatarResponse = (deleteAvatarResponseSuccess | deleteAvatarResponseError)
+
+export const getDeleteAvatarUrl = () => {
+
+
+
+
+  return `/users/me/avatar`
+}
+
+/**
+ * @summary Supprimer l'avatar
+ */
+export const deleteAvatar = async ( options?: RequestInit): Promise<deleteAvatarResponse> => {
+
+  return customFetch<deleteAvatarResponse>(getDeleteAvatarUrl(),
   {
     ...options,
     method: 'DELETE'

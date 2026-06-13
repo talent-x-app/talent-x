@@ -1,7 +1,20 @@
 import { NotFoundException } from '@nestjs/common';
+import type { ConfigService } from '@nestjs/config';
 import { type User } from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service';
+import type { ObjectStorageService } from '../storage/object-storage.service';
 import { ProfileService } from './profile.service';
+
+// Stockage présigné mocké : renvoie une URL stable à partir de la clé objet.
+const storageMock = {
+  getPresignedDownloadUrl: jest.fn(async (key: string) => `https://signed.example/${key}`),
+} as unknown as ObjectStorageService;
+const configMock = { get: jest.fn(() => 3600) } as unknown as ConfigService;
+
+/** Construit le service avec les dépendances de présignature mockées. */
+function makeService(prisma: PrismaService): ProfileService {
+  return new ProfileService(prisma, storageMock, configMock);
+}
 
 function userRow(over: Partial<User> = {}): User {
   return {
@@ -37,7 +50,7 @@ describe('ProfileService', () => {
   describe('getMe', () => {
     it('projette la ligne users vers le DTO User (champs nuls → undefined)', async () => {
       const prisma = prismaMock({ findUnique: jest.fn().mockResolvedValue(userRow()) });
-      const service = new ProfileService(prisma);
+      const service = makeService(prisma);
 
       await expect(service.getMe('u-1')).resolves.toEqual({
         id: 'u-1',
@@ -53,20 +66,24 @@ describe('ProfileService', () => {
       });
     });
 
+    it('présigne photoUrl quand un avatar (clé objet) est stocké (TLX-124)', async () => {
+      const prisma = prismaMock({
+        findUnique: jest.fn().mockResolvedValue(userRow({ photoUrl: 'avatars/u-1/abc' })),
+      });
+      const result = await makeService(prisma).getMe('u-1');
+      expect(result.photoUrl).toBe('https://signed.example/avatars/u-1/abc');
+    });
+
     it('404 quand l’utilisateur est introuvable', async () => {
       const prisma = prismaMock({ findUnique: jest.fn().mockResolvedValue(null) });
-      await expect(new ProfileService(prisma).getMe('u-x')).rejects.toBeInstanceOf(
-        NotFoundException,
-      );
+      await expect(makeService(prisma).getMe('u-x')).rejects.toBeInstanceOf(NotFoundException);
     });
 
     it('404 quand le compte est soft-deleted', async () => {
       const prisma = prismaMock({
         findUnique: jest.fn().mockResolvedValue(userRow({ deletedAt: new Date() })),
       });
-      await expect(new ProfileService(prisma).getMe('u-1')).rejects.toBeInstanceOf(
-        NotFoundException,
-      );
+      await expect(makeService(prisma).getMe('u-1')).rejects.toBeInstanceOf(NotFoundException);
     });
   });
 
@@ -77,7 +94,7 @@ describe('ProfileService', () => {
         findUnique: jest.fn().mockResolvedValue(userRow()),
         update,
       });
-      const service = new ProfileService(prisma);
+      const service = makeService(prisma);
 
       const result = await service.updateMe('u-1', { bio: 'Sprinteuse', sport: '200m' });
 
@@ -96,7 +113,7 @@ describe('ProfileService', () => {
         update,
       });
 
-      await new ProfileService(prisma).updateMe('u-1', {});
+      await makeService(prisma).updateMe('u-1', {});
 
       expect(update).toHaveBeenCalledWith({ where: { id: 'u-1' }, data: {} });
     });
@@ -108,7 +125,7 @@ describe('ProfileService', () => {
         update,
       });
 
-      await expect(new ProfileService(prisma).updateMe('u-1', { bio: 'x' })).rejects.toBeInstanceOf(
+      await expect(makeService(prisma).updateMe('u-1', { bio: 'x' })).rejects.toBeInstanceOf(
         NotFoundException,
       );
       expect(update).not.toHaveBeenCalled();

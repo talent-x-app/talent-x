@@ -9,11 +9,13 @@
  */
 
 /**
- * Mise à jour partielle du profil. La photo (`photoUrl`) n'est pas éditable ici (TLX-124) : elle se gère via les endpoints avatar dédiés (`/users/me/avatar`).
+ * Type MIME de l'image (JPEG/PNG/WebP).
  */
-export interface UserUpdate {
-  firstName?: string;
-  lastName?: string;
-  sport?: string;
-  bio?: string;
-}
+export type AvatarUploadRequestContentType = typeof AvatarUploadRequestContentType[keyof typeof AvatarUploadRequestContentType];
+
+
+export const AvatarUploadRequestContentType = {
+  'image\/jpeg': 'image\/jpeg',
+  'image\/png': 'image\/png',
+  'image\/webp': 'image\/webp',
+} as const;

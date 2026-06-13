@@ -1,12 +1,22 @@
-import { getMe, updateMe, type User, type UserUpdate } from '@talent-x/api-client';
+import { deleteAvatar, getMe, updateMe, type User, type UserUpdate } from '@talent-x/api-client';
 import { useTheme } from '@talent-x/design-tokens';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
+import {
+  ActivityIndicator,
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { useSession } from '../auth/SessionProvider';
 import { Button, Card, Input } from '../components/ui';
 import { toUserMessage, useToast } from '../feedback';
+import { uploadAvatar } from './avatar-upload';
 import { NotificationPreferencesSection } from '../notifications/NotificationPreferencesSection';
 import { NotificationsLink } from '../notifications/NotificationsLink';
 import { MyGroupSection } from '../groups/MyGroupSection';
@@ -61,6 +71,47 @@ export function ProfileScreen() {
       toast.show({ variant: 'danger', title, description });
     },
   });
+
+  // Avatar (TLX-124) : choix + recadrage carré → upload présigné → confirmation.
+  const avatar = useMutation({
+    mutationFn: async (): Promise<User | null> => {
+      const picked = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: 'images',
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+      if (picked.canceled || picked.assets.length === 0) return null;
+      const asset = picked.assets[0];
+      return uploadAvatar({ uri: asset.uri, mimeType: asset.mimeType ?? 'image/jpeg' });
+    },
+    onSuccess: (updated) => {
+      if (!updated) return;
+      queryClient.setQueryData(ME_QUERY_KEY, updated);
+      toast.show({ variant: 'success', title: 'Photo de profil mise à jour' });
+    },
+    onError: (error: unknown) => {
+      const { title, description } = toUserMessage(error);
+      toast.show({ variant: 'danger', title, description });
+    },
+  });
+
+  const removeAvatar = useMutation({
+    mutationFn: async (): Promise<void> => {
+      const response = await deleteAvatar();
+      if (response.status !== 204) throw response;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ME_QUERY_KEY });
+      toast.show({ variant: 'success', title: 'Photo de profil supprimée' });
+    },
+    onError: (error: unknown) => {
+      const { title, description } = toUserMessage(error);
+      toast.show({ variant: 'danger', title, description });
+    },
+  });
+
+  const avatarBusy = avatar.isPending || removeAvatar.isPending;
 
   const startEditing = (user: User) => {
     setForm({
@@ -134,21 +185,42 @@ export function ProfileScreen() {
         Profil
       </Text>
 
-      {/* En-tête : avatar (initiales) + identité + rôle. */}
+      {/* En-tête : avatar (photo ou initiales) + identité + rôle. */}
       <Card>
         <View style={styles.header}>
-          <View style={[styles.avatar, { backgroundColor: colors.accentSubtle }]}>
-            <Text
-              testID="profile-initials"
-              style={{
-                color: colors.accentText,
-                fontFamily: typography.fontFamily.bold,
-                fontSize: typography.h3.fontSize,
-              }}
-            >
-              {initials(user)}
-            </Text>
-          </View>
+          <Pressable
+            testID="profile-avatar-change"
+            onPress={() => avatar.mutate()}
+            disabled={avatarBusy}
+            accessibilityRole="button"
+            accessibilityLabel="Changer la photo de profil"
+          >
+            {user.photoUrl ? (
+              <Image
+                testID="profile-photo"
+                source={{ uri: user.photoUrl }}
+                style={[styles.avatar, { backgroundColor: colors.accentSubtle }]}
+              />
+            ) : (
+              <View style={[styles.avatar, { backgroundColor: colors.accentSubtle }]}>
+                <Text
+                  testID="profile-initials"
+                  style={{
+                    color: colors.accentText,
+                    fontFamily: typography.fontFamily.bold,
+                    fontSize: typography.h3.fontSize,
+                  }}
+                >
+                  {initials(user)}
+                </Text>
+              </View>
+            )}
+            {avatarBusy ? (
+              <View style={[styles.avatar, styles.avatarOverlay]}>
+                <ActivityIndicator color={colors.accentText} />
+              </View>
+            ) : null}
+          </Pressable>
           <View style={{ flex: 1, gap: spacing[1] }}>
             <Text
               testID="profile-name"
@@ -169,6 +241,40 @@ export function ProfileScreen() {
             >
               {[ROLE_LABEL[user.role] ?? user.role, user.sport].filter(Boolean).join(' · ')}
             </Text>
+            <View style={{ flexDirection: 'row', gap: spacing[3], marginTop: spacing[1] }}>
+              <Pressable
+                testID="profile-avatar-change-link"
+                onPress={() => avatar.mutate()}
+                disabled={avatarBusy}
+              >
+                <Text
+                  style={{
+                    color: colors.accent,
+                    fontFamily: typography.fontFamily.medium,
+                    fontSize: typography.bodySm.fontSize,
+                  }}
+                >
+                  {user.photoUrl ? 'Changer la photo' : 'Ajouter une photo'}
+                </Text>
+              </Pressable>
+              {user.photoUrl ? (
+                <Pressable
+                  testID="profile-avatar-remove"
+                  onPress={() => removeAvatar.mutate()}
+                  disabled={avatarBusy}
+                >
+                  <Text
+                    style={{
+                      color: colors.textMuted,
+                      fontFamily: typography.fontFamily.medium,
+                      fontSize: typography.bodySm.fontSize,
+                    }}
+                  >
+                    Supprimer
+                  </Text>
+                </Pressable>
+              ) : null}
+            </View>
           </View>
         </View>
       </Card>
@@ -317,5 +423,11 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  avatarOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    backgroundColor: 'rgba(0,0,0,0.35)',
   },
 });

@@ -373,6 +373,87 @@ paths:
           $ref: '#/components/responses/TooManyRequests'
         '500':
           $ref: '#/components/responses/ServerError'
+  /users/me/avatar:
+    post:
+      tags:
+      - Profil & RGPD
+      summary: Demander une URL d'upload présignée pour l'avatar
+      description: >-
+        Photo de profil (TLX-124). Renvoie une URL présignée (PUT) et la clé objet :
+        le client téléverse directement l'image au stockage S3, puis confirme via
+        `PUT /users/me/avatar`. Format borné (JPEG/PNG/WebP) → 422 `INVALID_CONTENT_TYPE`.
+      operationId: createAvatarUpload
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AvatarUploadRequest'
+      responses:
+        '201':
+          description: Cible d'upload présignée.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AvatarUploadTarget'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    put:
+      tags:
+      - Profil & RGPD
+      summary: Confirmer l'avatar téléversé
+      description: >-
+        Adopte l'objet téléversé comme avatar après validation serveur (présence,
+        taille/format bornés). 403 si la clé n'appartient pas au titulaire ; 422
+        `AVATAR_NOT_UPLOADED` / `AVATAR_TOO_LARGE` / `INVALID_CONTENT_TYPE`.
+      operationId: confirmAvatar
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AvatarConfirmRequest'
+      responses:
+        '200':
+          description: Profil mis à jour (avatar adopté).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    delete:
+      tags:
+      - Profil & RGPD
+      summary: Supprimer l'avatar
+      operationId: deleteAvatar
+      responses:
+        '204':
+          description: Avatar supprimé.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
   /users/me/consents:
     get:
       tags:
@@ -2538,18 +2619,56 @@ components:
       - id
     UserUpdate:
       type: object
+      description: >-
+        Mise à jour partielle du profil. La photo (`photoUrl`) n'est pas éditable ici
+        (TLX-124) : elle se gère via les endpoints avatar dédiés (`/users/me/avatar`).
       properties:
         firstName:
           type: string
         lastName:
           type: string
-        photoUrl:
-          type: string
-          format: uri
         sport:
           type: string
         bio:
           type: string
+    AvatarUploadRequest:
+      type: object
+      properties:
+        contentType:
+          type: string
+          description: Type MIME de l'image (JPEG/PNG/WebP).
+          enum:
+          - image/jpeg
+          - image/png
+          - image/webp
+      required:
+      - contentType
+    AvatarUploadTarget:
+      type: object
+      properties:
+        uploadUrl:
+          type: string
+          format: uri
+          description: URL présignée (PUT) où téléverser les octets de l'image.
+        objectKey:
+          type: string
+          description: Clé objet à confirmer après l'upload.
+        expiresAt:
+          type: string
+          format: date-time
+          description: Expiration de l'URL d'upload.
+      required:
+      - uploadUrl
+      - objectKey
+      - expiresAt
+    AvatarConfirmRequest:
+      type: object
+      properties:
+        objectKey:
+          type: string
+          description: Clé objet renvoyée par la demande d'upload.
+      required:
+      - objectKey
     ConsentType:
       type: string
       enum:

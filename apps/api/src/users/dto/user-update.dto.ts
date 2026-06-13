@@ -1,12 +1,14 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsString, IsUrl, MaxLength } from 'class-validator';
+import { IsOptional, IsString, MaxLength } from 'class-validator';
 
 /**
  * Corps de `PUT /users/me` — schéma `UserUpdate` du contrat OpenAPI.
  *
  * Tous les champs sont optionnels : sémantique PATCH sur un PUT (le contrat
  * n'exige aucun champ). Les champs absents restent inchangés ; `email` et `role`
- * ne sont volontairement pas modifiables ici (identité / autorisation).
+ * ne sont volontairement pas modifiables ici (identité / autorisation). La photo
+ * de profil (`photoUrl`) n'est pas éditable ici (TLX-124) : elle se gère via les
+ * endpoints avatar dédiés (`/users/me/avatar`), qui stockent une clé objet S3.
  */
 export class UserUpdateDto {
   @ApiPropertyOptional()
@@ -20,12 +22,6 @@ export class UserUpdateDto {
   @IsString()
   @MaxLength(100)
   lastName?: string;
-
-  @ApiPropertyOptional({ format: 'uri' })
-  @IsOptional()
-  @IsUrl()
-  @MaxLength(2048)
-  photoUrl?: string;
 
   @ApiPropertyOptional()
   @IsOptional()

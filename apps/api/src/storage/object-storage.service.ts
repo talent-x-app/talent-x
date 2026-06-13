@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import {
   DeleteObjectCommand,
   GetObjectCommand,
+  HeadObjectCommand,
   PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
@@ -43,6 +44,37 @@ export class ObjectStorageService implements OnModuleDestroy {
     });
   }
 
+  /**
+   * URL présignée d'upload (PUT, TTL court) liée à un `contentType` : le client doit
+   * envoyer l'objet avec exactement ce `Content-Type` (avatars TLX-124). Le serveur ne
+   * touche jamais les octets — l'upload va directement au stockage.
+   */
+  async getPresignedUploadUrl(
+    key: string,
+    contentType: string,
+    ttlSeconds: number,
+  ): Promise<string> {
+    return getSignedUrl(
+      this.s3(),
+      new PutObjectCommand({ Bucket: this.bucket(), Key: key, ContentType: contentType }),
+      { expiresIn: ttlSeconds },
+    );
+  }
+
+  /**
+   * Métadonnées d'un objet (taille, type), ou `null` s'il n'existe pas. Sert à valider
+   * un upload présigné a posteriori (bornes de taille/format) avant de l'adopter.
+   */
+  async headObject(key: string): Promise<{ contentLength: number; contentType?: string } | null> {
+    try {
+      const head = await this.s3().send(new HeadObjectCommand({ Bucket: this.bucket(), Key: key }));
+      return { contentLength: head.ContentLength ?? 0, contentType: head.ContentType };
+    } catch (error) {
+      if (isNotFound(error)) return null;
+      throw error;
+    }
+  }
+
   /** Supprime un objet (nettoyage des archives expirées). */
   async deleteObject(key: string): Promise<void> {
     await this.s3().send(new DeleteObjectCommand({ Bucket: this.bucket(), Key: key }));
@@ -80,4 +112,11 @@ export class ObjectStorageService implements OnModuleDestroy {
     }
     return value;
   }
+}
+
+/** Détecte un 404 S3 (objet absent) parmi les formes d'erreur du SDK v3. */
+function isNotFound(error: unknown): boolean {
+  if (typeof error !== 'object' || error === null) return false;
+  const e = error as { name?: string; $metadata?: { httpStatusCode?: number } };
+  return e.name === 'NotFound' || e.name === 'NoSuchKey' || e.$metadata?.httpStatusCode === 404;
 }

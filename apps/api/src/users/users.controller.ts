@@ -12,7 +12,13 @@ import {
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { AccountDeletionService } from './account-deletion.service';
+import { AvatarService } from './avatar.service';
 import { ConsentsService } from './consents.service';
+import {
+  AvatarConfirmRequestDto,
+  AvatarUploadRequestDto,
+  AvatarUploadTargetDto,
+} from './dto/avatar.dto';
 import { ConsentDto, ConsentListDto } from './dto/consent.dto';
 import { ConsentUpdateDto } from './dto/consent-update.dto';
 import { ExportJobDto, JobDto } from './dto/export.dto';
@@ -32,6 +38,7 @@ import { ProfileService } from './profile.service';
 export class UsersController {
   constructor(
     private readonly profile: ProfileService,
+    private readonly avatars: AvatarService,
     private readonly consents: ConsentsService,
     private readonly exports: ExportService,
     private readonly accountDeletion: AccountDeletionService,
@@ -56,6 +63,41 @@ export class UsersController {
   @ApiResponse({ status: 202, description: 'Suppression planifiée.', type: JobDto })
   deleteMe(@CurrentUser('id') userId: string): Promise<JobDto> {
     return this.accountDeletion.requestDeletion(userId);
+  }
+
+  @Post('users/me/avatar')
+  @ApiOperation({
+    summary: "Demander une URL d'upload pour l'avatar",
+    operationId: 'createAvatarUpload',
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Cible d’upload présignée.',
+    type: AvatarUploadTargetDto,
+  })
+  createAvatarUpload(
+    @CurrentUser('id') userId: string,
+    @Body() dto: AvatarUploadRequestDto,
+  ): Promise<AvatarUploadTargetDto> {
+    return this.avatars.createUpload(userId, dto.contentType);
+  }
+
+  @Put('users/me/avatar')
+  @ApiOperation({ summary: "Confirmer l'avatar téléversé", operationId: 'confirmAvatar' })
+  @ApiResponse({ status: 200, description: 'Profil mis à jour (avatar adopté).', type: UserDto })
+  confirmAvatar(
+    @CurrentUser('id') userId: string,
+    @Body() dto: AvatarConfirmRequestDto,
+  ): Promise<UserDto> {
+    return this.avatars.confirm(userId, dto.objectKey);
+  }
+
+  @Delete('users/me/avatar')
+  @HttpCode(204)
+  @ApiOperation({ summary: "Supprimer l'avatar", operationId: 'deleteAvatar' })
+  @ApiResponse({ status: 204, description: 'Avatar supprimé.' })
+  deleteAvatar(@CurrentUser('id') userId: string): Promise<void> {
+    return this.avatars.remove(userId);
   }
 
   @Get('users/me/consents')

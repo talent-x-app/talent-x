@@ -14,6 +14,10 @@ const mockGetPreferences = jest.fn();
 const mockUpdatePreferences = jest.fn();
 const mockGetConsents = jest.fn();
 const mockUpdateConsent = jest.fn();
+const mockCreateAvatarUpload = jest.fn();
+const mockConfirmAvatar = jest.fn();
+const mockDeleteAvatar = jest.fn();
+const mockLaunchPicker = jest.fn();
 
 jest.mock('@talent-x/api-client', () => ({
   getMe: (...args: unknown[]) => mockGetMe(...args),
@@ -27,12 +31,19 @@ jest.mock('@talent-x/api-client', () => ({
   requestExport: jest.fn(),
   getExport: jest.fn(),
   deleteMe: jest.fn(),
+  // Avatar (TLX-124).
+  createAvatarUpload: (...args: unknown[]) => mockCreateAvatarUpload(...args),
+  confirmAvatar: (...args: unknown[]) => mockConfirmAvatar(...args),
+  deleteAvatar: (...args: unknown[]) => mockDeleteAvatar(...args),
   ConsentType: {
     data_processing: 'data_processing',
     coach_access: 'coach_access',
     marketing: 'marketing',
   },
   JobStatus: { pending: 'pending', processing: 'processing', ready: 'ready', failed: 'failed' },
+}));
+jest.mock('expo-image-picker', () => ({
+  launchImageLibraryAsync: (...args: unknown[]) => mockLaunchPicker(...args),
 }));
 jest.mock('expo-router', () => ({ useRouter: () => ({ replace: mockReplace, push: mockPush }) }));
 jest.mock('../auth/SessionProvider', () => ({
@@ -110,6 +121,85 @@ describe('ProfileScreen (TLX-042)', () => {
     expect(screen.getByText('Ana Athl')).toBeOnTheScreen();
     expect(screen.getByText('ana@example.com')).toBeOnTheScreen();
     expect(screen.getByTestId('profile-initials')).toHaveTextContent('AA');
+  });
+
+  it('affiche la photo de profil quand photoUrl est présent (sinon initiales)', async () => {
+    mockGetMe.mockResolvedValue({
+      status: 200,
+      data: { ...USER, photoUrl: 'https://signed.example/avatars/u1/abc' },
+    });
+    render(<ProfileScreen />, { wrapper: Wrapper });
+
+    await waitFor(() => expect(screen.getByTestId('profile-photo')).toBeOnTheScreen());
+    expect(screen.getByTestId('profile-photo').props.source).toEqual({
+      uri: 'https://signed.example/avatars/u1/abc',
+    });
+    expect(screen.queryByTestId('profile-initials')).toBeNull();
+  });
+
+  it('changer la photo : picker → upload présigné → confirmation met à jour l’avatar', async () => {
+    mockGetMe.mockResolvedValue({ status: 200, data: USER });
+    mockLaunchPicker.mockResolvedValue({
+      canceled: false,
+      assets: [{ uri: 'file:///tmp/pic.jpg', mimeType: 'image/jpeg' }],
+    });
+    mockCreateAvatarUpload.mockResolvedValue({
+      status: 201,
+      data: { uploadUrl: 'https://s3/put', objectKey: 'avatars/u1/new', expiresAt: 'x' },
+    });
+    mockConfirmAvatar.mockResolvedValue({
+      status: 200,
+      data: { ...USER, photoUrl: 'https://signed.example/avatars/u1/new' },
+    });
+    const realFetch = global.fetch;
+    global.fetch = jest.fn(async (_input: unknown, init?: { method?: string }) =>
+      init?.method === 'PUT'
+        ? ({ ok: true } as Response)
+        : ({ blob: async () => ({ size: 1 }) } as unknown as Response),
+    ) as unknown as typeof fetch;
+
+    try {
+      render(<ProfileScreen />, { wrapper: Wrapper });
+      await waitFor(() => expect(screen.getByTestId('profile-avatar-change')).toBeOnTheScreen());
+      fireEvent.press(screen.getByTestId('profile-avatar-change'));
+
+      await waitFor(() =>
+        expect(mockConfirmAvatar).toHaveBeenCalledWith({ objectKey: 'avatars/u1/new' }),
+      );
+      // Le profil affiche désormais la nouvelle photo.
+      await waitFor(() => expect(screen.getByTestId('profile-photo')).toBeOnTheScreen());
+      expect(screen.getByTestId('profile-photo').props.source.uri).toBe(
+        'https://signed.example/avatars/u1/new',
+      );
+    } finally {
+      global.fetch = realFetch;
+    }
+  });
+
+  it('picker annulé : aucun upload', async () => {
+    mockGetMe.mockResolvedValue({ status: 200, data: USER });
+    mockLaunchPicker.mockResolvedValue({ canceled: true, assets: [] });
+    render(<ProfileScreen />, { wrapper: Wrapper });
+
+    await waitFor(() => expect(screen.getByTestId('profile-avatar-change')).toBeOnTheScreen());
+    fireEvent.press(screen.getByTestId('profile-avatar-change'));
+
+    await waitFor(() => expect(mockLaunchPicker).toHaveBeenCalled());
+    expect(mockCreateAvatarUpload).not.toHaveBeenCalled();
+  });
+
+  it('supprimer la photo : appelle deleteAvatar et rafraîchit', async () => {
+    mockGetMe.mockResolvedValue({
+      status: 200,
+      data: { ...USER, photoUrl: 'https://signed.example/avatars/u1/abc' },
+    });
+    mockDeleteAvatar.mockResolvedValue({ status: 204 });
+    render(<ProfileScreen />, { wrapper: Wrapper });
+
+    await waitFor(() => expect(screen.getByTestId('profile-avatar-remove')).toBeOnTheScreen());
+    fireEvent.press(screen.getByTestId('profile-avatar-remove'));
+
+    await waitFor(() => expect(mockDeleteAvatar).toHaveBeenCalled());
   });
 
   it('affiche le libellé de rôle « Coach » pour un coach (C-11 réutilise l’écran)', async () => {

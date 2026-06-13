@@ -1103,4 +1103,42 @@ describe('Parcours critiques (E2E DB) — TLX-120', () => {
       expect(res.body.error).toBe('RECURRENCE_REQUIRES_DUE_DATE');
     });
   });
+
+  // NB : le round-trip réel upload→confirm→delete contre MinIO (qui *envoie* des
+  // requêtes S3 HeadObject/Delete) ne tourne pas sous la VM ts-jest — le SDK AWS y
+  // déclenche `ERR_VM_DYNAMIC_IMPORT_CALLBACK_MISSING_FLAG`. Il est validé en réel via
+  // un script hors Jest (cf. CURRENT_SPRINT, comme l'export RGPD). Ici on couvre les
+  // chemins qui n'émettent **aucune** requête S3 (présignature locale + gardes pré-S3).
+  describe('Photo de profil — avatar (TLX-124)', () => {
+    it('demande une URL d’upload présignée (PUT) dans le namespace du titulaire', async () => {
+      const user = await register('athlete');
+      const target = await http()
+        .post('/api/v1/users/me/avatar')
+        .set(bearer(user.token))
+        .send({ contentType: 'image/png' })
+        .expect(201);
+      expect(target.body.objectKey).toMatch(new RegExp(`^avatars/${user.id}/`));
+      expect(target.body.uploadUrl).toEqual(expect.stringContaining('http'));
+      expect(target.body.expiresAt).toEqual(expect.any(String));
+    });
+
+    it('format non géré → 422 INVALID_CONTENT_TYPE (avant toute requête S3)', async () => {
+      const user = await register('athlete');
+      const res = await http()
+        .post('/api/v1/users/me/avatar')
+        .set(bearer(user.token))
+        .send({ contentType: 'image/gif' })
+        .expect(422);
+      expect(res.body.error).toBe('INVALID_CONTENT_TYPE');
+    });
+
+    it('confirme la clé d’un autre utilisateur → 403 (cloisonnement, avant S3)', async () => {
+      const user = await register('athlete');
+      await http()
+        .put('/api/v1/users/me/avatar')
+        .set(bearer(user.token))
+        .send({ objectKey: 'avatars/00000000-0000-0000-0000-000000000000/x' })
+        .expect(403);
+    });
+  });
 });

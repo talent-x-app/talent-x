@@ -7,13 +7,9 @@
  * Conventions transverses : préfixe /api/v1 ; jeton d'accès JWT (RS256) via en-tête Authorization ; pagination par enveloppe { data, meta } ; idempotence des écritures sensibles via Idempotency-Key ; opérations longues asynchrones (202 + ressource de statut) ; rate limiting signalé par les en-têtes RateLimit-*. L'autorisation combine rôle, appartenance (lien coach↔athlète), propriété et consentement ; voir TX-SPEC-002 §6.
  * OpenAPI spec version: 1.0.0
  */
+import type { AvatarUploadRequestContentType } from './avatarUploadRequestContentType';
 
-/**
- * Mise à jour partielle du profil. La photo (`photoUrl`) n'est pas éditable ici (TLX-124) : elle se gère via les endpoints avatar dédiés (`/users/me/avatar`).
- */
-export interface UserUpdate {
-  firstName?: string;
-  lastName?: string;
-  sport?: string;
-  bio?: string;
+export interface AvatarUploadRequest {
+  /** Type MIME de l'image (JPEG/PNG/WebP). */
+  contentType: AvatarUploadRequestContentType;
 }
