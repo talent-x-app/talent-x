@@ -159,6 +159,31 @@ describe('validateEnv', () => {
     );
   });
 
+  // --- Credentials push APNs/FCM (TLX-107) ---
+
+  const apnsEnv = {
+    APNS_KEY_ID: 'KID123',
+    APNS_TEAM_ID: 'TEAM123',
+    APNS_BUNDLE_ID: 'com.talentx.app',
+    APNS_PRIVATE_KEY: '-----BEGIN PRIVATE KEY-----\\nabc\\n-----END PRIVATE KEY-----',
+  };
+
+  it('n’exige aucun credential push (optionnels partout)', () => {
+    expect(() => validateEnv(base)).not.toThrow();
+  });
+
+  it('passe through les credentials push quand le groupe est complet', () => {
+    const cfg = validateEnv({ ...base, ...apnsEnv, APNS_PRODUCTION: 'true' });
+    expect(cfg.APNS_KEY_ID).toBe('KID123');
+    expect(cfg.APNS_BUNDLE_ID).toBe('com.talentx.app');
+    expect(cfg.APNS_PRODUCTION).toBe('true');
+  });
+
+  it('rejette une config APNs partielle (tout-ou-rien)', () => {
+    const { APNS_BUNDLE_ID: _omit, ...partial } = apnsEnv;
+    expect(() => validateEnv({ ...base, ...partial })).toThrow(/APNs incomplète/);
+  });
+
   it('passe through les variables JWT quand présentes et bien formées', () => {
     const cfg = validateEnv({
       ...base,

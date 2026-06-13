@@ -6,6 +6,8 @@
  * secrets d'environnement en staging/prod — cf. README « Environnements »).
  */
 
+import { validatePushEnv } from '../jobs/push/push-config';
+
 export type NodeEnv = 'development' | 'test' | 'staging' | 'production';
 
 export interface EnvConfig {
@@ -69,6 +71,20 @@ export interface EnvConfig {
    * staging/production ; défaut dev (`http://localhost:8081`, Expo web) si absent.
    */
   APP_PUBLIC_URL?: string;
+  /**
+   * Credentials push APNs/FCM (TLX-107, ADR-22 §4). Optionnels partout — leur
+   * absence fait retomber le worker sur `LoggingPushProvider`. Chaque plateforme
+   * est **tout-ou-rien** (validée par `validatePushEnv`). Secrets d'environnement,
+   * jamais en dur. Détail des champs : `jobs/push/push-config.ts`.
+   */
+  APNS_KEY_ID?: string;
+  APNS_TEAM_ID?: string;
+  APNS_BUNDLE_ID?: string;
+  APNS_PRIVATE_KEY?: string;
+  APNS_PRODUCTION?: string;
+  FCM_PROJECT_ID?: string;
+  FCM_CLIENT_EMAIL?: string;
+  FCM_PRIVATE_KEY?: string;
 }
 
 const NODE_ENVS: readonly NodeEnv[] = ['development', 'test', 'staging', 'production'];
@@ -178,6 +194,9 @@ export function validateEnv(raw: Record<string, unknown>): EnvConfig {
     errors.push(`APP_PUBLIC_URL est requis en ${nodeEnv} (liens transactionnels)`);
   }
 
+  // Credentials push APNs/FCM (TLX-107) : optionnels, mais tout-ou-rien par plateforme.
+  errors.push(...validatePushEnv((key) => raw[key] as string | undefined));
+
   if (errors.length > 0) {
     throw new Error(`Configuration d'environnement invalide :\n- ${errors.join('\n- ')}`);
   }
@@ -201,5 +220,29 @@ export function validateEnv(raw: Record<string, unknown>): EnvConfig {
     CONSENT_TEXT_VERSION: consentTextVersion,
     ...(metricsToken ? { METRICS_TOKEN: metricsToken } : {}),
     ...(appPublicUrl ? { APP_PUBLIC_URL: appPublicUrl } : {}),
+    // Credentials push transmis tels quels (résolus en config structurée par la
+    // factory de provider au démarrage du worker — TLX-107).
+    ...passthrough(raw, [
+      'APNS_KEY_ID',
+      'APNS_TEAM_ID',
+      'APNS_BUNDLE_ID',
+      'APNS_PRIVATE_KEY',
+      'APNS_PRODUCTION',
+      'FCM_PROJECT_ID',
+      'FCM_CLIENT_EMAIL',
+      'FCM_PRIVATE_KEY',
+    ]),
   };
+}
+
+/** Reporte les variables présentes (non vides) telles quelles dans la config. */
+function passthrough(raw: Record<string, unknown>, keys: string[]): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const key of keys) {
+    const value = (raw[key] as string)?.trim();
+    if (value) {
+      out[key] = raw[key] as string;
+    }
+  }
+  return out;
 }

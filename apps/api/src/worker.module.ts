@@ -1,6 +1,6 @@
 import { join } from 'node:path';
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
 import { validateEnv } from './config/env.validation';
 import { PrismaModule } from './prisma/prisma.module';
@@ -11,7 +11,8 @@ import { ExportArchiveBuilder } from './jobs/export-archive-builder';
 import { DataExportArchiveBuilder } from './jobs/data-export-archive-builder';
 import { AccountPurgeService } from './jobs/account-purge.service';
 import { NotificationProcessor } from './jobs/notification.processor';
-import { LoggingPushProvider, PushProvider } from './jobs/push-provider';
+import { PushProvider } from './jobs/push-provider';
+import { createPushProvider } from './jobs/push/push-provider.factory';
 import { EmailProcessor } from './jobs/email.processor';
 import { LoggingEmailProvider, EmailProvider } from './jobs/email-provider';
 
@@ -38,8 +39,13 @@ import { LoggingEmailProvider, EmailProvider } from './jobs/email-provider';
     AccountPurgeService,
     { provide: ExportArchiveBuilder, useClass: DataExportArchiveBuilder },
     NotificationProcessor,
-    // Provider logging tant que les credentials APNs/FCM n'existent pas (ADR-22 §4).
-    { provide: PushProvider, useClass: LoggingPushProvider },
+    // Adaptateurs APNs/FCM réels si les credentials sont configurés, sinon
+    // LoggingPushProvider (dev/CI) — sélection par config (TLX-107, ADR-22 §4).
+    {
+      provide: PushProvider,
+      useFactory: (config: ConfigService) => createPushProvider((key) => config.get<string>(key)),
+      inject: [ConfigService],
+    },
     EmailProcessor,
     // Provider logging tant que le fournisseur SMTP/email n'est pas branché (TLX-104).
     { provide: EmailProvider, useClass: LoggingEmailProvider },

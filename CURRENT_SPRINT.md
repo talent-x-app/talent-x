@@ -12,6 +12,43 @@ de débloquer les écrans coach C-01/C-02/C-03.
 - _(éditeurs typés terminés — TLX-054→061 livrés ↓)_
 - _(C-01 complet — TLX-081→085 livrés ↓)_
 
+## Terminés — TLX-107 Push réelles APNs/FCM — adaptateurs derrière `PushProvider`
+
+- **Dernier maillon du pipeline notifications** : seul `LoggingPushProvider` était branché
+  → les push n'atteignaient personne hors de l'app. Le pipeline (file BullMQ, gardes de
+  préférence, composition générique ADR-10, **révocation des tokens invalides**) était prêt et
+  ne dépendait que de l'interface `PushProvider`. **Backend pur, zéro contrat, zéro migration.**
+- **(Config `jobs/push/push-config.ts`)** parsing pur des credentials d'environnement (jamais en
+  dur, TX-SEC-003 §12) en `{ apns, fcm }` ; chaque plateforme **tout-ou-rien** (config partielle
+  → refus au démarrage via `validatePushEnv` branché dans `validateEnv`). Restaure les PEM
+  échappés `\n` (même convention que `JWT_PRIVATE_KEY`).
+- **(Adaptateur APNs `apns-client.ts`)** `POST /3/device/<token>` via **HTTP/2** (`Http2ApnsTransport`
+  isolé + injectable), **JWT provider ES256** (.p8) mis en cache et régénéré avant la limite Apple
+  d'1 h. `410 Unregistered` / `400 BadDeviceToken`/`DeviceTokenNotForTopic` → `invalidTokens` ;
+  autres statuts et pannes réseau → **jamais d'invalidation** (échec transitoire).
+- **(Adaptateur FCM `fcm-client.ts`)** API **HTTP v1** (`…/messages:send`), **OAuth2 compte de
+  service** (JWT RS256 → endpoint token Google, access token caché jusqu'à expiration). `fetch`
+  injectable. `404 UNREGISTERED` / `400 INVALID_ARGUMENT` → `invalidTokens` ; échec OAuth → aucun
+  envoi, aucune invalidation.
+- **(Routage `platform-push-provider.ts`)** `PushProvider` réel qui **partitionne les cibles par
+  plateforme** (un destinataire a plusieurs appareils apns+fcm), délègue, agrège les `invalidTokens` ;
+  plateforme non configurée → cibles ignorées, jamais invalidées. **(Factory)** sélectionne
+  `LoggingPushProvider` (aucun credential) ou `PlatformPushProvider` (≥1 plateforme) — câblée au
+  `worker.module` par `useFactory(ConfigService)`. Le `NotificationProcessor` est **inchangé**
+  (la révocation des tokens invalides était déjà câblée).
+- **Transfert hors UE documenté** (TX-SEC-003 §10/§17) : APNs/Google = sous-traitants hors UE ;
+  contenu poussé **minimal** (titre/corps génériques + `type`/`resourceId`, ADR-10) — aucune donnée
+  de santé ni marque ne transite. `.env.example` documente les 8 variables (optionnelles).
+- **Tests** : **API unit 497/497** (+31 : config tout-ou-rien, APNs 200/410/400/429/panne/cache JWT/
+  hôte, FCM OAuth+envoi/UNREGISTERED/INVALID_ARGUMENT/500/cache token/échec OAuth, routage par
+  plateforme + agrégation, env tout-ou-rien), typecheck (src+spec) + lint clean. Clés ES256/RS256
+  **réelles** générées en test (signature effective), réseau mocké via transports injectables.
+- **Non testé en réel** (mêmes raisons qu'APNs/FCM/SMTP des tickets précédents : aucun credential
+  Apple/Google ni device réel ici) : l'**envoi effectif** vers APNs/FCM. Le mapping des erreurs,
+  l'auth (JWT ES256/OAuth2) et la révocation sont couverts par les tests à transport mocké ;
+  l'aboutissement réseau réel = à confirmer le jour où les credentials de la console Apple/Firebase
+  existeront (le pipeline en amont — enqueue → worker → provider — est déjà validé réel en TLX-106).
+
 ## Terminés — TLX-124 Photo de profil — upload avatar (présigné S3, spec §3.1)
 
 - **Promesse comblée** : avatars = initiales partout ; `photoUrl` existait au modèle mais aucun upload.
