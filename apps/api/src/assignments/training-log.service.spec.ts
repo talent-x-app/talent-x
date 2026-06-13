@@ -4,13 +4,16 @@ import type { PrismaService } from '../prisma/prisma.service';
 import type { RecordsService } from '../progress/records.service';
 import { TrainingLogService } from './training-log.service';
 import type { TrainingLogRequestDto } from './dto/training-log.dto';
+import { BlockType } from '../sessions/dto/exercises.dto';
 
 const DTO: TrainingLogRequestDto = {
   title: 'Footing 8 km',
   date: '2026-06-10',
   exercises: {
     schemaVersion: 2,
-    items: [{ name: '5000m', order: 0, type: 'endurance', params: { distanceMeters: 5000 } }],
+    items: [
+      { name: '5000m', order: 0, type: BlockType.Endurance, params: { distanceMeters: 5000 } },
+    ],
   },
   results: {
     schemaVersion: 2,
