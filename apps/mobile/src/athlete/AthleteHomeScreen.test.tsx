@@ -57,6 +57,13 @@ function assignment(id: string, status: string, dueDate?: string) {
   };
 }
 
+/** Date du jour (UTC) moins `days` jours, au format date du contrat. */
+function daysAgo(days: number): string {
+  const d = new Date();
+  d.setUTCDate(d.getUTCDate() - days);
+  return d.toISOString().slice(0, 10);
+}
+
 beforeEach(() => {
   jest.clearAllMocks();
   mockGetMe.mockResolvedValue({ status: 200, data: ME });
@@ -125,6 +132,23 @@ describe('AthleteHomeScreen (A-01, TLX-089)', () => {
     });
     render(<AthleteHomeScreen />, { wrapper: Wrapper });
     await waitFor(() => expect(screen.getByTestId('home-all-done')).toBeOnTheScreen());
+  });
+
+  it('met en avant la série d’assiduité quand la semaine est complète (TLX-115)', async () => {
+    mockListAssignments.mockResolvedValue({
+      status: 200,
+      data: { data: [assignment('s1', 'completed', daysAgo(0))] },
+    });
+    render(<AthleteHomeScreen />, { wrapper: Wrapper });
+    await waitFor(() => expect(screen.getByTestId('home-streak-badge')).toBeOnTheScreen());
+    expect(screen.getByTestId('home-streak-badge')).toHaveTextContent(/1 semaine d/);
+  });
+
+  it('aucune pastille de série sans semaine complète', async () => {
+    mockListAssignments.mockResolvedValue({ status: 200, data: { data: [] } });
+    render(<AthleteHomeScreen />, { wrapper: Wrapper });
+    await waitFor(() => expect(screen.getByTestId('home-no-sessions')).toBeOnTheScreen());
+    expect(screen.queryByTestId('home-streak-badge')).toBeNull();
   });
 
   it('état vide quand aucune séance affectée', async () => {

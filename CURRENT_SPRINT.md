@@ -12,6 +12,34 @@ de débloquer les écrans coach C-01/C-02/C-03.
 - _(éditeurs typés terminés — TLX-054→061 livrés ↓)_
 - _(C-01 complet — TLX-081→085 livrés ↓)_
 
+## Terminés — TLX-115 Assiduité athlète — séries (streaks) & taux de complétion
+
+- **Constat** : la complétion est dérivée pour le coach (ADR-17) mais l'athlète n'avait **aucun
+  signal de régularité**. Gamification légère (rétention) : **série de semaines complètes** + **taux
+  du mois**. **Frontend pur** dérivé du cache `['assignments']` (partagé A-01/A-02/calendrier) —
+  **zéro endpoint, zéro contrat, zéro backend**.
+- **(Module pur `athlete/attendance.ts`)** `computeAttendance(list, now)` (déterministe, `now`
+  injecté, lecture défensive) → `{ currentStreakWeeks, bestStreakWeeks, monthCompleted, monthTotal,
+monthCompletionRate }`. Sémantique **alignée sur le reste de l'app** : `skipped` **exclu** du
+  dénominateur (ADR-31/TLX-108) ; découpage **UTC** (comme les bornes de jour backend) ; **semaine
+  = lundi** (FR) ; une affectation n'est **évaluable** que si échue (réalisée, ou datée ≤ aujourd'hui)
+  → les séances **futures** ne pénalisent pas. Une **semaine** est complète si toutes ses affectations
+  évaluables sont réalisées ; **série** = semaines actives consécutives complètes en remontant depuis
+  la plus récente. **Choix produit assumé** (hors spec) : les semaines **sans rien de programmé** sont
+  transparentes (ne rompent pas la série — l'athlète n'est pas pénalisé d'un trou laissé par le coach).
+  `weekKey`, `isEvaluable`, `hasAttendanceSignal` exportés. **+12 tests**.
+- **(Composants `athlete/AttendanceSection.tsx`)** `AttendanceSection` (carte autonome, requête
+  `['assignments']` partagée, **masquée sans signal**) : éclair + série en cours + sous-titre
+  contextuel (« lance ta série » / record / « continue ») + **taux du mois** avec barre de
+  progression. `StreakBadge` (pastille compacte) + `AttendanceCard` (présentationnel testable).
+  **+6 tests** (carte, badge singulier/pluriel, section visible/masquée).
+- **(Câblage)** carte d'assiduité sur **Progression** (A-06, sous les métriques) ; **pastille de
+  série** sur l'**Accueil** (A-01, dérivée de la requête déjà présente — zéro fetch additionnel).
+  +1 test ProgressScreen, +2 tests AthleteHomeScreen.
+- **Tests** : **mobile 463/463** (+21), typecheck + lint clean (aucun test API : zéro backend). UI
+  couverte par RTL sur les **vrais** écrans (carte rendue quand séances évaluables, masquée sinon ;
+  pastille présente/absente selon la série).
+
 ## Terminés — TLX-117 Recherche & filtres (athlètes, séances, modèles)
 
 - **Constat** : aucune recherche nulle part — au-delà de ~20 items les listes deviennent inutilisables.

@@ -5,10 +5,12 @@ import { type ReactNode, useState } from 'react';
 
 const mockGetMyProgress = jest.fn();
 const mockListMyRecords = jest.fn();
+const mockListAssignments = jest.fn();
 
 jest.mock('@talent-x/api-client', () => ({
   getMyProgress: (...a: unknown[]) => mockGetMyProgress(...a),
   listMyRecords: (...a: unknown[]) => mockListMyRecords(...a),
+  listAssignments: (...a: unknown[]) => mockListAssignments(...a),
   createManualRecord: jest.fn(),
   AssignmentStatus: {
     assigned: 'assigned',
@@ -65,6 +67,7 @@ const PROGRESS = {
 beforeEach(() => {
   jest.clearAllMocks();
   mockListMyRecords.mockResolvedValue({ status: 200, data: { items: [] } });
+  mockListAssignments.mockResolvedValue({ status: 200, data: { data: [] } });
 });
 
 describe('ProgressScreen (TLX-090 — A-06)', () => {
@@ -104,6 +107,18 @@ describe('ProgressScreen (TLX-090 — A-06)', () => {
 
     await waitFor(() => expect(screen.getByTestId('progress-empty')).toBeOnTheScreen());
     await waitFor(() => expect(screen.getByTestId('records-empty')).toBeOnTheScreen());
+  });
+
+  it('affiche la section assiduité quand des séances sont évaluables (TLX-115)', async () => {
+    mockGetMyProgress.mockResolvedValue({ status: 200, data: PROGRESS });
+    mockListAssignments.mockResolvedValue({
+      status: 200,
+      data: { data: [{ id: 's1', status: 'completed', dueDate: daysAgo(0), athleteId: 'a-1' }] },
+    });
+    render(<ProgressScreen />, { wrapper: Wrapper });
+
+    await waitFor(() => expect(screen.getByTestId('attendance-card')).toBeOnTheScreen());
+    expect(screen.getByTestId('attendance-streak')).toHaveTextContent(/1 semaine d/);
   });
 
   it('message dédié quand le consentement manque', async () => {

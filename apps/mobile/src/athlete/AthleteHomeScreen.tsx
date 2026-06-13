@@ -18,6 +18,8 @@ import { joinGroupHref } from '../groups/navigation';
 import { AssignmentListItem } from './athlete-session-ui';
 import { sessionDetailHref } from './navigation';
 import { countDueToday, selectPendingAssignments } from './home-model';
+import { computeAttendance } from './attendance';
+import { StreakBadge } from './AttendanceSection';
 
 /** Clé du profil courant — même chaîne que `ME_QUERY_KEY` (Profil), cache partagé sans import du graphe UI. */
 const ME_QUERY_KEY = ['me'] as const;
@@ -74,6 +76,11 @@ export function AthleteHomeScreen() {
     () => countDueToday(assignmentsQuery.data ?? [], new Date()),
     [assignmentsQuery.data],
   );
+  // Série d'assiduité (TLX-115) : dérivée du cache déjà chargé, mise en avant si en cours.
+  const streakWeeks = useMemo(
+    () => computeAttendance(assignmentsQuery.data ?? [], new Date()).currentStreakWeeks,
+    [assignmentsQuery.data],
+  );
 
   const hasAssignments = (assignmentsQuery.data?.length ?? 0) > 0;
   const noGroup = groupsQuery.isSuccess && (groupsQuery.data?.length ?? 0) === 0;
@@ -113,6 +120,7 @@ export function AthleteHomeScreen() {
         >
           {homeSubtitle(pending.length, dueToday)}
         </Text>
+        <StreakBadge weeks={streakWeeks} />
       </View>
 
       {/* Rattachement manquant (TLX-88) : CTA rejoindre, point d'entrée découvrable dès l'accueil. */}
