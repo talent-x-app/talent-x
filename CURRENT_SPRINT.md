@@ -12,6 +12,40 @@ de débloquer les écrans coach C-01/C-02/C-03.
 - _(éditeurs typés terminés — TLX-054→061 livrés ↓)_
 - _(C-01 complet — TLX-081→085 livrés ↓)_
 
+## Terminés — TLX-077 Brouillon auto-save + saisie hors-ligne + synchronisation (TX-ARCH-001 §6.2)
+
+- **Lacune comblée** : la saisie de perf se fait souvent en mauvaise connectivité (salle, terrain) mais
+  l'écran ne tolérait pas le hors-ligne — un envoi raté affichait juste « réessaie », et une saisie en
+  cours était perdue à la fermeture de l'app. Livré : **auto-sauvegarde du brouillon** + **file d'écriture
+  locale rejouée à la reconnexion**, avec idempotence et conflit déterministe. **Frontend pur** : le backend
+  garantissait déjà l'idempotence (`Idempotency-Key` + unicité `assignment_id`, ADR-12) → **zéro contrat,
+  zéro migration**.
+- **(Module `offline/perf-draft.ts`)** brouillon de saisie (entries/rpe/notes) **persisté par affectation**
+  pendant la saisie (débattu 600 ms), **restauré** à la réouverture de l'écran ; purgé une fois la perf
+  confirmée par le serveur. Relecture **défensive** (JSON corrompu / forme inattendue → `null`).
+- **(Module `offline/perf-outbox.ts`)** file d'écriture pure + persistée : `upsertOutboxItem` impose **un
+  seul item en attente par affectation** (conflit déterministe TX-ARCH-001 §6.2) et **ne laisse jamais un
+  `submit` régresser en `update`** (idempotence serveur). `flushOutbox(store, sender)` rejoue
+  séquentiellement : `sent` → retiré, `retry` (réseau/5xx) → conservé, `drop` (4xx permanent) → retiré +
+  remonté. Chaque item porte sa clé `Idempotency-Key` → un rejeu ne duplique pas (ADR-12).
+- **(Adaptateur stockage `offline/key-value-store.ts`)** `KeyValueStore` injectable (→ modules purs,
+  testables avec un magasin mémoire) ; `deviceStore` réutilise `secure-storage` (trousseau OS sur natif,
+  `localStorage` sur web) — **aucune dépendance native ajoutée**.
+- **(Sync `offline/useOfflineSync.tsx`)** composant racine sans rendu (`OfflineSync`, monté dans
+  `app/_layout.tsx`) : rejoue la file **au démarrage si en ligne** et **à chaque retour de connectivité**
+  (`useNetworkStatus`, TLX-010), single-flight ; invalide le cache TanStack Query touché, **purge le
+  brouillon des seules perfs confirmées**, notifie succès/échec.
+- **(Mobile `SessionDetailScreen`)** saisie hors ligne → **mise en file** (sans appel réseau) + bannière
+  « en attente de synchronisation » + bouton « Enregistrer (hors ligne) » ; **panne réseau en cours d'envoi**
+  (`fetch` rejeté, distinct d'une réponse HTTP d'erreur) → repli sur la file ; **brouillon restauré** à
+  l'entrée en saisie (garde-fou : seulement s'il reste **aligné** sur les feuilles de la séance).
+- **Tests** : **mobile 530/530** (+26 : `perf-draft` ×5, `perf-outbox` + `flushOutbox` ×10, `sendPerfItem` +
+  `OfflineSync` ×7, écran hors-ligne/brouillon ×4), typecheck (api + api-client + mobile) + lint clean.
+  Magasin mémoire / trousseau mocké, réseau mocké.
+- **Non rejoué en réel** (smoke Expo web / device : couper le réseau, saisir, reconnecter) — la logique est
+  couverte par les tests unitaires + RTL sur le **vrai** écran ; le cycle bout-en-bout sur device = **suivi
+  TLX-137**.
+
 ## Terminés — TLX-128 Email transactionnel : adaptateur réel (Brevo, UE) derrière `EmailProvider`
 
 - **Dernier maillon du pipeline email** : seul `LoggingEmailProvider` était branché (TLX-104)

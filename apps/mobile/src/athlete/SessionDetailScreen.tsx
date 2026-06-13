@@ -12,7 +12,7 @@ import { useTheme } from '@talent-x/design-tokens';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Feather } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -24,7 +24,18 @@ import {
 } from 'react-native';
 import { Button, Card, Chip, Slider } from '../components/ui';
 import { SkipSessionCard } from '../assignments/assignment-lifecycle';
-import { useToast } from '../feedback';
+import { useNetworkStatus, useToast } from '../feedback';
+import {
+  clearDraft,
+  deviceStore,
+  enqueuePerf,
+  findOutboxItem,
+  loadDraft,
+  loadOutbox,
+  saveDraft,
+  type OutboxItem,
+  type PerfDraft,
+} from '../offline';
 import { FeedbackThread } from '../comments/FeedbackThread';
 import { formatExerciseTarget } from '../sessions/exercise-target';
 import {
@@ -55,6 +66,25 @@ function isConsentRequired(error: unknown): boolean {
   return e?.status === 403 && e?.data?.error === 'CONSENT_REQUIRED';
 }
 
+/**
+ * Distingue une **panne réseau** (la requête n'a pas abouti) d'une réponse HTTP d'erreur.
+ * Le mutator `customFetch` renvoie une enveloppe `{ status }` pour toute réponse serveur et
+ * **lève** seulement quand `fetch` rejette (hors ligne). Sans `status` numérique → réseau.
+ */
+function isNetworkError(error: unknown): boolean {
+  return !(
+    typeof error === 'object' &&
+    error !== null &&
+    'status' in error &&
+    typeof (error as { status?: unknown }).status === 'number'
+  );
+}
+
+/** Le brouillon porte une saisie réelle (≥ 1 exercice mesuré/coché ou des notes). */
+function draftHasContent(draft: Pick<PerfDraft, 'entries' | 'notes'>): boolean {
+  return draft.entries.some(entryIsCompleted) || draft.notes.trim() !== '';
+}
+
 const DEFAULT_RPE = 7;
 
 /** Version courante du contrat JSONB des résultats (schéma results v2, TX-DATA-006 · ADR-19). */
@@ -73,6 +103,7 @@ export function SessionDetailScreen() {
   const router = useRouter();
   const toast = useToast();
   const queryClient = useQueryClient();
+  const online = useNetworkStatus();
   const { id } = useLocalSearchParams<{ id: string }>();
 
   const assignment = useQuery({
@@ -119,9 +150,46 @@ export function SessionDetailScreen() {
   const [rpe, setRpe] = useState(DEFAULT_RPE);
   const [notes, setNotes] = useState('');
 
+  // Persistance hors-ligne (TLX-077) : brouillon auto-sauvegardé + écriture en attente.
+  const [pendingDraft, setPendingDraft] = useState<PerfDraft | null>(null);
+  const [queuedOffline, setQueuedOffline] = useState(false);
+
   useEffect(() => {
     setEntries(leafRows.map((r) => makeEmptyEntry(r.exercise, leafRounds(r.group))));
   }, [leafRows]);
+
+  // Au montage : relit un éventuel brouillon local et signale une perf déjà en file (rouverte
+  // après une saisie hors-ligne non encore synchronisée).
+  useEffect(() => {
+    if (!id) return;
+    let active = true;
+    void (async () => {
+      const [draft, queue] = await Promise.all([
+        loadDraft(deviceStore, id),
+        loadOutbox(deviceStore),
+      ]);
+      if (!active) return;
+      setPendingDraft(draft);
+      setQueuedOffline(findOutboxItem(queue, id) != null);
+    })();
+    return () => {
+      active = false;
+    };
+  }, [id]);
+
+  // Auto-sauvegarde du brouillon pendant la saisie (anti-perte sur app tuée / mauvais réseau),
+  // débattue à 600 ms. Sans contenu réel → purge (on ne garde pas de brouillon vide).
+  useEffect(() => {
+    if (mode !== 'entry' || !id) return;
+    const handle = setTimeout(() => {
+      if (draftHasContent({ entries, notes })) {
+        void saveDraft(deviceStore, id, { entries, rpe, notes, savedAt: new Date().toISOString() });
+      } else {
+        void clearDraft(deviceStore, id);
+      }
+    }, 600);
+    return () => clearTimeout(handle);
+  }, [mode, entries, rpe, notes, id]);
 
   useEffect(() => {
     const perf = existing.data;
@@ -145,8 +213,24 @@ export function SessionDetailScreen() {
 
   const alreadySaved = existing.data != null;
 
+  // Passage en saisie : restaure le brouillon local s'il porte une saisie réelle et reste
+  // **aligné** sur les feuilles courantes de la séance (garde-fou si la séance a changé).
+  const startEntry = useCallback(() => {
+    if (
+      pendingDraft &&
+      pendingDraft.entries.length === leafRows.length &&
+      draftHasContent(pendingDraft)
+    ) {
+      setEntries(pendingDraft.entries);
+      setRpe(pendingDraft.rpe);
+      setNotes(pendingDraft.notes);
+      toast.show({ title: 'Brouillon restauré', variant: 'info' });
+    }
+    setMode('entry');
+  }, [pendingDraft, leafRows.length, toast]);
+
   const mutation = useMutation({
-    mutationFn: async (): Promise<Performance> => {
+    mutationFn: async (): Promise<{ queued: true } | { perf: Performance }> => {
       const results: ResultsDoc = {
         schemaVersion: RESULTS_SCHEMA_VERSION,
         items: leafRows.map((r, i) =>
@@ -154,13 +238,48 @@ export function SessionDetailScreen() {
         ),
       };
       const body: PerformanceCreate = { results, rpe, notes: notes.trim() || undefined };
-      const response = alreadySaved
-        ? await updatePerformance(id, body)
-        : await submitPerformance(id, body, { headers: { 'Idempotency-Key': `perf-${id}` } });
-      if (response.status === 200 || response.status === 201) return response.data;
-      throw response;
+      const queueItem: OutboxItem = {
+        assignmentId: id,
+        kind: alreadySaved ? 'update' : 'submit',
+        body,
+        idempotencyKey: `perf-${id}`,
+        queuedAt: new Date().toISOString(),
+      };
+      // Hors ligne : on ne tente pas le réseau — l'écriture part en file (rejouée à la reconnexion).
+      if (!online) {
+        await enqueuePerf(deviceStore, queueItem);
+        return { queued: true };
+      }
+      try {
+        const response = alreadySaved
+          ? await updatePerformance(id, body)
+          : await submitPerformance(id, body, { headers: { 'Idempotency-Key': `perf-${id}` } });
+        if (response.status === 200 || response.status === 201) return { perf: response.data };
+        throw response;
+      } catch (error) {
+        // Panne réseau survenue en cours d'envoi → repli sur la file (pas un refus serveur).
+        if (isNetworkError(error)) {
+          await enqueuePerf(deviceStore, queueItem);
+          return { queued: true };
+        }
+        throw error;
+      }
     },
-    onSuccess: (perf) => {
+    onSuccess: (result) => {
+      if ('queued' in result) {
+        // Mise en file : on conserve le brouillon (filet de sécurité jusqu'à confirmation du flush).
+        setQueuedOffline(true);
+        toast.show({
+          title: 'Enregistré hors ligne',
+          description: 'Ta perf sera synchronisée dès le retour du réseau.',
+          variant: 'success',
+        });
+        setMode('view');
+        return;
+      }
+      const perf = result.perf;
+      setQueuedOffline(false);
+      void clearDraft(deviceStore, id);
       void queryClient.invalidateQueries({ queryKey: ['assignments'] });
       void queryClient.invalidateQueries({ queryKey: ['assignment', id] });
       // Préchauffe le cache de la confirmation (A-05) — pas d'appel réseau supplémentaire.
@@ -271,6 +390,28 @@ export function SessionDetailScreen() {
 
           {mode === 'view' ? (
             <>
+              {/* TLX-077 : perf saisie hors ligne, en attente de synchronisation. */}
+              {queuedOffline ? (
+                <Card
+                  testID="session-detail-pending-sync"
+                  style={{ backgroundColor: colors.warningBg }}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[2] }}>
+                    <Feather name="upload-cloud" size={16} color={colors.warning} />
+                    <Text
+                      style={{
+                        flex: 1,
+                        color: colors.warning,
+                        fontFamily: typography.fontFamily.medium,
+                        fontSize: typography.bodySm.fontSize,
+                      }}
+                    >
+                      Enregistré hors ligne — en attente de synchronisation.
+                    </Text>
+                  </View>
+                </Card>
+              ) : null}
+
               {alreadySaved ? (
                 <Card testID="session-detail-saved" style={{ backgroundColor: colors.successBg }}>
                   <Text
@@ -298,7 +439,7 @@ export function SessionDetailScreen() {
 
               <Button
                 testID="start-perf-entry"
-                onPress={() => setMode('entry')}
+                onPress={startEntry}
                 size="lg"
                 leftIcon={<Feather name="edit-3" size={18} color={colors.textOnAccent} />}
               >
@@ -449,7 +590,11 @@ export function SessionDetailScreen() {
                 loading={mutation.isPending}
                 size="lg"
               >
-                {alreadySaved ? 'Mettre à jour' : 'Enregistrer ma perf'}
+                {!online
+                  ? 'Enregistrer (hors ligne)'
+                  : alreadySaved
+                    ? 'Mettre à jour'
+                    : 'Enregistrer ma perf'}
               </Button>
 
               <Button

@@ -55,7 +55,19 @@ jest.mock('expo-router', () => ({
   useRouter: () => ({ back: mockBack, replace: mockReplace }),
   useLocalSearchParams: () => ({ id: 'as-1' }),
 }));
-jest.mock('../feedback', () => ({ useToast: () => ({ show: mockShow, dismiss: jest.fn() }) }));
+jest.mock('../feedback', () => ({
+  useToast: () => ({ show: mockShow, dismiss: jest.fn() }),
+  useNetworkStatus: () => true,
+}));
+jest.mock('../offline', () => ({
+  deviceStore: {},
+  loadDraft: jest.fn().mockResolvedValue(null),
+  loadOutbox: jest.fn().mockResolvedValue([]),
+  findOutboxItem: jest.fn(() => undefined),
+  saveDraft: jest.fn().mockResolvedValue(undefined),
+  clearDraft: jest.fn().mockResolvedValue(undefined),
+  enqueuePerf: jest.fn().mockResolvedValue([]),
+}));
 
 import { SessionDetailScreen } from './SessionDetailScreen';
 

@@ -12,6 +12,7 @@ import { useEffect } from 'react';
 import { SessionProvider } from '../src/auth/SessionProvider';
 import { QueryProvider } from '../src/data/QueryProvider';
 import { ErrorBoundary, OfflineBanner, ToastProvider } from '../src/feedback';
+import { OfflineSync } from '../src/offline';
 
 // Garde le splash visible tant que les polices ne sont pas chargées.
 void SplashScreen.preventAutoHideAsync();
@@ -45,6 +46,8 @@ export default function RootLayout() {
             <SessionProvider>
               <Stack screenOptions={{ headerShown: false }} />
               <OfflineBanner />
+              {/* Rejoue la file d'écriture des perfs à la reconnexion (TLX-077). */}
+              <OfflineSync />
             </SessionProvider>
           </ToastProvider>
         </ErrorBoundary>
