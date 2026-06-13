@@ -2,7 +2,8 @@ import { Controller, Get, Header, Headers, UnauthorizedException } from '@nestjs
 import { ConfigService } from '@nestjs/config';
 import { ApiExcludeController } from '@nestjs/swagger';
 import { Public } from '../common/decorators/public.decorator';
-import { PROMETHEUS_CONTENT_TYPE, renderQueueMetrics } from './prometheus';
+import { HttpMetricsService } from './http-metrics.service';
+import { PROMETHEUS_CONTENT_TYPE, renderHttpMetrics, renderQueueMetrics } from './prometheus';
 import { QueueMetricsService } from './queue-metrics.service';
 
 /**
@@ -20,6 +21,7 @@ import { QueueMetricsService } from './queue-metrics.service';
 export class MetricsController {
   constructor(
     private readonly metrics: QueueMetricsService,
+    private readonly httpMetrics: HttpMetricsService,
     private readonly config: ConfigService,
   ) {}
 
@@ -28,8 +30,8 @@ export class MetricsController {
   @Header('Content-Type', PROMETHEUS_CONTENT_TYPE)
   async scrape(@Headers('authorization') authorization?: string): Promise<string> {
     this.assertAuthorized(authorization);
-    const snapshot = await this.metrics.snapshot();
-    return renderQueueMetrics(snapshot);
+    const queueSnapshot = await this.metrics.snapshot();
+    return renderQueueMetrics(queueSnapshot) + renderHttpMetrics(this.httpMetrics.snapshot());
   }
 
   /** Exige le jeton de scrape uniquement si `METRICS_TOKEN` est configuré. */

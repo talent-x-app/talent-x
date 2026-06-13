@@ -1,4 +1,9 @@
 import { DATA_EXPORT_QUEUE } from '../jobs/jobs.constants';
+import {
+  HTTP_DURATION_BUCKETS,
+  type HttpMetricsSnapshot,
+  type HttpMetricSeries,
+} from './http-metrics.service';
 import type { QueueMetricsSnapshot } from './queue-metrics.service';
 
 /** Content-Type de l'exposition Prometheus (format texte v0.0.4). */
@@ -30,4 +35,59 @@ export function renderQueueMetrics(snapshot: QueueMetricsSnapshot): string {
 
   // Exposition terminée par un saut de ligne (convention Prometheus).
   return `${lines.join('\n')}\n`;
+}
+
+/**
+ * Rend les métriques applicatives HTTP au format Prometheus (TX-OPS-004 §7 :
+ * taux d'erreur, latence p95, volume d'appels, connexions actives) :
+ * - `talentx_http_requests_in_flight` (gauge) — requêtes en cours ;
+ * - `talentx_http_requests_total` (counter, labels method/route/status) — volume
+ *   d'appels ; le taux d'erreur se dérive du label `status` côté scrapeur ;
+ * - `talentx_http_request_duration_seconds` (histogram) — la latence p95 se dérive
+ *   des buckets via `histogram_quantile`.
+ *
+ * Fonction pure (pas d'I/O) : l'accumulation vit dans `HttpMetricsService`.
+ */
+export function renderHttpMetrics(snapshot: HttpMetricsSnapshot): string {
+  const lines: string[] = [];
+
+  lines.push('# HELP talentx_http_requests_in_flight Requêtes HTTP en cours de traitement.');
+  lines.push('# TYPE talentx_http_requests_in_flight gauge');
+  lines.push(`talentx_http_requests_in_flight ${snapshot.inFlight}`);
+
+  lines.push('# HELP talentx_http_requests_total Nombre total de requêtes HTTP traitées.');
+  lines.push('# TYPE talentx_http_requests_total counter');
+  for (const series of snapshot.series) {
+    lines.push(`talentx_http_requests_total{${httpLabels(series)}} ${series.count}`);
+  }
+
+  lines.push('# HELP talentx_http_request_duration_seconds Durée des requêtes HTTP en secondes.');
+  lines.push('# TYPE talentx_http_request_duration_seconds histogram');
+  for (const series of snapshot.series) {
+    const labels = httpLabels(series);
+    HTTP_DURATION_BUCKETS.forEach((bound, i) => {
+      lines.push(
+        `talentx_http_request_duration_seconds_bucket{${labels},le="${bound}"} ${series.buckets[i]}`,
+      );
+    });
+    lines.push(`talentx_http_request_duration_seconds_bucket{${labels},le="+Inf"} ${series.count}`);
+    lines.push(`talentx_http_request_duration_seconds_sum{${labels}} ${series.sumSeconds}`);
+    lines.push(`talentx_http_request_duration_seconds_count{${labels}} ${series.count}`);
+  }
+
+  return `${lines.join('\n')}\n`;
+}
+
+/** Jeu de labels d'une série HTTP, valeurs échappées (convention Prometheus). */
+function httpLabels(series: HttpMetricSeries): string {
+  return [
+    `method="${escapeLabelValue(series.method)}"`,
+    `route="${escapeLabelValue(series.route)}"`,
+    `status="${escapeLabelValue(series.status)}"`,
+  ].join(',');
+}
+
+/** Échappe `\`, `"` et saut de ligne dans une valeur de label (spec exposition Prometheus). */
+function escapeLabelValue(value: string): string {
+  return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n');
 }

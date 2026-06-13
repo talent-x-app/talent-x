@@ -12,6 +12,38 @@ de débloquer les écrans coach C-01/C-02/C-03.
 - _(éditeurs typés terminés — TLX-054→061 livrés ↓)_
 - _(C-01 complet — TLX-081→085 livrés ↓)_
 
+## Terminés — TLX-76 Métriques applicatives HTTP (taux d'erreur, latence p95, volume d'appels) sur `/metrics`
+
+- **Maillon manquant du monitoring (hors V2)** : les logs JSON + correlation ID (bootstrap),
+  la liveness/readiness (DB+Redis) et la profondeur de file (`/metrics`) existaient, mais **aucune
+  métrique applicative HTTP** — or la spec d'exploitation (TX-OPS-004 §7) exige explicitement
+  « taux d'erreur, latence p95, volume d'appels, connexions actives », et §8 cale des alertes sur
+  ces seuils (taux d'erreur > 5 %, **p95 > 1 s**). **Backend pur, zéro contrat, zéro migration,
+  aucune dépendance ajoutée** (on n'embarque pas `prom-client` : rendu maison, cohérent avec
+  l'existant `renderQueueMetrics`).
+- **(Registre `metrics/http-metrics.service.ts`)** accumulateur en mémoire **sans I/O** (testable
+  isolément) : `observe({method, route, status, durationSeconds})` agrège par triplet, `inFlight`
+  (connexions actives), histogramme à bornes `0.005…10 s` avec **une borne exactement à 1 s** (SLO
+  p95 lisible sans interpolation). `snapshot()` renvoie une **copie défensive**.
+- **(Intercepteur `metrics/http-metrics.interceptor.ts`)** enregistré **globalement** (`APP_INTERCEPTOR`).
+  Mesure posée sur `res.finish`/`res.close` (et non dans le flux RxJS) → capte le **statut final réel**
+  y compris celui réécrit par `AllExceptionsFilter`, et compte les connexions coupées. **Label `route`
+  = gabarit express** (`/api/v1/athletes/:id/progress`), jamais l'URL brute → **cardinalité bornée**
+  (sans route matchée → `unmatched`). `/metrics` ne se mesure pas lui-même.
+- **(Exposition `metrics/prometheus.ts`)** `renderHttpMetrics` — fonction **pure** : gauge
+  `talentx_http_requests_in_flight`, counter `talentx_http_requests_total{method,route,status}`
+  (volume + taux d'erreur dérivable du label `status`), histogram
+  `talentx_http_request_duration_seconds` (p95 via `histogram_quantile`). Valeurs de label échappées.
+  `GET /metrics` concatène désormais file **+** HTTP. Jeton de scrape optionnel (`METRICS_TOKEN`) inchangé.
+- **Tests** : **API unit 536/536** (+14 : registre ×6, rendu HTTP ×3, intercepteur ×5), **e2e 10/10**
+  (+1 : `/metrics` expose `talentx_http_requests_total{route="/api/v1/health"}` après une vraie requête
+  — valide le templating de route express **réel** + le câblage global, ce que les unitaires mockent ;
+  `/metrics` ne s'auto-compte pas), typecheck (src+spec) + lint clean.
+- **Hors périmètre code (→ TLX créé)** : la **validation de charge en conditions de production**
+  (« valider les performances : temps de réponse, charge ») exige un environnement prod-like + outil de
+  charge → ne se code pas ici (suivi). Les **règles d'alerte** (seuils §8) vivent dans l'observabilité
+  **managée** (ADR-11), pas dans le repo : ce livrable rend les signaux **exposables** pour les y brancher.
+
 ## Terminés — TLX-077 Brouillon auto-save + saisie hors-ligne + synchronisation (TX-ARCH-001 §6.2)
 
 - **Lacune comblée** : la saisie de perf se fait souvent en mauvaise connectivité (salle, terrain) mais

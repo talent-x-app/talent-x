@@ -19,7 +19,9 @@ describe('API skeleton (e2e)', () => {
     }).compile();
 
     app = moduleRef.createNestApplication();
-    app.setGlobalPrefix('api/v1');
+    // Mirroir de main.ts : `/metrics` est servi à la racine (endpoint de scrape),
+    // hors préfixe `/api/v1` — l'intercepteur de métriques s'y exclut lui-même.
+    app.setGlobalPrefix('api/v1', { exclude: ['metrics'] });
     app.useGlobalPipes(
       new ValidationPipe({
         whitelist: true,
@@ -59,6 +61,26 @@ describe('API skeleton (e2e)', () => {
         if ('redis' in res.body.checks) {
           expect(typeof res.body.checks.redis).toBe('boolean');
         }
+      });
+  });
+
+  it('GET /metrics expose les métriques HTTP applicatives avec le gabarit de route', async () => {
+    // Une requête métier alimente l'intercepteur global (route templatée par express).
+    await request(app.getHttpServer()).get('/api/v1/health').expect(200);
+
+    return request(app.getHttpServer())
+      .get('/metrics')
+      .expect(200)
+      .expect((res) => {
+        expect(res.headers['content-type']).toContain('text/plain');
+        // Le label `route` porte le gabarit (`/api/v1/health`), pas l'URL brute.
+        expect(res.text).toContain('# TYPE talentx_http_requests_total counter');
+        expect(res.text).toMatch(
+          /talentx_http_requests_total\{method="GET",route="\/api\/v1\/health",status="200"\}/,
+        );
+        expect(res.text).toContain('talentx_http_request_duration_seconds_bucket');
+        // Le scrape de /metrics ne se compte pas lui-même.
+        expect(res.text).not.toContain('route="/metrics"');
       });
   });
 
