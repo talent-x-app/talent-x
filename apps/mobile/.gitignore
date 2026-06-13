@@ -4,3 +4,7 @@
 
 expo-env.d.ts
 # @end expo-cli
+# Playwright E2E (TLX-129..140) — rapports, traces et captures = artefacts, pas du code
+/playwright-report/
+/test-results/
+/e2e/__screens__/

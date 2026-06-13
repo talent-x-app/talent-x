@@ -54,6 +54,17 @@ export default tseslint.config(
     languageOptions: { globals: { ...globals.jest } },
   },
 
+  // Tests E2E Playwright (apps/mobile/e2e) : idiomes propres au harnais — payloads d'API
+  // non typés (`any` sur les réponses REST de seed) et destructuration vide des fixtures
+  // (`async ({}, use) =>`). On les autorise ici sans relâcher le reste du dépôt.
+  {
+    files: ['apps/mobile/e2e/**/*.ts'],
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'off',
+      'no-empty-pattern': 'off',
+    },
+  },
+
   // Désactive les règles en conflit avec Prettier (doit rester en dernier).
   prettier,
 );

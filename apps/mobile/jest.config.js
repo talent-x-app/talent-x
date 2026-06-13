@@ -4,6 +4,8 @@
 // multi-plateforme. `@testing-library/react-native` fournit le rendu + matchers.
 module.exports = {
   preset: 'jest-expo',
+  // Les specs Playwright (e2e/) ne sont pas des tests Jest : les ignorer.
+  testPathIgnorePatterns: ['/node_modules/', '<rootDir>/e2e/'],
   // RNTL v13 : les matchers Jest sont auto-enregistrés à l'import du module
   // (plus de point d'entrée /extend-expect).
   // Les paquets de l'espace de travail (@talent-x/*) sont publiés en JS compilé
