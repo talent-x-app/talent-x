@@ -10,6 +10,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { ActivityIndicator, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { Button, Card } from '../components/ui';
+import { ResponsiveContent } from '../responsive/ResponsiveContent';
 import { COMPETITIONS_QUERY_KEY } from '../competitions/competitions-query';
 import { coachCompetitionsHref, competitionEditHref } from '../competitions/navigation';
 import { CalendarView } from './CalendarView';
@@ -58,7 +59,7 @@ export function CoachCalendarScreen() {
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: colors.background }}
-      contentContainerStyle={{ padding: spacing[6], gap: spacing[5] }}
+      contentContainerStyle={{ padding: spacing[6] }}
       refreshControl={
         <RefreshControl
           refreshing={query.isRefetching}
@@ -67,76 +68,78 @@ export function CoachCalendarScreen() {
         />
       }
     >
-      <Text
-        style={{
-          color: colors.textPrimary,
-          fontFamily: typography.fontFamily.bold,
-          fontSize: typography.h2.fontSize,
-        }}
-      >
-        Calendrier
-      </Text>
+      <ResponsiveContent testID="coach-responsive-content" style={{ gap: spacing[5] }}>
+        <Text
+          style={{
+            color: colors.textPrimary,
+            fontFamily: typography.fontFamily.bold,
+            fontSize: typography.h2.fontSize,
+          }}
+        >
+          Calendrier
+        </Text>
 
-      <Button
-        testID="calendar-competitions-link"
-        variant="secondary"
-        onPress={() => router.push(coachCompetitionsHref())}
-      >
-        Gérer les compétitions
-      </Button>
+        <Button
+          testID="calendar-competitions-link"
+          variant="secondary"
+          onPress={() => router.push(coachCompetitionsHref())}
+        >
+          Gérer les compétitions
+        </Button>
 
-      {query.isLoading ? (
-        <View testID="calendar-loading" style={{ paddingVertical: spacing[6] }}>
-          <ActivityIndicator color={colors.accent} />
-        </View>
-      ) : query.isError ? (
-        <Card testID="calendar-error">
-          <View style={{ gap: spacing[4] }}>
-            <Text
-              style={{
-                color: colors.textSecondary,
-                fontFamily: typography.fontFamily.regular,
-                fontSize: typography.body.fontSize,
-                textAlign: 'center',
-              }}
-            >
-              Impossible de charger le calendrier.
-            </Text>
-            <Button testID="calendar-retry" onPress={() => void query.refetch()}>
-              Réessayer
-            </Button>
+        {query.isLoading ? (
+          <View testID="calendar-loading" style={{ paddingVertical: spacing[6] }}>
+            <ActivityIndicator color={colors.accent} />
           </View>
-        </Card>
-      ) : (
-        <>
-          {entries.length === 0 ? (
-            <Card testID="calendar-empty">
+        ) : query.isError ? (
+          <Card testID="calendar-error">
+            <View style={{ gap: spacing[4] }}>
               <Text
                 style={{
-                  color: colors.textMuted,
+                  color: colors.textSecondary,
                   fontFamily: typography.fontFamily.regular,
                   fontSize: typography.body.fontSize,
                   textAlign: 'center',
                 }}
               >
-                Aucune séance planifiée. Crée une séance pour la voir ici.
+                Impossible de charger le calendrier.
               </Text>
-            </Card>
-          ) : null}
-          <CalendarView
-            entries={entries}
-            now={new Date()}
-            testIDPrefix="calendar"
-            onPressEntry={(entry) =>
-              router.push(
-                entry.kind === 'competition'
-                  ? competitionEditHref(entry.id)
-                  : { pathname: '/(coach)/session/[id]', params: { id: entry.id } },
-              )
-            }
-          />
-        </>
-      )}
+              <Button testID="calendar-retry" onPress={() => void query.refetch()}>
+                Réessayer
+              </Button>
+            </View>
+          </Card>
+        ) : (
+          <>
+            {entries.length === 0 ? (
+              <Card testID="calendar-empty">
+                <Text
+                  style={{
+                    color: colors.textMuted,
+                    fontFamily: typography.fontFamily.regular,
+                    fontSize: typography.body.fontSize,
+                    textAlign: 'center',
+                  }}
+                >
+                  Aucune séance planifiée. Crée une séance pour la voir ici.
+                </Text>
+              </Card>
+            ) : null}
+            <CalendarView
+              entries={entries}
+              now={new Date()}
+              testIDPrefix="calendar"
+              onPressEntry={(entry) =>
+                router.push(
+                  entry.kind === 'competition'
+                    ? competitionEditHref(entry.id)
+                    : { pathname: '/(coach)/session/[id]', params: { id: entry.id } },
+                )
+              }
+            />
+          </>
+        )}
+      </ResponsiveContent>
     </ScrollView>
   );
 }

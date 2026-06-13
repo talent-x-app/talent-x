@@ -12,6 +12,30 @@ de débloquer les écrans coach C-01/C-02/C-03.
 - _(éditeurs typés terminés — TLX-054→061 livrés ↓)_
 - _(C-01 complet — TLX-081→085 livrés ↓)_
 
+## Terminés — TLX-123 Mode web/tablette coach — layout adaptatif (constructeur, calendrier, dashboard, assignation)
+
+- **Constat** : l'app tourne déjà sous Expo web (servait à la validation) mais **aucun layout
+  adaptatif** — sur grand écran le contenu s'étire sur toute la largeur (lignes interminables,
+  cartes démesurées). Les coachs planifient sur grand écran. **Frontend pur, zéro contrat, zéro
+  backend.**
+- **(Module pur `responsive/breakpoints.ts`)** primitive testable (largeur injectée) :
+  `breakpointForWidth` (`compact` < 600 ≤ `medium` < 1024 ≤ `expanded`), `contentMaxWidthForWidth`
+  (borne à **960 px** dès le seuil tablette, libre sur téléphone) + hooks réactifs `useBreakpoint`,
+  `useIsWide`, `useContentMaxWidth` (sur `useWindowDimensions` → suit rotations/redimensionnements
+  web). **+2 tests**.
+- **(Composant `responsive/ResponsiveContent.tsx`)** conteneur **centré et borné** : enfant flex
+  unique du `ScrollView` (`alignSelf:'center'` + `maxWidth` + `width:'100%'`) → centrage fiable
+  cross-plateforme, no-op sur téléphone. **+2 tests** (cap 960 à 1280 px, libre à 375 px).
+- **(Câblage)** appliqué aux **4 écrans coach clés** — `CoachDashboardScreen`, `SessionBuilderScreen`,
+  `CoachAssignScreen`, `CoachCalendarScreen` : `gap` déplacé du `contentContainerStyle` vers le
+  wrapper, `padding` conservé. Zéro changement de comportement sur mobile (mêmes `testID`, mêmes
+  flux). +2 tests d'intégration (dashboard : bornage à 1280 px, pleine largeur à 375 px).
+- **Tests** : **mobile 473/473** (+6), typecheck + lint clean. **Navigation tablette/desktop**
+  (sidebar vs tab bar) volontairement **hors périmètre** (changement structurel de nav) — le gain
+  immédiat et robuste = bornage/centrage du contenu.
+- **Non rejoué en réel** (smoke Expo web large) : le rendu visuel sur grand écran → suivi **TLX-130**
+  (RTL prouve le style `maxWidth` appliqué ; le rendu visuel reste à confirmer en navigateur).
+
 ## Terminés — TLX-118 Fil de discussion pré-séance (commentaires de séance en UI)
 
 - **Constat** : l'API `/comments` cible **séance XOR perf** (TLX-086) mais l'UI n'exposait le fil que

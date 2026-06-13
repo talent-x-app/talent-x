@@ -1,11 +1,18 @@
 import { ThemeProvider } from '@talent-x/design-tokens';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { StyleSheet } from 'react-native';
 import { type ReactNode, useState } from 'react';
 
 const mockGetCoachDashboard = jest.fn();
 const mockListAssignments = jest.fn();
 const mockPush = jest.fn();
+// Dimensions de fenêtre contrôlables (TLX-123) — mutées par les tests responsive.
+const mockWindow = { width: 375, height: 812, scale: 2, fontScale: 1 };
+jest.mock('react-native/Libraries/Utilities/useWindowDimensions', () => ({
+  __esModule: true,
+  default: () => mockWindow,
+}));
 
 jest.mock('@talent-x/api-client', () => ({
   getCoachDashboard: (...args: unknown[]) => mockGetCoachDashboard(...args),
@@ -314,5 +321,36 @@ describe('CoachDashboardScreen (TLX-081)', () => {
     await waitFor(() =>
       expect(screen.getByTestId('coach-dashboard-kpi-toreview')).toBeOnTheScreen(),
     );
+  });
+
+  // Layout adaptatif web/tablette (TLX-123) : le contenu coach est borné et centré au-delà du
+  // seuil tablette, pleine largeur sur téléphone.
+  describe('layout adaptatif (TLX-123)', () => {
+    afterEach(() => {
+      mockWindow.width = 375;
+    });
+
+    function contentMaxWidth(): number | undefined {
+      const flat = StyleSheet.flatten(
+        screen.getByTestId('coach-responsive-content').props.style,
+      ) as { maxWidth?: number };
+      return flat.maxWidth;
+    }
+
+    it('borne la largeur du contenu sur grand écran (desktop)', async () => {
+      mockWindow.width = 1280;
+      mockGetCoachDashboard.mockResolvedValue({ status: 200, data: DASHBOARD });
+      render(<CoachDashboardScreen />, { wrapper: Wrapper });
+      await waitFor(() => expect(screen.getByTestId('coach-responsive-content')).toBeOnTheScreen());
+      expect(contentMaxWidth()).toBe(960);
+    });
+
+    it('pleine largeur sur téléphone (aucune borne)', async () => {
+      mockWindow.width = 375;
+      mockGetCoachDashboard.mockResolvedValue({ status: 200, data: DASHBOARD });
+      render(<CoachDashboardScreen />, { wrapper: Wrapper });
+      await waitFor(() => expect(screen.getByTestId('coach-responsive-content')).toBeOnTheScreen());
+      expect(contentMaxWidth()).toBeUndefined();
+    });
   });
 });

@@ -15,6 +15,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { Button, Card, Chip } from '../components/ui';
+import { ResponsiveContent } from '../responsive/ResponsiveContent';
 import { useToast } from '../feedback';
 import {
   BlockCard,
@@ -363,74 +364,18 @@ export function SessionBuilderScreen({
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: colors.background }}
-      contentContainerStyle={{ padding: spacing[6], gap: spacing[5] }}
+      contentContainerStyle={{ padding: spacing[6] }}
       keyboardShouldPersistTaps="handled"
     >
-      <Pressable
-        testID="session-builder-back"
-        onPress={() => router.back()}
-        accessibilityRole="button"
-        accessibilityLabel="Retour"
-        style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[1] }}
-      >
-        <Feather name="chevron-left" size={22} color={colors.textSecondary} />
-        <Text
-          style={{
-            color: colors.textSecondary,
-            fontFamily: typography.fontFamily.medium,
-            fontSize: typography.bodySm.fontSize,
-          }}
+      <ResponsiveContent testID="coach-responsive-content" style={{ gap: spacing[5] }}>
+        <Pressable
+          testID="session-builder-back"
+          onPress={() => router.back()}
+          accessibilityRole="button"
+          accessibilityLabel="Retour"
+          style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[1] }}
         >
-          Mes séances
-        </Text>
-      </Pressable>
-
-      <Text
-        testID="session-builder-title"
-        style={{
-          color: colors.textPrimary,
-          fontFamily: typography.fontFamily.bold,
-          fontSize: typography.h1.fontSize,
-          letterSpacing: -0.5,
-        }}
-      >
-        {isTemplate
-          ? isEdit
-            ? 'Modifier le modèle'
-            : 'Nouveau modèle'
-          : isEdit
-            ? 'Modifier la séance'
-            : 'Nouvelle séance'}
-      </Text>
-
-      {/* En-tête de séance (Carte C-05 §4). */}
-      <View style={{ gap: spacing[4] }}>
-        <HeaderField
-          testID="session-field-title"
-          label="Titre"
-          value={title}
-          onChangeText={setTitle}
-          placeholder="Ex. Vitesse — départs"
-        />
-        <HeaderField
-          testID="session-field-description"
-          label="Objectif de la séance (une ligne)"
-          value={description}
-          onChangeText={setDescription}
-          placeholder="Ex. 16 efforts courts à VO₂max, régularité avant tout"
-          multiline
-        />
-        {/* Un modèle (C-10) n'est pas daté : champ masqué en mode modèle (ADR-29). */}
-        {isTemplate ? null : (
-          <HeaderField
-            testID="session-field-date"
-            label="Date prévue (optionnel)"
-            value={scheduledDate}
-            onChangeText={setScheduledDate}
-            placeholder="AAAA-MM-JJ"
-          />
-        )}
-        <View style={{ gap: spacing[2] }}>
+          <Feather name="chevron-left" size={22} color={colors.textSecondary} />
           <Text
             style={{
               color: colors.textSecondary,
@@ -438,152 +383,210 @@ export function SessionBuilderScreen({
               fontSize: typography.bodySm.fontSize,
             }}
           >
-            Statut
+            Mes séances
           </Text>
-          <View style={{ flexDirection: 'row', gap: spacing[2] }}>
-            <Chip
-              testID="session-status-draft"
-              selected={status === SessionStatus.draft}
-              onPress={() => setStatus(SessionStatus.draft)}
+        </Pressable>
+
+        <Text
+          testID="session-builder-title"
+          style={{
+            color: colors.textPrimary,
+            fontFamily: typography.fontFamily.bold,
+            fontSize: typography.h1.fontSize,
+            letterSpacing: -0.5,
+          }}
+        >
+          {isTemplate
+            ? isEdit
+              ? 'Modifier le modèle'
+              : 'Nouveau modèle'
+            : isEdit
+              ? 'Modifier la séance'
+              : 'Nouvelle séance'}
+        </Text>
+
+        {/* En-tête de séance (Carte C-05 §4). */}
+        <View style={{ gap: spacing[4] }}>
+          <HeaderField
+            testID="session-field-title"
+            label="Titre"
+            value={title}
+            onChangeText={setTitle}
+            placeholder="Ex. Vitesse — départs"
+          />
+          <HeaderField
+            testID="session-field-description"
+            label="Objectif de la séance (une ligne)"
+            value={description}
+            onChangeText={setDescription}
+            placeholder="Ex. 16 efforts courts à VO₂max, régularité avant tout"
+            multiline
+          />
+          {/* Un modèle (C-10) n'est pas daté : champ masqué en mode modèle (ADR-29). */}
+          {isTemplate ? null : (
+            <HeaderField
+              testID="session-field-date"
+              label="Date prévue (optionnel)"
+              value={scheduledDate}
+              onChangeText={setScheduledDate}
+              placeholder="AAAA-MM-JJ"
+            />
+          )}
+          <View style={{ gap: spacing[2] }}>
+            <Text
+              style={{
+                color: colors.textSecondary,
+                fontFamily: typography.fontFamily.medium,
+                fontSize: typography.bodySm.fontSize,
+              }}
             >
-              Brouillon
-            </Chip>
-            <Chip
-              testID="session-status-published"
-              selected={status === SessionStatus.published}
-              onPress={() => setStatus(SessionStatus.published)}
-            >
-              Publiée
-            </Chip>
-            <Chip
-              testID="session-status-template"
-              selected={status === SessionStatus.template}
-              onPress={() => setStatus(SessionStatus.template)}
-            >
-              Modèle
-            </Chip>
+              Statut
+            </Text>
+            <View style={{ flexDirection: 'row', gap: spacing[2] }}>
+              <Chip
+                testID="session-status-draft"
+                selected={status === SessionStatus.draft}
+                onPress={() => setStatus(SessionStatus.draft)}
+              >
+                Brouillon
+              </Chip>
+              <Chip
+                testID="session-status-published"
+                selected={status === SessionStatus.published}
+                onPress={() => setStatus(SessionStatus.published)}
+              >
+                Publiée
+              </Chip>
+              <Chip
+                testID="session-status-template"
+                selected={status === SessionStatus.template}
+                onPress={() => setStatus(SessionStatus.template)}
+              >
+                Modèle
+              </Chip>
+            </View>
           </View>
         </View>
-      </View>
 
-      {/* Couche éditoriale (brief, ADR-28) — section repliable « Intention & lecture athlète ». */}
-      <BriefEditor
-        draft={brief}
-        onChange={(patch) => setBrief((prev) => ({ ...prev, ...patch }))}
-        items={nodesToItems(nodes)}
-      />
+        {/* Couche éditoriale (brief, ADR-28) — section repliable « Intention & lecture athlète ». */}
+        <BriefEditor
+          draft={brief}
+          onChange={(patch) => setBrief((prev) => ({ ...prev, ...patch }))}
+          items={nodesToItems(nodes)}
+        />
 
-      {/* Canvas de blocs et groupes (Carte C-05 §5 + ADR-27). */}
-      <View style={{ gap: spacing[3] }}>
-        <Text
-          style={{
-            color: colors.textSecondary,
-            fontFamily: typography.fontFamily.medium,
-            fontSize: typography.bodySm.fontSize,
-            textTransform: 'uppercase',
-            letterSpacing: 0.6,
-          }}
-        >
-          Blocs et groupes ({nodes.length})
-        </Text>
-        {nodes.map((node, index) =>
-          isEditableGroup(node) ? (
-            <GroupCard
-              key={node.key}
-              group={node}
-              index={index}
-              total={nodes.length}
-              onChange={(patch) => updateTopNode(index, patch)}
-              onMoveUp={() => moveTopNode(index, -1)}
-              onMoveDown={() => moveTopNode(index, 1)}
-              onRemove={() => removeTopNode(index)}
-              onMemberChange={(mi, patch) => updateMember(index, mi, patch)}
-              onMemberMoveUp={(mi) => moveMember(index, mi, -1)}
-              onMemberMoveDown={(mi) => moveMember(index, mi, 1)}
-              onMemberRemove={(mi) => removeMember(index, mi)}
-              onMemberUngroup={(mi) => ungroupMember(index, mi)}
-              onAddMember={() => addMember(index)}
-            />
-          ) : (
-            <BlockCard
-              key={node.key}
-              block={node}
-              index={index}
-              total={nodes.length}
-              onChange={(patch) => updateTopNode(index, patch)}
-              onMoveUp={() => moveTopNode(index, -1)}
-              onMoveDown={() => moveTopNode(index, 1)}
-              onRemove={() => removeTopNode(index)}
-              onGroup={() => groupTopBlock(index)}
-              groupDisabled={!hasAdjacentGroup(index)}
-            />
-          ),
-        )}
-        <View style={{ flexDirection: 'row', gap: spacing[3] }}>
-          <Button
-            testID="session-add-block"
-            variant="secondary"
-            style={{ flex: 1 }}
-            leftIcon={<Feather name="plus" size={18} color={colors.textPrimary} />}
-            onPress={addBlock}
+        {/* Canvas de blocs et groupes (Carte C-05 §5 + ADR-27). */}
+        <View style={{ gap: spacing[3] }}>
+          <Text
+            style={{
+              color: colors.textSecondary,
+              fontFamily: typography.fontFamily.medium,
+              fontSize: typography.bodySm.fontSize,
+              textTransform: 'uppercase',
+              letterSpacing: 0.6,
+            }}
           >
-            Ajouter un bloc
-          </Button>
-          <Button
-            testID="session-add-group"
-            variant="secondary"
-            style={{ flex: 1 }}
-            leftIcon={<Feather name="repeat" size={18} color={colors.textPrimary} />}
-            onPress={addGroup}
-          >
-            Ajouter un groupe
-          </Button>
+            Blocs et groupes ({nodes.length})
+          </Text>
+          {nodes.map((node, index) =>
+            isEditableGroup(node) ? (
+              <GroupCard
+                key={node.key}
+                group={node}
+                index={index}
+                total={nodes.length}
+                onChange={(patch) => updateTopNode(index, patch)}
+                onMoveUp={() => moveTopNode(index, -1)}
+                onMoveDown={() => moveTopNode(index, 1)}
+                onRemove={() => removeTopNode(index)}
+                onMemberChange={(mi, patch) => updateMember(index, mi, patch)}
+                onMemberMoveUp={(mi) => moveMember(index, mi, -1)}
+                onMemberMoveDown={(mi) => moveMember(index, mi, 1)}
+                onMemberRemove={(mi) => removeMember(index, mi)}
+                onMemberUngroup={(mi) => ungroupMember(index, mi)}
+                onAddMember={() => addMember(index)}
+              />
+            ) : (
+              <BlockCard
+                key={node.key}
+                block={node}
+                index={index}
+                total={nodes.length}
+                onChange={(patch) => updateTopNode(index, patch)}
+                onMoveUp={() => moveTopNode(index, -1)}
+                onMoveDown={() => moveTopNode(index, 1)}
+                onRemove={() => removeTopNode(index)}
+                onGroup={() => groupTopBlock(index)}
+                groupDisabled={!hasAdjacentGroup(index)}
+              />
+            ),
+          )}
+          <View style={{ flexDirection: 'row', gap: spacing[3] }}>
+            <Button
+              testID="session-add-block"
+              variant="secondary"
+              style={{ flex: 1 }}
+              leftIcon={<Feather name="plus" size={18} color={colors.textPrimary} />}
+              onPress={addBlock}
+            >
+              Ajouter un bloc
+            </Button>
+            <Button
+              testID="session-add-group"
+              variant="secondary"
+              style={{ flex: 1 }}
+              leftIcon={<Feather name="repeat" size={18} color={colors.textPrimary} />}
+              onPress={addGroup}
+            >
+              Ajouter un groupe
+            </Button>
+          </View>
         </View>
-      </View>
 
-      {error != null && (
-        <Text
-          testID="session-builder-validation"
-          style={{
-            color: colors.danger,
-            fontFamily: typography.fontFamily.regular,
-            fontSize: typography.bodySm.fontSize,
-          }}
-        >
-          {error}
-        </Text>
-      )}
+        {error != null && (
+          <Text
+            testID="session-builder-validation"
+            style={{
+              color: colors.danger,
+              fontFamily: typography.fontFamily.regular,
+              fontSize: typography.bodySm.fontSize,
+            }}
+          >
+            {error}
+          </Text>
+        )}
 
-      <Button
-        testID="session-save"
-        size="lg"
-        fullWidth
-        loading={mutation.isPending}
-        onPress={onSave}
-      >
-        {isTemplate
-          ? isEdit
-            ? 'Enregistrer le modèle'
-            : 'Créer le modèle'
-          : isEdit
-            ? 'Enregistrer les modifications'
-            : 'Créer la séance'}
-      </Button>
-
-      {/* Mode édition d'une séance réelle : assigner à des athlètes (C-06, TLX-063).
-          Masqué pour un modèle (non assignable, ADR-29) : il faut d'abord le dupliquer. */}
-      {isEdit && !isTemplate ? (
         <Button
-          testID="session-assign"
-          variant="secondary"
+          testID="session-save"
           size="lg"
           fullWidth
-          leftIcon={<Feather name="send" size={18} color={colors.textPrimary} />}
-          onPress={() => router.push(assignSessionHref(sessionId as string, title))}
+          loading={mutation.isPending}
+          onPress={onSave}
         >
-          Assigner à des athlètes
+          {isTemplate
+            ? isEdit
+              ? 'Enregistrer le modèle'
+              : 'Créer le modèle'
+            : isEdit
+              ? 'Enregistrer les modifications'
+              : 'Créer la séance'}
         </Button>
-      ) : null}
+
+        {/* Mode édition d'une séance réelle : assigner à des athlètes (C-06, TLX-063).
+          Masqué pour un modèle (non assignable, ADR-29) : il faut d'abord le dupliquer. */}
+        {isEdit && !isTemplate ? (
+          <Button
+            testID="session-assign"
+            variant="secondary"
+            size="lg"
+            fullWidth
+            leftIcon={<Feather name="send" size={18} color={colors.textPrimary} />}
+            onPress={() => router.push(assignSessionHref(sessionId as string, title))}
+          >
+            Assigner à des athlètes
+          </Button>
+        ) : null}
+      </ResponsiveContent>
     </ScrollView>
   );
 }

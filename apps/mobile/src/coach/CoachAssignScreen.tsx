@@ -15,6 +15,7 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { Button, Card } from '../components/ui';
+import { ResponsiveContent } from '../responsive/ResponsiveContent';
 import { useToast } from '../feedback';
 import { COACH_DASHBOARD_QUERY_KEY } from '../dashboard/dashboard-query';
 import { GROUPS_QUERY_KEY } from '../groups/groups-query';
@@ -124,70 +125,88 @@ export function CoachAssignScreen({
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: colors.background }}
-      contentContainerStyle={{ padding: spacing[6], gap: spacing[5] }}
+      contentContainerStyle={{ padding: spacing[6] }}
       keyboardShouldPersistTaps="handled"
     >
-      <Pressable
-        testID="assign-back"
-        onPress={() => router.back()}
-        accessibilityRole="button"
-        accessibilityLabel="Retour"
-        style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[1] }}
-      >
-        <Feather name="chevron-left" size={22} color={colors.textSecondary} />
-        <Text
-          style={{
-            color: colors.textSecondary,
-            fontFamily: typography.fontFamily.medium,
-            fontSize: typography.bodySm.fontSize,
-          }}
+      <ResponsiveContent testID="coach-responsive-content" style={{ gap: spacing[5] }}>
+        <Pressable
+          testID="assign-back"
+          onPress={() => router.back()}
+          accessibilityRole="button"
+          accessibilityLabel="Retour"
+          style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[1] }}
         >
-          Retour
-        </Text>
-      </Pressable>
+          <Feather name="chevron-left" size={22} color={colors.textSecondary} />
+          <Text
+            style={{
+              color: colors.textSecondary,
+              fontFamily: typography.fontFamily.medium,
+              fontSize: typography.bodySm.fontSize,
+            }}
+          >
+            Retour
+          </Text>
+        </Pressable>
 
-      {confirmed != null ? (
-        <ConfirmationView
-          sessionTitle={sessionTitle}
-          count={confirmed.count}
-          targets={confirmed.targets}
-          onDone={() => router.back()}
-        />
-      ) : (
-        <>
-          <View style={{ gap: spacing[2] }}>
-            <Text
-              testID="assign-title"
-              style={{
-                color: colors.textPrimary,
-                fontFamily: typography.fontFamily.bold,
-                fontSize: typography.h1.fontSize,
-                letterSpacing: -0.5,
-              }}
-            >
-              Assigner la séance
-            </Text>
-            {sessionTitle ? (
+        {confirmed != null ? (
+          <ConfirmationView
+            sessionTitle={sessionTitle}
+            count={confirmed.count}
+            targets={confirmed.targets}
+            onDone={() => router.back()}
+          />
+        ) : (
+          <>
+            <View style={{ gap: spacing[2] }}>
               <Text
-                testID="assign-session-title"
+                testID="assign-title"
                 style={{
-                  color: colors.textSecondary,
-                  fontFamily: typography.fontFamily.regular,
-                  fontSize: typography.body.fontSize,
+                  color: colors.textPrimary,
+                  fontFamily: typography.fontFamily.bold,
+                  fontSize: typography.h1.fontSize,
+                  letterSpacing: -0.5,
                 }}
               >
-                {sessionTitle}
+                Assigner la séance
               </Text>
-            ) : null}
-          </View>
-
-          {dashboard.isLoading ? (
-            <View testID="assign-loading" style={{ paddingVertical: spacing[6] }}>
-              <ActivityIndicator color={colors.accent} />
+              {sessionTitle ? (
+                <Text
+                  testID="assign-session-title"
+                  style={{
+                    color: colors.textSecondary,
+                    fontFamily: typography.fontFamily.regular,
+                    fontSize: typography.body.fontSize,
+                  }}
+                >
+                  {sessionTitle}
+                </Text>
+              ) : null}
             </View>
-          ) : dashboard.isError || !dashboard.data ? (
-            <Card testID="assign-error">
-              <View style={{ gap: spacing[4] }}>
+
+            {dashboard.isLoading ? (
+              <View testID="assign-loading" style={{ paddingVertical: spacing[6] }}>
+                <ActivityIndicator color={colors.accent} />
+              </View>
+            ) : dashboard.isError || !dashboard.data ? (
+              <Card testID="assign-error">
+                <View style={{ gap: spacing[4] }}>
+                  <Text
+                    style={{
+                      color: colors.textSecondary,
+                      fontFamily: typography.fontFamily.regular,
+                      fontSize: typography.body.fontSize,
+                      textAlign: 'center',
+                    }}
+                  >
+                    Impossible de charger tes athlètes.
+                  </Text>
+                  <Button testID="assign-retry" onPress={() => void dashboard.refetch()}>
+                    Réessayer
+                  </Button>
+                </View>
+              </Card>
+            ) : athletes.length === 0 ? (
+              <Card testID="assign-empty">
                 <Text
                   style={{
                     color: colors.textSecondary,
@@ -196,62 +215,71 @@ export function CoachAssignScreen({
                     textAlign: 'center',
                   }}
                 >
-                  Impossible de charger tes athlètes.
+                  Aucun athlète lié pour l'instant. Partage un code de groupe pour qu'un athlète te
+                  rejoigne, puis reviens assigner cette séance.
                 </Text>
-                <Button testID="assign-retry" onPress={() => void dashboard.refetch()}>
-                  Réessayer
-                </Button>
-              </View>
-            </Card>
-          ) : athletes.length === 0 ? (
-            <Card testID="assign-empty">
-              <Text
-                style={{
-                  color: colors.textSecondary,
-                  fontFamily: typography.fontFamily.regular,
-                  fontSize: typography.body.fontSize,
-                  textAlign: 'center',
-                }}
-              >
-                Aucun athlète lié pour l'instant. Partage un code de groupe pour qu'un athlète te
-                rejoigne, puis reviens assigner cette séance.
-              </Text>
-            </Card>
-          ) : (
-            <>
-              {/* Échéance optionnelle de l'affectation. */}
-              <View style={{ gap: spacing[2] }}>
-                <Text
-                  style={{
-                    color: colors.textSecondary,
-                    fontFamily: typography.fontFamily.medium,
-                    fontSize: typography.bodySm.fontSize,
-                  }}
-                >
-                  Échéance (optionnel)
-                </Text>
-                <TextInput
-                  testID="assign-due-date"
-                  value={dueDate}
-                  onChangeText={setDueDate}
-                  placeholder="AAAA-MM-JJ"
-                  placeholderTextColor={colors.textMuted}
-                  style={{
-                    height: 48,
-                    paddingHorizontal: spacing[4],
-                    borderRadius: 12,
-                    borderWidth: 1,
-                    borderColor: colors.borderStrong,
-                    backgroundColor: colors.surface,
-                    color: colors.textPrimary,
-                    fontFamily: typography.fontFamily.regular,
-                    fontSize: typography.body.fontSize,
-                  }}
-                />
-              </View>
+              </Card>
+            ) : (
+              <>
+                {/* Échéance optionnelle de l'affectation. */}
+                <View style={{ gap: spacing[2] }}>
+                  <Text
+                    style={{
+                      color: colors.textSecondary,
+                      fontFamily: typography.fontFamily.medium,
+                      fontSize: typography.bodySm.fontSize,
+                    }}
+                  >
+                    Échéance (optionnel)
+                  </Text>
+                  <TextInput
+                    testID="assign-due-date"
+                    value={dueDate}
+                    onChangeText={setDueDate}
+                    placeholder="AAAA-MM-JJ"
+                    placeholderTextColor={colors.textMuted}
+                    style={{
+                      height: 48,
+                      paddingHorizontal: spacing[4],
+                      borderRadius: 12,
+                      borderWidth: 1,
+                      borderColor: colors.borderStrong,
+                      backgroundColor: colors.surface,
+                      color: colors.textPrimary,
+                      fontFamily: typography.fontFamily.regular,
+                      fontSize: typography.body.fontSize,
+                    }}
+                  />
+                </View>
 
-              {/* Sélection par groupe (ADR-30) — tout le groupe en un geste. */}
-              {groups.length > 0 ? (
+                {/* Sélection par groupe (ADR-30) — tout le groupe en un geste. */}
+                {groups.length > 0 ? (
+                  <View style={{ gap: spacing[3] }}>
+                    <Text
+                      style={{
+                        color: colors.textSecondary,
+                        fontFamily: typography.fontFamily.medium,
+                        fontSize: typography.bodySm.fontSize,
+                        textTransform: 'uppercase',
+                        letterSpacing: 0.6,
+                      }}
+                    >
+                      Groupes · {selectedGroups.size}/{groups.length}
+                    </Text>
+                    <View style={{ gap: spacing[2] }}>
+                      {groups.map((group) => (
+                        <SelectableGroup
+                          key={group.id}
+                          group={group}
+                          selected={selectedGroups.has(group.id)}
+                          onPress={() => toggleGroup(group.id)}
+                        />
+                      ))}
+                    </View>
+                  </View>
+                ) : null}
+
+                {/* Sélection des athlètes (C-06). */}
                 <View style={{ gap: spacing[3] }}>
                   <Text
                     style={{
@@ -262,62 +290,37 @@ export function CoachAssignScreen({
                       letterSpacing: 0.6,
                     }}
                   >
-                    Groupes · {selectedGroups.size}/{groups.length}
+                    Athlètes · {selected.size}/{athletes.length}
                   </Text>
                   <View style={{ gap: spacing[2] }}>
-                    {groups.map((group) => (
-                      <SelectableGroup
-                        key={group.id}
-                        group={group}
-                        selected={selectedGroups.has(group.id)}
-                        onPress={() => toggleGroup(group.id)}
+                    {athletes.map((athlete) => (
+                      <SelectableAthlete
+                        key={athlete.id}
+                        athlete={athlete}
+                        selected={selected.has(athlete.id)}
+                        onPress={() => toggle(athlete.id)}
                       />
                     ))}
                   </View>
                 </View>
-              ) : null}
 
-              {/* Sélection des athlètes (C-06). */}
-              <View style={{ gap: spacing[3] }}>
-                <Text
-                  style={{
-                    color: colors.textSecondary,
-                    fontFamily: typography.fontFamily.medium,
-                    fontSize: typography.bodySm.fontSize,
-                    textTransform: 'uppercase',
-                    letterSpacing: 0.6,
-                  }}
+                <Button
+                  testID="assign-submit"
+                  size="lg"
+                  fullWidth
+                  disabled={totalSelected === 0}
+                  loading={mutation.isPending}
+                  onPress={() => mutation.mutate()}
                 >
-                  Athlètes · {selected.size}/{athletes.length}
-                </Text>
-                <View style={{ gap: spacing[2] }}>
-                  {athletes.map((athlete) => (
-                    <SelectableAthlete
-                      key={athlete.id}
-                      athlete={athlete}
-                      selected={selected.has(athlete.id)}
-                      onPress={() => toggle(athlete.id)}
-                    />
-                  ))}
-                </View>
-              </View>
-
-              <Button
-                testID="assign-submit"
-                size="lg"
-                fullWidth
-                disabled={totalSelected === 0}
-                loading={mutation.isPending}
-                onPress={() => mutation.mutate()}
-              >
-                {totalSelected > 0
-                  ? `Assigner (${totalSelected} cible${totalSelected > 1 ? 's' : ''})`
-                  : 'Sélectionne un groupe ou un athlète'}
-              </Button>
-            </>
-          )}
-        </>
-      )}
+                  {totalSelected > 0
+                    ? `Assigner (${totalSelected} cible${totalSelected > 1 ? 's' : ''})`
+                    : 'Sélectionne un groupe ou un athlète'}
+                </Button>
+              </>
+            )}
+          </>
+        )}
+      </ResponsiveContent>
     </ScrollView>
   );
 }
