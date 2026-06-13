@@ -7,12 +7,13 @@
  * Conventions transverses : préfixe /api/v1 ; jeton d'accès JWT (RS256) via en-tête Authorization ; pagination par enveloppe { data, meta } ; idempotence des écritures sensibles via Idempotency-Key ; opérations longues asynchrones (202 + ressource de statut) ; rate limiting signalé par les en-têtes RateLimit-*. L'autorisation combine rôle, appartenance (lien coach↔athlète), propriété et consentement ; voir TX-SPEC-002 §6.
  * OpenAPI spec version: 1.0.0
  */
+import type { ProgressMarkByYear } from './progressMarkByYear';
 import type { ProgressPoint } from './progressPoint';
 import type { ProgressSeriesDirection } from './progressSeriesDirection';
 import type { ProgressSeriesUnit } from './progressSeriesUnit';
 
 /**
- * Série de progression d'une épreuve (ADR-21) : un point par performance soumise qui la mesure — value = meilleure marque de la perf, date = soumission.
+ * Série de progression d'une épreuve (ADR-21, étendue ADR-34) : un point par performance soumise qui la mesure — value = meilleure marque de la perf, date = soumission — plus le SB (meilleure marque de l'année civile en cours) et le tableau des marques par année. Le PB reste porté par PersonalRecord (revendiqué, ADR-20).
  */
 export interface ProgressSeries {
   /** Clé d'épreuve dérivée du bloc typé (ex. sprint:60m — ADR-20). */
@@ -21,4 +22,8 @@ export interface ProgressSeries {
   unit: ProgressSeriesUnit;
   direction: ProgressSeriesDirection;
   points: ProgressPoint[];
+  /** Meilleure marque (SB) de l'année civile en cours — absent si aucune marque cette année (ADR-34). */
+  seasonBest?: ProgressPoint;
+  /** Marques par année civile, décroissant par année (ADR-34). */
+  marksByYear: ProgressMarkByYear[];
 }

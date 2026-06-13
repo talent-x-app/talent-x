@@ -107,6 +107,7 @@ export * from './personalRecordDirection';
 export * from './personalRecordList';
 export * from './personalRecordUnit';
 export * from './progress';
+export * from './progressMarkByYear';
 export * from './progressPoint';
 export * from './progressSeries';
 export * from './progressSeriesDirection';

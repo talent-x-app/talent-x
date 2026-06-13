@@ -1,6 +1,6 @@
 import { ThemeProvider } from '@talent-x/design-tokens';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
 import { type ReactNode, useState } from 'react';
 
 const mockGetMyProgress = jest.fn();
@@ -41,6 +41,8 @@ function daysAgo(days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
+const YEAR = new Date().getUTCFullYear();
+
 const PROGRESS = {
   athleteId: 'a-1',
   metrics: {
@@ -60,6 +62,8 @@ const PROGRESS = {
         { date: daysAgo(20), value: 7.6 },
         { date: daysAgo(2), value: 7.45 },
       ],
+      seasonBest: { date: daysAgo(2), value: 7.45 },
+      marksByYear: [{ year: YEAR, best: 7.45, count: 2 }],
     },
   ],
 };
@@ -84,6 +88,18 @@ describe('ProgressScreen (TLX-090 — A-06)', () => {
     expect(screen.getByTestId('progress-trend-sprint:60m-up')).toBeOnTheScreen();
     expect(screen.getByTestId('progress-bar-sprint:60m-0')).toBeOnTheScreen();
     expect(screen.getByTestId('progress-bar-sprint:60m-1')).toBeOnTheScreen();
+  });
+
+  it('affiche le SB de la saison et le tableau des marques par année (ADR-34)', async () => {
+    mockGetMyProgress.mockResolvedValue({ status: 200, data: PROGRESS });
+    render(<ProgressScreen />, { wrapper: Wrapper });
+
+    await waitFor(() => expect(screen.getByTestId('progress-sb-sprint:60m')).toBeOnTheScreen());
+    expect(screen.getByTestId('progress-sb-sprint:60m')).toHaveTextContent(`7.45 s · ${YEAR}`);
+    // Ligne du tableau par année (déterministe, dérivée des dates des marques).
+    const yearRow = screen.getByTestId(`progress-year-sprint:60m-${YEAR}`);
+    expect(within(yearRow).getByText('7.45 s')).toBeOnTheScreen();
+    expect(within(yearRow).getByText(`${YEAR}`)).toBeOnTheScreen();
   });
 
   it('la fenêtre Semaine exclut les marques plus anciennes', async () => {

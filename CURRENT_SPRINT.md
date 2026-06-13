@@ -12,6 +12,33 @@ de débloquer les écrans coach C-01/C-02/C-03.
 - _(éditeurs typés terminés — TLX-054→061 livrés ↓)_
 - _(C-01 complet — TLX-081→085 livrés ↓)_
 
+## Terminés — TLX-114 Saison vs carrière — SB (season best) & marques par année (ADR-34)
+
+- **Langage athlète comblé** : le PB existait (ADR-20) mais ni **SB** (meilleure marque de la saison)
+  ni **tableau de marques par année**. **ADR-34 accepté** (arbitrage saison validé).
+- **(ADR-34)** **saison = année civile** (split indoor/outdoor **écarté** : aucune donnée de lieu,
+  marques surtout d'entraînement → date trompeuse ; différé à TLX-119) ; **aucun stockage** — dérivé
+  des perfs (méthode ADR-21) ; exposition **additive sur `ProgressSeries`**, le **PB reste à
+  `personal_records`** (revendiqué, pas agrégé) ; **zéro migration**.
+- **(Module pur `progress/season-marks.ts`)** `seasonAggregates(points, direction, now)` (`now`
+  injecté) → `{ seasonBest, marksByYear }` : SB = meilleure marque de l'année en cours (sens
+  min/max, tie → marque la plus ancienne), tableau = meilleure + nb par année, décroissant. **+7 tests.**
+- **(API)** `AthleteProgressService.derive` calcule les agrégats par épreuve depuis les points déjà
+  accumulés → `ProgressSeries` gagne `seasonBest?` + `marksByYear[]`. **Miroir coach gratuit**
+  (`getForCoach`, TLX-112). **+1 test service.** **Contrat** : OpenAPI (`ProgressSeries`,
+  `ProgressMarkByYear`) → DTO Nest → client orval régénéré + rebuild.
+- **(Mobile)** `ProgressSeriesCard` (A-06, partagé coach C-03) : bloc **« meilleure de la saison »**
+  - **tableau par année** (année · meilleure · nb). `RecordRow` (A-07) : ligne **« SB <année> »** sous
+    le PB quand la progression la fournit (`PersonalRecordsSection` lit le cache progression partagé,
+    jointure par `eventKey`). +2 tests écran ; specs progression/records/coach mises à jour.
+- **Tests** : **API unit 433/433** (+8), **intégration 34/34** (+assertions SB/par-année),
+  **mobile 475/475** (+2), typecheck (api + api-client + mobile) + lint clean.
+- **Validé en réel (2026-06-13, intégration DB-backed Postgres :5433)** : perf 60m (7.45/7.6) soumise →
+  `GET /athletes/me/progress` → `series[sprint:60m].seasonBest = { value 7.45, année en cours }` +
+  `marksByYear = [{ année, best 7.45, count 1 }]` (lus depuis la vraie base).
+- **Non rejoué en réel** (smoke Expo web large) : le **rendu visuel** du bloc saison/tableau par année
+  → suivi **TLX-131** (UI couverte par RTL sur les vrais écrans A-06/A-07 + miroir coach).
+
 ## Terminés — TLX-110 Historisation des corrections de performance (RB-06, ADR-33)
 
 - **Non-conformité comblée** : `updatePerformance` réécrivait la perf **en place** (`prisma.performance.update`)

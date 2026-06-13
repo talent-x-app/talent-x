@@ -6,6 +6,7 @@ import type { ExerciseDto } from '../sessions/dto/exercises.dto';
 import type { ExerciseResultDto } from '../assignments/dto/results.dto';
 import { PENDING_STATUSES, dayBounds, round } from './coach-insights.service';
 import { bestMeasuresByEvent, type EventBest } from './record-detection';
+import { seasonAggregates } from './season-marks';
 import { ProgressDto, ProgressSeriesDto } from './dto/progress.dto';
 
 /**
@@ -97,13 +98,19 @@ export class AthleteProgressService {
       }
     }
 
+    // Saison (année civile) & marques par année dérivées des points (ADR-34), `now` injecté.
+    const now = new Date();
     const series: ProgressSeriesDto[] = [...seriesByKey.values()]
-      .map(({ event, points }) => ({
-        ...event,
-        points: points
-          .sort((a, b) => a.date.getTime() - b.date.getTime())
-          .map((p) => ({ date: p.date.toISOString().slice(0, 10), value: p.value })),
-      }))
+      .map(({ event, points }) => {
+        const ordered = points.sort((a, b) => a.date.getTime() - b.date.getTime());
+        const { seasonBest, marksByYear } = seasonAggregates(ordered, event.direction, now);
+        return {
+          ...event,
+          points: ordered.map((p) => ({ date: p.date.toISOString().slice(0, 10), value: p.value })),
+          seasonBest,
+          marksByYear,
+        };
+      })
       .sort((a, b) => a.label.localeCompare(b.label, 'fr'));
 
     return {

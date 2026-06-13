@@ -4,9 +4,11 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { type ReactNode, useState } from 'react';
 
 const mockListMyRecords = jest.fn();
+const mockGetMyProgress = jest.fn();
 
 jest.mock('@talent-x/api-client', () => ({
   listMyRecords: (...a: unknown[]) => mockListMyRecords(...a),
+  getMyProgress: (...a: unknown[]) => mockGetMyProgress(...a),
   createManualRecord: jest.fn(),
   AssignmentStatus: {
     assigned: 'assigned',
@@ -56,7 +58,28 @@ const RECORDS = [
   },
 ];
 
-beforeEach(() => jest.clearAllMocks());
+const PROGRESS = {
+  athleteId: 'a-1',
+  metrics: { assignmentsTotal: 1, completed: 1, missed: 0, skipped: 0, completionRate: 1 },
+  series: [
+    {
+      eventKey: 'sprint:60m',
+      label: '60 m',
+      unit: 's',
+      direction: 'min',
+      points: [{ date: '2026-05-20', value: 7.34 }],
+      seasonBest: { date: '2026-05-20', value: 7.34 },
+      marksByYear: [{ year: 2026, best: 7.34, count: 1 }],
+    },
+    // « jumps » : pas de seasonBest → aucune ligne SB attendue.
+    { eventKey: 'jumps', label: 'Saut', unit: 'm', direction: 'max', points: [], marksByYear: [] },
+  ],
+};
+
+beforeEach(() => {
+  jest.clearAllMocks();
+  mockGetMyProgress.mockResolvedValue({ status: 200, data: PROGRESS });
+});
 
 describe('PersonalRecordsSection (TLX-091 — A-07)', () => {
   it('liste les records : marque formatée, date, badge manuel sans performance source', async () => {
@@ -69,6 +92,17 @@ describe('PersonalRecordsSection (TLX-091 — A-07)', () => {
     // r-2 n'a pas de performanceId → record déclaré manuellement.
     expect(within(screen.getByTestId('record-jumps')).getByText(/manuel/)).toBeOnTheScreen();
     expect(within(screen.getByTestId('record-sprint:60m')).queryByText(/manuel/)).toBeNull();
+  });
+
+  it('affiche la ligne SB <année> sous le PB quand la progression la fournit (ADR-34)', async () => {
+    mockListMyRecords.mockResolvedValue({ status: 200, data: { items: RECORDS } });
+    render(<PersonalRecordsSection />, { wrapper: Wrapper });
+
+    await waitFor(() =>
+      expect(screen.getByTestId('record-sprint:60m-sb')).toHaveTextContent('SB 2026 · 7.34 s'),
+    );
+    // « jumps » sans seasonBest → aucune ligne SB.
+    expect(screen.queryByTestId('record-jumps-sb')).toBeNull();
   });
 
   it('état vide avec invitation à saisir ses perfs', async () => {

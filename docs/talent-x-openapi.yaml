@@ -3478,8 +3478,10 @@ components:
     ProgressSeries:
       type: object
       description: >-
-        Série de progression d'une épreuve (ADR-21) : un point par performance soumise
-        qui la mesure — value = meilleure marque de la perf, date = soumission.
+        Série de progression d'une épreuve (ADR-21, étendue ADR-34) : un point par
+        performance soumise qui la mesure — value = meilleure marque de la perf, date =
+        soumission — plus le SB (meilleure marque de l'année civile en cours) et le tableau
+        des marques par année. Le PB reste porté par PersonalRecord (revendiqué, ADR-20).
       properties:
         eventKey:
           type: string
@@ -3496,12 +3498,24 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ProgressPoint'
+        seasonBest:
+          allOf:
+          - $ref: '#/components/schemas/ProgressPoint'
+          description: >-
+            Meilleure marque (SB) de l'année civile en cours — absent si aucune marque cette
+            année (ADR-34).
+        marksByYear:
+          type: array
+          description: 'Marques par année civile, décroissant par année (ADR-34).'
+          items:
+            $ref: '#/components/schemas/ProgressMarkByYear'
       required:
       - eventKey
       - label
       - unit
       - direction
       - points
+      - marksByYear
     ProgressPoint:
       type: object
       properties:
@@ -3513,6 +3527,23 @@ components:
       required:
       - date
       - value
+    ProgressMarkByYear:
+      type: object
+      description: Meilleure marque d'une année civile pour une épreuve (ADR-34).
+      properties:
+        year:
+          type: integer
+          description: Année civile.
+        best:
+          type: number
+          description: Meilleure marque de l'année (sens de l'épreuve).
+        count:
+          type: integer
+          description: Nombre de marques enregistrées cette année-là.
+      required:
+      - year
+      - best
+      - count
     StatsMetrics:
       type: object
       description: Indicateurs dérivés pour un athlète, sur les séances du coach demandeur (ADR-17).

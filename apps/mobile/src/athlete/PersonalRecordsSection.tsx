@@ -1,4 +1,10 @@
-import { listMyRecords, type PersonalRecord } from '@talent-x/api-client';
+import {
+  getMyProgress,
+  listMyRecords,
+  type PersonalRecord,
+  type Progress,
+  type ProgressPoint,
+} from '@talent-x/api-client';
 import { useTheme } from '@talent-x/design-tokens';
 import { useQuery } from '@tanstack/react-query';
 import { Feather } from '@expo/vector-icons';
@@ -28,6 +34,23 @@ export function PersonalRecordsSection() {
     },
     retry: false,
   });
+
+  // SB par épreuve (ADR-34) : lu depuis la progression (même cache que A-06), pour afficher
+  // « SB <année> » sous le PB. Best-effort — l'absence ne bloque jamais le rendu des records.
+  const progress = useQuery({
+    queryKey: ['progress', 'me'],
+    queryFn: async (): Promise<Progress> => {
+      const response = await getMyProgress();
+      if (response.status === 200) return response.data;
+      throw response;
+    },
+    retry: false,
+  });
+  const seasonBestByEvent = new Map<string, ProgressPoint>(
+    (progress.data?.series ?? [])
+      .filter((s): s is typeof s & { seasonBest: ProgressPoint } => s.seasonBest != null)
+      .map((s) => [s.eventKey, s.seasonBest]),
+  );
 
   return (
     <View style={{ gap: spacing[3] }}>
@@ -85,7 +108,13 @@ export function PersonalRecordsSection() {
           </View>
         </Card>
       ) : (
-        records.data.map((record) => <RecordRow key={record.id} record={record} />)
+        records.data.map((record) => (
+          <RecordRow
+            key={record.id}
+            record={record}
+            seasonBest={seasonBestByEvent.get(record.eventKey)}
+          />
+        ))
       )}
     </View>
   );

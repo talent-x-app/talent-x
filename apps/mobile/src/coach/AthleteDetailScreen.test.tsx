@@ -180,6 +180,8 @@ describe('AthleteDetailScreen (TLX-045)', () => {
           unit: 's',
           direction: 'min',
           points: [{ date: new Date().toISOString().slice(0, 10), value: 7.3 }],
+          seasonBest: { date: new Date().toISOString().slice(0, 10), value: 7.3 },
+          marksByYear: [{ year: new Date().getUTCFullYear(), best: 7.3, count: 1 }],
         },
       ],
     };

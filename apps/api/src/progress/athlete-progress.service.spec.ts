@@ -120,18 +120,51 @@ describe('AthleteProgressService (TLX-090, ADR-21)', () => {
       }),
     ]).getMyProgress('a-1');
 
-    expect(res.series).toEqual([
-      {
-        eventKey: 'sprint:60m',
-        label: '60 m',
-        unit: 's',
-        direction: 'min',
-        points: [
-          { date: '2026-06-01', value: 7.6 },
-          { date: '2026-06-08', value: 7.45 },
-        ],
-      },
+    expect(res.series).toHaveLength(1);
+    expect(res.series[0]).toMatchObject({
+      eventKey: 'sprint:60m',
+      label: '60 m',
+      unit: 's',
+      direction: 'min',
+      points: [
+        { date: '2026-06-01', value: 7.6 },
+        { date: '2026-06-08', value: 7.45 },
+      ],
+      // SB & tableau par année dérivés (ADR-34) — env. simulé 2026.
+      marksByYear: [{ year: 2026, best: 7.45, count: 2 }],
+    });
+    expect(res.series[0].seasonBest).toEqual({ date: '2026-06-08', value: 7.45 });
+  });
+
+  it('expose SB de l’année en cours et le tableau par année (ADR-34)', async () => {
+    const res = await service([
+      assignmentRow({
+        performance: {
+          rpe: null,
+          submittedAt: new Date('2025-06-01T10:00:00.000Z'),
+          results: {
+            items: [{ exerciseName: '60m', order: 0, setResults: [{ set: 1, timeSeconds: 7.7 }] }],
+          },
+        },
+      }),
+      assignmentRow({
+        performance: {
+          rpe: null,
+          submittedAt: new Date('2026-04-01T10:00:00.000Z'),
+          results: {
+            items: [{ exerciseName: '60m', order: 0, setResults: [{ set: 1, timeSeconds: 7.55 }] }],
+          },
+        },
+      }),
+    ]).getMyProgress('a-1');
+
+    // Tableau déterministe (dérivé des dates des marques), décroissant par année.
+    expect(res.series[0].marksByYear).toEqual([
+      { year: 2026, best: 7.55, count: 1 },
+      { year: 2025, best: 7.7, count: 1 },
     ]);
+    // SB = uniquement l'année en cours (2026).
+    expect(res.series[0].seasonBest).toEqual({ date: '2026-04-01', value: 7.55 });
   });
 
   it('perfs v1 / blocs non mesurables → series vide mais metrics renseignées', async () => {

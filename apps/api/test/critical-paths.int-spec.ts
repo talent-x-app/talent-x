@@ -283,6 +283,19 @@ describe('Parcours critiques (E2E DB) — TLX-120', () => {
       expect(progress.body.metrics.completed).toBeGreaterThanOrEqual(1);
       expect(Array.isArray(progress.body.series)).toBe(true);
 
+      // Saison & marques par année (ADR-34) dérivées sur la série sprint:60m : le SB de
+      // l'année en cours et une entrée par année sont exposés sur ProgressSeries.
+      const sprintSeries = progress.body.series.find(
+        (s: { eventKey: string }) => s.eventKey === 'sprint:60m',
+      );
+      expect(sprintSeries).toBeDefined();
+      const currentYear = new Date().getUTCFullYear();
+      expect(sprintSeries.seasonBest).toMatchObject({ value: 7.45 });
+      expect(sprintSeries.seasonBest.date.slice(0, 4)).toBe(String(currentYear));
+      expect(sprintSeries.marksByYear).toEqual(
+        expect.arrayContaining([{ year: currentYear, best: 7.45, count: 1 }]),
+      );
+
       // 10) Stats côté coach (consent-gated coach_access) : peuplées.
       const stats = await http()
         .get(`/api/v1/athletes/${athlete.id}/stats`)

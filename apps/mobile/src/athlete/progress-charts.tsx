@@ -1,4 +1,9 @@
-import { type PersonalRecord, type Progress, type ProgressSeries } from '@talent-x/api-client';
+import {
+  type PersonalRecord,
+  type Progress,
+  type ProgressPoint,
+  type ProgressSeries,
+} from '@talent-x/api-client';
 import { useTheme } from '@talent-x/design-tokens';
 import { Feather } from '@expo/vector-icons';
 import { Text, View } from 'react-native';
@@ -189,13 +194,102 @@ export function ProgressSeriesCard({
             ))}
           </View>
         )}
+
+        {/* Saison & carrière (ADR-34) : SB de l'année en cours + tableau des marques par année. */}
+        {series.marksByYear.length > 0 ? (
+          <View
+            style={{
+              gap: spacing[2],
+              borderTopWidth: 1,
+              borderTopColor: colors.border,
+              paddingTop: spacing[3],
+            }}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[2] }}>
+              <Text
+                style={{
+                  flex: 1,
+                  color: colors.textMuted,
+                  fontFamily: typography.fontFamily.medium,
+                  fontSize: typography.caption.fontSize,
+                  textTransform: 'uppercase',
+                  letterSpacing: 0.6,
+                }}
+              >
+                Meilleure de la saison
+              </Text>
+              <Text
+                testID={`progress-sb-${series.eventKey}`}
+                style={{
+                  color: series.seasonBest ? colors.accentText : colors.textMuted,
+                  fontFamily: typography.fontFamily.bold,
+                  fontSize: typography.body.fontSize,
+                }}
+              >
+                {series.seasonBest
+                  ? `${formatRecordValue(series.seasonBest.value, series.unit)} · ${series.seasonBest.date.slice(0, 4)}`
+                  : '—'}
+              </Text>
+            </View>
+            <View style={{ gap: 2 }}>
+              {series.marksByYear.map((y) => (
+                <View
+                  key={y.year}
+                  testID={`progress-year-${series.eventKey}-${y.year}`}
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[2] }}
+                >
+                  <Text
+                    style={{
+                      flex: 1,
+                      color: colors.textSecondary,
+                      fontFamily: typography.fontFamily.regular,
+                      fontSize: typography.bodySm.fontSize,
+                    }}
+                  >
+                    {y.year}
+                  </Text>
+                  <Text
+                    style={{
+                      color: colors.textPrimary,
+                      fontFamily: typography.fontFamily.medium,
+                      fontSize: typography.bodySm.fontSize,
+                    }}
+                  >
+                    {formatRecordValue(y.best, series.unit)}
+                  </Text>
+                  <Text
+                    style={{
+                      width: 64,
+                      textAlign: 'right',
+                      color: colors.textMuted,
+                      fontFamily: typography.fontFamily.regular,
+                      fontSize: typography.caption.fontSize,
+                    }}
+                  >
+                    {y.count} marque{y.count > 1 ? 's' : ''}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        ) : null}
       </View>
     </Card>
   );
 }
 
-/** Ligne record : épreuve + marque mise en avant + date (+ badge « manuel »). */
-export function RecordRow({ record }: { record: PersonalRecord }) {
+/**
+ * Ligne record : épreuve + **PB** mis en avant + date (+ badge « manuel »). Si le `seasonBest`
+ * de l'épreuve (même `eventKey`, dérivé de la progression — ADR-34) est fourni, une ligne
+ * **« SB <année> »** s'affiche sous le PB (le PB reste porté par `personal_records`).
+ */
+export function RecordRow({
+  record,
+  seasonBest,
+}: {
+  record: PersonalRecord;
+  seasonBest?: ProgressPoint;
+}) {
   const { colors, typography, spacing, radius } = useTheme();
   return (
     <Card testID={`record-${record.eventKey}`}>
@@ -233,16 +327,30 @@ export function RecordRow({ record }: { record: PersonalRecord }) {
             {record.performanceId == null ? ' · manuel' : ''}
           </Text>
         </View>
-        <Text
-          testID={`record-${record.eventKey}-value`}
-          style={{
-            color: colors.accentText,
-            fontFamily: typography.fontFamily.bold,
-            fontSize: typography.h3.fontSize,
-          }}
-        >
-          {formatRecordValue(record.value, record.unit)}
-        </Text>
+        <View style={{ alignItems: 'flex-end', gap: 2 }}>
+          <Text
+            testID={`record-${record.eventKey}-value`}
+            style={{
+              color: colors.accentText,
+              fontFamily: typography.fontFamily.bold,
+              fontSize: typography.h3.fontSize,
+            }}
+          >
+            {formatRecordValue(record.value, record.unit)}
+          </Text>
+          {seasonBest ? (
+            <Text
+              testID={`record-${record.eventKey}-sb`}
+              style={{
+                color: colors.textMuted,
+                fontFamily: typography.fontFamily.medium,
+                fontSize: typography.caption.fontSize,
+              }}
+            >
+              {`SB ${seasonBest.date.slice(0, 4)} · ${formatRecordValue(seasonBest.value, record.unit)}`}
+            </Text>
+          ) : null}
+        </View>
       </View>
     </Card>
   );
