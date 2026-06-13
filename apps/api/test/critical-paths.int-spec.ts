@@ -82,6 +82,7 @@ describe('Parcours critiques (E2E DB) — TLX-120', () => {
       const ids = createdUserIds;
       // Suppression FK-safe (records → perfs ; perfs/affectations → séances ; coachs Restrict).
       await prisma.comment.deleteMany({ where: { authorId: { in: ids } } });
+      await prisma.auditLog.deleteMany({ where: { actorId: { in: ids } } });
       await prisma.personalRecord.deleteMany({ where: { athleteId: { in: ids } } });
       await prisma.performance.deleteMany({ where: { athleteId: { in: ids } } });
       await prisma.sessionAssignment.deleteMany({ where: { athleteId: { in: ids } } });
@@ -782,6 +783,88 @@ describe('Parcours critiques (E2E DB) — TLX-120', () => {
         .get(`/api/v1/athletes/${athlete.id}/progress`)
         .set(bearer(stranger.token))
         .expect(403);
+    });
+  });
+
+  describe('Historisation des corrections de perf — RB-06 (TLX-110 / ADR-33)', () => {
+    it('trace chaque correction dans audit_log (before/after) ; un PUT identique ne trace rien', async () => {
+      const coach = await register('coach');
+      const athlete = await register('athlete');
+      await grantConsent(athlete.token, 'data_processing');
+      await prisma.coachAthleteLink.create({
+        data: { coachId: coach.id, athleteId: athlete.id, source: 'direct' },
+      });
+      const session = await prisma.session.create({
+        data: {
+          coachId: coach.id,
+          title: 'Correction',
+          status: 'published',
+          exercises: { schemaVersion: 1, items: [{ name: '60m', order: 0 }] },
+        },
+      });
+      const assignment = await prisma.sessionAssignment.create({
+        data: { sessionId: session.id, athleteId: athlete.id },
+      });
+
+      // Soumission initiale (RPE 7) — ne crée aucune trace de correction (pas d'historique antérieur).
+      const perf = await http()
+        .post(`/api/v1/assignments/${assignment.id}/performance`)
+        .set(bearer(athlete.token))
+        .set('Idempotency-Key', `perf-${assignment.id}`)
+        .send({
+          rpe: 7,
+          results: {
+            schemaVersion: 1,
+            items: [{ exerciseName: '60m', order: 0, setResults: [{ set: 1, timeSeconds: 7.45 }] }],
+          },
+        })
+        .expect(201);
+      const performanceId: string = perf.body.id;
+
+      // Correction réelle : RPE 7 → 6, marque 7.45 → 7.60.
+      await http()
+        .put(`/api/v1/assignments/${assignment.id}/performance`)
+        .set(bearer(athlete.token))
+        .send({
+          rpe: 6,
+          results: {
+            schemaVersion: 1,
+            items: [{ exerciseName: '60m', order: 0, setResults: [{ set: 1, timeSeconds: 7.6 }] }],
+          },
+        })
+        .expect(200);
+
+      // Une trace performance.correction est persistée, avec before/after.
+      const traces = await prisma.auditLog.findMany({
+        where: { action: 'performance.correction', entityId: performanceId },
+      });
+      expect(traces).toHaveLength(1);
+      expect(traces[0].actorId).toBe(athlete.id);
+      expect(traces[0].entityType).toBe('performance');
+      const meta = traces[0].metadata as {
+        before: { rpe: number };
+        after: { rpe: number };
+      };
+      expect(meta.before.rpe).toBe(7);
+      expect(meta.after.rpe).toBe(6);
+
+      // Un PUT identique (mêmes valeurs) ne laisse pas de trace vide.
+      await http()
+        .put(`/api/v1/assignments/${assignment.id}/performance`)
+        .set(bearer(athlete.token))
+        .send({
+          rpe: 6,
+          results: {
+            schemaVersion: 1,
+            items: [{ exerciseName: '60m', order: 0, setResults: [{ set: 1, timeSeconds: 7.6 }] }],
+          },
+        })
+        .expect(200);
+
+      const after = await prisma.auditLog.count({
+        where: { action: 'performance.correction', entityId: performanceId },
+      });
+      expect(after).toBe(1);
     });
   });
 

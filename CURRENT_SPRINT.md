@@ -12,6 +12,33 @@ de débloquer les écrans coach C-01/C-02/C-03.
 - _(éditeurs typés terminés — TLX-054→061 livrés ↓)_
 - _(C-01 complet — TLX-081→085 livrés ↓)_
 
+## Terminés — TLX-110 Historisation des corrections de performance (RB-06, ADR-33)
+
+- **Non-conformité comblée** : `updatePerformance` réécrivait la perf **en place** (`prisma.performance.update`)
+  → la règle métier **RB-06** (« l'historique ne doit jamais être modifié sans trace ») était violée — une
+  correction de marque effaçait silencieusement la précédente. Seul chemin d'écriture destructif d'historique
+  de l'app. **ADR-33 accepté** (3 arbitrages validés).
+- **(ADR-33)** mécanisme = **`audit_log` enrichi** (vs table `performance_revisions` — surdimensionnée pour
+  une _trace_) ; vue coach de l'historique **différée** (conformité, pas fonctionnalité) ; **records (ADR-20)
+  inchangés** — une correction ne mute jamais un PB (souveraineté athlète). **Zéro migration, zéro contrat.**
+- **(Module pur `assignments/performance-correction.ts`)** `correctionAudit(before, after)` → `{before, after}`
+  si un champ corrigeable (results/rpe/notes/schemaVersion) change, sinon `null` (un PUT idempotent identique ne
+  trace rien). `performanceSnapshot` normalise rpe/notes en `null`. `results` (jsonb) comparé par sérialisation
+  (avant/après normalisés par Postgres → stable). **+7 tests.**
+- **(API)** `updatePerformance` enveloppe désormais `findUnique` + `update` + `auditLog.create('performance.correction',
+{before, after})` dans **une seule transaction** → impossible de muter la perf sans laisser la trace (acteur =
+  athlète titulaire, `entityId` = perf). **+2 tests service.**
+- **(RGPD — ADR-15)** `metadata.before/after` contient les marques de l'athlète = donnée personnelle. Le job de
+  purge (`AccountPurgeService.purgeUser`) **n'effaçait pas** `audit_log` → étendu pour **neutraliser** le `metadata`
+  des traces de correction (`updateMany … data:{ metadata: Prisma.DbNull }`), squelette d'audit conservé. **+1 test.**
+- **Tests** : **API unit 425/425** (+10), **intégration 34/34** (+1), typecheck (src+spec) + lint clean. **Aucun
+  changement OpenAPI / DTO / client mobile.**
+- **Validé en réel (2026-06-13, intégration DB-backed Postgres :5433)** : soumission RPE 7 / 7.45 → **PUT
+  correction** RPE 6 / 7.60 → **1 ligne `audit_log` `performance.correction`** persistée avec `metadata.before.rpe=7`
+  / `after.rpe=6` (relue depuis la base) → **PUT identique → aucune nouvelle trace** (count reste 1). **Scrub de
+  purge joué en réel** (script jetable) : `metadata` d'une trace de correction passe de la charge complète à `null`,
+  `action`/`entityType` conservés.
+
 ## Terminés — TLX-123 Mode web/tablette coach — layout adaptatif (constructeur, calendrier, dashboard, assignation)
 
 - **Constat** : l'app tourne déjà sous Expo web (servait à la validation) mais **aucun layout

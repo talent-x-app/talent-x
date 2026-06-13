@@ -55,6 +55,7 @@ function consentMock(over: Partial<ConsentGate> = {}): ConsentGate {
 type PrismaMock = {
   sessionAssignment: Record<string, jest.Mock>;
   performance: Record<string, jest.Mock>;
+  auditLog: Record<string, jest.Mock>;
   $transaction: jest.Mock;
 };
 
@@ -67,6 +68,7 @@ function prismaMock(): PrismaMock {
       findUnique: jest.fn(() => ({ session: jest.fn().mockResolvedValue(null) })),
     },
     performance: { findUnique: jest.fn(), create: jest.fn(), update: jest.fn() },
+    auditLog: { create: jest.fn() },
     $transaction: jest.fn((arg: unknown) =>
       Array.isArray(arg) ? Promise.all(arg) : (arg as (tx: unknown) => unknown)(mock),
     ),
@@ -289,6 +291,42 @@ describe('PerformancesService', () => {
       await expect(service(prisma).updatePerformance(ATHLETE, 'asg-1', DTO)).rejects.toThrow(
         NotFoundException,
       );
+    });
+
+    it('écrit une trace d’audit before/after à chaque correction effective (RB-06, ADR-33)', async () => {
+      const prisma = prismaMock();
+      prisma.sessionAssignment.findFirst.mockResolvedValue(assignmentRow());
+      prisma.performance.findUnique.mockResolvedValue(performanceRow({ rpe: 8 }));
+      prisma.performance.update.mockResolvedValue(performanceRow({ rpe: 6, notes: 'corrigé' }));
+
+      await service(prisma).updatePerformance(ATHLETE, 'asg-1', {
+        ...DTO,
+        rpe: 6,
+        notes: 'corrigé',
+      });
+
+      expect(prisma.auditLog.create).toHaveBeenCalledTimes(1);
+      const arg = prisma.auditLog.create.mock.calls[0][0];
+      expect(arg.data).toMatchObject({
+        actorId: 'a-1',
+        action: 'performance.correction',
+        entityType: 'performance',
+        entityId: 'perf-1',
+      });
+      expect(arg.data.metadata.before).toMatchObject({ rpe: 8, notes: 'ok' });
+      expect(arg.data.metadata.after).toMatchObject({ rpe: 6, notes: 'corrigé' });
+    });
+
+    it('un PUT identique ne laisse pas de trace vide', async () => {
+      const prisma = prismaMock();
+      prisma.sessionAssignment.findFirst.mockResolvedValue(assignmentRow());
+      prisma.performance.findUnique.mockResolvedValue(performanceRow());
+      // L'update renvoie une perf identique (mêmes results/rpe/notes).
+      prisma.performance.update.mockResolvedValue(performanceRow());
+
+      await service(prisma).updatePerformance(ATHLETE, 'asg-1', DTO);
+
+      expect(prisma.auditLog.create).not.toHaveBeenCalled();
     });
   });
 });

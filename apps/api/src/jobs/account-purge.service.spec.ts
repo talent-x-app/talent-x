@@ -1,10 +1,12 @@
 import type { ConfigService } from '@nestjs/config';
+import { Prisma } from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service';
 import { AccountPurgeService } from './account-purge.service';
 
 function setup(candidates: Array<{ id: string }>) {
   const tagged = (op: string) => jest.fn().mockReturnValue({ op });
   const userUpdate = jest.fn().mockReturnValue({ op: 'user.update' });
+  const auditScrub = jest.fn().mockReturnValue({ op: 'audit.scrub' });
   const findMany = jest.fn().mockResolvedValue(candidates);
   const transaction = jest.fn().mockResolvedValue([]);
   const prisma = {
@@ -17,11 +19,17 @@ function setup(candidates: Array<{ id: string }>) {
     refreshToken: { deleteMany: tagged('refresh') },
     exportJob: { deleteMany: tagged('export') },
     comment: { updateMany: tagged('comment') },
-    auditLog: { create: tagged('audit') },
+    auditLog: { create: tagged('audit'), updateMany: auditScrub },
     $transaction: transaction,
   } as unknown as PrismaService;
   const config = { get: () => 30 } as unknown as ConfigService;
-  return { service: new AccountPurgeService(prisma, config), findMany, userUpdate, transaction };
+  return {
+    service: new AccountPurgeService(prisma, config),
+    findMany,
+    userUpdate,
+    auditScrub,
+    transaction,
+  };
 }
 
 describe('AccountPurgeService', () => {
@@ -59,6 +67,19 @@ describe('AccountPurgeService', () => {
         twoFactorEnabled: false,
       }),
     });
+  });
+
+  it('neutralise le metadata des traces de correction de perf (ADR-33/RB-06/ADR-15)', async () => {
+    const { service, auditScrub, transaction } = setup([{ id: 'u1' }]);
+
+    await service.purgeExpired();
+
+    expect(auditScrub).toHaveBeenCalledWith({
+      where: { actorId: 'u1', action: 'performance.correction' },
+      data: { metadata: Prisma.DbNull },
+    });
+    // L'opération de scrub est bien embarquée dans la transaction de purge.
+    expect(transaction.mock.calls[0][0]).toContainEqual({ op: 'audit.scrub' });
   });
 
   it('poursuit le lot si une purge échoue', async () => {

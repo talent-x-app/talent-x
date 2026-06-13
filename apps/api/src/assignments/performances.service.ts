@@ -8,6 +8,7 @@ import { RecordsService } from '../progress/records.service';
 import type { ExerciseDto } from '../sessions/dto/exercises.dto';
 import { PerformanceCreateDto, PerformanceDto } from './dto/performance.dto';
 import type { ResultsDocDto } from './dto/results.dto';
+import { PERFORMANCE_CORRECTION_ACTION, correctionAudit } from './performance-correction';
 
 /**
  * Performances (TLX-070). Relation 1:1 avec l'affectation (`assignment_id` unique).
@@ -118,7 +119,12 @@ export class PerformancesService {
     return dto;
   }
 
-  /** Mise à jour par l'athlète titulaire (consentement requis). 404 si pas encore soumise. */
+  /**
+   * Mise à jour par l'athlète titulaire (consentement requis). 404 si pas encore soumise.
+   * Honore RB-06 (ADR-33) : chaque correction effective écrit une trace `audit_log`
+   * (`performance.correction`, before/after) **dans la même transaction** que l'update —
+   * impossible de muter la perf sans laisser la trace. Un PUT identique ne trace rien.
+   */
   async updatePerformance(
     user: AuthenticatedUser,
     assignmentId: string,
@@ -130,18 +136,33 @@ export class PerformancesService {
     }
     await this.consent.assertActiveConsent(user.id, 'data_processing');
 
-    const existing = await this.prisma.performance.findUnique({ where: { assignmentId } });
-    if (!existing) {
-      throw new NotFoundException('Performance introuvable.');
-    }
-    const updated = await this.prisma.performance.update({
-      where: { assignmentId },
-      data: {
-        results: toResultsJson(dto.results),
-        resultsSchemaVersion: dto.results.schemaVersion ?? 1,
-        rpe: dto.rpe ?? null,
-        notes: dto.notes ?? null,
-      },
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const existing = await tx.performance.findUnique({ where: { assignmentId } });
+      if (!existing) {
+        throw new NotFoundException('Performance introuvable.');
+      }
+      const row = await tx.performance.update({
+        where: { assignmentId },
+        data: {
+          results: toResultsJson(dto.results),
+          resultsSchemaVersion: dto.results.schemaVersion ?? 1,
+          rpe: dto.rpe ?? null,
+          notes: dto.notes ?? null,
+        },
+      });
+      const diff = correctionAudit(existing, row);
+      if (diff) {
+        await tx.auditLog.create({
+          data: {
+            actorId: user.id,
+            action: PERFORMANCE_CORRECTION_ACTION,
+            entityType: 'performance',
+            entityId: existing.id,
+            metadata: diff as unknown as Prisma.InputJsonValue,
+          },
+        });
+      }
+      return row;
     });
     return this.withRecordCandidates(toPerformanceDto(updated), assignmentId);
   }

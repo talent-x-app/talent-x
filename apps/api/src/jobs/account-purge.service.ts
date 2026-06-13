@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Cron, CronExpression } from '@nestjs/schedule';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
 /** Suffixe d'e-mail des comptes anonymisés — sert aussi de marqueur « déjà purgé » (ADR-15 §3). */
@@ -70,6 +71,12 @@ export class AccountPurgeService {
       this.prisma.comment.updateMany({
         where: { authorId: userId },
         data: { body: '[contenu supprimé]' },
+      }),
+      // Traces de correction de perf (ADR-33) : le squelette d'audit reste, mais le
+      // `metadata` (marques avant/après) est une donnée personnelle → neutralisé (ADR-15).
+      this.prisma.auditLog.updateMany({
+        where: { actorId: userId, action: 'performance.correction' },
+        data: { metadata: Prisma.DbNull },
       }),
       // Anonymisation de la ligne user (FK Restrict → on garde la ligne).
       this.prisma.user.update({
