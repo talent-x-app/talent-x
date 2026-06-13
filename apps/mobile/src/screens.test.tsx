@@ -18,6 +18,8 @@ jest.mock('@talent-x/api-client', () => ({
   listAssignments: () => new Promise(() => {}),
   getMe: () => new Promise(() => {}),
   getMyGroups: () => new Promise(() => {}),
+  // Cloche notifications (TLX-92) rendue dans l'en-tête d'accueil — feed jamais résolu ici.
+  listNotifications: () => new Promise(() => {}),
   updateAssignment: jest.fn(),
   deleteAssignment: jest.fn(),
   AthleteStatus: { up_to_date: 'up_to_date', late: 'late', pending_review: 'pending_review' },
@@ -33,6 +35,10 @@ jest.mock('@talent-x/api-client', () => ({
     skipped: 'skipped',
   },
   SkipReason: { injury: 'injury', absence: 'absence', weather: 'weather', other: 'other' },
+}));
+// La cloche notifications (TLX-92) lit la session ; pas de SessionProvider dans ce smoke test.
+jest.mock('./auth/SessionProvider', () => ({
+  useSession: () => ({ role: 'athlete', isLoading: false, signIn: jest.fn(), signOut: jest.fn() }),
 }));
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';

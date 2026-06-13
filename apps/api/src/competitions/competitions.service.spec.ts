@@ -3,6 +3,7 @@ import type { OwnershipService } from '../common/authorization/ownership.service
 import type { PrismaService } from '../prisma/prisma.service';
 import type { AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { CompetitionsService } from './competitions.service';
+import { summarizeEntryStatus } from './competition.mapper';
 import { CompetitionQueryDto } from './dto/competition-query.dto';
 import { CompetitionStatus } from './dto/competition-create.dto';
 
@@ -50,7 +51,7 @@ function prismaMock(): PrismaMock {
       findUniqueOrThrow: jest.fn(),
       update: jest.fn(),
     },
-    competitionEntry: { findFirst: jest.fn() },
+    competitionEntry: { findFirst: jest.fn(), findMany: jest.fn() },
     $transaction: jest.fn((arg: unknown) =>
       Array.isArray(arg) ? Promise.all(arg) : (arg as (tx: unknown) => unknown)(mock),
     ),
@@ -64,6 +65,21 @@ function service(prisma: PrismaMock, ownership = ownershipMock()): CompetitionsS
 
 const baseQuery = (): CompetitionQueryDto =>
   Object.assign(new CompetitionQueryDto(), { page: 1, limit: 20 });
+
+describe('summarizeEntryStatus (TLX-92)', () => {
+  it('confirmed l’emporte sur tout', () => {
+    expect(summarizeEntryStatus(['withdrawn', 'engaged', 'confirmed'])).toBe('confirmed');
+  });
+  it('engaged l’emporte sur withdrawn', () => {
+    expect(summarizeEntryStatus(['withdrawn', 'engaged'])).toBe('engaged');
+  });
+  it('withdrawn seul', () => {
+    expect(summarizeEntryStatus(['withdrawn'])).toBe('withdrawn');
+  });
+  it('aucun engagement → undefined', () => {
+    expect(summarizeEntryStatus([])).toBeUndefined();
+  });
+});
 
 describe('CompetitionsService', () => {
   describe('createCompetition', () => {
@@ -113,11 +129,40 @@ describe('CompetitionsService', () => {
       prisma.competition.count.mockResolvedValue(0);
       await service(prisma).listCompetitions(ATHLETE, baseQuery());
 
-      const where = prisma.competition.findMany.mock.calls[0][0].where;
-      expect(where).toEqual({
+      const call = prisma.competition.findMany.mock.calls[0][0];
+      expect(call.where).toEqual({
         deletedAt: null,
         entries: { some: { athleteId: 'a-1', deletedAt: null } },
       });
+      // Embarque les engagements actifs de l'athlète pour exposer son statut (TLX-92).
+      expect(call.include).toEqual({
+        entries: { where: { athleteId: 'a-1', deletedAt: null }, select: { status: true } },
+      });
+    });
+
+    it('athlète : expose le statut d’engagement résumé sur chaque compétition (TLX-92)', async () => {
+      const prisma = prismaMock();
+      prisma.competition.findMany.mockResolvedValue([
+        competitionRow({ entries: [{ status: 'engaged' }, { status: 'confirmed' }] }),
+        competitionRow({ id: 'k-2', entries: [] }),
+      ]);
+      prisma.competition.count.mockResolvedValue(2);
+      const page = await service(prisma).listCompetitions(ATHLETE, baseQuery());
+
+      // Résumé : confirmed l'emporte sur engaged.
+      expect(page.data[0].viewerEntryStatus).toBe('confirmed');
+      // Aucun engagement (cas limite) → indéfini.
+      expect(page.data[1].viewerEntryStatus).toBeUndefined();
+    });
+
+    it('coach : n’embarque pas les engagements (badge = statut compétition)', async () => {
+      const prisma = prismaMock();
+      prisma.competition.findMany.mockResolvedValue([competitionRow()]);
+      prisma.competition.count.mockResolvedValue(1);
+      const page = await service(prisma).listCompetitions(COACH, baseQuery());
+
+      expect(prisma.competition.findMany.mock.calls[0][0].include).toBeUndefined();
+      expect(page.data[0].viewerEntryStatus).toBeUndefined();
     });
 
     it('applique le filtre status', async () => {
@@ -152,18 +197,23 @@ describe('CompetitionsService', () => {
     it('403 si un athlète non engagé tente de lire', async () => {
       const prisma = prismaMock();
       prisma.competition.findFirst.mockResolvedValue(competitionRow());
-      prisma.competitionEntry.findFirst.mockResolvedValue(null);
+      prisma.competitionEntry.findMany.mockResolvedValue([]);
       await expect(service(prisma).getCompetition(ATHLETE, 'k-1')).rejects.toBeInstanceOf(
         ForbiddenException,
       );
     });
 
-    it('athlète engagé : lecture autorisée', async () => {
+    it('athlète engagé : lecture autorisée + statut d’engagement résumé (TLX-92)', async () => {
       const prisma = prismaMock();
       prisma.competition.findFirst.mockResolvedValue(competitionRow());
-      prisma.competitionEntry.findFirst.mockResolvedValue({ id: 'e-1' });
+      prisma.competitionEntry.findMany.mockResolvedValue([
+        { status: 'withdrawn' },
+        { status: 'engaged' },
+      ]);
       const dto = await service(prisma).getCompetition(ATHLETE, 'k-1');
       expect(dto.id).toBe('k-1');
+      // engaged l'emporte sur withdrawn.
+      expect(dto.viewerEntryStatus).toBe('engaged');
     });
   });
 

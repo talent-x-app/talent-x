@@ -6,12 +6,13 @@ import { type ReactNode, useState } from 'react';
 const mockListNotifications = jest.fn();
 const mockReadAllNotifications = jest.fn();
 const mockPush = jest.fn();
+const mockBack = jest.fn();
 
 jest.mock('@talent-x/api-client', () => ({
   listNotifications: (...a: unknown[]) => mockListNotifications(...a),
   readAllNotifications: (...a: unknown[]) => mockReadAllNotifications(...a),
 }));
-jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush }) }));
+jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush, back: mockBack }) }));
 jest.mock('../auth/SessionProvider', () => ({
   useSession: () => ({ role: 'athlete', isLoading: false }),
 }));
@@ -78,6 +79,14 @@ describe('NotificationsScreen (TLX-111 — ADR-23)', () => {
 
     await waitFor(() => expect(screen.getByTestId('notification-n-2')).toBeOnTheScreen());
     expect(mockReadAllNotifications).not.toHaveBeenCalled();
+  });
+
+  it('revient en arrière au tap sur « Retour » (TLX-92)', async () => {
+    mockListNotifications.mockResolvedValue(page([READ], 0));
+    render(<NotificationsScreen />, { wrapper: Wrapper });
+    await waitFor(() => expect(screen.getByTestId('notifications-back')).toBeOnTheScreen());
+    fireEvent.press(screen.getByTestId('notifications-back'));
+    expect(mockBack).toHaveBeenCalledTimes(1);
   });
 
   it('navigue vers la ressource selon le type et le rôle', async () => {

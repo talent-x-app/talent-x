@@ -65,6 +65,27 @@ export function NotificationsScreen() {
       style={{ flex: 1, backgroundColor: colors.background }}
       contentContainerStyle={{ padding: spacing[6], gap: spacing[5] }}
     >
+      {/* Retour explicite (TLX-92) : route empilée hors tab bar — sans cette affordance, seul le
+          geste/bouton système permettait de revenir, et il ramenait sur l'Accueil. */}
+      <Pressable
+        testID="notifications-back"
+        onPress={() => router.back()}
+        accessibilityRole="button"
+        accessibilityLabel="Retour"
+        style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[1] }}
+      >
+        <Feather name="chevron-left" size={22} color={colors.textSecondary} />
+        <Text
+          style={{
+            color: colors.textSecondary,
+            fontFamily: typography.fontFamily.medium,
+            fontSize: typography.bodySm.fontSize,
+          }}
+        >
+          Retour
+        </Text>
+      </Pressable>
+
       <Text
         testID="notifications-title"
         style={{

@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma, type Competition } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { OwnershipService } from '../common/authorization/ownership.service';
 import type { AuthenticatedUser } from '../common/decorators/current-user.decorator';
@@ -13,7 +13,7 @@ import { CompetitionCreateDto, CompetitionStatus } from './dto/competition-creat
 import { CompetitionUpdateDto } from './dto/competition-update.dto';
 import { CompetitionQueryDto } from './dto/competition-query.dto';
 import { CompetitionDto, CompetitionPageDto } from './dto/competition.dto';
-import { toCompetitionDto } from './competition.mapper';
+import { summarizeEntryStatus, toCompetitionDto } from './competition.mapper';
 
 const COMPETITION_SORTABLE = ['createdAt', 'updatedAt', 'startDate', 'name'] as const;
 
@@ -55,9 +55,16 @@ export class CompetitionsService {
     q: CompetitionQueryDto,
   ): Promise<CompetitionPageDto> {
     const where = this.scopeForUser(user, q.status);
+    // Athlète : embarque ses propres engagements actifs pour exposer son statut d'engagement
+    // (TLX-92) ; coach : aucun (le badge reste le statut de la compétition).
+    const include =
+      user.role === 'athlete'
+        ? { entries: { where: { athleteId: user.id, deletedAt: null }, select: { status: true } } }
+        : undefined;
     const [rows, total] = await this.prisma.$transaction([
       this.prisma.competition.findMany({
         where,
+        include,
         orderBy: parseSort(q.sort, COMPETITION_SORTABLE, { startDate: 'desc' }),
         skip: q.skip,
         take: q.limit,
@@ -65,7 +72,13 @@ export class CompetitionsService {
       this.prisma.competition.count({ where }),
     ]);
     return {
-      data: rows.map(toCompetitionDto),
+      data: rows.map((row) => {
+        const entries = (row as { entries?: { status: string }[] }).entries;
+        return toCompetitionDto(
+          row,
+          entries ? summarizeEntryStatus(entries.map((e) => e.status)) : undefined,
+        );
+      }),
       meta: buildPageMeta(total, q.page, q.limit),
     };
   }
@@ -76,8 +89,21 @@ export class CompetitionsService {
     if (!competition) {
       throw new NotFoundException('Compétition introuvable.');
     }
-    await this.assertReadable(user, competition);
-    return toCompetitionDto(competition);
+    if (user.role === 'coach') {
+      if (competition.coachId !== user.id) {
+        throw new ForbiddenException('Cette compétition ne vous appartient pas.');
+      }
+      return toCompetitionDto(competition);
+    }
+    // Athlète : la lecture exige un engagement actif ; on en dérive son statut (TLX-92).
+    const entries = await this.prisma.competitionEntry.findMany({
+      where: { competitionId: competition.id, athleteId: user.id, deletedAt: null },
+      select: { status: true },
+    });
+    if (entries.length === 0) {
+      throw new ForbiddenException("Vous n'êtes pas engagé à cette compétition.");
+    }
+    return toCompetitionDto(competition, summarizeEntryStatus(entries.map((e) => e.status)));
   }
 
   async updateCompetition(
@@ -133,23 +159,6 @@ export class CompetitionsService {
       ...statusFilter,
       entries: { some: { athleteId: user.id, deletedAt: null } },
     };
-  }
-
-  /** 403 si l'utilisateur n'est ni propriétaire ni athlète engagé à la compétition. */
-  private async assertReadable(user: AuthenticatedUser, competition: Competition): Promise<void> {
-    if (user.role === 'coach') {
-      if (competition.coachId !== user.id) {
-        throw new ForbiddenException('Cette compétition ne vous appartient pas.');
-      }
-      return;
-    }
-    const entry = await this.prisma.competitionEntry.findFirst({
-      where: { competitionId: competition.id, athleteId: user.id, deletedAt: null },
-      select: { id: true },
-    });
-    if (!entry) {
-      throw new ForbiddenException("Vous n'êtes pas engagé à cette compétition.");
-    }
   }
 }
 

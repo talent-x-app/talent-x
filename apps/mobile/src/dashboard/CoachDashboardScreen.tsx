@@ -34,6 +34,7 @@ import {
 } from './dashboard-sections';
 import { COACH_DASHBOARD_QUERY_KEY } from './dashboard-query';
 import { coachGroupsHref } from '../groups/navigation';
+import { NotificationsBell } from '../notifications/NotificationsBell';
 
 // Ré-exporté pour compat : la source unique est `dashboard-query` (sans dépendance UI).
 export { COACH_DASHBOARD_QUERY_KEY };
@@ -137,28 +138,32 @@ export function CoachDashboardScreen() {
       }
     >
       <ResponsiveContent testID="coach-responsive-content" style={{ gap: spacing[5] }}>
-        <View style={{ gap: spacing[1] }}>
-          <Text
-            style={{
-              color: colors.textPrimary,
-              fontFamily: typography.fontFamily.bold,
-              fontSize: typography.h1.fontSize,
-              letterSpacing: -0.5,
-            }}
-          >
-            Tableau de bord
-          </Text>
-          <Text
-            testID="coach-dashboard-subtitle"
-            style={{
-              color: colors.textMuted,
-              fontFamily: typography.fontFamily.regular,
-              fontSize: typography.bodySm.fontSize,
-            }}
-          >
-            {summary.athleteCount} athlète{summary.athleteCount > 1 ? 's' : ''} suivi
-            {summary.athleteCount > 1 ? 's' : ''}
-          </Text>
+        {/* En-tête + cloche notifications (TLX-92, découvrabilité). */}
+        <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing[3] }}>
+          <View style={{ flex: 1, gap: spacing[1] }}>
+            <Text
+              style={{
+                color: colors.textPrimary,
+                fontFamily: typography.fontFamily.bold,
+                fontSize: typography.h1.fontSize,
+                letterSpacing: -0.5,
+              }}
+            >
+              Tableau de bord
+            </Text>
+            <Text
+              testID="coach-dashboard-subtitle"
+              style={{
+                color: colors.textMuted,
+                fontFamily: typography.fontFamily.regular,
+                fontSize: typography.bodySm.fontSize,
+              }}
+            >
+              {summary.athleteCount} athlète{summary.athleteCount > 1 ? 's' : ''} suivi
+              {summary.athleteCount > 1 ? 's' : ''}
+            </Text>
+          </View>
+          <NotificationsBell />
         </View>
 
         {/* Entrée vers le constructeur de séance (C-05 — TLX-052). */}

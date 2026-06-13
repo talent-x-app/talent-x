@@ -183,7 +183,13 @@ export function CompetitionListItem({
           ) : null}
         </View>
         <View style={{ alignItems: 'flex-end', gap: spacing[2] }}>
-          <CompetitionStatusBadge status={competition.status} />
+          {/* Athlète (TLX-92) : son statut d'engagement (Engagé/Confirmé/Forfait) prime sur le
+              statut de la compétition — c'est l'info qui le concerne. Coach : statut compétition. */}
+          {competition.viewerEntryStatus ? (
+            <CompetitionEntryStatusBadge status={competition.viewerEntryStatus} />
+          ) : (
+            <CompetitionStatusBadge status={competition.status} />
+          )}
         </View>
       </View>
     </Card>

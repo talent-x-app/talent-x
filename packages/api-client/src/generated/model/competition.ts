@@ -7,6 +7,7 @@
  * Conventions transverses : préfixe /api/v1 ; jeton d'accès JWT (RS256) via en-tête Authorization ; pagination par enveloppe { data, meta } ; idempotence des écritures sensibles via Idempotency-Key ; opérations longues asynchrones (202 + ressource de statut) ; rate limiting signalé par les en-têtes RateLimit-*. L'autorisation combine rôle, appartenance (lien coach↔athlète), propriété et consentement ; voir TX-SPEC-002 §6.
  * OpenAPI spec version: 1.0.0
  */
+import type { CompetitionEntryStatus } from './competitionEntryStatus';
 import type { CompetitionStatus } from './competitionStatus';
 
 export interface Competition {
@@ -19,6 +20,8 @@ export interface Competition {
   endDate?: string;
   description?: string;
   status: CompetitionStatus;
+  /** Statut d'engagement du demandeur quand il est l'athlète engagé (résumé de ses engagements : confirmé > engagé > forfait). Absent pour le coach propriétaire. */
+  viewerEntryStatus?: CompetitionEntryStatus;
   createdAt?: string;
   updatedAt?: string;
 }

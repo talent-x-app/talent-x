@@ -6,12 +6,14 @@ import { type ReactNode, useState } from 'react';
 const mockGetMe = jest.fn();
 const mockGetMyGroups = jest.fn();
 const mockListAssignments = jest.fn();
+const mockListNotifications = jest.fn();
 const mockPush = jest.fn();
 
 jest.mock('@talent-x/api-client', () => ({
   getMe: (...a: unknown[]) => mockGetMe(...a),
   getMyGroups: (...a: unknown[]) => mockGetMyGroups(...a),
   listAssignments: (...a: unknown[]) => mockListAssignments(...a),
+  listNotifications: (...a: unknown[]) => mockListNotifications(...a),
   AssignmentStatus: {
     assigned: 'assigned',
     in_progress: 'in_progress',
@@ -20,6 +22,9 @@ jest.mock('@talent-x/api-client', () => ({
   },
 }));
 jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush }) }));
+jest.mock('../auth/SessionProvider', () => ({
+  useSession: () => ({ role: 'athlete', isLoading: false, signIn: jest.fn(), signOut: jest.fn() }),
+}));
 
 import { AthleteHomeScreen } from './AthleteHomeScreen';
 
@@ -68,6 +73,10 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockGetMe.mockResolvedValue({ status: 200, data: ME });
   mockGetMyGroups.mockResolvedValue(HAS_GROUP);
+  mockListNotifications.mockResolvedValue({
+    status: 200,
+    data: { data: [], unreadCount: 0, meta: { total: 0, page: 1, limit: 50 } },
+  });
 });
 
 describe('AthleteHomeScreen (A-01, TLX-089)', () => {
@@ -168,6 +177,22 @@ describe('AthleteHomeScreen (A-01, TLX-089)', () => {
     });
     fireEvent.press(screen.getByTestId('home-retry'));
     await waitFor(() => expect(screen.getByTestId('home-todo-s1')).toBeOnTheScreen());
+  });
+
+  it('affiche la cloche de notifications avec badge de non-lues et ouvre le centre (TLX-92)', async () => {
+    mockListAssignments.mockResolvedValue({ status: 200, data: { data: [] } });
+    mockListNotifications.mockResolvedValue({
+      status: 200,
+      data: { data: [], unreadCount: 3, meta: { total: 0, page: 1, limit: 50 } },
+    });
+    render(<AthleteHomeScreen />, { wrapper: Wrapper });
+
+    await waitFor(() => expect(screen.getByTestId('notifications-bell')).toBeOnTheScreen());
+    await waitFor(() =>
+      expect(screen.getByTestId('notifications-bell-badge')).toHaveTextContent('3'),
+    );
+    fireEvent.press(screen.getByTestId('notifications-bell'));
+    expect(mockPush).toHaveBeenCalledWith('/(athlete)/notifications');
   });
 
   it('raccourcis vers calendrier et progression', async () => {

@@ -9,6 +9,9 @@ export default function CoachLayout() {
   return (
     <RoleGuard role="coach">
       <Tabs
+        // `history` : revenir d'une route hors tab bar (notifications, compétitions…) ramène
+        // sur le **dernier onglet visité** (Profil) et non sur le 1er onglet (Accueil) — TLX-92.
+        backBehavior="history"
         screenOptions={{
           headerShown: false,
           tabBarStyle: {

@@ -20,6 +20,7 @@ import { sessionDetailHref } from './navigation';
 import { countDueToday, selectPendingAssignments } from './home-model';
 import { computeAttendance } from './attendance';
 import { StreakBadge } from './AttendanceSection';
+import { NotificationsBell } from '../notifications/NotificationsBell';
 
 /** Clé du profil courant — même chaîne que `ME_QUERY_KEY` (Profil), cache partagé sans import du graphe UI. */
 const ME_QUERY_KEY = ['me'] as const;
@@ -97,30 +98,33 @@ export function AthleteHomeScreen() {
         />
       }
     >
-      {/* Salutation + résumé du jour. */}
-      <View style={{ gap: spacing[1] }}>
-        <Text
-          testID="home-greeting"
-          style={{
-            color: colors.textPrimary,
-            fontFamily: typography.fontFamily.bold,
-            fontSize: typography.h1.fontSize,
-            letterSpacing: -0.5,
-          }}
-        >
-          {greeting(me.data)}
-        </Text>
-        <Text
-          testID="home-subtitle"
-          style={{
-            color: colors.textMuted,
-            fontFamily: typography.fontFamily.regular,
-            fontSize: typography.bodySm.fontSize,
-          }}
-        >
-          {homeSubtitle(pending.length, dueToday)}
-        </Text>
-        <StreakBadge weeks={streakWeeks} />
+      {/* Salutation + résumé du jour + cloche notifications (TLX-92, découvrabilité). */}
+      <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing[3] }}>
+        <View style={{ flex: 1, gap: spacing[1] }}>
+          <Text
+            testID="home-greeting"
+            style={{
+              color: colors.textPrimary,
+              fontFamily: typography.fontFamily.bold,
+              fontSize: typography.h1.fontSize,
+              letterSpacing: -0.5,
+            }}
+          >
+            {greeting(me.data)}
+          </Text>
+          <Text
+            testID="home-subtitle"
+            style={{
+              color: colors.textMuted,
+              fontFamily: typography.fontFamily.regular,
+              fontSize: typography.bodySm.fontSize,
+            }}
+          >
+            {homeSubtitle(pending.length, dueToday)}
+          </Text>
+          <StreakBadge weeks={streakWeeks} />
+        </View>
+        <NotificationsBell />
       </View>
 
       {/* Rattachement manquant (TLX-88) : CTA rejoindre, point d'entrée découvrable dès l'accueil. */}

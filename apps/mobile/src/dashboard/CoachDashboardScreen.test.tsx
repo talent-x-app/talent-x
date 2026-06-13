@@ -6,6 +6,7 @@ import { type ReactNode, useState } from 'react';
 
 const mockGetCoachDashboard = jest.fn();
 const mockListAssignments = jest.fn();
+const mockListNotifications = jest.fn();
 const mockPush = jest.fn();
 // Dimensions de fenêtre contrôlables (TLX-123) — mutées par les tests responsive.
 const mockWindow = { width: 375, height: 812, scale: 2, fontScale: 1 };
@@ -17,6 +18,7 @@ jest.mock('react-native/Libraries/Utilities/useWindowDimensions', () => ({
 jest.mock('@talent-x/api-client', () => ({
   getCoachDashboard: (...args: unknown[]) => mockGetCoachDashboard(...args),
   listAssignments: (...args: unknown[]) => mockListAssignments(...args),
+  listNotifications: (...args: unknown[]) => mockListNotifications(...args),
   updateAssignment: jest.fn(),
   deleteAssignment: jest.fn(),
   // Enums orval réexportés tels quels (valeurs littérales).
@@ -37,6 +39,10 @@ jest.mock('@talent-x/api-client', () => ({
 jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush }) }));
 // Les lignes « Aujourd'hui » rendent les actions coach (ADR-31) → useToast.
 jest.mock('../feedback', () => ({ useToast: () => ({ show: jest.fn(), dismiss: jest.fn() }) }));
+// Cloche notifications (TLX-92) rendue dans l'en-tête → useSession.
+jest.mock('../auth/SessionProvider', () => ({
+  useSession: () => ({ role: 'coach', isLoading: false, signIn: jest.fn(), signOut: jest.fn() }),
+}));
 
 import { CoachDashboardScreen } from './CoachDashboardScreen';
 
@@ -86,6 +92,10 @@ beforeEach(() => {
   jest.clearAllMocks();
   // Par défaut : pas d'affectation (les tests qui ciblent « Aujourd'hui » surchargent).
   mockListAssignments.mockResolvedValue({ status: 200, data: { data: [], meta: {} } });
+  mockListNotifications.mockResolvedValue({
+    status: 200,
+    data: { data: [], unreadCount: 0, meta: { total: 0, page: 1, limit: 50 } },
+  });
 });
 
 describe('CoachDashboardScreen (TLX-081)', () => {
@@ -93,6 +103,22 @@ describe('CoachDashboardScreen (TLX-081)', () => {
     mockGetCoachDashboard.mockReturnValue(new Promise(() => {}));
     render(<CoachDashboardScreen />, { wrapper: Wrapper });
     expect(screen.getByTestId('coach-dashboard-loading')).toBeOnTheScreen();
+  });
+
+  it('affiche la cloche de notifications avec badge et ouvre le centre coach (TLX-92)', async () => {
+    mockGetCoachDashboard.mockResolvedValue({ status: 200, data: DASHBOARD });
+    mockListNotifications.mockResolvedValue({
+      status: 200,
+      data: { data: [], unreadCount: 2, meta: { total: 0, page: 1, limit: 50 } },
+    });
+    render(<CoachDashboardScreen />, { wrapper: Wrapper });
+
+    await waitFor(() => expect(screen.getByTestId('notifications-bell')).toBeOnTheScreen());
+    await waitFor(() =>
+      expect(screen.getByTestId('notifications-bell-badge')).toHaveTextContent('2'),
+    );
+    fireEvent.press(screen.getByTestId('notifications-bell'));
+    expect(mockPush).toHaveBeenCalledWith('/(coach)/notifications');
   });
 
   it('charge puis affiche KPIs, athlètes et leurs statuts', async () => {

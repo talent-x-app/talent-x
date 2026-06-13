@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { PageMetaDto } from '../../common/pagination/page-meta';
 import { CompetitionStatus } from './competition-create.dto';
+import { CompetitionEntryStatus } from './competition-entry.dto';
 
 /** Compétition — schéma `Competition` du contrat OpenAPI (ADR-24). */
 export class CompetitionDto {
@@ -30,6 +31,13 @@ export class CompetitionDto {
 
   @ApiProperty({ enum: CompetitionStatus })
   status!: CompetitionStatus;
+
+  @ApiPropertyOptional({
+    enum: CompetitionEntryStatus,
+    description:
+      "Statut d'engagement du demandeur (athlète engagé) : résumé de ses engagements. Absent côté coach.",
+  })
+  viewerEntryStatus?: CompetitionEntryStatus;
 
   @ApiProperty({ format: 'date-time' })
   createdAt!: string;

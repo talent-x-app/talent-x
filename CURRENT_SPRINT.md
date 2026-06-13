@@ -12,6 +12,36 @@ de débloquer les écrans coach C-01/C-02/C-03.
 - _(éditeurs typés terminés — TLX-054→061 livrés ↓)_
 - _(C-01 complet — TLX-081→085 livrés ↓)_
 
+## Terminés — TLX-92 Finitions UX parcours athlète (cloche notifications, retour de nav, libellé engagement)
+
+- **3 points mineurs de l'audit parcours front (live device 2026-06-10)** regroupés. **Frontend** +
+  **un champ additif** côté contrat (statut d'engagement). Hors V2.
+- **(Découvrabilité — cloche)** le centre de notifications n'était accessible que via une entrée
+  enfouie du Profil (`NotificationsLink`). Nouveau composant **`NotificationsBell`** (icône + badge
+  de non-lues plafonné « 9+ », partage le cache `NOTIFICATIONS_QUERY_KEY` → l'ouverture du centre
+  remet le badge à zéro ; navigue vers le centre du rôle courant). Câblé sur les **en-têtes
+  d'accueil** athlète (A-01) et coach (C-01) — point d'entrée visible dès le landing.
+- **(Retour de navigation)** les routes hors tab bar (notifications, compétitions…) sont des
+  `Tabs.Screen` masqués (`href: null`) : le `backBehavior` par défaut d'un tab navigator
+  (`firstRoute`) ramenait sur **Accueil** au retour. Corrigé par **`backBehavior="history"`** sur les
+  deux navigateurs (retour sur le **dernier onglet visité**) + **bouton « Retour » explicite** ajouté
+  au centre de notifications (il n'en avait aucun — seul le geste système permettait de sortir).
+- **(Libellé compétition athlète)** la carte « Mes compétitions » affichait le statut de la
+  **compétition** (« Publiée ») ; un athlète attend son **statut d'engagement**. Champ **additif**
+  `Competition.viewerEntryStatus` (OpenAPI `allOf` → DTO Nest → client orval régénéré) peuplé
+  **côté athlète seulement** : `listCompetitions` embarque les engagements actifs du demandeur,
+  `getCompetition` les relit ; helper pur **`summarizeEntryStatus`** résume plusieurs épreuves en un
+  statut (confirmé > engagé > forfait). `CompetitionListItem` rend le **badge d'engagement**
+  (Engagé/Confirmé/Forfait) quand présent, sinon le statut compétition (coach inchangé). Extension
+  d'ADR-24, pas de divergence → pas d'ADR.
+- **Tests** : **API unit 503/503** (+5 : `summarizeEntryStatus` ×4, liste/détail athlète exposent le
+  statut résumé, coach n'embarque rien), **mobile 504/504** (+11 : `NotificationsBell` badge/cap/
+  navigation par rôle/feed en échec, cloche sur accueil athlète+coach, retour du centre, badge
+  engagement de la carte), typecheck (api + api-client + mobile) + lint clean.
+- **Non rejoué en réel** (smoke Expo web / device) : rendu visuel de la cloche, du retour de nav et du
+  badge d'engagement — UI couverte par RTL sur les **vrais** composants/écrans ; vérif live device =
+  à confirmer (suivi à créer si besoin, cf. série TLX-129…134).
+
 ## Terminés — TLX-107 Push réelles APNs/FCM — adaptateurs derrière `PushProvider`
 
 - **Dernier maillon du pipeline notifications** : seul `LoggingPushProvider` était branché

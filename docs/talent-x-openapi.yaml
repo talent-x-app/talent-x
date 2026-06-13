@@ -3255,6 +3255,12 @@ components:
           type: string
         status:
           $ref: '#/components/schemas/CompetitionStatus'
+        viewerEntryStatus:
+          description: >-
+            Statut d'engagement du demandeur quand il est l'athlète engagé (résumé de ses
+            engagements : confirmé > engagé > forfait). Absent pour le coach propriétaire.
+          allOf:
+          - $ref: '#/components/schemas/CompetitionEntryStatus'
         createdAt:
           type: string
           format: date-time
