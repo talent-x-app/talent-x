@@ -124,11 +124,30 @@ describe('PerformancesService', () => {
 
       expect(consent.assertActiveConsent).toHaveBeenCalledWith('a-1', 'data_processing');
       expect(prisma.performance.create).toHaveBeenCalledTimes(1);
+      // TLX-144 : colonne + JSONB posés depuis la même version (défaut v2, ADR-19).
+      const created = prisma.performance.create.mock.calls[0][0].data;
+      expect(created.resultsSchemaVersion).toBe(2);
+      expect(created.results).toEqual({
+        schemaVersion: 2,
+        items: [{ exerciseName: '60m', order: 1 }],
+      });
       expect(prisma.sessionAssignment.update).toHaveBeenCalledWith({
         where: { id: 'asg-1' },
         data: { status: 'completed' },
       });
       expect(res.id).toBe('perf-1');
+    });
+
+    it('honore une version results explicite sur la colonne (TLX-144)', async () => {
+      const prisma = prismaMock();
+      prisma.sessionAssignment.findFirst.mockResolvedValue(assignmentRow());
+      prisma.performance.findUnique.mockResolvedValue(null);
+      prisma.performance.create.mockResolvedValue(performanceRow());
+      prisma.sessionAssignment.update.mockResolvedValue(assignmentRow({ status: 'completed' }));
+      await service(prisma).submitPerformance(ATHLETE, 'asg-1', {
+        results: { schemaVersion: 1, items: [{ exerciseName: '60m', order: 1 }] },
+      });
+      expect(prisma.performance.create.mock.calls[0][0].data.resultsSchemaVersion).toBe(1);
     });
 
     it('joint les candidats record à la réponse quand la détection en trouve (ADR-20)', async () => {

@@ -95,7 +95,21 @@ describe('SessionsService', () => {
       expect(arg.data.status).toBe(SessionStatus.Draft);
       // schemaVersion omis par le client → défaut = EXERCISES_SCHEMA_VERSION (3).
       expect(arg.data.exercises).toEqual({ schemaVersion: 3, items: [{ name: '60m', order: 0 }] });
+      // TLX-144 : la colonne reflète le tag du JSONB (plus jamais le défaut DB 1 figé).
+      expect(arg.data.exercisesSchemaVersion).toBe(3);
       expect(result).toMatchObject({ id: 's-1', coachId: 'c-1', status: 'draft' });
+    });
+
+    it('écrit la colonne exercises_schema_version cohérente avec une version cliente explicite (TLX-144)', async () => {
+      const prisma = prismaMock();
+      prisma.session.create.mockResolvedValue(sessionRow());
+      await service(prisma).createSession('c-1', {
+        title: 'v3',
+        exercises: { schemaVersion: 3, items: [{ name: '60m', order: 0 }] },
+      });
+      const data = prisma.session.create.mock.calls[0][0].data;
+      expect(data.exercisesSchemaVersion).toBe(3);
+      expect(data.exercises.schemaVersion).toBe(3);
     });
 
     it('refuse le statut self_logged (réservé au journal d’entraînement athlète, ADR-36)', async () => {
@@ -269,6 +283,17 @@ describe('SessionsService', () => {
       ).rejects.toThrow(ForbiddenException);
       expect(prisma.session.update).not.toHaveBeenCalled();
     });
+
+    it('met à jour la colonne exercises_schema_version quand les blocs changent (TLX-144)', async () => {
+      const prisma = prismaMock();
+      prisma.session.update.mockResolvedValue(sessionRow());
+      await service(prisma).updateSession('c-1', 's-1', {
+        exercises: { schemaVersion: 3, items: [{ name: '60m', order: 0 }] },
+      });
+      const data = prisma.session.update.mock.calls[0][0].data;
+      expect(data.exercisesSchemaVersion).toBe(3);
+      expect(data.exercises).toEqual({ schemaVersion: 3, items: [{ name: '60m', order: 0 }] });
+    });
   });
 
   describe('deleteSession', () => {
@@ -297,6 +322,20 @@ describe('SessionsService', () => {
       expect(data.status).toBe(SessionStatus.Draft);
       expect(data.scheduledDate).toBeUndefined();
       expect(res.id).toBe('s-2');
+    });
+
+    it('aligne la colonne de la copie sur le tag du JSONB source, pas sur sa colonne héritée (TLX-144)', async () => {
+      const prisma = prismaMock();
+      // Ligne héritée : JSONB taggé v2 mais colonne restée au défaut 1.
+      prisma.session.findUniqueOrThrow.mockResolvedValue(
+        sessionRow({
+          exercises: { schemaVersion: 2, items: [{ name: '60m', order: 0 }] },
+          exercisesSchemaVersion: 1,
+        }),
+      );
+      prisma.session.create.mockResolvedValue(sessionRow({ id: 's-2' }));
+      await service(prisma).duplicateSession('c-1', 's-1');
+      expect(prisma.session.create.mock.calls[0][0].data.exercisesSchemaVersion).toBe(2);
     });
 
     it('utiliser un modèle (template, C-10) : la copie est un brouillon assignable (ADR-29)', async () => {

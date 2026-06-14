@@ -88,6 +88,9 @@ describe('TrainingLogService (ADR-36)', () => {
         title: 'Footing 8 km',
         status: 'self_logged',
         scheduledDate: new Date('2026-06-10'),
+        // TLX-144 : la séance libre écrit aussi la colonne, cohérente avec le JSONB.
+        exercisesSchemaVersion: 2,
+        exercises: { schemaVersion: 2, items: DTO.exercises.items },
       }),
     });
     expect(prisma.sessionAssignment.create).toHaveBeenCalledWith({
@@ -104,6 +107,7 @@ describe('TrainingLogService (ADR-36)', () => {
         athleteId: 'a-1',
         rpe: 5,
         submittedAt: new Date('2026-06-10'),
+        resultsSchemaVersion: 2,
       }),
     });
     expect(res.id).toBe('perf-1');

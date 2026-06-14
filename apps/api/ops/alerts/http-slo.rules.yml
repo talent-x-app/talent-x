@@ -1,0 +1,88 @@
+# Règles d'alerte — SLO HTTP applicatifs (TLX-138 / TX-OPS-004 §8).
+#
+# Format Prometheus (groups/rules), consommé tel quel par l'observabilité managée
+# du MVP (ADR-11) ou un Prometheus auto-hébergé ultérieur. Aucun secret ici.
+#
+# Source : métriques HTTP exposées par GET /metrics (TLX-76) —
+#   - talentx_http_requests_total{method,route,status}        counter (volume + statut)
+#   - talentx_http_request_duration_seconds_bucket{...,le}     histogram (latence)
+#   - talentx_http_requests_in_flight                          gauge   (connexions actives)
+#
+# SLO de référence (TX-OPS-004 §8/§10) : taux d'erreur 5xx < 5 %, latence p95
+# (lecture) < 1 s. Une borne d'histogramme tombe exactement à 1 s (TLX-76) → la
+# p95 est lisible sans interpolation grossière. Les SEUILS de volume/durée sont
+# INDICATIFS, à affiner avec le trafic réel (§7.2 : alertes reliées aux SLO).
+#
+# Niveaux : critical / high / medium — cf. TX-OPS-004 §7.1.
+
+groups:
+  - name: talentx-http-slo
+    rules:
+      # --- Critique : taux d'erreur serveur au-dessus du SLO --------------------
+      # 5xx > 5 % du trafic sur 5 min. Garde-fou bas volume : on n'alerte qu'avec
+      # un trafic significatif (> 0,2 req/s) pour ne pas flapper sur 1 erreur isolée.
+      - alert: HttpErrorRateHigh
+        expr: >
+          sum(rate(talentx_http_requests_total{status=~"5.."}[5m]))
+            / sum(rate(talentx_http_requests_total[5m])) > 0.05
+          and sum(rate(talentx_http_requests_total[5m])) > 0.2
+        for: 5m
+        labels:
+          severity: critical
+          component: http
+        annotations:
+          summary: "Taux d'erreur 5xx > 5 % (SLO TX-OPS-004 §8)"
+          description: >
+            Plus de 5 % des requêtes répondent en 5xx depuis 5 min. Vérifier les
+            logs (correlation id), la base (/api/v1/ready), les dépendances.
+            Réf. TX-OPS-004 §8, runbook observabilité.
+
+      # --- Haute : latence p95 de lecture au-dessus du SLO ---------------------
+      # p95 GET > 1 s sur 5 min. La lecture (GET) porte le SLO de latence (§8).
+      - alert: HttpReadLatencyP95High
+        expr: >
+          histogram_quantile(0.95,
+            sum by (le) (rate(talentx_http_request_duration_seconds_bucket{method="GET"}[5m]))) > 1
+        for: 5m
+        labels:
+          severity: high
+          component: http
+        annotations:
+          summary: 'Latence p95 (lecture) > 1 s (SLO TX-OPS-004 §8)'
+          description: >
+            La p95 des GET dépasse 1 s depuis 5 min. Vérifier la charge (paliers),
+            les requêtes lentes (dashboard/agrégations), la saturation CPU/DB.
+            Pister le point de saturation ; scaler horizontalement si plafond
+            mono-nœud (cf. perf/TLX-138-local-load-report.md). Réf. TX-OPS-004 §8/§10.
+
+      # Pré-alerte (budget d'erreur) : p95 > 0,7 s soutenue → marge qui se réduit.
+      - alert: HttpReadLatencyP95Elevated
+        expr: >
+          histogram_quantile(0.95,
+            sum by (le) (rate(talentx_http_request_duration_seconds_bucket{method="GET"}[5m]))) > 0.7
+        for: 15m
+        labels:
+          severity: medium
+          component: http
+        annotations:
+          summary: 'Latence p95 (lecture) élevée (> 0,7 s, marge SLO réduite)'
+          description: >
+            La p95 des GET dépasse 0,7 s depuis 15 min : la marge vers le SLO 1 s
+            se réduit. Surveiller la tendance avant bascule en alerte haute.
+
+      # --- Moyenne : saturation (connexions actives soutenues) -----------------
+      # Beaucoup de requêtes en vol en continu → file d'attente applicative,
+      # symptôme de saturation avant que la latence n'explose. Seuil à caler
+      # selon le dimensionnement (nb de nœuds, pool de connexions DB).
+      - alert: HttpInFlightSaturation
+        expr: avg_over_time(talentx_http_requests_in_flight[10m]) > 50
+        for: 10m
+        labels:
+          severity: medium
+          component: http
+        annotations:
+          summary: 'Connexions HTTP actives soutenues (saturation probable)'
+          description: >
+            Moyenne des requêtes en vol > 50 sur 10 min : l'API approche sa
+            capacité. Confirmer avec la latence p95 et le débit ; envisager de
+            scaler. Réf. TX-OPS-004 §7 (connexions actives) / §10 (capacité).

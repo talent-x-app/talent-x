@@ -341,6 +341,28 @@ describe('AssignmentsService', () => {
       expect(dueDates).toEqual(['2026-06-09', '2026-06-16', '2026-06-23']);
     });
 
+    it('aligne la colonne des occurrences dupliquées sur le tag JSONB source (TLX-144)', async () => {
+      const prisma = prismaMock();
+      prisma.sessionAssignment.findFirst.mockResolvedValue(null);
+      prisma.sessionAssignment.create.mockImplementation(({ data }) =>
+        Promise.resolve(assignmentRow({ sessionId: data.sessionId, dueDate: data.dueDate })),
+      );
+      // Source héritée : JSONB taggé v2 mais colonne restée à 1.
+      prisma.session.findUniqueOrThrow.mockResolvedValue(
+        sessionRow({ exercises: { schemaVersion: 2, items: [] }, exercisesSchemaVersion: 1 }),
+      );
+      prisma.session.create.mockResolvedValue({ id: 's-occ-2' });
+
+      await service(prisma).assignSession('c-1', 's-1', {
+        athleteIds: ['a-1'],
+        dueDate: '2026-06-09',
+        recurrence: { frequency: 'weekly', until: '2026-06-16' } as never,
+      });
+
+      expect(prisma.session.create).toHaveBeenCalledTimes(1);
+      expect(prisma.session.create.mock.calls[0][0].data.exercisesSchemaVersion).toBe(2);
+    });
+
     it('une seule notification par athlète pour toute la série (occurrence 1)', async () => {
       const prisma = prismaMock();
       const queue = queueMock();

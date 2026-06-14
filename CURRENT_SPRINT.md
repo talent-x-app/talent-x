@@ -62,6 +62,68 @@ de débloquer les écrans coach C-01/C-02/C-03.
   **n'est jamais écrite** par `create`/`update` (ni le journal libre) — seul le seed la peuple ; vestigiale
   car le mapper lit le JSONB d'abord. **Sans impact** (lecture JSONB-first) → ticket de nettoyage créé.
 
+## Terminés — TLX-144 Colonne `sessions.exercises_schema_version` vestigiale — peuplée sur tous les chemins d'écriture (hors V2)
+
+- **Donnée morte/trompeuse corrigée** (suite de TLX-143) : la colonne Prisma
+  `Session.exercisesSchemaVersion` (`@default(1)`) **n'était jamais écrite** par l'API → toute séance
+  créée via `create`/`update` gardait `1` alors que le JSONB portait `2`/`3` (colonne ≠ doc). Les
+  duplications (`duplicateSession`, occurrences ADR-35) **propageaient** la valeur héritée ; la séance
+  libre (ADR-36) ne posait pas la colonne. Sans impact fonctionnel (le mapper lit le JSONB d'abord),
+  mais incohérent. **Backend pur, zéro migration, zéro contrat.**
+- **Décision tranchée (DoD) : peupler** (et non déprécier/supprimer). Le JSONB reste la **source de
+  vérité** ; la colonne en devient le **reflet fidèle** — repli valable pour d'éventuelles lignes
+  héritées sans tag. Supprimer la colonne aurait exigé une migration expand/contract (deux phases,
+  plus de risque) pour un nettoyage Low — disproportionné.
+- **(Sérialisation centralisée, anti-dérive)** deux modules **purs et testés** posent **colonne +
+  JSONB depuis une seule version résolue** → ils ne peuvent plus diverger : `sessions/exercises-schema.ts`
+  (`serializeExercises`, `storedExercisesSchemaVersion`, `EXERCISES_SCHEMA_VERSION = 2`) et
+  `assignments/results-schema.ts` (`serializeResults`, `RESULTS_SCHEMA_VERSION = 2`). Les helpers
+  locaux dupliqués (`toExercisesJson`/`toResultsJson`) sont supprimés.
+- **(Chemins d'écriture)** `createSession`/`updateSession` posent la colonne via `serializeExercises` ;
+  `duplicateSession` et `duplicateSessionForOccurrence` l'alignent sur le **tag du JSONB copié**
+  (`storedExercisesSchemaVersion`), pas sur la colonne source héritée ; `TrainingLogService` (séance
+  libre) pose la colonne. Côté **résultats**, `submit`/`update`/journal libre passent par
+  `serializeResults` : colonne + JSONB cohérents, **défaut aligné sur v2 (ADR-19)** au lieu d'un `1`
+  périmé (le mobile envoie déjà `2` → aucun changement en pratique ; seul le repli sans tag change).
+- **Tests** : **API unit 573/573** (+11 : modules purs ×6, colonne écrite sur create/update/duplicate/
+  occurrence/journal libre, défaut results v2 + version explicite honorée). typecheck + lint + prettier
+  clean. Nouveaux modules 100 % couverts. **Aucun changement OpenAPI / DTO / client mobile.**
+- **Vérifié au niveau du chemin d'écriture** (assertion du `data` passé à Prisma) ; non rejoué contre
+  une vraie base (pas de Postgres dans le conteneur) — la persistance d'une colonne existante est
+  triviale, le risque était la **non-écriture**, désormais couverte unitairement.
+
+## Terminés — TLX-138 Validation de charge — volet codeable : module SLO pur + harnais + alertes HTTP (hors V2)
+
+- **Volet codeable d'un ticket d'exploitation (hors V2)** : TLX-76 **expose** les signaux HTTP
+  (taux d'erreur, latence p95, volume, connexions actives) sur `/metrics`, mais **rien ne les
+  consommait** pour valider le SLO — la passe initiale (`perf/TLX-138-local-load-report.md`) était
+  un calcul manuel one-shot. Comblé : « mesurer la p95 vs le SLO + le taux d'erreur » devient
+  **reproductible et gateable**. La charge **prod-like** dimensionnée reste **env-bound** (pas de
+  Docker/Postgres ici → non rejouée), comme le ticket lui-même le note. **Backend pur, zéro contrat,
+  zéro migration, aucune dépendance ajoutée.**
+- **(Module pur `metrics/slo.ts`)** zéro I/O, testable en isolation : `parsePrometheusText` (exposition
+  Prometheus → échantillons, déséchappement labels, `+Inf`), **`histogramQuantile`** (port fidèle de
+  l'algorithme Prometheus — interpolation dans le bucket du rang, plafonnement à la plus haute borne
+  finie), `httpDurationQuantile`/`httpErrorSummary` (dérivations `sum by (le)` + taux 5xx),
+  `percentile`/`summarizeLatencies` (latence client), **`evaluateSlo`** (SLO TX-OPS-004 §8 : **p95 < 1 s**,
+  **erreur < 5 %** ; une métrique absente ne viole rien). Consomme le **texte** `/metrics` → marche contre
+  un scrape réel, un fichier ou en test (source unique de vérité).
+- **(Harnais `perf/load-test.ts`)** charge **reproductible sans dépendance** (`fetch` natif, ni
+  autocannon ni k6 à installer) : paliers de concurrence (TX-OPS-004 §6), p50/p95/p99 + débit + taux
+  d'erreur, croisé `/metrics` optionnel, **sortie code 1 si SLO dépassé**. **(CLI `perf/slo-check.ts`)**
+  scrape `/metrics` → verdict, gateable en CI/astreinte (jeton `METRICS_TOKEN`, fichier ou stdin).
+  Scripts `perf:load` / `slo:check`.
+- **(Alertes `ops/alerts/http-slo.rules.yml`)** règles Prometheus **config-as-code** (mapping §8) :
+  `HttpErrorRateHigh` (5xx > 5 %), `HttpReadLatencyP95High` (p95 GET > 1 s) + pré-alerte 0,7 s,
+  `HttpInFlightSaturation`. Doc `ops/observability.md` (métriques HTTP, alertes, runbook) + rapport de
+  charge mis à jour (harnais/CLI committés, règles écrites).
+- **Tests** : **API unit 562/562** (+20 : parsing, `histogram_quantile` incl. interpolation/plafond/+Inf,
+  dérivations p95 + taux 5xx, `evaluateSlo`, percentiles). typecheck + lint + prettier clean. `slo.ts`
+  100 % funcs/lines. CLIs **vérifiées** : `slo-check` exit 0 (SLO tenu) / exit 1 (dépassement, p95 + taux),
+  `load-test` table + verdict contre un serveur local jetable.
+- **Reste (env requis, hors repo)** : rejouer les paliers contre un environnement **prod-like** dimensionné
+  - jeu de données réaliste ; **charger** `http-slo.rules.yml` dans l'observabilité **managée** (ADR-11).
+
 ## Terminés — TLX-86 Vérification live grille de barres (Hauteur/Perche → record `vertical:*`) — E2E Playwright
 
 - **Dette de validation soldée** : le mode « grille de barres » (sauts verticaux, ADR-25 / TLX-075) était
