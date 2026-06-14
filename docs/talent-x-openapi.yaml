@@ -759,6 +759,36 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+  /groups/{id}/teammates:
+    get:
+      tags:
+      - Groupes
+      summary: Lister ses coéquipiers (athlète membre)
+      description: >-
+        Roster des membres actifs d'un groupe, réservé à un athlète **membre actif** du
+        groupe (ADR-37). Vue pair-à-pair minimisée (identité + avatar uniquement). 404 si
+        le groupe n'existe pas/est supprimé ou si l'appelant n'en est pas membre actif
+        (anti-énumération : les deux cas sont indistinguables).
+      operationId: getGroupTeammates
+      parameters:
+      - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: Membres actifs du groupe (vue pair).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupTeammateList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
   /groups/{id}/members/{athleteId}:
     delete:
       tags:
@@ -2804,6 +2834,35 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/AthleteGroup'
+      required:
+      - data
+    GroupTeammate:
+      type: object
+      description: >-
+        Vue pair-à-pair d'un membre de groupe (ADR-37) — strictement minimisée :
+        identité + avatar uniquement, jamais d'e-mail, de discipline ni de donnée de
+        performance/santé. Schéma dédié (≠ `GroupMember`/`UserSummary`) pour borner ce
+        qui est exposé à un pair.
+      properties:
+        id:
+          type: string
+          format: uuid
+        firstName:
+          type: string
+        lastName:
+          type: string
+        avatarUrl:
+          type: string
+          description: URL présignée temporaire de l'avatar, si l'utilisateur en a un.
+      required:
+      - id
+    GroupTeammateList:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/GroupTeammate'
       required:
       - data
     JoinGroupRequest:

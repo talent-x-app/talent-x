@@ -1,7 +1,7 @@
 ## ADR-37 — Lecture athlète des coéquipiers de son groupe (`GET /groups/{id}/teammates`)
 
-- **Statut :** Proposé
-- **Date :** 2026-06-14
+- **Statut :** Accepté (2026-06-15)
+- **Date :** 2026-06-14 (proposé) · 2026-06-15 (accepté & implémenté)
 - **Réf. :** Audit UX écran de séance / section « Mon groupe » (athlète) · ADR-26 (lecture athlète de ses groupes — **complète**) · ADR-08 (autorisation : rôle + appartenance) · ADR-16 (code d'invitation réservé au coach) · ADR-24/26 (classification : rattachement = donnée d'identification/planification, **pas** de santé) · TX-SPEC-002 §6 (matrice d'autorisation) · TX-DATA-006 §5.1 (groupes / `group_members`) · TX-SEC-003 (RGPD) · TX-DPIA-007 (AIPD) · `talent-x-openapi.yaml` · TLX-88
 
 **Contexte.** ADR-26 a doté l'athlète de `GET /groups/mine` (ses groupes actifs, enrichis du coach et d'un **effectif** `memberCount`), consommé par la section « Mon groupe » du Profil (`MyGroupSection`). Mais cet ADR a **délibérément exclu la liste des membres** : `AthleteGroup` ne porte qu'un compteur, et l'unique endpoint qui matérialise la composition d'un groupe — `GET /groups/{id}/members` — est `@Roles('coach')` (propriétaire), renvoyant un `GroupMember` riche (`{ athleteId, groupId, joinedAt, athlete: UserSummary }`). **Conséquence :** un athlète voit *qu'il y a* 8 membres, mais **pas qui** ; il ne peut pas identifier ses coéquipiers. L'audit UX a relevé ce manque (« voir le détail de mon groupe »). Combler ce besoin suppose d'**exposer l'identité d'autres athlètes à un pair** : c'est une décision **structurante d'autorisation et de RGPD** que ni les specs ni ADR-26 ne tranchent (CLAUDE.md §7) → ADR avant code.
@@ -62,8 +62,10 @@ Cette décision introduit une **visibilité d'identité pair-à-pair** nouvelle 
 - **Exposer des profils plus riches au pair** (sport, records, charge) : rejeté — minimisation RGPD ; performance/santé reste **consent-gated** et **coach-scopée** (ADR-08/21).
 - **Statu quo (effectif seul, ADR-26)** : rejeté ici au regard du besoin produit, mais reste le **repli** si la revue AIPD bloque la visibilité pair-à-pair.
 
-**Questions ouvertes (à trancher avant code).**
+**Décisions sur les questions ouvertes (tranchées à l'implémentation, 2026-06-15).**
 
-1. `GroupTeammate` inclut-il `sport` ? (utile pour un groupe multi-disciplines, mais donnée perso supplémentaire à arbitrer côté minimisation).
-2. `avatarUrl` : le modèle `User` porte-t-il déjà un avatar (cf. TLX-134) ? Sinon, retirer le champ de la v1.
-3. Validation **TX-DPIA-007** de la visibilité pair-à-pair (et formulation de la notice de confidentialité) **avant** implémentation.
+1. **`sport` exclu de la v1** : minimisation — un pair n'a besoin que de l'identité (nom + avatar). Réintroductible ultérieurement si un besoin « groupe multi-disciplines » émerge.
+2. **`avatarUrl` inclus** : le modèle `User` porte bien `photo_url` (avatar TLX-124, clé objet présignée en lecture). Le roster présigne chaque avatar **best-effort** (TTL `AVATAR_URL_TTL_SECONDS`, défaut 3600 s) ; en cas d'échec de présignature (stockage non configuré en dev/test), le champ est **omis** et le client retombe sur les initiales.
+3. **TX-DPIA-007 / notice de confidentialité → suivi non-code** : le livrable est **additif et minimisé** (identité seule, membre-gated, périmètre borné au groupe rejoint), mais la **visibilité d'identité pair-à-pair** reste à tracer dans l'AIPD et à mentionner dans la notice **avant la mise en production** de la fonctionnalité (ne se code pas ; à acter côté conformité).
+
+**Implémentation (2026-06-15).** `GET /groups/{id}/teammates` (`@Roles('athlete')`, membre-gated → 404 anti-énumération) ; schémas `GroupTeammate`/`GroupTeammateList` au contrat → DTO → client orval régénéré ; `GroupsService.listTeammates` (présignature avatar via `StorageModule`). Front : écran `app/(athlete)/group/[id].tsx` (`AthleteGroupDetailScreen`) ouvert depuis `MyGroupCard`. Tests : API unit + intégration DB-backed, mobile RTL.

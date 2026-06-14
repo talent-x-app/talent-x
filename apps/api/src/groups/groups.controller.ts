@@ -19,6 +19,7 @@ import { GroupUpdateDto } from './dto/group-update.dto';
 import { GroupDto, GroupPageDto } from './dto/group.dto';
 import { GroupMemberDto, GroupMemberPageDto } from './dto/group-member.dto';
 import { AthleteGroupListDto } from './dto/athlete-group.dto';
+import { GroupTeammateListDto } from './dto/group-teammate.dto';
 import { InviteCodeActionDto, InviteCodeDto } from './dto/invite-code.dto';
 import { JoinGroupRequestDto } from './dto/join-group.dto';
 import { GroupsService } from './groups.service';
@@ -79,6 +80,24 @@ export class GroupsController {
   })
   getMyGroups(@CurrentUser('id') athleteId: string): Promise<AthleteGroupListDto> {
     return this.groups.listMyGroups(athleteId);
+  }
+
+  @Get(':id/teammates')
+  @Roles('athlete')
+  @ApiOperation({
+    summary: 'Lister ses coéquipiers (athlète membre)',
+    operationId: 'getGroupTeammates',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Membres actifs du groupe (vue pair).',
+    type: GroupTeammateListDto,
+  })
+  getGroupTeammates(
+    @CurrentUser('id') athleteId: string,
+    @Param('id', new ParseUUIDPipe()) id: string,
+  ): Promise<GroupTeammateListDto> {
+    return this.groups.listTeammates(athleteId, id);
   }
 
   @Get(':id')

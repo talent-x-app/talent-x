@@ -3,11 +3,11 @@ import { useTheme } from '@talent-x/design-tokens';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { ActivityIndicator, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { Button, Card } from '../components/ui';
 import { toUserMessage, useToast } from '../feedback';
 import { MY_GROUPS_QUERY_KEY } from './groups-query';
-import { joinGroupHref } from './navigation';
+import { athleteGroupDetailHref, joinGroupHref } from './navigation';
 
 /**
  * Section « Mon groupe / Mon coach » du Profil athlète (TLX-88, ADR-26). Consomme
@@ -115,6 +115,7 @@ export function MyGroupSection() {
               group={group}
               leaving={leave.isPending && leave.variables === group.id}
               onLeave={() => leave.mutate(group.id)}
+              onOpen={() => router.push(athleteGroupDetailHref(group.id))}
             />
           ))}
           <Button
@@ -132,22 +133,31 @@ export function MyGroupSection() {
   );
 }
 
-/** Carte d'un groupe rejoint : nom, coach, effectif, action « Quitter ». */
+/** Carte d'un groupe rejoint : ouvre le détail/coéquipiers (ADR-37) ; action « Quitter » distincte. */
 function MyGroupCard({
   group,
   leaving,
   onLeave,
+  onOpen,
 }: {
   group: AthleteGroup;
   leaving: boolean;
   onLeave: () => void;
+  onOpen: () => void;
 }) {
   const { colors, typography, spacing } = useTheme();
   const count = group.memberCount;
   return (
     <Card testID={`my-group-${group.id}`}>
       <View style={{ gap: spacing[3] }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[3] }}>
+        {/* En-tête cliquable → détail du groupe (coéquipiers, ADR-37). */}
+        <Pressable
+          testID={`my-group-open-${group.id}`}
+          onPress={onOpen}
+          accessibilityRole="button"
+          accessibilityLabel={`Ouvrir le groupe ${group.name}`}
+          style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[3] }}
+        >
           <View
             style={{
               width: 40,
@@ -182,7 +192,8 @@ function MyGroupCard({
               Coach : {coachName(group.coach)} · {count} membre{count > 1 ? 's' : ''}
             </Text>
           </View>
-        </View>
+          <Feather name="chevron-right" size={20} color={colors.textMuted} />
+        </Pressable>
         <Button
           testID={`my-group-leave-${group.id}`}
           variant="ghost"

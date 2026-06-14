@@ -12,6 +12,33 @@ de débloquer les écrans coach C-01/C-02/C-03.
 - _(éditeurs typés terminés — TLX-054→061 livrés ↓)_
 - _(C-01 complet — TLX-081→085 livrés ↓)_
 
+## Terminés — ADR-37 Lecture athlète des coéquipiers de son groupe (`GET /groups/{id}/teammates`)
+
+- **ADR-37 accepté & implémenté** (proposition issue d'une session cloud, validée le 2026-06-15) :
+  ADR-26 donnait à l'athlète l'effectif de son groupe mais **pas la liste des membres** (le seul
+  endroit qui matérialise la composition — `GET /groups/{id}/members` — est réservé au coach
+  propriétaire). Comblé : un athlète **membre** voit ses **coéquipiers**, sans exposer plus que
+  l'identité. **Additif, zéro migration.**
+- **(Contrat)** `GET /groups/{id}/teammates` + schémas `GroupTeammate` (`id` + `firstName?` +
+  `lastName?` + `avatarUrl?`) / `GroupTeammateList`. **Vue pair-à-pair minimisée** (≠ `GroupMember`
+  coach) : ni e-mail, ni discipline, ni donnée de perf/santé. OpenAPI → DTO → client orval régénéré + build.
+- **(API)** `GroupsService.listTeammates` : **garde d'appartenance** (membre actif d'un groupe non
+  supprimé) → **404 anti-énumération** sinon (indistinguable d'un groupe inexistant) ; roster trié
+  par `joinedAt`, appelant inclus ; **avatar présigné best-effort** (`StorageModule`, TTL
+  `AVATAR_URL_TTL_SECONDS`, repli initiales). Route `@Roles('athlete')`.
+- **(Décisions tranchées)** `sport` **exclu** v1 (minimisation) ; `avatarUrl` **inclus** (`User.photo_url`,
+  TLX-124) ; **revue AIPD / notice de confidentialité = suivi non-code** à acter avant mise en prod
+  (visibilité d'identité pair-à-pair — TX-DPIA-007).
+- **(Mobile)** écran `app/(athlete)/group/[id].tsx` (`AthleteGroupDetailScreen`) : nom + description +
+  coach (cache partagé `GET /groups/mine`) + **roster des coéquipiers** + « Quitter le groupe » ;
+  `MyGroupCard` (Profil) devient **ouvrable** vers ce détail (chevron + en-tête pressable).
+- **Tests** : **API unit 577/577** (+3 : roster minimisé/avatar présigné, 404 non-membre, présign en
+  échec), **intégration DB-backed 41/41** (+1 : membre voit le roster, non-membre/inconnu → 404, coach
+  → 403, départ → exclu), **mobile 546/546** (+5 : écran détail ×4, ouverture carte ×1), typecheck
+  (api + api-client + mobile) + lint + prettier clean.
+- **Non rejoué en réel** (smoke Expo web) : le rendu visuel de l'écran coéquipiers (avatars présignés) —
+  couvert par RTL sur le **vrai** écran ; round-trip avatar présigné = à confirmer en navigateur.
+
 ## Terminés — TLX-147 Trier « Tes athlètes » par sévérité de statut puis nom (C-01 + C-02)
 
 - **Constat (audit UX accueil coach 2026-06-14)** : la liste « Tes athlètes » s'affichait dans

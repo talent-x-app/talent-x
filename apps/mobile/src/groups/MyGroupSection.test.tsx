@@ -50,6 +50,18 @@ describe('MyGroupSection (TLX-88, ADR-26)', () => {
     expect(screen.getByText(/Aïssata Diallo · 4 membres/)).toBeOnTheScreen();
   });
 
+  it('ouvre le détail du groupe (coéquipiers) au tap sur la carte (ADR-37)', async () => {
+    mockGetMyGroups.mockResolvedValue({ status: 200, data: { data: [GROUP] } });
+    render(<MyGroupSection />, { wrapper: Wrapper });
+
+    await waitFor(() => expect(screen.getByTestId('my-group-open-g-1')).toBeOnTheScreen());
+    fireEvent.press(screen.getByTestId('my-group-open-g-1'));
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: '/(athlete)/group/[id]',
+      params: { id: 'g-1' },
+    });
+  });
+
   it('quitte un groupe', async () => {
     mockGetMyGroups.mockResolvedValue({ status: 200, data: { data: [GROUP] } });
     mockLeaveGroup.mockResolvedValue({ status: 204 });

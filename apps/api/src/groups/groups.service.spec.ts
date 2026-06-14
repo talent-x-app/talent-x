@@ -1,6 +1,8 @@
 import { NotFoundException } from '@nestjs/common';
+import type { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
 import type { OwnershipService } from '../common/authorization/ownership.service';
+import type { ObjectStorageService } from '../storage/object-storage.service';
 import type { PrismaService } from '../prisma/prisma.service';
 import { PaginationQueryDto } from '../common/pagination/pagination-query.dto';
 import type { NotificationQueueService } from '../jobs/notification-queue.service';
@@ -76,12 +78,27 @@ function queueMock(): NotificationQueueService {
   return { enqueue: jest.fn().mockResolvedValue(undefined) } as unknown as NotificationQueueService;
 }
 
+/** Stockage objet factice : présigne un avatar par défaut (échec testé via mockRejected). */
+function storageMock(over: Partial<ObjectStorageService> = {}): ObjectStorageService {
+  return {
+    getPresignedDownloadUrl: jest.fn().mockResolvedValue('https://signed/avatar'),
+    ...over,
+  } as unknown as ObjectStorageService;
+}
+
+/** Config factice : `AVATAR_URL_TTL_SECONDS` non défini → défaut interne (3600). */
+function configMock(): ConfigService {
+  return { get: jest.fn().mockReturnValue(undefined) } as unknown as ConfigService;
+}
+
 function service(
   prisma: PrismaMock,
   ownership = ownershipMock(),
   queue = queueMock(),
+  storage = storageMock(),
+  config = configMock(),
 ): GroupsService {
-  return new GroupsService(prisma as unknown as PrismaService, ownership, queue);
+  return new GroupsService(prisma as unknown as PrismaService, ownership, queue, storage, config);
 }
 
 describe('GroupsService', () => {
@@ -169,6 +186,62 @@ describe('GroupsService', () => {
 
       const res = await service(prisma).listMyGroups('a-1');
       expect(res.data).toEqual([]);
+    });
+  });
+
+  describe('listTeammates (ADR-37)', () => {
+    it('membre actif : roster minimisé trié + avatar présigné', async () => {
+      const prisma = prismaMock();
+      prisma.groupMember.findFirst.mockResolvedValue({ id: 'gm-self' }); // appelant membre actif
+      prisma.groupMember.findMany.mockResolvedValue([
+        { athlete: { id: 'a-1', firstName: 'Léa', lastName: 'Dubois', photoUrl: 'avatars/a-1/x' } },
+        { athlete: { id: 'a-2', firstName: 'Tom', lastName: 'Petit', photoUrl: null } },
+      ]);
+      const storage = storageMock();
+
+      const res = await service(prisma, ownershipMock(), queueMock(), storage).listTeammates(
+        'a-1',
+        'g-1',
+      );
+
+      // Garde d'appartenance (pas d'ownership) : membre actif d'un groupe non supprimé.
+      expect(prisma.groupMember.findFirst).toHaveBeenCalledWith({
+        where: { groupId: 'g-1', athleteId: 'a-1', leftAt: null, group: { deletedAt: null } },
+        select: { id: true },
+      });
+      // Vue minimisée : ni sport, ni e-mail ; avatar présigné seulement s'il existe.
+      expect(res.data).toEqual([
+        { id: 'a-1', firstName: 'Léa', lastName: 'Dubois', avatarUrl: 'https://signed/avatar' },
+        { id: 'a-2', firstName: 'Tom', lastName: 'Petit' },
+      ]);
+      expect(storage.getPresignedDownloadUrl).toHaveBeenCalledTimes(1);
+    });
+
+    it('non-membre (ou groupe supprimé) → 404, sans charger le roster (anti-énumération)', async () => {
+      const prisma = prismaMock();
+      prisma.groupMember.findFirst.mockResolvedValue(null);
+
+      await expect(service(prisma).listTeammates('a-9', 'g-1')).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+      expect(prisma.groupMember.findMany).not.toHaveBeenCalled();
+    });
+
+    it('présignature avatar en échec → avatarUrl omis (repli initiales côté client)', async () => {
+      const prisma = prismaMock();
+      prisma.groupMember.findFirst.mockResolvedValue({ id: 'gm-self' });
+      prisma.groupMember.findMany.mockResolvedValue([
+        { athlete: { id: 'a-1', firstName: 'Léa', lastName: 'Dubois', photoUrl: 'avatars/a-1/x' } },
+      ]);
+      const storage = storageMock({
+        getPresignedDownloadUrl: jest.fn().mockRejectedValue(new Error('storage indisponible')),
+      });
+
+      const res = await service(prisma, ownershipMock(), queueMock(), storage).listTeammates(
+        'a-1',
+        'g-1',
+      );
+      expect(res.data).toEqual([{ id: 'a-1', firstName: 'Léa', lastName: 'Dubois' }]);
     });
   });
 

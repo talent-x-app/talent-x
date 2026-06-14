@@ -1,7 +1,9 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Prisma, type Group } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { OwnershipService } from '../common/authorization/ownership.service';
+import { ObjectStorageService } from '../storage/object-storage.service';
 import { PaginationQueryDto } from '../common/pagination/pagination-query.dto';
 import { buildPageMeta, parseSort } from '../common/pagination/page-meta';
 import { GroupDto, GroupPageDto } from './dto/group.dto';
@@ -9,12 +11,14 @@ import { GroupCreateDto } from './dto/group-create.dto';
 import { GroupUpdateDto } from './dto/group-update.dto';
 import { GroupMemberPageDto, GroupMemberDto } from './dto/group-member.dto';
 import { AthleteGroupDto, AthleteGroupListDto } from './dto/athlete-group.dto';
+import { GroupTeammateDto, GroupTeammateListDto } from './dto/group-teammate.dto';
 import { InviteCodeDto, type InviteCodeAction } from './dto/invite-code.dto';
 import { generateInviteCode } from './invite-code';
 import { NotificationQueueService } from '../jobs/notification-queue.service';
 
 const GROUP_SORTABLE = ['createdAt', 'name', 'updatedAt'] as const;
 const MAX_CODE_ATTEMPTS = 5;
+const DEFAULT_AVATAR_READ_TTL_SECONDS = 3600;
 
 /**
  * Groupes d'entraînement (TLX-041). Source d'autorisation (matrice TX-SPEC-002 §6) :
@@ -33,6 +37,8 @@ export class GroupsService {
     private readonly prisma: PrismaService,
     private readonly ownership: OwnershipService,
     private readonly notificationQueue: NotificationQueueService,
+    private readonly storage: ObjectStorageService,
+    private readonly config: ConfigService,
   ) {}
 
   async createGroup(coachId: string, dto: GroupCreateDto): Promise<GroupDto> {
@@ -77,6 +83,58 @@ export class GroupsService {
       orderBy: { joinedAt: 'asc' },
     });
     return { data: rows.map(toAthleteGroupDto) };
+  }
+
+  /**
+   * Roster pair-à-pair (ADR-37) : membres actifs d'un groupe dont l'appelant est lui-même
+   * **membre actif**. Garde d'**appartenance** (pas d'ownership) : 404 si le groupe est
+   * absent/supprimé **ou** si l'appelant n'en est pas membre actif — les deux cas sont
+   * indistinguables (anti-énumération, cohérent avec le reste de l'API). Vue minimisée
+   * (identité + avatar présigné), incluant l'appelant, triée par `joinedAt`.
+   */
+  async listTeammates(athleteId: string, groupId: string): Promise<GroupTeammateListDto> {
+    const membership = await this.prisma.groupMember.findFirst({
+      where: { groupId, athleteId, leftAt: null, group: { deletedAt: null } },
+      select: { id: true },
+    });
+    if (!membership) {
+      throw new NotFoundException('Groupe introuvable.');
+    }
+    const members = await this.prisma.groupMember.findMany({
+      where: { groupId, leftAt: null },
+      select: {
+        athlete: { select: { id: true, firstName: true, lastName: true, photoUrl: true } },
+      },
+      orderBy: { joinedAt: 'asc' },
+    });
+    const ttl =
+      this.config.get<number>('AVATAR_URL_TTL_SECONDS') ?? DEFAULT_AVATAR_READ_TTL_SECONDS;
+    return { data: await Promise.all(members.map((m) => this.toTeammateDto(m.athlete, ttl))) };
+  }
+
+  /** Mappe un athlète vers la vue pair, en présignant l'avatar (best-effort, sans bloquer). */
+  private async toTeammateDto(
+    athlete: {
+      id: string;
+      firstName: string | null;
+      lastName: string | null;
+      photoUrl: string | null;
+    },
+    ttlSeconds: number,
+  ): Promise<GroupTeammateDto> {
+    const dto: GroupTeammateDto = {
+      id: athlete.id,
+      firstName: athlete.firstName ?? undefined,
+      lastName: athlete.lastName ?? undefined,
+    };
+    if (athlete.photoUrl) {
+      try {
+        dto.avatarUrl = await this.storage.getPresignedDownloadUrl(athlete.photoUrl, ttlSeconds);
+      } catch {
+        // Stockage indisponible (dev/test) → avatar omis ; le client retombe sur les initiales.
+      }
+    }
+    return dto;
   }
 
   async getGroup(coachId: string, id: string): Promise<GroupDto> {

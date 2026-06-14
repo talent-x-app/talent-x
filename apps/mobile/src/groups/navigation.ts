@@ -20,3 +20,8 @@ export function groupDetailHref(id: string): Href {
 export function joinGroupHref(): Href {
   return '/(athlete)/group/join';
 }
+
+/** Détail d'un groupe vu par l'athlète : description, coach, coéquipiers (ADR-37). */
+export function athleteGroupDetailHref(id: string): Href {
+  return { pathname: '/(athlete)/group/[id]', params: { id } };
+}

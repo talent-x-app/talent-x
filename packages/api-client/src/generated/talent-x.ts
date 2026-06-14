@@ -45,6 +45,7 @@ import type {
   GroupMember,
   GroupMemberPage,
   GroupPage,
+  GroupTeammateList,
   GroupUpdate,
   Health,
   IdempotencyConflictResponse,
@@ -1800,6 +1801,70 @@ export const listGroupMembers = async (id: string,
     params?: ListGroupMembersParams, options?: RequestInit): Promise<listGroupMembersResponse> => {
 
   return customFetch<listGroupMembersResponse>(getListGroupMembersUrl(id,params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+export type getGroupTeammatesResponse200 = {
+  data: GroupTeammateList
+  status: 200
+}
+
+export type getGroupTeammatesResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type getGroupTeammatesResponse403 = {
+  data: ForbiddenResponse
+  status: 403
+}
+
+export type getGroupTeammatesResponse404 = {
+  data: NotFoundResponse
+  status: 404
+}
+
+export type getGroupTeammatesResponse429 = {
+  data: TooManyRequestsResponse
+  status: 429
+}
+
+export type getGroupTeammatesResponse500 = {
+  data: ServerErrorResponse
+  status: 500
+}
+
+export type getGroupTeammatesResponseSuccess = (getGroupTeammatesResponse200) & {
+  headers: Headers;
+};
+export type getGroupTeammatesResponseError = (getGroupTeammatesResponse401 | getGroupTeammatesResponse403 | getGroupTeammatesResponse404 | getGroupTeammatesResponse429 | getGroupTeammatesResponse500) & {
+  headers: Headers;
+};
+
+export type getGroupTeammatesResponse = (getGroupTeammatesResponseSuccess | getGroupTeammatesResponseError)
+
+export const getGetGroupTeammatesUrl = (id: string,) => {
+
+
+
+
+  return `/groups/${id}/teammates`
+}
+
+/**
+ * Roster des membres actifs d'un groupe, réservé à un athlète **membre actif** du groupe (ADR-37). Vue pair-à-pair minimisée (identité + avatar uniquement). 404 si le groupe n'existe pas/est supprimé ou si l'appelant n'en est pas membre actif (anti-énumération : les deux cas sont indistinguables).
+ * @summary Lister ses coéquipiers (athlète membre)
+ */
+export const getGroupTeammates = async (id: string, options?: RequestInit): Promise<getGroupTeammatesResponse> => {
+
+  return customFetch<getGroupTeammatesResponse>(getGetGroupTeammatesUrl(id),
   {
     ...options,
     method: 'GET'

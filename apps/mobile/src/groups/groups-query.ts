@@ -19,3 +19,8 @@ export function groupMembersQueryKey(groupId: string) {
 
 /** Groupes de l'athlète courant + coach (ADR-26 — `GET /groups/mine`). */
 export const MY_GROUPS_QUERY_KEY = ['groups', 'mine'] as const;
+
+/** Coéquipiers d'un groupe vus par un athlète membre (ADR-37 — `GET /groups/:id/teammates`). */
+export function groupTeammatesQueryKey(groupId: string) {
+  return ['groups', groupId, 'teammates'] as const;
+}

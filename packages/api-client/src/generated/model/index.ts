@@ -70,6 +70,8 @@ export * from './groupCreate';
 export * from './groupMember';
 export * from './groupMemberPage';
 export * from './groupPage';
+export * from './groupTeammate';
+export * from './groupTeammateList';
 export * from './groupUpdate';
 export * from './health';
 export * from './healthStatus';

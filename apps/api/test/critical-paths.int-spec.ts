@@ -1158,4 +1158,70 @@ describe('Parcours critiques (E2E DB) — TLX-120', () => {
         .expect(403);
     });
   });
+
+  describe('Coéquipiers de groupe — GET /groups/:id/teammates (ADR-37)', () => {
+    it('membre : roster minimisé (lui inclus) ; non-membre/inconnu → 404 ; coach → 403 ; départ → exclu', async () => {
+      const coach = await register('coach');
+      const ana = await register('athlete');
+      const ben = await register('athlete');
+      const outsider = await register('athlete');
+
+      const group = await http()
+        .post('/api/v1/groups')
+        .set(bearer(coach.token))
+        .send({ name: 'Roster' })
+        .expect(201);
+      const groupId: string = group.body.id;
+      const inviteCode: string = group.body.inviteCode;
+
+      // Ana et Ben rejoignent ; l'outsider reste hors du groupe.
+      await http()
+        .post('/api/v1/groups/join')
+        .set(bearer(ana.token))
+        .send({ inviteCode })
+        .expect(200);
+      await http()
+        .post('/api/v1/groups/join')
+        .set(bearer(ben.token))
+        .send({ inviteCode })
+        .expect(200);
+
+      // Un membre voit tous les membres actifs (lui inclus), en vue minimisée (identité only).
+      const roster = await http()
+        .get(`/api/v1/groups/${groupId}/teammates`)
+        .set(bearer(ana.token))
+        .expect(200);
+      expect(roster.body.data.map((t: { id: string }) => t.id).sort()).toEqual(
+        [ana.id, ben.id].sort(),
+      );
+      const self = roster.body.data.find((t: { id: string }) => t.id === ana.id);
+      expect(self).toMatchObject({ id: ana.id, firstName: 'E2E', lastName: 'athlete' });
+      // Minimisation RGPD : ni discipline, ni e-mail, ni avatar (aucun uploadé).
+      expect(self).not.toHaveProperty('sport');
+      expect(self).not.toHaveProperty('email');
+      expect(self).not.toHaveProperty('avatarUrl');
+
+      // Non-membre → 404 (anti-énumération) ; groupe inconnu → 404 indistinguable.
+      await http()
+        .get(`/api/v1/groups/${groupId}/teammates`)
+        .set(bearer(outsider.token))
+        .expect(404);
+      await http()
+        .get(`/api/v1/groups/${randomUUID()}/teammates`)
+        .set(bearer(ana.token))
+        .expect(404);
+
+      // Le coach n'a pas accès à cette route athlète (RBAC).
+      await http().get(`/api/v1/groups/${groupId}/teammates`).set(bearer(coach.token)).expect(403);
+
+      // Après son départ, Ben ne voit plus le roster (404) et n'y figure plus pour Ana.
+      await http().post(`/api/v1/groups/${groupId}/leave`).set(bearer(ben.token)).expect(204);
+      await http().get(`/api/v1/groups/${groupId}/teammates`).set(bearer(ben.token)).expect(404);
+      const afterLeave = await http()
+        .get(`/api/v1/groups/${groupId}/teammates`)
+        .set(bearer(ana.token))
+        .expect(200);
+      expect(afterLeave.body.data.map((t: { id: string }) => t.id)).toEqual([ana.id]);
+    });
+  });
 });
