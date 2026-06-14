@@ -154,7 +154,8 @@ export function CoachDashboardScreen() {
             <Text
               testID="coach-dashboard-subtitle"
               style={{
-                color: colors.textMuted,
+                // Texte porteur d'info < 18px → textSecondary (AA, TLX-145), pas textMuted.
+                color: colors.textSecondary,
                 fontFamily: typography.fontFamily.regular,
                 fontSize: typography.bodySm.fontSize,
               }}
@@ -314,7 +315,8 @@ function MetricCard({ label, value, testID }: { label: string; value: number; te
         </Text>
         <Text
           style={{
-            color: colors.textMuted,
+            // Libellé KPI porteur d'info → textSecondary (AA, TLX-145).
+            color: colors.textSecondary,
             fontFamily: typography.fontFamily.medium,
             fontSize: typography.bodySm.fontSize,
           }}

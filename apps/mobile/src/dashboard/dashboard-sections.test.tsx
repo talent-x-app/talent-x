@@ -1,6 +1,7 @@
-import { ThemeProvider } from '@talent-x/design-tokens';
+import { ThemeProvider, darkColors, darkTheme } from '@talent-x/design-tokens';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen, within } from '@testing-library/react-native';
+import { StyleSheet } from 'react-native';
 import { type ReactNode, useState } from 'react';
 
 // Les lignes « Aujourd'hui » rendent les actions coach (ADR-31) → useToast.
@@ -30,6 +31,18 @@ function Wrapper({ children }: { children: ReactNode }) {
   return (
     <QueryClientProvider client={client}>
       <ThemeProvider>{children}</ThemeProvider>
+    </QueryClientProvider>
+  );
+}
+
+/** Variante forçant le thème **sombre** (dark-first) — pour les assertions de contraste (TLX-145). */
+function DarkWrapper({ children }: { children: ReactNode }) {
+  const [client] = useState(
+    () => new QueryClient({ defaultOptions: { queries: { retry: false } } }),
+  );
+  return (
+    <QueryClientProvider client={client}>
+      <ThemeProvider theme={darkTheme}>{children}</ThemeProvider>
     </QueryClientProvider>
   );
 }
@@ -318,5 +331,102 @@ describe('Charge d’entraînement (TLX-113)', () => {
       { wrapper: Wrapper },
     );
     expect(toJSON()).toBeNull();
+  });
+});
+
+describe('contraste AA des textes secondaires (TLX-145)', () => {
+  /** Couleur résolue d'un nœud Text (style possiblement composé). */
+  const colorOf = (node: { props: { style?: unknown } }): string | undefined =>
+    (StyleSheet.flatten(node.props.style) as { color?: string }).color;
+
+  it('ToReviewSection : le détail « N perfs à revoir » est en textSecondary (pas textMuted)', () => {
+    render(
+      <ToReviewSection
+        athletes={[athlete({ id: 'a-1', toReviewCount: 2 })]}
+        onPressAthlete={jest.fn()}
+      />,
+      { wrapper: DarkWrapper },
+    );
+    const card = screen.getByTestId('coach-dashboard-toreview-a-1');
+    expect(colorOf(within(card).getByText(/perfs? à revoir/))).toBe(darkColors.textSecondary);
+  });
+
+  it('AlertsSection : le détail d’alerte par athlète est en textSecondary', () => {
+    render(
+      <AlertsSection
+        athletes={[
+          athlete({
+            id: 'a-1',
+            firstName: 'Léa',
+            lastName: 'Dubois',
+            overdueCount: 2,
+            coachAccessGranted: true,
+          }),
+        ]}
+        onPressAthlete={jest.fn()}
+      />,
+      { wrapper: DarkWrapper },
+    );
+    const row = screen.getByTestId('coach-dashboard-alert-overdue-a-1');
+    expect(colorOf(within(row).getByText(/séances? manquées?/))).toBe(darkColors.textSecondary);
+  });
+
+  it('TodaySection : état vide et nom d’athlète sont en textSecondary', () => {
+    const nameById = new Map([['a-1', 'Nina Koné']]);
+    const { rerender } = render(
+      <TodaySection
+        assignments={[]}
+        nameById={nameById}
+        isLoading={false}
+        isError={false}
+        onRetry={jest.fn()}
+      />,
+      { wrapper: DarkWrapper },
+    );
+    expect(
+      colorOf(within(screen.getByTestId('coach-dashboard-today-empty')).getByText(/Rien de prévu/)),
+    ).toBe(darkColors.textSecondary);
+
+    rerender(
+      <TodaySection
+        assignments={[
+          assignment({
+            id: 'as-1',
+            athleteId: 'a-1',
+            status: 'assigned',
+            session: { title: 'Fractionné' },
+          }),
+        ]}
+        nameById={nameById}
+        isLoading={false}
+        isError={false}
+        onRetry={jest.fn()}
+      />,
+    );
+    expect(
+      colorOf(within(screen.getByTestId('coach-dashboard-today-as-1')).getByText('Nina Koné')),
+    ).toBe(darkColors.textSecondary);
+  });
+
+  it('TrainingLoadSection : lecture ACWR + badge zone neutre « Données insuffisantes » lisibles (textSecondary)', () => {
+    const withLoad = athlete({
+      id: 'a-1',
+      load: {
+        acute: 100,
+        chronic: 90,
+        zone: 'insufficient',
+        weeklyLoad: 100,
+        sessions: 5,
+        acwr: 1.0,
+      },
+    });
+    render(<TrainingLoadSection athletes={[withLoad]} onPressAthlete={jest.fn()} />, {
+      wrapper: DarkWrapper,
+    });
+    const card = screen.getByTestId('coach-dashboard-load-a-1');
+    expect(colorOf(within(card).getByText(/ACWR/))).toBe(darkColors.textSecondary);
+    // Tonalité « muted » remappée : le libellé du badge neutre ne tombe plus sous le seuil AA.
+    const zone = screen.getByTestId('coach-dashboard-load-a-1-zone');
+    expect(colorOf(within(zone).getByText(/Données insuffisantes/))).toBe(darkColors.textSecondary);
   });
 });

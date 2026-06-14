@@ -1,6 +1,6 @@
-import { ThemeProvider } from '@talent-x/design-tokens';
+import { ThemeProvider, darkColors, darkTheme } from '@talent-x/design-tokens';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
 import { type ReactNode, useState } from 'react';
 
@@ -53,6 +53,18 @@ function Wrapper({ children }: { children: ReactNode }) {
   return (
     <QueryClientProvider client={client}>
       <ThemeProvider>{children}</ThemeProvider>
+    </QueryClientProvider>
+  );
+}
+
+/** Variante forçant le thème **sombre** (dark-first) — pour les assertions de contraste (TLX-145). */
+function DarkWrapper({ children }: { children: ReactNode }) {
+  const [client] = useState(
+    () => new QueryClient({ defaultOptions: { queries: { retry: false } } }),
+  );
+  return (
+    <QueryClientProvider client={client}>
+      <ThemeProvider theme={darkTheme}>{children}</ThemeProvider>
     </QueryClientProvider>
   );
 }
@@ -138,6 +150,23 @@ describe('CoachDashboardScreen (TLX-081)', () => {
     expect(screen.getAllByText('Tom Petit').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByTestId('status-badge-late')).toHaveTextContent('En retard');
     expect(screen.getByTestId('status-badge-pending_review')).toHaveTextContent('À revoir');
+  });
+
+  it('rend le texte secondaire de l’accueil coach en textSecondary — contraste AA (TLX-145)', async () => {
+    mockGetCoachDashboard.mockResolvedValue({ status: 200, data: DASHBOARD });
+    render(<CoachDashboardScreen />, { wrapper: DarkWrapper });
+    const colorOf = (node: { props: { style?: unknown } }): string | undefined =>
+      (StyleSheet.flatten(node.props.style) as { color?: string }).color;
+
+    await waitFor(() => expect(screen.getByTestId('coach-dashboard-subtitle')).toBeOnTheScreen());
+    // Sous-titre « N athlètes suivis »
+    expect(colorOf(screen.getByTestId('coach-dashboard-subtitle'))).toBe(darkColors.textSecondary);
+    // Libellé KPI « À revoir » (unique dans la carte KPI)
+    const kpi = screen.getByTestId('coach-dashboard-kpi-toreview');
+    expect(colorOf(within(kpi).getByText('À revoir'))).toBe(darkColors.textSecondary);
+    // Sous-titre de la ligne-athlète (discipline) dans le roster
+    const row = screen.getByTestId('coach-dashboard-athlete-a-1');
+    expect(colorOf(within(row).getByText('200m'))).toBe(darkColors.textSecondary);
   });
 
   it('affiche les sections « À revoir » et « Aujourd’hui » (TLX-082/083)', async () => {

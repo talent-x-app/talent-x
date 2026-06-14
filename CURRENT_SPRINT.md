@@ -12,6 +12,41 @@ de débloquer les écrans coach C-01/C-02/C-03.
 - _(éditeurs typés terminés — TLX-054→061 livrés ↓)_
 - _(C-01 complet — TLX-081→085 livrés ↓)_
 
+## Terminés — TLX-145 A11y : contraste WCAG AA du texte secondaire des accueils (textMuted → textSecondary, hors V2)
+
+- **Écart a11y réel (audit UX accueils 2026-06-14)** : le petit texte **porteur d'info** (< 18px) des
+  accueils coach (C-01) et athlète (A-01) utilisait le token `textMuted` (slate.500 `#5C6678`), qui ne
+  tient que **≈ 3.3:1** sur fond sombre — **sous le seuil WCAG 2.1 AA (4.5:1)**. Le design system
+  l'annote pourtant lui-même « AA large / non-essential ». **Frontend + design-tokens, zéro contrat,
+  zéro backend, zéro changement de valeur de token.**
+- **Décision tranchée : remap des usages** (≠ relever le token). Raison : le token est **dupliqué** entre
+  la spec `design/tokens.json` (intouchable, CLAUDE.md §5) et `packages/design-tokens` → relever la
+  valeur créerait une **dérive spec/app** et imposerait un ADR. Le remap est app-only, sans ADR, et
+  préserve `textMuted` pour son usage **légitime** (icônes chevron décoratives, placeholders).
+- **(Remap, 5 fichiers)** texte essentiel `textMuted → textSecondary` (slate.400 `#8A94A6`, **≈ 6.3:1 AA**) :
+  sous-titre + libellés KPI coach (`CoachDashboardScreen`), sous-titre + cartes « rejoindre » / « aucune
+  séance » athlète (`AthleteHomeScreen`), détails À revoir / Alertes / Aujourd'hui / Charge
+  (`dashboard-sections`, dont la **tonalité neutre** « Données insuffisantes » sur `surfaceSunken`),
+  discipline du roster (`athlete-ui`), date · exercices (`athlete-session-ui`). Les **chevrons** restent
+  `textMuted` (décoratifs, hiérarchie visuelle préservée).
+- **(Garde automatisée)** module **pur** `packages/design-tokens/src/contrast.ts` (`contrastRatio`,
+  `relativeLuminance`, `meetsAA`, `WCAG` — port fidèle WCAG 2.1 §1.4.3) **exporté** publiquement ; test
+  `contrast.test.ts` : `textPrimary`/`textSecondary` ≥ 4.5:1 sur `background` (dark **et** light), et
+  `textMuted` (dark) **AA large seulement** (≥ 3 mais < 4.5) → **interdit sur du texte normal** par
+  construction. Toute régression future (ré-assombrir un token texte, rebrancher `textMuted`) casse le test.
+- **(Règle documentée)** JSDoc sur `textSecondary`/`textMuted` (interface `ThemeColors`) + section dédiée
+  du README design-tokens (table d'usage + seuils). « Documenté dans le design system » = critère coché.
+- **Tests** : **design-tokens 13/13** (+7 : ratio blanc/noir = 21, forme `#RGB`, hex invalide, `meetsAA`
+  normal/large, conformité AA des tokens texte dark+light, `textMuted` AA-large-only), **mobile 553/553**
+  (+7 : couleur `textSecondary` assertée en thème **sombre** forcé sur sous-titres/KPI/détails/roster/date
+  - badge zone neutre), typecheck (design-tokens + mobile) + ESLint + Prettier clean. `contrast.ts` 100 %.
+- **Critères d'acceptation : 4/4 cochés** (accueils ≥ 4.5:1 ; règle documentée ; aucune régression
+  success/warning — tokens intacts ; décision « remap » tracée, pas d'ADR car token inchangé).
+- **Hors périmètre (→ TLX de suivi)** : **balayer les ~40 autres écrans** consommant `textMuted` pour du
+  texte < 18px porteur d'info (composants partagés → le défaut déborde) — sweep app-wide séparé, la garde
+  token le rend désormais détectable. **Non rejoué en réel** (smoke Expo web) : rendu visuel du contraste
+  — couvert par RTL (couleur assertée sur les **vrais** écrans/sections en thème sombre).
+
 ## Terminés — ADR-37 Lecture athlète des coéquipiers de son groupe (`GET /groups/{id}/teammates`)
 
 - **ADR-37 accepté & implémenté** (proposition issue d'une session cloud, validée le 2026-06-15) :

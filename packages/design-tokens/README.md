@@ -27,11 +27,28 @@ function Card() {
 }
 ```
 
-Exports utiles : `palette`, `gradientX`, `lightTheme`/`darkTheme`, `typography`, `spacing`, `radius`, `borderWidth`, `iconSize`, `touchTarget`, `motion`, `elevation`, `opacity`, `useTheme`, `useSystemTheme`, `ThemeProvider`, `ThemeContext`, type `Theme`.
+Exports utiles : `palette`, `gradientX`, `lightTheme`/`darkTheme`, `typography`, `spacing`, `radius`, `borderWidth`, `iconSize`, `touchTarget`, `motion`, `elevation`, `opacity`, `useTheme`, `useSystemTheme`, `ThemeProvider`, `ThemeContext`, type `Theme`, `contrastRatio`/`meetsAA`/`WCAG`.
 
 > Polices : le thème nomme `Poppins_400Regular` … `Poppins_700Bold` (exports de `@expo-google-fonts/poppins`). L'app doit charger ces polices (cf. `apps/mobile/app/_layout.tsx`).
 >
 > Le **gradient X** (`gradientX`) est réservé à la marque / un unique accent héros — jamais en fond d'UI ni sur du texte courant.
+
+### Couleurs de texte & accessibilité (`textSecondary` vs `textMuted`)
+
+Pour rester **WCAG 2.1 AA**, le choix entre les deux tokens de texte secondaire dépend de la
+**fonction** du texte, pas de son apparence (TLX-145) :
+
+| Token           | Contraste sur fond sombre | Usage                                                                            |
+| --------------- | ------------------------- | -------------------------------------------------------------------------------- |
+| `textSecondary` | ≈ 6.3:1 — **AA normal**   | Tout texte **porteur d'information** < 18px : sous-titres, métadonnées, détails. |
+| `textMuted`     | ≈ 3.3:1 — **AA large**    | Décoratif / non essentiel **uniquement**, ou texte ≥ 18px (placeholders, hints). |
+
+> ⚠️ Ne jamais utiliser `textMuted` pour du texte normal (< 18px) qui véhicule du sens sur fond
+> sombre : il est sous le seuil 4.5:1. Le thème **clair** est, lui, conforme pour les deux.
+
+L'utilitaire [`contrastRatio`](src/contrast.ts) (export public) et son test
+([`src/contrast.test.ts`](src/contrast.test.ts)) verrouillent cette règle : ils échouent si un
+token de texte repasse sous le seuil AA attendu.
 
 ## Web (react-native-web / autres cibles)
 

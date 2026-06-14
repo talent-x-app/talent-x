@@ -1,6 +1,7 @@
-import { ThemeProvider } from '@talent-x/design-tokens';
+import { ThemeProvider, darkColors, darkTheme } from '@talent-x/design-tokens';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
+import { StyleSheet } from 'react-native';
 import { type ReactNode, useState } from 'react';
 
 const mockGetMe = jest.fn();
@@ -35,6 +36,18 @@ function Wrapper({ children }: { children: ReactNode }) {
   return (
     <QueryClientProvider client={client}>
       <ThemeProvider>{children}</ThemeProvider>
+    </QueryClientProvider>
+  );
+}
+
+/** Variante forçant le thème **sombre** (dark-first) — pour les assertions de contraste (TLX-145). */
+function DarkWrapper({ children }: { children: ReactNode }) {
+  const [client] = useState(
+    () => new QueryClient({ defaultOptions: { queries: { retry: false } } }),
+  );
+  return (
+    <QueryClientProvider client={client}>
+      <ThemeProvider theme={darkTheme}>{children}</ThemeProvider>
     </QueryClientProvider>
   );
 }
@@ -193,6 +206,36 @@ describe('AthleteHomeScreen (A-01, TLX-089)', () => {
     );
     fireEvent.press(screen.getByTestId('notifications-bell'));
     expect(mockPush).toHaveBeenCalledWith('/(athlete)/notifications');
+  });
+
+  it('rend le texte secondaire de l’accueil athlète en textSecondary — contraste AA (TLX-145)', async () => {
+    mockListAssignments.mockResolvedValue({ status: 200, data: { data: [] } });
+    render(<AthleteHomeScreen />, { wrapper: DarkWrapper });
+    const colorOf = (node: { props: { style?: unknown } }): string | undefined =>
+      (StyleSheet.flatten(node.props.style) as { color?: string }).color;
+
+    await waitFor(() => expect(screen.getByTestId('home-no-sessions')).toBeOnTheScreen());
+    // Sous-titre dynamique
+    expect(colorOf(screen.getByTestId('home-subtitle'))).toBe(darkColors.textSecondary);
+    // Message d'état « aucune séance »
+    expect(
+      colorOf(within(screen.getByTestId('home-no-sessions')).getByText(/Aucune séance pour/)),
+    ).toBe(darkColors.textSecondary);
+  });
+
+  it('le sous-titre d’une séance à faire (date · exercices) est en textSecondary (TLX-145)', async () => {
+    mockListAssignments.mockResolvedValue({
+      status: 200,
+      data: { data: [assignment('s1', 'assigned', '2026-06-12T00:00:00Z')] },
+    });
+    render(<AthleteHomeScreen />, { wrapper: DarkWrapper });
+    const colorOf = (node: { props: { style?: unknown } }): string | undefined =>
+      (StyleSheet.flatten(node.props.style) as { color?: string }).color;
+
+    await waitFor(() => expect(screen.getByTestId('home-todo-s1')).toBeOnTheScreen());
+    expect(colorOf(within(screen.getByTestId('home-todo-s1')).getByText(/exercices?/))).toBe(
+      darkColors.textSecondary,
+    );
   });
 
   it('raccourcis vers calendrier et progression', async () => {

@@ -62,7 +62,17 @@ export interface ThemeColors {
   border: string;
   borderStrong: string;
   textPrimary: string;
+  /**
+   * Texte secondaire **porteur d'information** : sous-titres, métadonnées, détails de carte.
+   * ≥ 4.5:1 sur `background` dans les deux thèmes → **WCAG AA pour du texte normal** (< 18px).
+   * À préférer à `textMuted` dès que le texte véhicule du sens (TLX-145).
+   */
   textSecondary: string;
+  /**
+   * Texte **décoratif / non essentiel uniquement** : placeholders, hints, ou texte ≥ 18px
+   * (AA large). Sur fond sombre il ne tient **que** ~3.4:1 → **ne jamais l'utiliser pour du
+   * texte normal porteur d'info** (utiliser `textSecondary`). Cf. test `contrast.test.ts` + TLX-145.
+   */
   textMuted: string;
   textOnAccent: string;
   accent: string;

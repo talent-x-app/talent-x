@@ -177,7 +177,8 @@ export function ToReviewSection({
                   </Text>
                   <Text
                     style={{
-                      color: colors.textMuted,
+                      // Détail porteur d'info → textSecondary (AA, TLX-145).
+                      color: colors.textSecondary,
                       fontFamily: typography.fontFamily.regular,
                       fontSize: typography.bodySm.fontSize,
                     }}
@@ -304,7 +305,8 @@ function AlertRow({
           </Text>
           <Text
             style={{
-              color: colors.textMuted,
+              // Détail d'alerte porteur d'info → textSecondary (AA, TLX-145).
+              color: colors.textSecondary,
               fontFamily: typography.fontFamily.regular,
               fontSize: typography.bodySm.fontSize,
             }}
@@ -377,7 +379,9 @@ export function TrainingLoadSection({
       case 'danger':
         return { fg: colors.danger, bg: colors.dangerBg };
       default:
-        return { fg: colors.textMuted, bg: colors.surfaceSunken };
+        // Tonalité neutre (« Données insuffisantes ») : textSecondary pour que le libellé du
+        // badge reste lisible (AA) — textMuted serait sous le seuil sur surfaceSunken (TLX-145).
+        return { fg: colors.textSecondary, bg: colors.surfaceSunken };
     }
   };
 
@@ -447,7 +451,8 @@ export function TrainingLoadSection({
                 </View>
                 <Text
                   style={{
-                    color: colors.textMuted,
+                    // Lecture de charge porteuse d'info → textSecondary (AA, TLX-145).
+                    color: colors.textSecondary,
                     fontFamily: typography.fontFamily.regular,
                     fontSize: typography.bodySm.fontSize,
                   }}
@@ -493,7 +498,8 @@ export function TodaySection({
         <Card testID="coach-dashboard-today-loading">
           <Text
             style={{
-              color: colors.textMuted,
+              // Message d'état porteur d'info → textSecondary (AA, TLX-145).
+              color: colors.textSecondary,
               fontFamily: typography.fontFamily.regular,
               fontSize: typography.bodySm.fontSize,
             }}
@@ -517,7 +523,8 @@ export function TodaySection({
         <Card testID="coach-dashboard-today-empty">
           <Text
             style={{
-              color: colors.textMuted,
+              // Message d'état porteur d'info → textSecondary (AA, TLX-145).
+              color: colors.textSecondary,
               fontFamily: typography.fontFamily.regular,
               fontSize: typography.bodySm.fontSize,
             }}
@@ -543,7 +550,8 @@ export function TodaySection({
                     </Text>
                     <Text
                       style={{
-                        color: colors.textMuted,
+                        // Nom d'athlète porteur d'info → textSecondary (AA, TLX-145).
+                        color: colors.textSecondary,
                         fontFamily: typography.fontFamily.regular,
                         fontSize: typography.bodySm.fontSize,
                       }}

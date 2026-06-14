@@ -107,7 +107,8 @@ export function AthleteListItem({
           {athlete.sport ? (
             <Text
               style={{
-                color: colors.textMuted,
+                // Discipline porteuse d'info → textSecondary (AA, TLX-145).
+                color: colors.textSecondary,
                 fontFamily: typography.fontFamily.regular,
                 fontSize: typography.bodySm.fontSize,
               }}

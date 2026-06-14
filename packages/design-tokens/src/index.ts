@@ -4,3 +4,4 @@
    CSS web (react-native-web) : importer "@talent-x/design-tokens/css". */
 export * from './tokens';
 export * from './context';
+export * from './contrast';

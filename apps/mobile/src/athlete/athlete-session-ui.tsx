@@ -92,7 +92,8 @@ export function AssignmentListItem({
           </Text>
           <Text
             style={{
-              color: colors.textMuted,
+              // Date + nb d'exercices porteurs d'info → textSecondary (AA, TLX-145).
+              color: colors.textSecondary,
               fontFamily: typography.fontFamily.regular,
               fontSize: typography.bodySm.fontSize,
             }}

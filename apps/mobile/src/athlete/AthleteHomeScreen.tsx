@@ -115,7 +115,8 @@ export function AthleteHomeScreen() {
           <Text
             testID="home-subtitle"
             style={{
-              color: colors.textMuted,
+              // Sous-titre porteur d'info < 18px → textSecondary (AA, TLX-145).
+              color: colors.textSecondary,
               fontFamily: typography.fontFamily.regular,
               fontSize: typography.bodySm.fontSize,
             }}
@@ -142,7 +143,8 @@ export function AthleteHomeScreen() {
             </Text>
             <Text
               style={{
-                color: colors.textMuted,
+                // Consigne porteuse d'info → textSecondary (AA, TLX-145).
+                color: colors.textSecondary,
                 fontFamily: typography.fontFamily.regular,
                 fontSize: typography.bodySm.fontSize,
               }}
@@ -228,7 +230,8 @@ export function AthleteHomeScreen() {
           <Card testID="home-no-sessions">
             <Text
               style={{
-                color: colors.textMuted,
+                // Message d'état porteur d'info → textSecondary (AA, TLX-145).
+                color: colors.textSecondary,
                 fontFamily: typography.fontFamily.regular,
                 fontSize: typography.body.fontSize,
                 textAlign: 'center',
