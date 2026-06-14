@@ -95,7 +95,7 @@ describe('OfflineSync (rejeu à la reconnexion)', () => {
     );
     await waitFor(async () => expect(await loadOutbox(deviceStore)).toHaveLength(0));
     // Brouillon purgé une fois la perf confirmée.
-    expect(await deviceStore.getItem('perf-draft:as-1')).toBeNull();
+    expect(await deviceStore.getItem('perf-draft.as-1')).toBeNull();
     expect(mockShow).toHaveBeenCalledWith(
       expect.objectContaining({ variant: 'success', title: 'Performance synchronisée' }),
     );
@@ -110,7 +110,7 @@ describe('OfflineSync (rejeu à la reconnexion)', () => {
 
     await waitFor(async () => expect(await loadOutbox(deviceStore)).toHaveLength(0));
     // Brouillon conservé pour permettre une correction.
-    expect(await deviceStore.getItem('perf-draft:as-1')).not.toBeNull();
+    expect(await deviceStore.getItem('perf-draft.as-1')).not.toBeNull();
     expect(mockShow).toHaveBeenCalledWith(
       expect.objectContaining({ variant: 'danger', title: 'Synchronisation impossible' }),
     );

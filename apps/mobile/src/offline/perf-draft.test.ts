@@ -29,8 +29,27 @@ const DRAFT: PerfDraft = {
 
 describe('perf-draft (TLX-077 — brouillon auto-save)', () => {
   it('cloisonne la clé par affectation', () => {
-    expect(draftKey('as-1')).toBe('perf-draft:as-1');
+    expect(draftKey('as-1')).toBe('perf-draft.as-1');
     expect(draftKey('as-2')).not.toBe(draftKey('as-1'));
+  });
+
+  // TLX-137 : sur natif, expo-secure-store impose [A-Za-z0-9._-] ; un « : » lève
+  // « Invalid key provided to SecureStore » → le brouillon n'était jamais persisté.
+  it('produit une clé acceptée par SecureStore (charset [A-Za-z0-9._-], pas de « : »)', () => {
+    const uuid = 'ca0f1e4d-b4be-4580-ad1d-8a9d5b6e3fc5';
+    expect(draftKey(uuid)).toMatch(/^[A-Za-z0-9._-]+$/);
+    expect(draftKey(uuid)).not.toContain(':');
+  });
+
+  it('loadDraft : un accès stockage qui lève → null (ne propage pas)', async () => {
+    const throwing: KeyValueStore = {
+      getItem: async () => {
+        throw new Error('Invalid key provided to SecureStore.');
+      },
+      setItem: async () => undefined,
+      removeItem: async () => undefined,
+    };
+    await expect(loadDraft(throwing, 'as-1')).resolves.toBeNull();
   });
 
   it('sérialise puis relit un brouillon à l’identique (round-trip)', () => {
@@ -40,7 +59,7 @@ describe('perf-draft (TLX-077 — brouillon auto-save)', () => {
   it('persiste, relit et purge via le magasin', async () => {
     const store = memoryStore();
     await saveDraft(store, 'as-1', DRAFT);
-    expect(store.map.get('perf-draft:as-1')).toBeDefined();
+    expect(store.map.get('perf-draft.as-1')).toBeDefined();
     expect(await loadDraft(store, 'as-1')).toEqual(DRAFT);
 
     await clearDraft(store, 'as-1');

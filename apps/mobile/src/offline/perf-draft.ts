@@ -12,7 +12,9 @@
 import type { ExerciseEntry } from '../athlete/perf-entry';
 import type { KeyValueStore } from './key-value-store';
 
-const DRAFT_PREFIX = 'perf-draft:';
+// ⚠️ Pas de « : » : sur natif, expo-secure-store n'accepte que [A-Za-z0-9._-] comme clé
+// (le « : » lève « Invalid key provided to SecureStore » → brouillon jamais persisté). TLX-137.
+const DRAFT_PREFIX = 'perf-draft.';
 
 /** Tampon de saisie d'une perf : aligné 1:1 sur les feuilles d'exercice de la séance. */
 export interface PerfDraft {
@@ -72,7 +74,14 @@ export async function loadDraft(
   store: KeyValueStore,
   assignmentId: string,
 ): Promise<PerfDraft | null> {
-  return parseDraft(await store.getItem(draftKey(assignmentId)));
+  // Lecture défensive : un accès au stockage qui **lève** (clé héritée invalide, trousseau
+  // indisponible…) ne doit jamais faire échouer l'appelant — sans quoi un `Promise.all`
+  // groupant brouillon + file casserait aussi la détection de la perf en attente (TLX-137).
+  try {
+    return parseDraft(await store.getItem(draftKey(assignmentId)));
+  } catch {
+    return null;
+  }
 }
 
 export async function clearDraft(store: KeyValueStore, assignmentId: string): Promise<void> {
