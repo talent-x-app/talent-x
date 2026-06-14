@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Talent-X — Carte « Effort de sprint »</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0B0F17; --surface:#11151F; --raised:#161B27; --sunken:#0E121B;
+    --border:rgba(255,255,255,.08); --border-strong:rgba(255,255,255,.16);
+    --text:#E7ECF3; --text2:#8A94A6; --muted:#5C6678;
+    --accent:#2E7CF6; --accent-text:#5BAEFF; --accent-subtle:rgba(46,124,246,.16);
+    --success:#34D17F; --success-bg:rgba(52,209,127,.14);
+    --warning:#FFC24B; --warning-bg:rgba(255,194,75,.14);
+    --grad:linear-gradient(135deg,#5BAEFF 0%,#2E7CF6 55%,#1B5BE0 100%);
+    --r-xs:6px; --r-sm:10px; --r-md:14px; --r-pill:999px;
+    --font:'Poppins',system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:#06080d;font-family:var(--font);color:var(--text);
+       display:flex;justify-content:center;padding:28px 16px;}
+  .phone{width:390px;max-width:100%;}
+
+  /* App bar */
+  .appbar{display:flex;align-items:center;gap:12px;margin-bottom:14px;}
+  .appbar .back{color:var(--text2);font-size:14px;}
+  .appbar .title{font-size:20px;font-weight:700;letter-spacing:-.02em;}
+
+  /* Session meta (contexte minimal) */
+  .meta{font-size:12px;color:var(--muted);margin:0 2px 16px;}
+
+  /* Card */
+  .card{background:var(--surface);border:1px solid var(--border);
+        border-radius:var(--r-md);box-shadow:0 8px 24px rgba(0,0,0,.45);overflow:hidden;}
+
+  /* Card header + live summary */
+  .chead{display:flex;align-items:center;gap:10px;padding:13px 14px;border-bottom:1px solid var(--border);}
+  .tile{width:38px;height:38px;border-radius:11px;background:var(--grad);
+        display:flex;align-items:center;justify-content:center;flex:none;}
+  .tile svg{width:20px;height:20px;color:#fff;}
+  .chead .grow{flex:1;min-width:0;}
+  .kicker{font-size:11px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;color:var(--accent-text);}
+  .summary{font-size:14px;font-weight:600;color:var(--text);margin-top:2px;}
+  .ctrls{display:flex;gap:4px;color:var(--text2);}
+  .ctrls .ic{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;
+             border:1px solid var(--border);font-size:14px;}
+
+  .body{padding:14px;display:flex;flex-direction:column;gap:16px;}
+
+  /* Volume badge row */
+  .badges{display:flex;gap:8px;flex-wrap:wrap;}
+  .badge{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 10px;border-radius:var(--r-pill);
+         font-size:11px;font-weight:700;letter-spacing:.02em;}
+  .badge.vol{background:var(--success-bg);color:var(--success);}
+  .badge.preset{background:var(--accent-subtle);color:var(--accent-text);}
+
+  /* Field block */
+  .field{display:flex;flex-direction:column;gap:8px;}
+  .lbl{font-size:11px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:var(--text2);}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+
+  /* Chips */
+  .chips{display:flex;gap:8px;flex-wrap:wrap;}
+  .chip{display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 14px;border-radius:var(--r-pill);
+        font-size:13px;font-weight:500;background:var(--sunken);color:var(--text2);border:1px solid transparent;}
+  .chip.on{background:var(--accent-subtle);color:var(--accent-text);border-color:var(--accent);}
+  .chip.add{color:var(--muted);}
+
+  /* Stepper */
+  .stepper{display:inline-flex;align-items:center;background:var(--sunken);
+           border:1px solid var(--border-strong);border-radius:var(--r-sm);height:42px;align-self:flex-start;}
+  .stepper button{width:42px;height:100%;background:transparent;border:0;color:var(--text);font-size:20px;}
+  .stepper .v{min-width:40px;text-align:center;font-weight:600;font-size:16px;}
+
+  /* Segmented */
+  .seg{display:inline-flex;background:var(--sunken);border-radius:var(--r-sm);padding:3px;gap:3px;align-self:flex-start;}
+  .seg button{border:0;background:transparent;color:var(--text2);font-family:var(--font);
+              font-size:13px;font-weight:600;padding:7px 16px;border-radius:8px;}
+  .seg button.on{background:var(--raised);color:var(--text);box-shadow:0 0 0 1px rgba(255,255,255,.06);}
+
+  /* Switch */
+  .switch-row{display:flex;align-items:center;gap:10px;font-size:14px;color:var(--text2);margin-top:2px;}
+  .switch{width:46px;height:28px;border-radius:var(--r-pill);background:var(--border-strong);position:relative;flex:none;}
+  .switch::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;
+                 background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3);}
+
+  /* Intensity panel */
+  .panel{background:var(--sunken);border:1px solid var(--border);border-radius:var(--r-sm);
+         padding:12px;display:flex;flex-direction:column;gap:12px;margin-top:10px;}
+  .pct-row{display:flex;align-items:center;gap:12px;}
+  .derived{font-size:13px;color:var(--text2);}
+  .derived b{color:var(--accent-text);font-size:16px;font-weight:700;}
+
+  /* Recovery split */
+  .rec{display:flex;flex-direction:column;gap:8px;}
+  .rec .small{font-size:12px;color:var(--muted);}
+
+  /* Collapsible rows */
+  .collapse{display:flex;align-items:center;justify-content:space-between;
+            padding:12px 0;border-top:1px solid var(--border);color:var(--text2);font-size:14px;font-weight:500;}
+  .collapse .chev{color:var(--muted);}
+
+  /* Coach hint */
+  .hint{display:flex;gap:9px;align-items:flex-start;background:var(--warning-bg);
+        border-radius:var(--r-sm);padding:10px 12px;font-size:12.5px;color:#E7D9B0;line-height:1.45;}
+  .hint .dot{width:7px;height:7px;border-radius:50%;background:var(--warning);margin-top:6px;flex:none;}
+
+  /* Footer actions */
+  .foot{margin-top:16px;display:flex;flex-direction:column;gap:10px;}
+  .btn{height:50px;border-radius:var(--r-sm);font-family:var(--font);font-weight:600;font-size:15px;
+       display:flex;align-items:center;justify-content:center;gap:8px;border:1px solid transparent;}
+  .btn.primary{background:var(--accent);color:#fff;}
+  .btn.secondary{background:transparent;color:var(--text);border-color:var(--border-strong);}
+</style>
+</head>
+<body>
+  <div class="phone">
+
+    <div class="appbar">
+      <span class="back">‹ Mes séances</span>
+    </div>
+    <div class="appbar"><span class="title">Vitesse max — 60 m</span></div>
+    <p class="meta">Brouillon · Bloc 2 sur 3 · discipline Sprint</p>
+
+    <div class="card">
+      <!-- HEADER + RÉSUMÉ LIVE -->
+      <div class="chead">
+        <span class="tile">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 3l-2 7h5l-7 11 2-8H6z"/></svg>
+        </span>
+        <div class="grow">
+          <div class="kicker">Effort de sprint</div>
+          <div class="summary">2 × 3 × 60 m · blocs · 95 % record · r 4′ / R 8′</div>
+        </div>
+        <div class="ctrls"><span class="ic">↑</span><span class="ic">↓</span><span class="ic">🗑</span></div>
+      </div>
+
+      <div class="body">
+
+        <div class="badges">
+          <span class="badge preset">★ Préréglage : Vitesse max ▾</span>
+          <span class="badge vol">Volume HI : 360 m</span>
+        </div>
+
+        <!-- DISTANCE -->
+        <div class="field">
+          <span class="lbl">Distance</span>
+          <div class="chips">
+            <span class="chip">20 m</span><span class="chip">30 m</span><span class="chip">40 m</span>
+            <span class="chip on">60 m</span><span class="chip">80 m</span><span class="chip">100 m</span>
+            <span class="chip">150 m</span><span class="chip add">+ autre</span>
+          </div>
+        </div>
+
+        <!-- REPS / SÉRIES -->
+        <div class="two">
+          <div class="field">
+            <span class="lbl">Répétitions</span>
+            <div class="stepper"><button>−</button><span class="v">3</span><button>+</button></div>
+          </div>
+          <div class="field">
+            <span class="lbl">Séries</span>
+            <div class="stepper"><button>−</button><span class="v">2</span><button>+</button></div>
+          </div>
+        </div>
+
+        <!-- DÉPART -->
+        <div class="field">
+          <span class="lbl">Départ</span>
+          <div class="chips">
+            <span class="chip">Debout</span><span class="chip">3 appuis</span>
+            <span class="chip on">Blocs</span><span class="chip">Lancé</span>
+          </div>
+          <div class="switch-row"><span class="switch"></span> Au signal (temps de réaction)</div>
+        </div>
+
+        <!-- INTENSITÉ -->
+        <div class="field">
+          <span class="lbl">Intensité</span>
+          <div class="seg"><button>Temps cible</button><button class="on">% du record</button></div>
+          <div class="panel">
+            <div class="pct-row">
+              <div class="stepper"><button>−</button><span class="v">95 %</span><button>+</button></div>
+              <div class="derived">≈ <b>7″37</b> / rep</div>
+            </div>
+            <div class="small derived">Record de réf. 60 m : 7″00 · <b style="font-size:13px">individualisé par athlète</b> à l'exécution</div>
+          </div>
+        </div>
+
+        <!-- RÉCUPÉRATION -->
+        <div class="two">
+          <div class="rec field">
+            <span class="lbl">Récup. r — entre reps</span>
+            <div class="chips">
+              <span class="chip">2′</span><span class="chip">3′</span><span class="chip on">4′</span><span class="chip">6′</span>
+            </div>
+            <div class="seg" style="margin-top:2px"><button class="on">passive</button><button>active</button></div>
+          </div>
+          <div class="rec field">
+            <span class="lbl">Récup. R — entre séries</span>
+            <div class="chips">
+              <span class="chip">6′</span><span class="chip on">8′</span><span class="chip">10′</span><span class="chip">12′</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- HINT COACH -->
+        <div class="hint"><span class="dot"></span>
+          <span><b>Vitesse max</b> — récupération quasi complète recommandée pour préserver la qualité de chaque sprint.</span>
+        </div>
+
+        <!-- COLLAPSED -->
+        <div style="margin-top:-2px">
+          <div class="collapse">Conditions (résisté · côte · surface) <span class="chev">▸</span></div>
+          <div class="collapse">Notes pour l'athlète <span class="chev">▸</span></div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="foot">
+      <button class="btn secondary">+ Ajouter un bloc</button>
+      <button class="btn primary">Enregistrer la séance</button>
+    </div>
+
+  </div>
+</body>
+</html>
