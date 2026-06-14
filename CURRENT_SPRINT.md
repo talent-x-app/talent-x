@@ -12,6 +12,38 @@ de débloquer les écrans coach C-01/C-02/C-03.
 - _(éditeurs typés terminés — TLX-054→061 livrés ↓)_
 - _(C-01 complet — TLX-081→085 livrés ↓)_
 
+## Terminés — TLX-138 Validation de charge — volet codeable : module SLO pur + harnais + alertes HTTP (hors V2)
+
+- **Volet codeable d'un ticket d'exploitation (hors V2)** : TLX-76 **expose** les signaux HTTP
+  (taux d'erreur, latence p95, volume, connexions actives) sur `/metrics`, mais **rien ne les
+  consommait** pour valider le SLO — la passe initiale (`perf/TLX-138-local-load-report.md`) était
+  un calcul manuel one-shot. Comblé : « mesurer la p95 vs le SLO + le taux d'erreur » devient
+  **reproductible et gateable**. La charge **prod-like** dimensionnée reste **env-bound** (pas de
+  Docker/Postgres ici → non rejouée), comme le ticket lui-même le note. **Backend pur, zéro contrat,
+  zéro migration, aucune dépendance ajoutée.**
+- **(Module pur `metrics/slo.ts`)** zéro I/O, testable en isolation : `parsePrometheusText` (exposition
+  Prometheus → échantillons, déséchappement labels, `+Inf`), **`histogramQuantile`** (port fidèle de
+  l'algorithme Prometheus — interpolation dans le bucket du rang, plafonnement à la plus haute borne
+  finie), `httpDurationQuantile`/`httpErrorSummary` (dérivations `sum by (le)` + taux 5xx),
+  `percentile`/`summarizeLatencies` (latence client), **`evaluateSlo`** (SLO TX-OPS-004 §8 : **p95 < 1 s**,
+  **erreur < 5 %** ; une métrique absente ne viole rien). Consomme le **texte** `/metrics` → marche contre
+  un scrape réel, un fichier ou en test (source unique de vérité).
+- **(Harnais `perf/load-test.ts`)** charge **reproductible sans dépendance** (`fetch` natif, ni
+  autocannon ni k6 à installer) : paliers de concurrence (TX-OPS-004 §6), p50/p95/p99 + débit + taux
+  d'erreur, croisé `/metrics` optionnel, **sortie code 1 si SLO dépassé**. **(CLI `perf/slo-check.ts`)**
+  scrape `/metrics` → verdict, gateable en CI/astreinte (jeton `METRICS_TOKEN`, fichier ou stdin).
+  Scripts `perf:load` / `slo:check`.
+- **(Alertes `ops/alerts/http-slo.rules.yml`)** règles Prometheus **config-as-code** (mapping §8) :
+  `HttpErrorRateHigh` (5xx > 5 %), `HttpReadLatencyP95High` (p95 GET > 1 s) + pré-alerte 0,7 s,
+  `HttpInFlightSaturation`. Doc `ops/observability.md` (métriques HTTP, alertes, runbook) + rapport de
+  charge mis à jour (harnais/CLI committés, règles écrites).
+- **Tests** : **API unit 562/562** (+20 : parsing, `histogram_quantile` incl. interpolation/plafond/+Inf,
+  dérivations p95 + taux 5xx, `evaluateSlo`, percentiles). typecheck + lint + prettier clean. `slo.ts`
+  100 % funcs/lines. CLIs **vérifiées** : `slo-check` exit 0 (SLO tenu) / exit 1 (dépassement, p95 + taux),
+  `load-test` table + verdict contre un serveur local jetable.
+- **Reste (env requis, hors repo)** : rejouer les paliers contre un environnement **prod-like** dimensionné
+  - jeu de données réaliste ; **charger** `http-slo.rules.yml` dans l'observabilité **managée** (ADR-11).
+
 ## Terminés — TLX-86 Vérification live grille de barres (Hauteur/Perche → record `vertical:*`) — E2E Playwright
 
 - **Dette de validation soldée** : le mode « grille de barres » (sauts verticaux, ADR-25 / TLX-075) était
