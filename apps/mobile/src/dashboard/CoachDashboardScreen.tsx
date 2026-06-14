@@ -8,9 +8,10 @@ import { useTheme } from '@talent-x/design-tokens';
 import { useQuery } from '@tanstack/react-query';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useMemo } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 import {
   ActivityIndicator,
+  type LayoutChangeEvent,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -48,6 +49,22 @@ export { COACH_DASHBOARD_QUERY_KEY };
 export function CoachDashboardScreen() {
   const { colors, typography, spacing } = useTheme();
   const router = useRouter();
+
+  // KPI actionnables (TLX-146) : taper « À revoir » / « Aujourd'hui » défile vers la section
+  // correspondante. On capte l'offset Y de chaque section via `onLayout` (relatif au conteneur
+  // centré) ; le padding du ScrollView fournit naturellement la marge haute à l'arrivée.
+  const scrollRef = useRef<ScrollView>(null);
+  const sectionOffsets = useRef<{ toReview: number | null; today: number | null }>({
+    toReview: null,
+    today: null,
+  });
+  const scrollToSection = useCallback((key: 'toReview' | 'today') => {
+    const y = sectionOffsets.current[key];
+    if (y != null) scrollRef.current?.scrollTo({ y, animated: true });
+  }, []);
+  const onSectionLayout = (key: 'toReview' | 'today') => (e: LayoutChangeEvent) => {
+    sectionOffsets.current[key] = e.nativeEvent.layout.y;
+  };
 
   const dashboard = useQuery({
     queryKey: COACH_DASHBOARD_QUERY_KEY,
@@ -127,6 +144,7 @@ export function CoachDashboardScreen() {
 
   return (
     <ScrollView
+      ref={scrollRef}
       style={{ flex: 1, backgroundColor: colors.background }}
       contentContainerStyle={{ padding: spacing[6] }}
       refreshControl={
@@ -177,17 +195,22 @@ export function CoachDashboardScreen() {
           Nouvelle séance
         </Button>
 
-        {/* KPIs (Carte C-01 §4). */}
+        {/* KPIs (Carte C-01 §4). Actionnables (TLX-146) : taper défile vers la section liée —
+          seulement quand la valeur > 0 (sinon pas de cible morte/trompeuse). */}
         <View style={{ flexDirection: 'row', gap: spacing[3] }}>
           <MetricCard
             testID="coach-dashboard-kpi-toreview"
             label="À revoir"
             value={summary.toReview}
+            onPress={summary.toReview > 0 ? () => scrollToSection('toReview') : undefined}
+            accessibilityLabel={`À revoir : ${summary.toReview}, voir la liste`}
           />
           <MetricCard
             testID="coach-dashboard-kpi-today"
             label="Aujourd'hui"
             value={summary.today}
+            onPress={summary.today > 0 ? () => scrollToSection('today') : undefined}
+            accessibilityLabel={`Aujourd'hui : ${summary.today}, voir la section`}
           />
         </View>
 
@@ -204,21 +227,29 @@ export function CoachDashboardScreen() {
                   athletes={athletes}
                   onPressAthlete={(athlete) => router.push(athleteDetailHref(athlete))}
                 />
-                <ToReviewSection
-                  athletes={athletes}
-                  onPressAthlete={(athlete) => router.push(athleteDetailHref(athlete))}
-                />
-                <TodaySection
-                  assignments={todayAssignments}
-                  nameById={athleteNameById}
-                  isLoading={assignments.isLoading}
-                  isError={assignments.isError}
-                  onRetry={() => void assignments.refetch()}
-                  onChanged={() => {
-                    void assignments.refetch();
-                    void dashboard.refetch();
-                  }}
-                />
+                {/* Ancres de défilement des KPI (TLX-146) : l'offset Y est capté par `onLayout`. */}
+                <View
+                  testID="coach-dashboard-toreview-anchor"
+                  onLayout={onSectionLayout('toReview')}
+                >
+                  <ToReviewSection
+                    athletes={athletes}
+                    onPressAthlete={(athlete) => router.push(athleteDetailHref(athlete))}
+                  />
+                </View>
+                <View testID="coach-dashboard-today-anchor" onLayout={onSectionLayout('today')}>
+                  <TodaySection
+                    assignments={todayAssignments}
+                    nameById={athleteNameById}
+                    isLoading={assignments.isLoading}
+                    isError={assignments.isError}
+                    onRetry={() => void assignments.refetch()}
+                    onChanged={() => {
+                      void assignments.refetch();
+                      void dashboard.refetch();
+                    }}
+                  />
+                </View>
               </>
             )}
             {/* Charge d'entraînement (TLX-113) — indépendant de « Tout est à jour ». */}
@@ -297,11 +328,32 @@ export function CoachDashboardScreen() {
   );
 }
 
-/** Carte KPI : grand nombre + libellé. */
-function MetricCard({ label, value, testID }: { label: string; value: number; testID?: string }) {
+/**
+ * Carte KPI : grand nombre + libellé. Optionnellement actionnable (TLX-146) : si `onPress` est
+ * fourni, `Card` la rend pressable (rôle bouton + label a11y + état pressed) ; sinon c'est une
+ * surface inerte. Le label a11y n'est transmis que lorsqu'elle est actionnable.
+ */
+function MetricCard({
+  label,
+  value,
+  testID,
+  onPress,
+  accessibilityLabel,
+}: {
+  label: string;
+  value: number;
+  testID?: string;
+  onPress?: () => void;
+  accessibilityLabel?: string;
+}) {
   const { colors, typography, spacing } = useTheme();
   return (
-    <Card style={{ flex: 1 }} testID={testID}>
+    <Card
+      style={{ flex: 1 }}
+      testID={testID}
+      onPress={onPress}
+      accessibilityLabel={onPress ? accessibilityLabel : undefined}
+    >
       <View style={{ gap: spacing[1] }}>
         <Text
           testID={testID ? `${testID}-value` : undefined}

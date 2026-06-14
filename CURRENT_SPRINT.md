@@ -12,6 +12,32 @@ de débloquer les écrans coach C-01/C-02/C-03.
 - _(éditeurs typés terminés — TLX-054→061 livrés ↓)_
 - _(C-01 complet — TLX-081→085 livrés ↓)_
 
+## Terminés — TLX-146 KPI coach « À revoir » / « Aujourd'hui » actionnables (scroll vers la section, hors V2)
+
+- **Écart UX (audit accueil coach 2026-06-14)** : les deux cartes KPI du tableau de bord (« À revoir »,
+  « Aujourd'hui ») affichaient un grand compteur très saillant — affordance qui **appelle le tap** — mais
+  `MetricCard` n'acceptait pas de `onPress` : la valeur ne menait nulle part. Or les destinations existent
+  déjà sur le même écran (`ToReviewSection`, `TodaySection`). **Frontend pur, zéro contrat, zéro backend.**
+- **(Mécanisme retenu : scroll, pas de nav)** il n'existe pas d'écran de revue dédié — les cibles sont les
+  sections **du même écran**. Un `ScrollView` ref + capture de l'offset `Y` de chaque section via `onLayout`
+  (relatif au conteneur centré `ResponsiveContent`) → au tap, `scrollTo({ y, animated })`. Le padding haut du
+  `ScrollView` fournit la **marge d'arrivée** naturelle. Guard : pas de scroll si l'offset n'est pas encore mesuré.
+- **(`MetricCard` optionnellement actionnable)** nouveau prop `onPress?` transmis au `Card`, qui gère **déjà
+  nativement** le rôle bouton + `accessibilityLabel` + l'état pressed **uniquement** quand `onPress` est fourni
+  (réutilisation, zéro duplication). Le label a11y n'est passé **que** lorsque la carte est actionnable.
+- **(Valeur = 0 → carte inerte)** `onPress` n'est câblé que si `summary.toReview > 0` / `summary.today > 0` :
+  pas de cible morte/trompeuse. Cohérent avec « Tout est à jour » (les deux KPI à 0 → cartes non cliquables).
+  Cible tactile = toute la carte (h1 + libellé + padding `Card`), bien au-delà des 44px.
+- **Tests** : **mobile 556/556** (+3 : tap « À revoir » >0 → rôle bouton + label a11y + `scrollTo({y:300})` ;
+  tap « Aujourd'hui » >0 → `scrollTo({y:540})` ; KPI à 0 → ni rôle bouton, ni label, ni scroll au tap, compteur
+  toujours affiché). Seam de test : `jest.spyOn(ScrollView.prototype, 'scrollTo')` + `onLayout` simulé. typecheck
+  (api + api-client + mobile) + ESLint + Prettier clean.
+- **Critères d'acceptation : 4/4 cochés** (tap → section ; rôle/label a11y seulement si actionnable, cible ≥ 44px ;
+  valeur 0 non cliquable ; RTL `onPress`/scroll + non-régression des compteurs).
+- **Non rejoué en réel** (smoke Expo web / device) : le défilement effectif vers la section — couvert par RTL
+  (offset `onLayout` simulé + `scrollTo` asserté sur le **vrai** écran) ; ressenti d'animation à confirmer en
+  navigateur. **Hors périmètre** (assumé) : calcul des KPI (dérivés backend TLX-080) et refonte visuelle des cartes.
+
 ## Terminés — TLX-145 A11y : contraste WCAG AA du texte secondaire des accueils (textMuted → textSecondary, hors V2)
 
 - **Écart a11y réel (audit UX accueils 2026-06-14)** : le petit texte **porteur d'info** (< 18px) des

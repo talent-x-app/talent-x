@@ -1,7 +1,7 @@
 import { ThemeProvider, darkColors, darkTheme } from '@talent-x/design-tokens';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
-import { StyleSheet } from 'react-native';
+import { ScrollView, StyleSheet } from 'react-native';
 import { type ReactNode, useState } from 'react';
 
 const mockGetCoachDashboard = jest.fn();
@@ -205,6 +205,112 @@ describe('CoachDashboardScreen (TLX-081)', () => {
     await waitFor(() => expect(screen.getByTestId('coach-dashboard-today-as-1')).toBeOnTheScreen());
     expect(screen.getByTestId('coach-dashboard-today-as-1')).toHaveTextContent(/Fractionné/);
     expect(screen.getByTestId('coach-dashboard-today-as-1')).toHaveTextContent(/Léa Dubois/);
+  });
+
+  // KPI actionnables (TLX-146) : taper « À revoir » / « Aujourd'hui » défile vers la section
+  // correspondante ; carte inerte (ni rôle bouton, ni scroll) quand la valeur vaut 0.
+  describe('KPI actionnables (TLX-146)', () => {
+    /** Renvoie l'offset Y simulé pour une ancre de section après son `onLayout`. */
+    function fireAnchorLayout(testID: string, y: number): void {
+      fireEvent(screen.getByTestId(testID), 'layout', {
+        nativeEvent: { layout: { x: 0, y, width: 300, height: 120 } },
+      });
+    }
+
+    it('taper « À revoir » (>0) expose un bouton a11y et défile vers la section', async () => {
+      const scrollSpy = jest
+        .spyOn(ScrollView.prototype, 'scrollTo')
+        .mockImplementation(() => undefined);
+      try {
+        mockGetCoachDashboard.mockResolvedValue({ status: 200, data: DASHBOARD });
+        render(<CoachDashboardScreen />, { wrapper: Wrapper });
+
+        await waitFor(() =>
+          expect(screen.getByTestId('coach-dashboard-toreview-anchor')).toBeOnTheScreen(),
+        );
+        // La section a été mesurée (offset capté par onLayout).
+        fireAnchorLayout('coach-dashboard-toreview-anchor', 300);
+
+        const kpi = screen.getByTestId('coach-dashboard-kpi-toreview');
+        // Actionnable → rôle bouton + label a11y (seulement quand value > 0).
+        expect(kpi.props.accessibilityRole).toBe('button');
+        expect(kpi.props.accessibilityLabel).toBe('À revoir : 1, voir la liste');
+
+        fireEvent.press(kpi);
+        expect(scrollSpy).toHaveBeenCalledWith({ y: 300, animated: true });
+      } finally {
+        scrollSpy.mockRestore();
+      }
+    });
+
+    it('taper « Aujourd’hui » (>0) défile vers la section « Aujourd’hui »', async () => {
+      const scrollSpy = jest
+        .spyOn(ScrollView.prototype, 'scrollTo')
+        .mockImplementation(() => undefined);
+      try {
+        mockGetCoachDashboard.mockResolvedValue({
+          status: 200,
+          data: { ...DASHBOARD, summary: { ...DASHBOARD.summary, today: 2 } },
+        });
+        render(<CoachDashboardScreen />, { wrapper: Wrapper });
+
+        await waitFor(() =>
+          expect(screen.getByTestId('coach-dashboard-today-anchor')).toBeOnTheScreen(),
+        );
+        fireAnchorLayout('coach-dashboard-today-anchor', 540);
+
+        const kpi = screen.getByTestId('coach-dashboard-kpi-today');
+        expect(kpi.props.accessibilityRole).toBe('button');
+        expect(kpi.props.accessibilityLabel).toBe("Aujourd'hui : 2, voir la section");
+
+        fireEvent.press(kpi);
+        expect(scrollSpy).toHaveBeenCalledWith({ y: 540, animated: true });
+      } finally {
+        scrollSpy.mockRestore();
+      }
+    });
+
+    it('KPI à 0 : carte inerte (ni rôle bouton, ni scroll au tap)', async () => {
+      const scrollSpy = jest
+        .spyOn(ScrollView.prototype, 'scrollTo')
+        .mockImplementation(() => undefined);
+      try {
+        // « Tout est à jour » : toReview = 0 et today = 0 → cartes non actionnables.
+        mockGetCoachDashboard.mockResolvedValue({
+          status: 200,
+          data: {
+            athletes: [
+              { ...DASHBOARD.athletes[1], status: 'up_to_date', toReviewCount: 0, overdueCount: 0 },
+            ],
+            summary: {
+              athleteCount: 1,
+              toReview: 0,
+              today: 0,
+              alerts: { missedSessions: 0, consentMissing: 0 },
+            },
+          },
+        });
+        render(<CoachDashboardScreen />, { wrapper: Wrapper });
+
+        await waitFor(() =>
+          expect(screen.getByTestId('coach-dashboard-kpi-toreview')).toBeOnTheScreen(),
+        );
+        const toReview = screen.getByTestId('coach-dashboard-kpi-toreview');
+        const today = screen.getByTestId('coach-dashboard-kpi-today');
+        // Non actionnables : aucun rôle bouton ni label a11y.
+        expect(toReview.props.accessibilityRole).toBeUndefined();
+        expect(toReview.props.accessibilityLabel).toBeUndefined();
+        expect(today.props.accessibilityRole).toBeUndefined();
+        // Le compteur reste affiché (non-régression).
+        expect(screen.getByTestId('coach-dashboard-kpi-toreview-value')).toHaveTextContent('0');
+
+        fireEvent.press(toReview);
+        fireEvent.press(today);
+        expect(scrollSpy).not.toHaveBeenCalled();
+      } finally {
+        scrollSpy.mockRestore();
+      }
+    });
   });
 
   it('alertes détaillées par athlète, cliquables vers le détail (TLX-084)', async () => {
