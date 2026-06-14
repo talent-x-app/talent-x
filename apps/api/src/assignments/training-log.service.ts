@@ -5,6 +5,7 @@ import { ConsentGate } from '../common/authorization/consent.gate';
 import { RecordsService } from '../progress/records.service';
 import { SessionStatus } from '../sessions/dto/session-create.dto';
 import type { ExerciseDto } from '../sessions/dto/exercises.dto';
+import { EXERCISES_SCHEMA_VERSION } from '../sessions/exercises-schema';
 import { AssignmentStatus } from './dto/assignment.dto';
 import { PerformanceDto } from './dto/performance.dto';
 import type { ResultsDocDto } from './dto/results.dto';
@@ -88,10 +89,10 @@ export class TrainingLogService {
   }
 }
 
-/** Sérialise un `ExercisesDoc` en JSON Prisma (schemaVersion par défaut 1). */
+/** Sérialise un `ExercisesDoc` en JSON Prisma (défaut = version courante du contrat, cf. ADR-27). */
 function toExercisesJson(doc: TrainingLogRequestDto['exercises']): Prisma.InputJsonValue {
   return {
-    schemaVersion: doc.schemaVersion ?? 1,
+    schemaVersion: doc.schemaVersion ?? EXERCISES_SCHEMA_VERSION,
     items: doc.items as unknown as Prisma.InputJsonValue[],
   };
 }

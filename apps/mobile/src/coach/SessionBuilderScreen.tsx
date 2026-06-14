@@ -38,9 +38,7 @@ import {
   type BriefDraft,
 } from './brief-editor';
 import { assignSessionHref, coachTemplatesHref } from './navigation';
-
-/** Version courante du contrat JSONB des séances (schéma exercises **v3** — groupes, ADR-27). */
-const EXERCISES_SCHEMA_VERSION = 3;
+import { EXERCISES_SCHEMA_VERSION } from '../sessions/exercises-doc';
 
 /**
  * Constructeur de séance (C-05 — TLX-052). En-tête (titre, description, date, statut) +

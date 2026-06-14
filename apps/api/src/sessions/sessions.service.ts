@@ -16,6 +16,7 @@ import { SessionDto, SessionPageDto } from './dto/session.dto';
 import type { ExercisesDocDto } from './dto/exercises.dto';
 import type { SessionBriefDto } from './dto/session-brief.dto';
 import { toSessionDto } from './session.mapper';
+import { EXERCISES_SCHEMA_VERSION } from './exercises-schema';
 
 const SESSION_SORTABLE = ['createdAt', 'updatedAt', 'scheduledDate', 'title'] as const;
 
@@ -169,10 +170,11 @@ export class SessionsService {
   }
 }
 
-/** Version courante du contrat JSONB des séances (cf. TX-DATA-006 §9.1, ADR-18). */
-const EXERCISES_SCHEMA_VERSION = 2;
-
-/** Sérialise un `ExercisesDoc` en JSON Prisma (schemaVersion v2 par défaut, cf. ADR-18). */
+/**
+ * Sérialise un `ExercisesDoc` en JSON Prisma. Le `schemaVersion` fourni par le client est
+ * conservé tel quel (un doc v1/v2 hérité reste à sa version) ; à défaut, on étiquette à la
+ * version courante du contrat (`EXERCISES_SCHEMA_VERSION` = v3, groupes — ADR-27).
+ */
 function toExercisesJson(doc: ExercisesDocDto): Prisma.InputJsonValue {
   return {
     schemaVersion: doc.schemaVersion ?? EXERCISES_SCHEMA_VERSION,

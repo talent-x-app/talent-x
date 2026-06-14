@@ -508,6 +508,23 @@ describe('Parcours critiques (E2E DB) — TLX-120', () => {
       // L'exercice simple de premier niveau garde son type (rétro-compat mapper).
       expect(read.body.exercises.items[0]).toMatchObject({ name: 'Échauffement', type: 'warmup' });
 
+      // TLX-143 : un client qui OMET schemaVersion est étiqueté à la version courante du
+      // contrat (v3, ADR-27) — plus l'ancien fallback v2. Validé contre la vraie base.
+      const noVersion = await http()
+        .post('/api/v1/sessions')
+        .set(bearer(coach.token))
+        .send({
+          title: 'Sans version',
+          status: 'draft',
+          exercises: { items: [{ name: '60m', order: 0 }] },
+        })
+        .expect(201);
+      const readNoVersion = await http()
+        .get(`/api/v1/sessions/${noVersion.body.id}`)
+        .set(bearer(coach.token))
+        .expect(200);
+      expect(readNoVersion.body.exercises.schemaVersion).toBe(3);
+
       // Affectation + perf : le résultat se joint à la FEUILLE du groupe par l'order.
       const assign = await http()
         .post(`/api/v1/sessions/${sessionId}/assign`)

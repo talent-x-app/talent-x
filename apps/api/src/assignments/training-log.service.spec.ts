@@ -110,6 +110,19 @@ describe('TrainingLogService (ADR-36)', () => {
     expect(prisma.$transaction).toHaveBeenCalledTimes(1);
   });
 
+  it('étiquette les exercices à la version courante du contrat quand le client l’omet (v3, ADR-27)', async () => {
+    const prisma = prismaMock();
+    const dtoNoVersion: TrainingLogRequestDto = {
+      ...DTO,
+      exercises: { items: DTO.exercises.items },
+    };
+
+    await service(prisma).logTrainingSession('a-1', dtoNoVersion);
+
+    const sessionData = prisma.session.create.mock.calls[0][0].data;
+    expect(sessionData.exercises).toMatchObject({ schemaVersion: 3 });
+  });
+
   it('exige le consentement data_processing (rien créé sinon)', async () => {
     const prisma = prismaMock();
     const consent = consentMock({

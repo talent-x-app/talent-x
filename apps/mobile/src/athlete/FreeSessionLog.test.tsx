@@ -56,6 +56,8 @@ describe('FreeSessionLog (TLX-111 — A, ADR-36)', () => {
       date: '2026-06-10',
       rpe: 5,
     });
+    // Document `exercises` étiqueté à la version courante du contrat (v3, ADR-27).
+    expect(body.exercises.schemaVersion).toBe(3);
     expect(body.exercises.items[0]).toMatchObject({
       name: 'Footing 8 km',
       order: 0,

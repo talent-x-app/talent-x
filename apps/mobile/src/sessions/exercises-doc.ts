@@ -10,6 +10,14 @@ import { type Exercise, type ExerciseGroup, type ExerciseResult } from '@talent-
  * une liste de **lignes de rendu** où les en-têtes de groupe sont intercalés.
  */
 
+/**
+ * Version courante du contrat JSONB `exercises` (v3 = groupes, ADR-27). Source unique
+ * côté mobile : importée par toute surface qui **écrit** un document `exercises`
+ * (constructeur C-05, journal d'entraînement A-06) pour ne pas redupliquer le littéral.
+ * Le contrat (`docs/talent-x-openapi.yaml`, `ExercisesDoc`) reste la source de vérité.
+ */
+export const EXERCISES_SCHEMA_VERSION = 3;
+
 /** Nœud du document : exercice simple ou groupe. */
 export type ExerciseNode = Exercise | ExerciseGroup;
 

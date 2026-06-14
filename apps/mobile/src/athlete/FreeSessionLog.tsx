@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { Text, TextInput, View } from 'react-native';
 import { Button, Card, Chip } from '../components/ui';
 import { useToast } from '../feedback';
+import { EXERCISES_SCHEMA_VERSION } from '../sessions/exercises-doc';
 import { MY_RECORDS_QUERY_KEY } from './records-query';
 
 type ParamKind = 'distance' | 'throws' | 'discipline' | 'none';
@@ -86,7 +87,7 @@ export function FreeSessionLog() {
         title: exerciseName,
         date: date.trim(),
         exercises: {
-          schemaVersion: 2,
+          schemaVersion: EXERCISES_SCHEMA_VERSION,
           items: [{ name: exerciseName, order: 0, type: spec.blockType, params }],
         } as TrainingLogRequest['exercises'],
         results: {

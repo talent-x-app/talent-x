@@ -12,6 +12,37 @@ de débloquer les écrans coach C-01/C-02/C-03.
 - _(éditeurs typés terminés — TLX-054→061 livrés ↓)_
 - _(C-01 complet — TLX-081→085 livrés ↓)_
 
+## Terminés — TLX-143 Aligner/centraliser `EXERCISES_SCHEMA_VERSION` (API → v3, fin de la double source de vérité)
+
+- **Dette soldée (constat TLX-86, hors V2)** : le constructeur mobile sérialisait déjà les séances en
+  **v3** (groupes, ADR-27) mais le **défaut de sérialisation API** était resté figé à **v2** — un client
+  omettant `schemaVersion` aurait fait étiqueter un doc v3 en v2. En réalité la version « courante » était
+  un **littéral dupliqué à 5 endroits divergents** (API : sessions `2`, journal `1` ; mobile : builder `3`,
+  journal libre `2`). **Backend + frontend, zéro contrat, zéro migration** (`schemaVersion` déjà optionnel).
+- **(API — source unique)** nouveau module `sessions/exercises-schema.ts` exportant `EXERCISES_SCHEMA_VERSION = 3`
+  (doc : v3 = groupes ADR-27 ; le contrat OpenAPI reste la source de vérité documentaire). Importé par
+  `sessions.service` (remplace le `2` local) **et** `training-log.service` (remplace le `?? 1` des exercices ;
+  le défaut **results** reste inchangé — schéma `ResultsDoc` distinct, hors périmètre). Un seul point à bumper.
+- **(Mobile — source unique)** `EXERCISES_SCHEMA_VERSION = 3` ajouté au module pur `sessions/exercises-doc.ts` ;
+  `SessionBuilderScreen` (supprime son `const 3` local) et `FreeSessionLog` (corrige son `2` en dur) l'importent.
+- **« Rien ne dépend du 2 » vérifié** : la **duplication ADR-35** (`duplicateSessionForOccurrence`) copie le
+  JSONB **tel quel** (le fallback ne se réapplique jamais) ; le **mapper** lit `doc.schemaVersion` d'abord
+  (colonne en repli) ; les fixtures de **lecture** v2 (SessionDetail, revue…) restent légitimes et intactes.
+  Un seul test dépendait du défaut (`sessions.service.spec` : `2` → `3`).
+- **Cross-runtime non centralisé (choix assumé)** : un package partagé Nest↔Expo pour **un seul entier**
+  serait disproportionné (Low priority) + risque de bundling Metro ; chaque runtime a désormais sa source
+  unique, alignées sur le contrat. À reconsidérer si d'autres constantes de schéma émergent.
+- **Tests** : **API unit 543/543** (+1 : défaut journal libre → v3 ; `sessions.service` défaut `2`→`3`),
+  **intégration DB-backed 40/40** (+1 assertion : séance créée **sans** `schemaVersion` relue en **v3**,
+  port 5433), **mobile 535/535** (+1 : `FreeSessionLog` envoie `schemaVersion 3`), typecheck (api src+spec +
+  mobile) + lint clean.
+- **Validé en réel (2026-06-14, intégration DB-backed Postgres :5433)** : `POST /sessions` exercices **sans
+  `schemaVersion`** → `GET` relit `exercises.schemaVersion = 3` (défaut appliqué, persisté, relu) ; le
+  round-trip **v3 explicite avec groupe** (déjà couvert) reste vert.
+- **Constats hors périmètre (→ suivi)** : la colonne `sessions.exercises_schema_version` (`@default(1)`)
+  **n'est jamais écrite** par `create`/`update` (ni le journal libre) — seul le seed la peuple ; vestigiale
+  car le mapper lit le JSONB d'abord. **Sans impact** (lecture JSONB-first) → ticket de nettoyage créé.
+
 ## Terminés — TLX-86 Vérification live grille de barres (Hauteur/Perche → record `vertical:*`) — E2E Playwright
 
 - **Dette de validation soldée** : le mode « grille de barres » (sauts verticaux, ADR-25 / TLX-075) était

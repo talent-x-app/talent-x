@@ -82,7 +82,7 @@ const baseQuery = (): SessionQueryDto =>
 
 describe('SessionsService', () => {
   describe('createSession', () => {
-    it('crée une séance draft par défaut avec exercices versionnés', async () => {
+    it('crée une séance draft par défaut, étiquetée à la version courante du contrat (v3, ADR-27)', async () => {
       const prisma = prismaMock();
       prisma.session.create.mockResolvedValue(sessionRow());
       const result = await service(prisma).createSession('c-1', {
@@ -93,7 +93,8 @@ describe('SessionsService', () => {
       const arg = prisma.session.create.mock.calls[0][0];
       expect(arg.data.coachId).toBe('c-1');
       expect(arg.data.status).toBe(SessionStatus.Draft);
-      expect(arg.data.exercises).toEqual({ schemaVersion: 2, items: [{ name: '60m', order: 0 }] });
+      // schemaVersion omis par le client → défaut = EXERCISES_SCHEMA_VERSION (3).
+      expect(arg.data.exercises).toEqual({ schemaVersion: 3, items: [{ name: '60m', order: 0 }] });
       expect(result).toMatchObject({ id: 's-1', coachId: 'c-1', status: 'draft' });
     });
 
