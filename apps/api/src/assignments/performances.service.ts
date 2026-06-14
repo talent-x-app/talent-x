@@ -9,6 +9,7 @@ import { NotificationQueueService } from '../jobs/notification-queue.service';
 import type { ExerciseDto } from '../sessions/dto/exercises.dto';
 import { PerformanceCreateDto, PerformanceDto } from './dto/performance.dto';
 import type { ResultsDocDto } from './dto/results.dto';
+import { serializeResults } from './results-schema';
 import { PERFORMANCE_CORRECTION_ACTION, correctionAudit } from './performance-correction';
 
 /**
@@ -61,8 +62,7 @@ export class PerformancesService {
         data: {
           assignmentId,
           athleteId: user.id,
-          results: toResultsJson(dto.results),
-          resultsSchemaVersion: dto.results.schemaVersion ?? 1,
+          ...serializeResults(dto.results),
           rpe: dto.rpe ?? null,
           notes: dto.notes,
         },
@@ -170,8 +170,7 @@ export class PerformancesService {
       const row = await tx.performance.update({
         where: { assignmentId },
         data: {
-          results: toResultsJson(dto.results),
-          resultsSchemaVersion: dto.results.schemaVersion ?? 1,
+          ...serializeResults(dto.results),
           rpe: dto.rpe ?? null,
           notes: dto.notes ?? null,
         },
@@ -203,14 +202,6 @@ export class PerformancesService {
     }
     return assignment;
   }
-}
-
-/** Sérialise un `ResultsDoc` en JSON Prisma (schemaVersion par défaut 1). */
-function toResultsJson(doc: ResultsDocDto): Prisma.InputJsonValue {
-  return {
-    schemaVersion: doc.schemaVersion ?? 1,
-    items: doc.items as unknown as Prisma.InputJsonValue[],
-  };
 }
 
 function toPerformanceDto(performance: Performance): PerformanceDto {

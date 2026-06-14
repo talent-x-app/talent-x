@@ -12,6 +12,7 @@ import type { Role } from '../common/decorators/roles.decorator';
 import { buildPageMeta } from '../common/pagination/page-meta';
 import { NotificationQueueService } from '../jobs/notification-queue.service';
 import { SessionStatus } from '../sessions/dto/session-create.dto';
+import { storedExercisesSchemaVersion } from '../sessions/exercises-schema';
 import { toSessionDto } from '../sessions/session.mapper';
 import { AssignRequestDto } from './dto/assign-request.dto';
 import { occurrenceDates, RECURRENCE_MAX_OCCURRENCES } from './recurrence';
@@ -465,7 +466,8 @@ async function duplicateSessionForOccurrence(
       description: source.description,
       status: source.status,
       exercises: source.exercises as Prisma.InputJsonValue,
-      exercisesSchemaVersion: source.exercisesSchemaVersion,
+      // Colonne alignée sur le tag du JSONB copié (TLX-144).
+      exercisesSchemaVersion: storedExercisesSchemaVersion(source),
       ...(source.brief != null ? { brief: source.brief as Prisma.InputJsonValue } : {}),
     },
     select: { id: true },

@@ -13,8 +13,8 @@ import { SessionCreateDto, SessionStatus } from './dto/session-create.dto';
 import { SessionUpdateDto } from './dto/session-update.dto';
 import { SessionQueryDto } from './dto/session-query.dto';
 import { SessionDto, SessionPageDto } from './dto/session.dto';
-import type { ExercisesDocDto } from './dto/exercises.dto';
 import type { SessionBriefDto } from './dto/session-brief.dto';
+import { serializeExercises, storedExercisesSchemaVersion } from './exercises-schema';
 import { toSessionDto } from './session.mapper';
 
 const SESSION_SORTABLE = ['createdAt', 'updatedAt', 'scheduledDate', 'title'] as const;
@@ -50,7 +50,7 @@ export class SessionsService {
         description: dto.description,
         scheduledDate: dto.scheduledDate ? new Date(dto.scheduledDate) : undefined,
         status: dto.status ?? SessionStatus.Draft,
-        exercises: toExercisesJson(dto.exercises),
+        ...serializeExercises(dto.exercises),
         ...(dto.brief !== undefined ? { brief: toBriefJson(dto.brief) } : {}),
       },
     });
@@ -95,7 +95,7 @@ export class SessionsService {
         ...(dto.scheduledDate !== undefined
           ? { scheduledDate: dto.scheduledDate ? new Date(dto.scheduledDate) : null }
           : {}),
-        ...(dto.exercises !== undefined ? { exercises: toExercisesJson(dto.exercises) } : {}),
+        ...(dto.exercises !== undefined ? serializeExercises(dto.exercises) : {}),
         ...(dto.brief !== undefined ? { brief: toBriefJson(dto.brief) } : {}),
       },
     });
@@ -120,7 +120,9 @@ export class SessionsService {
         description: source.description,
         status: SessionStatus.Draft,
         exercises: source.exercises as Prisma.InputJsonValue,
-        exercisesSchemaVersion: source.exercisesSchemaVersion,
+        // Colonne alignée sur le tag du JSONB copié (TLX-144), pas sur la colonne
+        // source qui pouvait être restée au défaut pour une ligne héritée.
+        exercisesSchemaVersion: storedExercisesSchemaVersion(source),
         // Le brief fait partie du modèle dupliqué (ADR-28, impacts modèles C-10).
         ...(source.brief != null ? { brief: source.brief as Prisma.InputJsonValue } : {}),
       },
@@ -167,17 +169,6 @@ export class SessionsService {
       throw new ForbiddenException('Cette séance ne vous est pas affectée.');
     }
   }
-}
-
-/** Version courante du contrat JSONB des séances (cf. TX-DATA-006 §9.1, ADR-18). */
-const EXERCISES_SCHEMA_VERSION = 2;
-
-/** Sérialise un `ExercisesDoc` en JSON Prisma (schemaVersion v2 par défaut, cf. ADR-18). */
-function toExercisesJson(doc: ExercisesDocDto): Prisma.InputJsonValue {
-  return {
-    schemaVersion: doc.schemaVersion ?? EXERCISES_SCHEMA_VERSION,
-    items: doc.items as unknown as Prisma.InputJsonValue[],
-  };
 }
 
 /** Version courante du contrat JSONB du brief de séance (ADR-28). */

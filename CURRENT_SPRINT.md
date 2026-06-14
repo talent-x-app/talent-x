@@ -12,6 +12,36 @@ de débloquer les écrans coach C-01/C-02/C-03.
 - _(éditeurs typés terminés — TLX-054→061 livrés ↓)_
 - _(C-01 complet — TLX-081→085 livrés ↓)_
 
+## Terminés — TLX-144 Colonne `sessions.exercises_schema_version` vestigiale — peuplée sur tous les chemins d'écriture (hors V2)
+
+- **Donnée morte/trompeuse corrigée** (suite de TLX-143) : la colonne Prisma
+  `Session.exercisesSchemaVersion` (`@default(1)`) **n'était jamais écrite** par l'API → toute séance
+  créée via `create`/`update` gardait `1` alors que le JSONB portait `2`/`3` (colonne ≠ doc). Les
+  duplications (`duplicateSession`, occurrences ADR-35) **propageaient** la valeur héritée ; la séance
+  libre (ADR-36) ne posait pas la colonne. Sans impact fonctionnel (le mapper lit le JSONB d'abord),
+  mais incohérent. **Backend pur, zéro migration, zéro contrat.**
+- **Décision tranchée (DoD) : peupler** (et non déprécier/supprimer). Le JSONB reste la **source de
+  vérité** ; la colonne en devient le **reflet fidèle** — repli valable pour d'éventuelles lignes
+  héritées sans tag. Supprimer la colonne aurait exigé une migration expand/contract (deux phases,
+  plus de risque) pour un nettoyage Low — disproportionné.
+- **(Sérialisation centralisée, anti-dérive)** deux modules **purs et testés** posent **colonne +
+  JSONB depuis une seule version résolue** → ils ne peuvent plus diverger : `sessions/exercises-schema.ts`
+  (`serializeExercises`, `storedExercisesSchemaVersion`, `EXERCISES_SCHEMA_VERSION = 2`) et
+  `assignments/results-schema.ts` (`serializeResults`, `RESULTS_SCHEMA_VERSION = 2`). Les helpers
+  locaux dupliqués (`toExercisesJson`/`toResultsJson`) sont supprimés.
+- **(Chemins d'écriture)** `createSession`/`updateSession` posent la colonne via `serializeExercises` ;
+  `duplicateSession` et `duplicateSessionForOccurrence` l'alignent sur le **tag du JSONB copié**
+  (`storedExercisesSchemaVersion`), pas sur la colonne source héritée ; `TrainingLogService` (séance
+  libre) pose la colonne. Côté **résultats**, `submit`/`update`/journal libre passent par
+  `serializeResults` : colonne + JSONB cohérents, **défaut aligné sur v2 (ADR-19)** au lieu d'un `1`
+  périmé (le mobile envoie déjà `2` → aucun changement en pratique ; seul le repli sans tag change).
+- **Tests** : **API unit 573/573** (+11 : modules purs ×6, colonne écrite sur create/update/duplicate/
+  occurrence/journal libre, défaut results v2 + version explicite honorée). typecheck + lint + prettier
+  clean. Nouveaux modules 100 % couverts. **Aucun changement OpenAPI / DTO / client mobile.**
+- **Vérifié au niveau du chemin d'écriture** (assertion du `data` passé à Prisma) ; non rejoué contre
+  une vraie base (pas de Postgres dans le conteneur) — la persistance d'une colonne existante est
+  triviale, le risque était la **non-écriture**, désormais couverte unitairement.
+
 ## Terminés — TLX-138 Validation de charge — volet codeable : module SLO pur + harnais + alertes HTTP (hors V2)
 
 - **Volet codeable d'un ticket d'exploitation (hors V2)** : TLX-76 **expose** les signaux HTTP

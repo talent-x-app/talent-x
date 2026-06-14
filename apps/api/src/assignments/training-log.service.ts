@@ -1,13 +1,15 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma, type Performance } from '@prisma/client';
+import { type Performance } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { ConsentGate } from '../common/authorization/consent.gate';
 import { RecordsService } from '../progress/records.service';
 import { SessionStatus } from '../sessions/dto/session-create.dto';
 import type { ExerciseDto } from '../sessions/dto/exercises.dto';
+import { serializeExercises } from '../sessions/exercises-schema';
 import { AssignmentStatus } from './dto/assignment.dto';
 import { PerformanceDto } from './dto/performance.dto';
 import type { ResultsDocDto } from './dto/results.dto';
+import { serializeResults } from './results-schema';
 import type { TrainingLogRequestDto } from './dto/training-log.dto';
 
 /**
@@ -38,7 +40,7 @@ export class TrainingLogService {
           title: dto.title,
           status: SessionStatus.SelfLogged,
           scheduledDate: date,
-          exercises: toExercisesJson(dto.exercises),
+          ...serializeExercises(dto.exercises),
         },
       });
       const assignment = await tx.sessionAssignment.create({
@@ -53,8 +55,7 @@ export class TrainingLogService {
         data: {
           assignmentId: assignment.id,
           athleteId,
-          results: toResultsJson(dto.results),
-          resultsSchemaVersion: dto.results.schemaVersion ?? 1,
+          ...serializeResults(dto.results),
           rpe: dto.rpe ?? null,
           notes: dto.notes ?? null,
           submittedAt: date,
@@ -86,22 +87,6 @@ export class TrainingLogService {
       return dto;
     }
   }
-}
-
-/** Sérialise un `ExercisesDoc` en JSON Prisma (schemaVersion par défaut 1). */
-function toExercisesJson(doc: TrainingLogRequestDto['exercises']): Prisma.InputJsonValue {
-  return {
-    schemaVersion: doc.schemaVersion ?? 1,
-    items: doc.items as unknown as Prisma.InputJsonValue[],
-  };
-}
-
-/** Sérialise un `ResultsDoc` en JSON Prisma (schemaVersion par défaut 1). */
-function toResultsJson(doc: ResultsDocDto): Prisma.InputJsonValue {
-  return {
-    schemaVersion: doc.schemaVersion ?? 1,
-    items: doc.items as unknown as Prisma.InputJsonValue[],
-  };
 }
 
 function toPerformanceDto(performance: Performance): PerformanceDto {
