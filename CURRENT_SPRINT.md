@@ -12,6 +12,25 @@ de débloquer les écrans coach C-01/C-02/C-03.
 - _(éditeurs typés terminés — TLX-054→061 livrés ↓)_
 - _(C-01 complet — TLX-081→085 livrés ↓)_
 
+## Terminés — TLX-147 Trier « Tes athlètes » par sévérité de statut puis nom (C-01 + C-02)
+
+- **Constat (audit UX accueil coach 2026-06-14)** : la liste « Tes athlètes » s'affichait dans
+  l'**ordre brut de l'API**, sans refléter le badge de statut dérivé (ADR-17) — un athlète « En retard »
+  pouvait finir en bas. **Frontend pur, zéro contrat, zéro backend.**
+- **(Comparateur pur `coach/athlete-ui.tsx`)** `sortAthletesByStatus` : tri par **sévérité de statut**
+  (`late` → `pending_review` → `up_to_date`) puis **nom** (alphabétique accents-aware,
+  `localeCompare('fr', { sensitivity: 'base' })`). **Copie défensive** (ne mute pas la source).
+  **Placement assumé** dans `athlete-ui` (module partagé de la ligne-athlète, déjà doté de `STATUS_META`
+  - `athleteFullName`) **et non** `dashboard-sections` comme suggéré : l'importer depuis C-02 tirait toute
+    la chaîne UI du dashboard (`athlete-session-ui` → `AssignmentStatus`, `assignment-lifecycle` → toast)
+    et cassait le test C-02. `athlete-ui` = foyer naturel, sans dépendance lourde.
+- **(Câblage)** appliqué au **dashboard C-01** (`CoachDashboardScreen`, roster) **et** à la **liste C-02**
+  (`CoachAthletesScreen`, avant le filtre de recherche TLX-117). Aucun changement de contenu de ligne.
+- **Tests** : **mobile 541/541** (+6 : comparateur ordre/tie-break accents/liste vide/non-mutation dans
+  `athlete-ui.test.tsx` ; +1 assertion d'ordre rendu sur C-01 et sur C-02), typecheck + ESLint + Prettier clean.
+- **Non rejoué en réel** (smoke Expo web) : rendu visuel de l'ordre — couvert par RTL sur les vrais écrans
+  (assertions d'ordre des `testID`).
+
 ## Terminés — TLX-143 Aligner/centraliser `EXERCISES_SCHEMA_VERSION` (API → v3, fin de la double source de vérité)
 
 - **Dette soldée (constat TLX-86, hors V2)** : le constructeur mobile sérialisait déjà les séances en
