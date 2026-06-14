@@ -146,6 +146,110 @@ class ApiSeed {
     return s.id;
   }
 
+  /**
+   * Séance coach avec un bloc **sauts verticaux** (hauteur/perche, ADR-25) — exercises v2.
+   * Le coach fixe la discipline (épreuve du record `vertical:high|pole`) + barre de départ /
+   * montée (cm) qui pré-remplissent la grille côté athlète. Renvoie l'id + le nom du bloc.
+   */
+  async createVerticalSession(
+    coachToken: string,
+    opts: {
+      discipline: 'high' | 'pole';
+      startHeightCm: number;
+      incrementCm: number;
+      title?: string;
+      blockName?: string;
+    },
+  ): Promise<{ sessionId: string; exerciseName: string }> {
+    const exerciseName = opts.blockName ?? (opts.discipline === 'high' ? 'Hauteur' : 'Perche');
+    const s = await this.postOk(coachToken, '/sessions', {
+      title: opts.title ?? `Verticaux ${opts.discipline}`,
+      status: 'published',
+      exercises: {
+        schemaVersion: 2,
+        items: [
+          {
+            name: exerciseName,
+            order: 1,
+            type: 'vertical_jumps',
+            params: {
+              discipline: opts.discipline,
+              startHeightCm: opts.startHeightCm,
+              incrementCm: opts.incrementCm,
+            },
+          },
+        ],
+      },
+    });
+    return { sessionId: s.id, exerciseName };
+  }
+
+  /**
+   * Soumet une perf **grille de barres** (ADR-25) via l'API : un set par essai tenté
+   * (`distanceMeters` = hauteur en m, `failed` = barre non franchie). Sert au cas perche
+   * (épreuve distincte) sans repasser par l'UI.
+   */
+  async submitBars(
+    athleteToken: string,
+    assignmentId: string,
+    opts: {
+      exerciseName: string;
+      bars: Array<{ height: number; attempts: ('cleared' | 'failed')[] }>;
+    },
+  ): Promise<any> {
+    const setResults: Array<Record<string, unknown>> = [];
+    opts.bars.forEach((bar) => {
+      bar.attempts.forEach((a) => {
+        setResults.push({
+          set: setResults.length + 1,
+          distanceMeters: bar.height,
+          ...(a === 'failed' ? { failed: true } : {}),
+          completed: true,
+        });
+      });
+    });
+    return this.postOk(
+      athleteToken,
+      `/assignments/${assignmentId}/performance`,
+      {
+        results: {
+          schemaVersion: 2,
+          items: [{ exerciseName: opts.exerciseName, order: 1, setResults }],
+        },
+        rpe: 7,
+      },
+      true,
+    );
+  }
+
+  /** Séance par id (GET /sessions/:id) — pour relire les params persistés. */
+  async getSession(token: string, sessionId: string): Promise<any> {
+    return this.getOk(token, `/sessions/${sessionId}`);
+  }
+
+  /** Perf liée à une affectation (GET /assignments/:id/performance). */
+  async getPerformance(token: string, assignmentId: string): Promise<any> {
+    return this.getOk(token, `/assignments/${assignmentId}/performance`);
+  }
+
+  /** Records personnels de l'athlète connecté (GET /athletes/me/records). */
+  async getRecords(
+    token: string,
+  ): Promise<Array<{ eventKey: string; value: number; unit: string }>> {
+    const res = await this.getOk(token, '/athletes/me/records');
+    return res.items ?? res.data ?? [];
+  }
+
+  /** Confirme un record candidat (ADR-20) depuis une perf — PUT /athletes/me/records/:eventKey. */
+  async confirmRecord(token: string, eventKey: string, performanceId: string): Promise<any> {
+    const res = await this.api.put(
+      `${API_URL}/athletes/me/records/${encodeURIComponent(eventKey)}`,
+      { data: { performanceId }, headers: this.auth(token) },
+    );
+    expect(res.ok(), `confirm ${eventKey} → ${res.status()} ${await safeText(res)}`).toBeTruthy();
+    return res.json();
+  }
+
   /** Affecte une séance à des athlètes. Renvoie la liste d'affectations créées. */
   async assign(
     coachToken: string,

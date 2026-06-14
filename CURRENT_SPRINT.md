@@ -12,6 +12,30 @@ de débloquer les écrans coach C-01/C-02/C-03.
 - _(éditeurs typés terminés — TLX-054→061 livrés ↓)_
 - _(C-01 complet — TLX-081→085 livrés ↓)_
 
+## Terminés — TLX-86 Vérification live grille de barres (Hauteur/Perche → record `vertical:*`) — E2E Playwright
+
+- **Dette de validation soldée** : le mode « grille de barres » (sauts verticaux, ADR-25 / TLX-075) était
+  couvert unit + intégration + smoke bundler, mais **jamais rejoué bout-en-bout** contre la vraie base.
+  Comblé par un **spec Playwright** (`apps/mobile/e2e/tlx-86-bar-grid.spec.ts`) sur la cible Expo web —
+  **aucun changement de code applicatif** (vérification pure + helpers de fixtures).
+- **Validé en réel (2026-06-14, Expo web :8081 + API `nest start` :3000 + Postgres :5433)** : le **coach
+  construit la séance Hauteur via le constructeur** (discipline=high, départ 165 cm, +5 cm) → relecture API
+  `GET /sessions/{id}` : `params {discipline:'high', startHeightCm:165, incrementCm:5}`, doc exercises **typé
+  v2+**. Affectation (API) → **athlète** : grille **pré-remplie 1.65→1.85**, cycle d'essais (O 1.65–1.80,
+  X 1.85) → soumission → `setResults` v2 relus en base **exacts** (5 sets ; hauteur portée même sur l'échec,
+  `failed:true` sur la seule barre 1.85).
+- **Record** : l'écran de confirmation (A-04) propose le candidat **`vertical:high` = 1.80 m** (barre franchie
+  la plus haute, pas la manquée 1.85), **confirmé via l'UI** → `GET /athletes/me/records` expose `vertical:high`
+  (1.8 m). **Perche** (seed API) → **`vertical:pole` = 3.70 m distinct**, **aucune collision** avec une longueur
+  (`jumps:*`). **Revue coach (C-08)** : mesures lisibles dont la barre manquée **« 1.85 m ✗ »**. **Réhydratation** :
+  ré-ouverture de la saisie (« Modifier ma performance ») → grille **regroupée par hauteur**, essai en échec restauré.
+- **Constat (→ ticket)** : la constante `EXERCISES_SCHEMA_VERSION` diverge (mobile **3** vs API **2**). **Sans
+  impact** : l'API stocke `doc.schemaVersion ?? 2` → elle conserve la version cliente (3), le `2` n'est qu'un
+  fallback obsolète. Assertion E2E rendue agnostique (≥ 2) ; alignement du défaut API = suivi.
+- **Tests** : **+1 spec E2E Playwright (1/1 vert)**, helpers fixtures ajoutés (`createVerticalSession`,
+  `submitBars`, `getSession`, `getPerformance`, `getRecords`, `confirmRecord`). Captures :
+  `tlx-86-athlete-bar-grid`, `tlx-86-athlete-confirmation`, `tlx-86-coach-review`. typecheck (mobile) + lint clean.
+
 ## Terminés — TLX-76 Métriques applicatives HTTP (taux d'erreur, latence p95, volume d'appels) sur `/metrics`
 
 - **Maillon manquant du monitoring (hors V2)** : les logs JSON + correlation ID (bootstrap),
