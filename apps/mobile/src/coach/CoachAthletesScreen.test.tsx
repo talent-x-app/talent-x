@@ -69,6 +69,59 @@ describe('CoachAthletesScreen (TLX-044)', () => {
     expect(screen.getByTestId('status-badge-up_to_date')).toHaveTextContent('À jour');
   });
 
+  it('liste triée par statut puis nom (TLX-147)', async () => {
+    mockGetCoachDashboard.mockResolvedValue({
+      status: 200,
+      data: {
+        // Désordre volontaire en entrée → l'écran doit réordonner.
+        athletes: [
+          {
+            id: 'ok',
+            firstName: 'Anna',
+            lastName: '',
+            status: 'up_to_date',
+            overdueCount: 0,
+            toReviewCount: 0,
+            coachAccessGranted: true,
+          },
+          {
+            id: 'rev',
+            firstName: 'Bob',
+            lastName: '',
+            status: 'pending_review',
+            overdueCount: 0,
+            toReviewCount: 1,
+            coachAccessGranted: true,
+          },
+          {
+            id: 'late',
+            firstName: 'Zoé',
+            lastName: '',
+            status: 'late',
+            overdueCount: 1,
+            toReviewCount: 0,
+            coachAccessGranted: true,
+          },
+        ],
+        summary: {
+          athleteCount: 3,
+          toReview: 1,
+          today: 0,
+          alerts: { missedSessions: 1, consentMissing: 0 },
+        },
+      },
+    });
+    render(<CoachAthletesScreen />, { wrapper: Wrapper });
+
+    await waitFor(() => expect(screen.getByTestId('coach-athletes-item-late')).toBeOnTheScreen());
+    const order = screen.getAllByTestId(/^coach-athletes-item-/).map((node) => node.props.testID);
+    expect(order).toEqual([
+      'coach-athletes-item-late',
+      'coach-athletes-item-rev',
+      'coach-athletes-item-ok',
+    ]);
+  });
+
   it('ouvre le détail au tap sur un athlète', async () => {
     mockGetCoachDashboard.mockResolvedValue({ status: 200, data: DASHBOARD });
     render(<CoachAthletesScreen />, { wrapper: Wrapper });

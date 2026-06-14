@@ -13,6 +13,31 @@ export const STATUS_META: Record<
   [AthleteStatus.pending_review]: { label: 'À revoir', tone: 'warning' },
 };
 
+/**
+ * Sévérité d'affichage du statut dérivé (ADR-17, Carte C-01 §8) : retard > à revoir > à jour —
+ * même ordre que le badge de statut. Plus bas = plus urgent (remonte en tête de liste).
+ */
+const STATUS_SEVERITY: Record<AthleteStatus, number> = {
+  [AthleteStatus.late]: 0,
+  [AthleteStatus.pending_review]: 1,
+  [AthleteStatus.up_to_date]: 2,
+};
+
+/**
+ * Trie « Tes athlètes » (dashboard C-01 + liste C-02) par **sévérité de statut** puis **nom**
+ * (alphabétique, accents-aware) — pour un scan cohérent partout (TLX-147). Copie défensive : la
+ * liste source n'est jamais mutée. Co-localisé avec `STATUS_META`/`athleteFullName` (module
+ * partagé de la ligne-athlète) plutôt que `dashboard-sections`, pour ne pas coupler C-02 à la
+ * chaîne UI du dashboard (assignment-lifecycle).
+ */
+export function sortAthletesByStatus(athletes: DashboardAthlete[]): DashboardAthlete[] {
+  return [...athletes].sort((x, y) => {
+    const bySeverity = STATUS_SEVERITY[x.status] - STATUS_SEVERITY[y.status];
+    if (bySeverity !== 0) return bySeverity;
+    return athleteFullName(x).localeCompare(athleteFullName(y), 'fr', { sensitivity: 'base' });
+  });
+}
+
 /** Badge coloré dérivé du statut (tokens success/warning/danger). */
 export function AthleteStatusBadge({ status }: { status: AthleteStatus }) {
   const { colors, typography, spacing, radius } = useTheme();

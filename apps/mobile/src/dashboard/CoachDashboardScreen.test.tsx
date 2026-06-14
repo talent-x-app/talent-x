@@ -255,6 +255,74 @@ describe('CoachDashboardScreen (TLX-081)', () => {
     expect(screen.getByTestId('coach-dashboard-today-empty')).toHaveTextContent(/Rien de prévu/);
   });
 
+  it('« Tes athlètes » est trié par statut puis nom (TLX-147)', async () => {
+    mockGetCoachDashboard.mockResolvedValue({
+      status: 200,
+      data: {
+        // Volontairement dans le désordre (ni par statut, ni alphabétique).
+        athletes: [
+          {
+            id: 'ok',
+            firstName: 'Anna',
+            lastName: 'Zo',
+            status: 'up_to_date',
+            overdueCount: 0,
+            toReviewCount: 0,
+            coachAccessGranted: true,
+          },
+          {
+            id: 'late-bilal',
+            firstName: 'Bilal',
+            lastName: 'Ka',
+            status: 'late',
+            overdueCount: 1,
+            toReviewCount: 0,
+            coachAccessGranted: true,
+          },
+          {
+            id: 'rev',
+            firstName: 'Chloé',
+            lastName: 'Me',
+            status: 'pending_review',
+            overdueCount: 0,
+            toReviewCount: 1,
+            coachAccessGranted: true,
+          },
+          {
+            id: 'late-adam',
+            firstName: 'Adam',
+            lastName: 'Be',
+            status: 'late',
+            overdueCount: 1,
+            toReviewCount: 0,
+            coachAccessGranted: true,
+          },
+        ],
+        summary: {
+          athleteCount: 4,
+          toReview: 1,
+          today: 0,
+          alerts: { missedSessions: 2, consentMissing: 0 },
+        },
+      },
+    });
+    render(<CoachDashboardScreen />, { wrapper: Wrapper });
+
+    await waitFor(() =>
+      expect(screen.getByTestId('coach-dashboard-athlete-late-adam')).toBeOnTheScreen(),
+    );
+    const order = screen
+      .getAllByTestId(/^coach-dashboard-athlete-/)
+      .map((node) => node.props.testID);
+    // late (Adam < Bilal) → pending_review → up_to_date
+    expect(order).toEqual([
+      'coach-dashboard-athlete-late-adam',
+      'coach-dashboard-athlete-late-bilal',
+      'coach-dashboard-athlete-rev',
+      'coach-dashboard-athlete-ok',
+    ]);
+  });
+
   it('ouvre le détail athlète au tap sur une carte', async () => {
     mockGetCoachDashboard.mockResolvedValue({ status: 200, data: DASHBOARD });
     render(<CoachDashboardScreen />, { wrapper: Wrapper });

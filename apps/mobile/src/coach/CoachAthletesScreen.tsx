@@ -17,7 +17,7 @@ import { SearchField } from '../components/SearchField';
 import { COACH_DASHBOARD_QUERY_KEY } from '../dashboard/dashboard-query';
 import { coachGroupsHref } from '../groups/navigation';
 import { filterByText } from '../search/text-filter';
-import { AthleteListItem, athleteFullName } from './athlete-ui';
+import { AthleteListItem, athleteFullName, sortAthletesByStatus } from './athlete-ui';
 import { athleteDetailHref, coachTemplatesHref } from './navigation';
 
 /**
@@ -76,6 +76,8 @@ export function CoachAthletesScreen() {
   }
 
   const { athletes } = dashboard.data;
+  // Ordre cohérent avec le dashboard (TLX-147) : sévérité de statut puis nom, avant filtrage.
+  const sortedAthletes = sortAthletesByStatus(athletes);
 
   return (
     <ScrollView
@@ -154,7 +156,7 @@ export function CoachAthletesScreen() {
             onChangeText={setQuery}
             placeholder="Rechercher un athlète"
           />
-          {filterByText(athletes, query, athleteFullName).length === 0 ? (
+          {filterByText(sortedAthletes, query, athleteFullName).length === 0 ? (
             <Card testID="coach-athletes-no-match">
               <Text
                 style={{
@@ -169,7 +171,7 @@ export function CoachAthletesScreen() {
             </Card>
           ) : (
             <View style={{ gap: spacing[2] }}>
-              {filterByText(athletes, query, athleteFullName).map((athlete) => (
+              {filterByText(sortedAthletes, query, athleteFullName).map((athlete) => (
                 <AthleteListItem
                   key={athlete.id}
                   athlete={athlete}

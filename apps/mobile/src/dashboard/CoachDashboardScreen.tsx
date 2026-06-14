@@ -19,7 +19,7 @@ import {
 } from 'react-native';
 import { Button, Card } from '../components/ui';
 import { ResponsiveContent } from '../responsive/ResponsiveContent';
-import { AthleteListItem, athleteFullName } from '../coach/athlete-ui';
+import { AthleteListItem, athleteFullName, sortAthletesByStatus } from '../coach/athlete-ui';
 import { athleteDetailHref } from '../coach/navigation';
 import {
   AlertsSection,
@@ -279,7 +279,8 @@ export function CoachDashboardScreen() {
             </Card>
           ) : (
             <View style={{ gap: spacing[2] }}>
-              {athletes.map((athlete) => (
+              {/* Tri par sévérité de statut puis nom (TLX-147) : en retard d'abord. */}
+              {sortAthletesByStatus(athletes).map((athlete) => (
                 <AthleteListItem
                   key={athlete.id}
                   athlete={athlete}
