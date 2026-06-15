@@ -7,4 +7,5 @@ export { Input, type InputProps } from './Input';
 export { Card, type CardProps } from './Card';
 export { Chip, type ChipProps } from './Chip';
 export { Slider, type SliderProps } from './Slider';
+export { Stepper, type StepperProps } from './Stepper';
 export { TabBar, type TabBarItem, type TabBarProps } from './TabBar';
