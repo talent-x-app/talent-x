@@ -15,9 +15,11 @@ appId: ${APP_ID}
 - inputText: '${COACH_PASSWORD}'
 - tapOn:
     id: 'login-submit'
-# Dashboard coach (C-01) → constructeur (C-05).
+# Dashboard coach (C-01) → choix de discipline (ADR-38) → constructeur générique (C-05).
 - tapOn:
     id: 'coach-dashboard-new-session'
+- tapOn:
+    id: 'new-session-custom'
 - tapOn:
     id: 'session-field-title'
 - inputText: 'Maestro — Vitesse 60m'

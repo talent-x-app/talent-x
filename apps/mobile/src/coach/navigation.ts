@@ -1,5 +1,6 @@
 import { SessionStatus, type DashboardAthlete } from '@talent-x/api-client';
 import { athleteFullName } from './athlete-ui';
+import { type DisciplineKey } from './discipline-assistants';
 
 /**
  * Cible de navigation vers le détail athlète (C-03). L'identité (nom, statut, sport)
@@ -50,4 +51,21 @@ export function coachTemplatesHref() {
  */
 export function newTemplateHref() {
   return { pathname: '/(coach)/session/new' as const, params: { status: SessionStatus.template } };
+}
+
+/**
+ * Assistant de création par discipline (ADR-38, TLX-155→159) : ouvre le formulaire guidé en
+ * séries de la discipline choisie depuis l'écran « Nouvelle séance ».
+ */
+export function disciplineAssistantHref(discipline: DisciplineKey) {
+  return { pathname: '/(coach)/session/assistant/[discipline]' as const, params: { discipline } };
+}
+
+/**
+ * Constructeur générique (C-05) ouvert depuis « Nouvelle séance » via l'option « Personnalisé ».
+ * `mode=custom` court-circuite l'écran de choix de discipline (ADR-38) pour aller directement au
+ * canvas de blocs libre.
+ */
+export function customSessionHref() {
+  return { pathname: '/(coach)/session/new' as const, params: { mode: 'custom' } };
 }

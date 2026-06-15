@@ -28,7 +28,9 @@ test('grille de barres : coach Hauteur → athlète saisie → record vertical:h
 
   // --- 1. Le coach construit la séance Hauteur via le constructeur (UI) -------------------
   await apiSeed.loginAs(page, coach);
-  await page.goto('/session/new');
+  // `/session/new` affiche désormais le choix de discipline (ADR-38) ; `mode=custom` va
+  // directement au constructeur générique (option « Personnalisé »).
+  await page.goto('/session/new?mode=custom');
   await expect(page.getByTestId('session-builder-title')).toBeVisible({ timeout: 20_000 });
 
   await page.getByTestId('session-field-title').fill('Saut en hauteur');
