@@ -105,6 +105,32 @@ describe('DisciplineAssistantScreen — Sprint (ADR-38, TLX-155)', () => {
     });
   });
 
+  it.each([
+    ['hurdles', 'Assistant Haies'],
+    ['endurance', 'Assistant Demi-fond / Endurance'],
+    ['jumps', 'Assistant Sauts'],
+    ['throws', 'Assistant Lancers'],
+  ])('rend l’assistant %s avec son titre + ses presets', (discipline, title) => {
+    render(<DisciplineAssistantScreen discipline={discipline} />, { wrapper: Wrapper });
+    expect(screen.getByTestId('session-builder-title')).toHaveTextContent(title);
+    expect(screen.getByTestId('assistant-presets')).toBeOnTheScreen();
+  });
+
+  it('Haies : applique un preset → POST /sessions type hurdles, distance dérivée', async () => {
+    mockCreateSession.mockResolvedValue({ status: 201, data: { id: 's2', title: 'Haies' } });
+    render(<DisciplineAssistantScreen discipline="hurdles" />, { wrapper: Wrapper });
+
+    fireEvent.press(screen.getByTestId('assistant-preset-h110'));
+    fireEvent.changeText(screen.getByTestId('session-field-title'), '110 m haies');
+    fireEvent.press(screen.getByTestId('session-save'));
+
+    await waitFor(() => expect(mockCreateSession).toHaveBeenCalled());
+    const body = mockCreateSession.mock.calls[0][0];
+    const effort = body.exercises.items[0].items[0];
+    expect(effort.type).toBe('hurdles');
+    expect(effort.params.distanceMeters).toBe(110);
+  });
+
   it('discipline inconnue → retombe sur le constructeur générique vierge', () => {
     render(<DisciplineAssistantScreen discipline="bogus" />, { wrapper: Wrapper });
     expect(screen.getByTestId('session-builder-title')).toHaveTextContent('Nouvelle séance');
