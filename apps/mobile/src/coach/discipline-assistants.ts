@@ -23,6 +23,8 @@ export interface DisciplineConfig {
   icon: keyof typeof Feather.glyphMap;
   /** Type de bloc majoritaire produit (les séries de l'assistant en héritent). */
   blockType: BlockType;
+  /** Libellé d'un effort élémentaire dans une série (ex. « Sprint », « Course »). */
+  effortLabel: string;
 }
 
 /** Les 5 disciplines de la maquette « Nouvelle séance » (ADR-38 §1). */
@@ -33,6 +35,7 @@ export const DISCIPLINES: DisciplineConfig[] = [
     tagline: 'Séries de sprints — distances, intensité, récupération',
     icon: 'zap',
     blockType: BlockType.sprint,
+    effortLabel: 'Sprint',
   },
   {
     key: 'hurdles',
@@ -40,6 +43,7 @@ export const DISCIPLINES: DisciplineConfig[] = [
     tagline: 'Épreuve, hauteur, espacement, rythme d’appuis',
     icon: 'bar-chart-2',
     blockType: BlockType.hurdles,
+    effortLabel: 'Passage de haies',
   },
   {
     key: 'endurance',
@@ -47,6 +51,7 @@ export const DISCIPLINES: DisciplineConfig[] = [
     tagline: 'Distances ou durées, % VMA, allure cible',
     icon: 'activity',
     blockType: BlockType.endurance,
+    effortLabel: 'Course',
   },
   {
     key: 'jumps',
@@ -54,6 +59,7 @@ export const DISCIPLINES: DisciplineConfig[] = [
     tagline: 'Longueur, triple, hauteur, perche',
     icon: 'trending-up',
     blockType: BlockType.jumps,
+    effortLabel: 'Saut',
   },
   {
     key: 'throws',
@@ -61,6 +67,7 @@ export const DISCIPLINES: DisciplineConfig[] = [
     tagline: 'Poids, disque, javelot, marteau',
     icon: 'target',
     blockType: BlockType.throws,
+    effortLabel: 'Lancer',
   },
 ];
 

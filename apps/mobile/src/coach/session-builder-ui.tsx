@@ -493,6 +493,26 @@ export function makeEmptyBlock(): EditableBlock {
   };
 }
 
+/**
+ * Bloc éditable pré-rempli (assistants par discipline, ADR-38). Part d'un bloc vide et
+ * applique les surcharges — `type` + `params` (saisie brute en chaînes) notamment. Sert aux
+ * presets pour produire des feuilles typées prêtes à sérialiser via `nodesToItems`.
+ */
+export function makeBlock(over: Partial<EditableBlock> & { type: BlockType }): EditableBlock {
+  return { ...makeEmptyBlock(), ...over };
+}
+
+/**
+ * Groupe « série » pré-rempli (assistants par discipline, ADR-38) : `groupType: "series"` par
+ * défaut, membres fournis par l'appelant. Réutilisé par les presets pour structurer une séance
+ * homogène d'une discipline.
+ */
+export function makeSeriesGroup(
+  over: Partial<EditableGroup> & { items: EditableBlock[] },
+): EditableGroup {
+  return { ...makeEmptyGroup(), groupType: 'series', ...over };
+}
+
 /** Nouveau groupe vide (`circuit` par défaut, ADR-27 règle 1) avec un exercice initial. */
 export function makeEmptyGroup(): EditableGroup {
   return {

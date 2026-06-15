@@ -47,13 +47,33 @@ import { EXERCISES_SCHEMA_VERSION } from '../sessions/exercises-doc';
  * selon `sessionId`. Les éditeurs typés par discipline (TLX-053→061) attendent l'ADR-18
  * (schéma v2). États : chargement (édition), erreur, validation.
  */
+/** Preset d'assistant (ADR-38) : un libellé + un constructeur de canvas (séries pré-remplies). */
+export interface SessionBuilderPreset {
+  key: string;
+  label: string;
+  build: () => EditableNode[];
+}
+
 export function SessionBuilderScreen({
   sessionId,
   initialStatus,
+  seed,
+  presets,
+  titleText,
 }: {
   sessionId?: string;
   /** Statut pré-sélectionné à la création (C-10 : `template` ouvre le mode modèle, ADR-29). */
   initialStatus?: SessionStatus;
+  /**
+   * Canvas initial à la **création** (assistants par discipline, ADR-38). Sans lui, le
+   * constructeur démarre sur un bloc vide (comportement C-05 historique). Factory (appelée à
+   * chaque prise de focus) pour repartir d'un état neuf.
+   */
+  seed?: () => EditableNode[];
+  /** Presets proposés au-dessus du canvas (assistants par discipline, ADR-38). */
+  presets?: SessionBuilderPreset[];
+  /** Titre H1 personnalisé (ex. « Assistant Sprint ») — défaut : « Nouvelle séance ». */
+  titleText?: string;
 }) {
   const { colors, typography, spacing } = useTheme();
   const router = useRouter();
@@ -66,7 +86,7 @@ export function SessionBuilderScreen({
   const [description, setDescription] = useState('');
   const [scheduledDate, setScheduledDate] = useState('');
   const [status, setStatus] = useState<SessionStatus>(defaultStatus);
-  const [nodes, setNodes] = useState<EditableNode[]>([makeEmptyBlock()]);
+  const [nodes, setNodes] = useState<EditableNode[]>(() => seed?.() ?? [makeEmptyBlock()]);
   const [brief, setBrief] = useState<BriefDraft>(makeEmptyBriefDraft());
   const [error, setError] = useState<string | null>(null);
 
@@ -108,10 +128,10 @@ export function SessionBuilderScreen({
       setDescription('');
       setScheduledDate('');
       setStatus(defaultStatus);
-      setNodes([makeEmptyBlock()]);
+      setNodes(seed?.() ?? [makeEmptyBlock()]);
       setBrief(makeEmptyBriefDraft());
       setError(null);
-    }, [isEdit, defaultStatus]),
+    }, [isEdit, defaultStatus, seed]),
   );
 
   const mutation = useMutation({
@@ -400,7 +420,7 @@ export function SessionBuilderScreen({
               : 'Nouveau modèle'
             : isEdit
               ? 'Modifier la séance'
-              : 'Nouvelle séance'}
+              : (titleText ?? 'Nouvelle séance')}
         </Text>
 
         {/* En-tête de séance (Carte C-05 §4). */}
@@ -472,6 +492,35 @@ export function SessionBuilderScreen({
           onChange={(patch) => setBrief((prev) => ({ ...prev, ...patch }))}
           items={nodesToItems(nodes)}
         />
+
+        {/* Presets d'assistant (ADR-38) : remplacent le canvas par une structure pré-remplie.
+            En création uniquement (un preset écraserait une séance en cours d'édition). */}
+        {!isEdit && presets && presets.length > 0 ? (
+          <View testID="assistant-presets" style={{ gap: spacing[2] }}>
+            <Text
+              style={{
+                color: colors.textSecondary,
+                fontFamily: typography.fontFamily.medium,
+                fontSize: typography.bodySm.fontSize,
+                textTransform: 'uppercase',
+                letterSpacing: 0.6,
+              }}
+            >
+              Modèles de départ
+            </Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] }}>
+              {presets.map((preset) => (
+                <Chip
+                  key={preset.key}
+                  testID={`assistant-preset-${preset.key}`}
+                  onPress={() => setNodes(preset.build())}
+                >
+                  {preset.label}
+                </Chip>
+              ))}
+            </View>
+          </View>
+        ) : null}
 
         {/* Canvas de blocs et groupes (Carte C-05 §5 + ADR-27). */}
         <View style={{ gap: spacing[3] }}>

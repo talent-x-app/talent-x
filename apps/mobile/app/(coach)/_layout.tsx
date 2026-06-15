@@ -57,6 +57,8 @@ export default function CoachLayout() {
         <Tabs.Screen name="review/[id]" options={{ href: null }} />
         {/* Détail (lecture seule) + constructeur (C-05) : routables mais masqués du tab bar. */}
         <Tabs.Screen name="session/new" options={{ href: null }} />
+        {/* Assistant de création par discipline (ADR-38) : routable mais masqué du tab bar. */}
+        <Tabs.Screen name="session/assistant/[discipline]" options={{ href: null }} />
         <Tabs.Screen name="session/[id]" options={{ href: null }} />
         <Tabs.Screen name="session/[id]/edit" options={{ href: null }} />
         {/* Bibliothèque de modèles de séance (C-10, TLX-064) : routable mais masquée du tab bar. */}
