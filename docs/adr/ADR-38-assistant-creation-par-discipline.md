@@ -6,7 +6,7 @@
   v3, groupes `kind: "group"` / `groupType: "series"`), ADR-28 (brief de séance), ADR-20/21
   (records & progression — lecture seule), ADR-36 (journal d'entraînement libre athlète)
 - **Tickets liés :** TLX-052 (constructeur C-05), TLX-053→061 (éditeurs typés, livrés),
-  TLX-132 (séance libre athlète) ; nouveaux tickets proposés TLX-148→15x (cf. §Plan)
+  TLX-132 (séance libre athlète) ; nouveaux tickets TLX-152→162 (cf. §Plan)
 - **Réf. :** maquette HTML fournie (`Talent-X — Nouvelle séance` + 5 écrans de création par
   discipline + écran « Récapitulatif »), CLAUDE.md règle 7
 
@@ -194,24 +194,24 @@ plutôt que créer un écran de récapitulatif parallèle qui dupliquerait le re
   `SessionContent`/`CoachBriefReview` (rendu des groupes, brief) — deux implémentations à
   maintenir en synchronisation. Rejetée au profit d'une extension de l'existant.
 
-## Plan (proposition de découpage, à valider en backlog)
+## Plan (découpage validé en backlog)
 
-1. **TLX-148** — Contrat : documenter les nouvelles clés `params` par `type` (table §2)
+1. **TLX-152** — Contrat : documenter les nouvelles clés `params` par `type` (table §2)
    dans `talent-x-openapi.yaml` + `Talent-X_06_Modele_de_donnees.md §9.1` ; étendre les DTO
    Zod backend (additif, tests endpoint).
-2. **TLX-149** — Mobile : étendre `BLOCK_TYPE_SPECS` (`session-builder-ui.tsx`) avec les
+2. **TLX-153** — Mobile : étendre `BLOCK_TYPE_SPECS` (`session-builder-ui.tsx`) avec les
    nouvelles clés ; aucune UI nouvelle, juste le typage/édition générique.
-3. **TLX-150** — Écran « Nouvelle séance » (coach) : choix de discipline → route vers
+3. **TLX-154** — Écran « Nouvelle séance » (coach) : choix de discipline → route vers
    l'assistant correspondant (ou le constructeur générique pour « Personnalisé »).
-4. **TLX-151→155** — Un assistant par discipline (Sprint, Haies, Endurance, Sauts,
+4. **TLX-155→159** — Un assistant par discipline (Sprint, Haies, Endurance, Sauts,
    Lancers) : formulaire en séries + presets, sérialisant vers `ExercisesDoc` v3 via les
    primitives existantes (`makeEmptyGroup`, `nodesToItems`).
-5. **TLX-156** — Affichage : « phrase » de séance + KPIs étendus dans `SessionContent`/
+5. **TLX-160** — Affichage : « phrase » de séance + KPIs étendus dans `SessionContent`/
    `CoachSessionDetailScreen`.
-6. **TLX-157** — Affichage : bascule vue coach/athlète avec cibles individualisées
+6. **TLX-161** — Affichage : bascule vue coach/athlète avec cibles individualisées
    (lecture records ADR-20), scopée au détail d'une **affectation**.
-7. **TLX-158** — Athlète : généraliser `FreeSessionLog` à l'assistant multi-séries
-   (optionnel, dépend de TLX-151→155).
+7. **TLX-162** — Athlète : généraliser `FreeSessionLog` à l'assistant multi-séries
+   (optionnel, dépend de TLX-155→159).
 
 Chaque ticket reste **additif, testé** (endpoints backend, rendu + interactions front),
 sans migration ni bump de `schemaVersion`.
