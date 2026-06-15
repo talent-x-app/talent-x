@@ -1439,8 +1439,9 @@ les clés ci\-dessous sont celles **réellement consommées** par les éditeurs 
 et l'assistant de création par discipline \(ADR\-38\)\. Additif : aucun bump de `schemaVersion`,
 aucune migration\. Toutes les clés sont optionnelles\.
 
-\- **sprint** : `distanceMeters` \(int, m\), `reps` \(int\), `recoverySeconds` \(int\), `percentVma`
-  \(int, %\), `startType` \(`standing|three_point|blocks|flying`\), `flyingZone` \(bool\),
+\- **sprint** : `distanceMeters` \(int, m\), `reps` \(int\), `recoverySeconds` \(int\),
+  `recoveryType` \(`active|passive`\), `percentVma` \(int, %\), `startType`
+  \(`standing|three_point|blocks|flying`\), `flyingZone` \(bool\),
   `intensityMode` \(`percent_record|target_time|speed`\), `intensityValue` \(number\)\.
 
 \- **hurdles** : `distanceMeters` \(int, m\), `heightCm` \(number\), `spacingMeters` \(number\),

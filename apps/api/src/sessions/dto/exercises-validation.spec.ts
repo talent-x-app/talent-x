@@ -95,13 +95,15 @@ describe('params additifs par discipline via ValidationPipe (ADR-38)', () => {
     return (result.exercises.items[0] as ExerciseDto).params;
   };
 
-  it('sprint : startType / flyingZone / intensityMode / intensityValue préservés', async () => {
+  it('sprint : startType / flyingZone / intensityMode / intensityValue / recoveryType préservés', async () => {
     const params = {
       distanceMeters: 30,
       startType: 'blocks',
       flyingZone: false,
       intensityMode: 'percent_record',
       intensityValue: 90,
+      // ADR-39 — récup r active/passive de la carte d'effort sprint (additif, params libre).
+      recoveryType: 'passive',
     };
     expect(await accepts('sprint', params)).toEqual(params);
   });

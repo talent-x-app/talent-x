@@ -213,6 +213,16 @@ export const BLOCK_TYPE_SPECS: BlockTypeSpec[] = [
       { key: 'reps', label: 'Répétitions (nombre de sprints)', placeholder: 'Ex. 8' },
       { key: 'distanceMeters', label: 'Distance (m)', placeholder: 'Ex. 60', required: true },
       { key: 'recoverySeconds', label: 'Récupération (s)', placeholder: 'Ex. 180' },
+      // ADR-39 — récup r active/passive de la carte d'effort (bascule de la maquette).
+      {
+        key: 'recoveryType',
+        label: 'Type de récupération',
+        kind: 'select',
+        options: [
+          { value: 'active', label: 'Active' },
+          { value: 'passive', label: 'Passive' },
+        ],
+      },
       { key: 'percentVma', label: 'Intensité (% VMA)', placeholder: 'Ex. 120' },
       // ADR-38 — assistant Sprint : type de départ, zone lancée, référentiel d'intensité.
       { key: 'startType', label: 'Type de départ', kind: 'select', options: START_TYPE_OPTIONS },

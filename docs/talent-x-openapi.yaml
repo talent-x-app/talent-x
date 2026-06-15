@@ -2971,7 +2971,8 @@ components:
 
 
             - `sprint` : `distanceMeters` (int, m), `reps` (int),
-            `recoverySeconds` (int), `percentVma` (int, %), `startType`
+            `recoverySeconds` (int), `recoveryType` (`active|passive`),
+            `percentVma` (int, %), `startType`
             (`standing|three_point|blocks|flying`), `flyingZone` (bool),
             `intensityMode` (`percent_record|target_time|speed`),
             `intensityValue` (number).
