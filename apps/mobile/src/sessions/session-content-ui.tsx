@@ -13,6 +13,7 @@ import {
   type ExerciseNode,
   type ExerciseRenderRow,
 } from './exercises-doc';
+import { formatDistanceVolume, sessionKpis, sessionPhrase } from './session-summary';
 
 /**
  * Rendu **lecture seule** d'une séance (groupes v3 ADR-27 + brief ADR-28) — composant pur
@@ -187,6 +188,71 @@ function ReadOnlyLeafRow({
 }
 
 /**
+ * Carte de synthèse de séance (ADR-38, TLX-160) : « phrase » condensée + KPIs (efforts,
+ * volume en distance). Dérivée à la volée des `exercises.items` (rien de persisté) ; masquée
+ * si la séance ne produit ni phrase ni KPI exploitable (dégradation propre).
+ */
+export function SessionSummaryCard({ exercises }: { exercises: ExerciseNode[] }) {
+  const { colors, typography, spacing } = useTheme();
+  const phrase = sessionPhrase(exercises);
+  const { efforts, distanceMeters } = sessionKpis(exercises);
+  const volume = formatDistanceVolume(distanceMeters);
+  if (phrase === '' && efforts === 0) return null;
+
+  const kpis: { key: string; label: string; value: string }[] = [];
+  if (efforts > 0) kpis.push({ key: 'efforts', label: 'Efforts', value: String(efforts) });
+  if (volume) kpis.push({ key: 'volume', label: 'Volume', value: volume });
+
+  return (
+    <Card testID="session-summary">
+      <View style={{ gap: spacing[3] }}>
+        {phrase !== '' ? (
+          <Text
+            testID="session-phrase"
+            style={{
+              color: colors.textPrimary,
+              fontFamily: typography.fontFamily.medium,
+              fontSize: typography.body.fontSize,
+            }}
+          >
+            {phrase}
+          </Text>
+        ) : null}
+        {kpis.length > 0 ? (
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing[4] }}>
+            {kpis.map((k) => (
+              <View key={k.key} style={{ gap: 2 }}>
+                <Text
+                  testID={`session-kpi-${k.key}`}
+                  style={{
+                    color: colors.textPrimary,
+                    fontFamily: typography.fontFamily.bold,
+                    fontSize: typography.h3.fontSize,
+                  }}
+                >
+                  {k.value}
+                </Text>
+                <Text
+                  style={{
+                    color: colors.textSecondary,
+                    fontFamily: typography.fontFamily.regular,
+                    fontSize: typography.bodySm.fontSize,
+                    textTransform: 'uppercase',
+                    letterSpacing: 0.6,
+                  }}
+                >
+                  {k.label}
+                </Text>
+              </View>
+            ))}
+          </View>
+        ) : null}
+      </View>
+    </Card>
+  );
+}
+
+/**
  * Contenu d'une séance en lecture seule : brief (métriques + consigne), liste d'exercices
  * (groupes intercalés, A1/A2, cibles, mesures relues si `results`), garde-fous Réussi/Stop.
  */
@@ -212,6 +278,7 @@ export function SessionContent({
   return (
     <View style={{ gap: spacing[5] }}>
       <BriefMetrics brief={brief} items={exercises} />
+      <SessionSummaryCard exercises={exercises} />
       {brief?.athleteIntent ? <AthleteIntentBanner text={brief.athleteIntent} /> : null}
 
       <View style={{ gap: spacing[3] }}>

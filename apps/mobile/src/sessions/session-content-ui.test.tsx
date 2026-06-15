@@ -55,6 +55,34 @@ describe('SessionContent (lecture seule)', () => {
     expect(screen.queryByTestId('submit-performance')).toBeNull();
   });
 
+  it('affiche la synthèse de séance (phrase + KPIs) pour une séance en séries (TLX-160)', () => {
+    const sprintSession = [
+      group({
+        name: 'Vitesse',
+        order: 1,
+        groupType: 'series',
+        rounds: 2,
+        items: [
+          ex({ name: '30 m', order: 1, type: BlockType.sprint, params: { distanceMeters: 30 } }),
+          ex({ name: '60 m', order: 2, type: BlockType.sprint, params: { distanceMeters: 60 } }),
+        ],
+      }),
+    ];
+    render(<SessionContent exercises={sprintSession} />, { wrapper: Wrapper });
+    expect(screen.getByTestId('session-phrase')).toHaveTextContent('2 × (30·60 m)');
+    expect(screen.getByTestId('session-kpi-efforts')).toHaveTextContent('4');
+    expect(screen.getByTestId('session-kpi-volume')).toHaveTextContent('180 m');
+  });
+
+  it('masque la synthèse si aucune mesure exploitable (dégradation propre)', () => {
+    render(<SessionContent exercises={[ex({ name: 'Renforcement', order: 1 })]} />, {
+      wrapper: Wrapper,
+    });
+    expect(screen.queryByTestId('session-phrase')).toBeNull();
+    // KPI efforts reste possible (1 effort) mais pas de volume.
+    expect(screen.queryByTestId('session-kpi-volume')).toBeNull();
+  });
+
   it('affiche les mesures relues + compteur réalisés quand une perf est fournie', () => {
     const results: ExerciseResult[] = [
       {
