@@ -12,7 +12,7 @@ import { useTheme } from '@talent-x/design-tokens';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Feather } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { Button, Card, Chip } from '../components/ui';
 import { ResponsiveContent } from '../responsive/ResponsiveContent';
@@ -60,6 +60,7 @@ export function SessionBuilderScreen({
   seed,
   presets,
   titleText,
+  renderCanvas,
 }: {
   sessionId?: string;
   /** Statut pré-sélectionné à la création (C-10 : `template` ouvre le mode modèle, ADR-29). */
@@ -74,6 +75,16 @@ export function SessionBuilderScreen({
   presets?: SessionBuilderPreset[];
   /** Titre H1 personnalisé (ex. « Assistant Sprint ») — défaut : « Nouvelle séance ». */
   titleText?: string;
+  /**
+   * Rendu **alternatif** du canvas (carte d'effort dédiée par discipline, ADR-39). Fourni, il
+   * remplace l'éditeur de blocs générique tout en partageant le **même état `nodes`** (donc même
+   * sérialisation, save et validation → séance éditable en C-05 sans perte). Ignoré en **édition**
+   * (`sessionId`) : l'édition d'une séance existante reste sur le constructeur générique.
+   */
+  renderCanvas?: (ctx: {
+    nodes: EditableNode[];
+    setNodes: React.Dispatch<React.SetStateAction<EditableNode[]>>;
+  }) => ReactNode;
 }) {
   const { colors, typography, spacing } = useTheme();
   const router = useRouter();
@@ -522,73 +533,78 @@ export function SessionBuilderScreen({
           </View>
         ) : null}
 
-        {/* Canvas de blocs et groupes (Carte C-05 §5 + ADR-27). */}
-        <View style={{ gap: spacing[3] }}>
-          <Text
-            style={{
-              color: colors.textSecondary,
-              fontFamily: typography.fontFamily.medium,
-              fontSize: typography.bodySm.fontSize,
-              textTransform: 'uppercase',
-              letterSpacing: 0.6,
-            }}
-          >
-            Blocs et groupes ({nodes.length})
-          </Text>
-          {nodes.map((node, index) =>
-            isEditableGroup(node) ? (
-              <GroupCard
-                key={node.key}
-                group={node}
-                index={index}
-                total={nodes.length}
-                onChange={(patch) => updateTopNode(index, patch)}
-                onMoveUp={() => moveTopNode(index, -1)}
-                onMoveDown={() => moveTopNode(index, 1)}
-                onRemove={() => removeTopNode(index)}
-                onMemberChange={(mi, patch) => updateMember(index, mi, patch)}
-                onMemberMoveUp={(mi) => moveMember(index, mi, -1)}
-                onMemberMoveDown={(mi) => moveMember(index, mi, 1)}
-                onMemberRemove={(mi) => removeMember(index, mi)}
-                onMemberUngroup={(mi) => ungroupMember(index, mi)}
-                onAddMember={() => addMember(index)}
-              />
-            ) : (
-              <BlockCard
-                key={node.key}
-                block={node}
-                index={index}
-                total={nodes.length}
-                onChange={(patch) => updateTopNode(index, patch)}
-                onMoveUp={() => moveTopNode(index, -1)}
-                onMoveDown={() => moveTopNode(index, 1)}
-                onRemove={() => removeTopNode(index)}
-                onGroup={() => groupTopBlock(index)}
-                groupDisabled={!hasAdjacentGroup(index)}
-              />
-            ),
-          )}
-          <View style={{ flexDirection: 'row', gap: spacing[3] }}>
-            <Button
-              testID="session-add-block"
-              variant="secondary"
-              style={{ flex: 1 }}
-              leftIcon={<Feather name="plus" size={18} color={colors.textPrimary} />}
-              onPress={addBlock}
+        {/* Canvas : carte d'effort dédiée (assistant, ADR-39) ou blocs génériques (C-05). La
+            carte partage le même état `nodes` → séance éditable en C-05 sans perte. */}
+        {renderCanvas != null && !isEdit ? (
+          renderCanvas({ nodes, setNodes })
+        ) : (
+          <View style={{ gap: spacing[3] }}>
+            <Text
+              style={{
+                color: colors.textSecondary,
+                fontFamily: typography.fontFamily.medium,
+                fontSize: typography.bodySm.fontSize,
+                textTransform: 'uppercase',
+                letterSpacing: 0.6,
+              }}
             >
-              Ajouter un bloc
-            </Button>
-            <Button
-              testID="session-add-group"
-              variant="secondary"
-              style={{ flex: 1 }}
-              leftIcon={<Feather name="repeat" size={18} color={colors.textPrimary} />}
-              onPress={addGroup}
-            >
-              Ajouter un groupe
-            </Button>
+              Blocs et groupes ({nodes.length})
+            </Text>
+            {nodes.map((node, index) =>
+              isEditableGroup(node) ? (
+                <GroupCard
+                  key={node.key}
+                  group={node}
+                  index={index}
+                  total={nodes.length}
+                  onChange={(patch) => updateTopNode(index, patch)}
+                  onMoveUp={() => moveTopNode(index, -1)}
+                  onMoveDown={() => moveTopNode(index, 1)}
+                  onRemove={() => removeTopNode(index)}
+                  onMemberChange={(mi, patch) => updateMember(index, mi, patch)}
+                  onMemberMoveUp={(mi) => moveMember(index, mi, -1)}
+                  onMemberMoveDown={(mi) => moveMember(index, mi, 1)}
+                  onMemberRemove={(mi) => removeMember(index, mi)}
+                  onMemberUngroup={(mi) => ungroupMember(index, mi)}
+                  onAddMember={() => addMember(index)}
+                />
+              ) : (
+                <BlockCard
+                  key={node.key}
+                  block={node}
+                  index={index}
+                  total={nodes.length}
+                  onChange={(patch) => updateTopNode(index, patch)}
+                  onMoveUp={() => moveTopNode(index, -1)}
+                  onMoveDown={() => moveTopNode(index, 1)}
+                  onRemove={() => removeTopNode(index)}
+                  onGroup={() => groupTopBlock(index)}
+                  groupDisabled={!hasAdjacentGroup(index)}
+                />
+              ),
+            )}
+            <View style={{ flexDirection: 'row', gap: spacing[3] }}>
+              <Button
+                testID="session-add-block"
+                variant="secondary"
+                style={{ flex: 1 }}
+                leftIcon={<Feather name="plus" size={18} color={colors.textPrimary} />}
+                onPress={addBlock}
+              >
+                Ajouter un bloc
+              </Button>
+              <Button
+                testID="session-add-group"
+                variant="secondary"
+                style={{ flex: 1 }}
+                leftIcon={<Feather name="repeat" size={18} color={colors.textPrimary} />}
+                onPress={addGroup}
+              >
+                Ajouter un groupe
+              </Button>
+            </View>
           </View>
-        </View>
+        )}
 
         {error != null && (
           <Text

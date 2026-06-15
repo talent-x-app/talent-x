@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { SessionBuilderScreen } from './SessionBuilderScreen';
 import { disciplineConfig } from './discipline-assistants';
 import { assistantPresets, assistantSeed } from './assistant-presets';
+import { SprintEffortCanvas } from './sprint-effort-card';
 
 /**
  * Assistant de création par discipline (ADR-38, TLX-155→159). Mince surcouche du constructeur
@@ -17,6 +18,17 @@ export function DisciplineAssistantScreen({ discipline }: { discipline?: string 
 
   if (!cfg) return <SessionBuilderScreen />;
   return (
-    <SessionBuilderScreen titleText={`Assistant ${cfg.label}`} seed={seed} presets={presets} />
+    <SessionBuilderScreen
+      titleText={`Assistant ${cfg.label}`}
+      seed={seed}
+      presets={presets}
+      // ADR-39 (TLX-165) : Sprint utilise la carte d'effort dédiée ; les autres disciplines
+      // restent sur l'éditeur de blocs générique en attendant leur carte (TLX-167, différé).
+      renderCanvas={
+        cfg.key === 'sprint'
+          ? ({ nodes, setNodes }) => <SprintEffortCanvas nodes={nodes} onChange={setNodes} />
+          : undefined
+      }
+    />
   );
 }
