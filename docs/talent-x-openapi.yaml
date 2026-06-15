@@ -2962,9 +2962,50 @@ components:
           type: object
           additionalProperties: true
           description: >-
-            Paramètres propres au `type` (cadre libre au niveau du contrat — la forme
-            par discipline est fixée par le ticket de l'éditeur correspondant,
-            TLX-054…061, cf. ADR-18).
+            Paramètres propres au `type` (cadre libre au niveau du contrat —
+            `additionalProperties: true`, aucune clé n'est rejetée). La forme par
+            discipline est fixée par le ticket de l'éditeur correspondant
+            (TLX-054…061, cf. ADR-18) puis étendue, de façon additive, par
+            l'assistant de création par discipline (ADR-38 §2). Clés documentées
+            par `type` (toutes optionnelles) :
+
+
+            - `sprint` : `distanceMeters` (int, m), `reps` (int),
+            `recoverySeconds` (int), `percentVma` (int, %), `startType`
+            (`standing|three_point|blocks|flying`), `flyingZone` (bool),
+            `intensityMode` (`percent_record|target_time|speed`),
+            `intensityValue` (number).
+
+            - `hurdles` : `distanceMeters` (int, m), `heightCm` (number),
+            `spacingMeters` (number), `rhythmSteps` (int), `event` (string, ex.
+            `110mH`), `spacingMode` (`regulation|modified`), `hurdleCount` (int),
+            `approachMeters` (number, m), `leadLeg` (`left|right`), `startType`,
+            `intensityMode`, `intensityValue` (number).
+
+            - `endurance` / `interval` : `distanceMeters` (int, m),
+            `paceSecondsPerKm` (int), `elevationMeters` (int), `workSeconds`
+            (int), `recoverySeconds` (int), `recoveryType` (`active|passive`),
+            `percentVma` (int, %), `specificEvent` (string), `hrZone` (int, 1-5).
+            La maquette bascule `endurance`/`interval` selon que la répétition est
+            en distance (`distanceMeters`) ou en durée (`workSeconds`).
+
+            - `jumps` : `discipline` (`long|triple`), `approach` (number) +
+            `approachUnit` (`steps|meters`), `attempts` (int), `takeoff`
+            (`left|right`), `targetMeters` (number), `targetMode`
+            (`percent|absolute`), `targetPercent` (number, %), `fullJumps` (int),
+            `plyoContacts` (int). Rétro-compat : `approachMeters` (number, m) reste
+            accepté et se lit comme `approach` + `approachUnit: "meters"` (ADR-38).
+
+            - `vertical_jumps` : `discipline` (`high|pole`), `startHeightCm`
+            (number), `incrementCm` (number), `bars` (int), `attemptsPerBar`
+            (int), `gripCm` (number, perche).
+
+            - `throws` : `implementKg` (number), `discipline`
+            (`shot|discus|javelin|hammer`), `sex` (`M|F`, poids réglementaires),
+            `implementState` (`regulation|heavy|light`), `targetMeters` (number),
+            `targetMode` (`percent|absolute`), `targetPercent` (number, %),
+            `style` (poids : `glide|spin`), `techniqueThrows` (int), `fullThrows`
+            (int).
       required:
       - name
       - order

@@ -1432,6 +1432,41 @@ Exemple d'instance :
 
 \}
 
+### 9\.1\.1 Clés `params` documentées par discipline \(ADR\-38\)
+
+Le conteneur `params` reste **libre** \(`additionalProperties: true`, aucune clé rejetée\) ;
+les clés ci\-dessous sont celles **réellement consommées** par les éditeurs typés \(TLX\-054…061\)
+et l'assistant de création par discipline \(ADR\-38\)\. Additif : aucun bump de `schemaVersion`,
+aucune migration\. Toutes les clés sont optionnelles\.
+
+\- **sprint** : `distanceMeters` \(int, m\), `reps` \(int\), `recoverySeconds` \(int\), `percentVma`
+  \(int, %\), `startType` \(`standing|three_point|blocks|flying`\), `flyingZone` \(bool\),
+  `intensityMode` \(`percent_record|target_time|speed`\), `intensityValue` \(number\)\.
+
+\- **hurdles** : `distanceMeters` \(int, m\), `heightCm` \(number\), `spacingMeters` \(number\),
+  `rhythmSteps` \(int\), `event` \(string\), `spacingMode` \(`regulation|modified`\), `hurdleCount`
+  \(int\), `approachMeters` \(number, m\), `leadLeg` \(`left|right`\), `startType`, `intensityMode`,
+  `intensityValue` \(number\)\.
+
+\- **endurance** / **interval** : `distanceMeters` \(int, m\), `paceSecondsPerKm` \(int\),
+  `elevationMeters` \(int\), `workSeconds` \(int\), `recoverySeconds` \(int\), `recoveryType`
+  \(`active|passive`\), `percentVma` \(int, %\), `specificEvent` \(string\), `hrZone` \(int, 1\-5\)\.
+  La maquette bascule `endurance`/`interval` selon que la répétition est en distance ou en durée\.
+
+\- **jumps** : `discipline` \(`long|triple`\), `approach` \(number\) \+ `approachUnit`
+  \(`steps|meters`\), `attempts` \(int\), `takeoff` \(`left|right`\), `targetMeters` \(number\),
+  `targetMode` \(`percent|absolute`\), `targetPercent` \(number, %\), `fullJumps` \(int\),
+  `plyoContacts` \(int\)\. Rétro\-compat : `approachMeters` \(number, m\) reste accepté et se lit
+  comme `approach` \+ `approachUnit: "meters"`\.
+
+\- **vertical\_jumps** : `discipline` \(`high|pole`\), `startHeightCm` \(number\), `incrementCm`
+  \(number\), `bars` \(int\), `attemptsPerBar` \(int\), `gripCm` \(number, perche\)\.
+
+\- **throws** : `implementKg` \(number\), `discipline` \(`shot|discus|javelin|hammer`\), `sex`
+  \(`M|F`\), `implementState` \(`regulation|heavy|light`\), `targetMeters` \(number\), `targetMode`
+  \(`percent|absolute`\), `targetPercent` \(number, %\), `style` \(poids : `glide|spin`\),
+  `techniqueThrows` \(int\), `fullThrows` \(int\)\.
+
 ## 9\.2 Contrat results \(schéma v2 — ADR\-19\)
 
 Résultats par exercice, alignés sur l'ordre des exercices de la séance\. Le schéma v2

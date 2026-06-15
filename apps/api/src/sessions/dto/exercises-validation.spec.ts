@@ -83,6 +83,102 @@ describe('Contrat exercises v2 via ValidationPipe (ADR-18)', () => {
   });
 });
 
+describe('params additifs par discipline via ValidationPipe (ADR-38)', () => {
+  // Le contrat laisse `params` libre (additionalProperties: true) : les clés introduites
+  // par l'assistant de création par discipline (ADR-38 §2) doivent traverser le pipe sans
+  // être rejetées (forbidNonWhitelisted) ni vidées (whitelist) — aucun bump de schemaVersion.
+  const accepts = async (type: string, params: Record<string, unknown>) => {
+    const result = (await pipe.transform(
+      { title: type, exercises: { schemaVersion: 3, items: [{ ...baseBlock, type, params }] } },
+      meta,
+    )) as SessionCreateDto;
+    return (result.exercises.items[0] as ExerciseDto).params;
+  };
+
+  it('sprint : startType / flyingZone / intensityMode / intensityValue préservés', async () => {
+    const params = {
+      distanceMeters: 30,
+      startType: 'blocks',
+      flyingZone: false,
+      intensityMode: 'percent_record',
+      intensityValue: 90,
+    };
+    expect(await accepts('sprint', params)).toEqual(params);
+  });
+
+  it('hurdles : event / spacingMode / hurdleCount / leadLeg préservés', async () => {
+    const params = {
+      event: '110mH',
+      heightCm: 106.7,
+      spacingMode: 'regulation',
+      hurdleCount: 10,
+      approachMeters: 13.72,
+      leadLeg: 'left',
+      startType: 'blocks',
+      intensityMode: 'target_time',
+      intensityValue: 14.2,
+    };
+    expect(await accepts('hurdles', params)).toEqual(params);
+  });
+
+  it('endurance / interval : recoveryType / workSeconds / percentVma / hrZone préservés', async () => {
+    const params = {
+      recoveryType: 'active',
+      workSeconds: 90,
+      percentVma: 105,
+      specificEvent: '3000m',
+      hrZone: 4,
+    };
+    expect(await accepts('endurance', params)).toEqual(params);
+    expect(await accepts('interval', params)).toEqual(params);
+  });
+
+  it('jumps : discipline / approach + approachUnit / targetMode / targetPercent préservés', async () => {
+    const params = {
+      discipline: 'long',
+      approach: 18,
+      approachUnit: 'steps',
+      attempts: 6,
+      takeoff: 'left',
+      targetMeters: 7.2,
+      targetMode: 'percent',
+      targetPercent: 95,
+    };
+    expect(await accepts('jumps', params)).toEqual(params);
+  });
+
+  it('jumps : approachMeters legacy reste accepté (rétro-compat ADR-38)', async () => {
+    const params = { discipline: 'triple', approachMeters: 38, attempts: 4 };
+    expect(await accepts('jumps', params)).toEqual(params);
+  });
+
+  it('vertical_jumps : bars / attemptsPerBar / gripCm préservés', async () => {
+    const params = {
+      discipline: 'pole',
+      startHeightCm: 420,
+      incrementCm: 10,
+      bars: 6,
+      attemptsPerBar: 3,
+      gripCm: 430,
+    };
+    expect(await accepts('vertical_jumps', params)).toEqual(params);
+  });
+
+  it('throws : discipline / sex / implementState / targetMode / style préservés', async () => {
+    const params = {
+      discipline: 'shot',
+      sex: 'M',
+      implementKg: 7.26,
+      implementState: 'regulation',
+      targetMeters: 18.5,
+      targetMode: 'absolute',
+      targetPercent: 92,
+      style: 'spin',
+    };
+    expect(await accepts('throws', params)).toEqual(params);
+  });
+});
+
 describe('Contrat exercises v3 — groupes via ValidationPipe (ADR-27)', () => {
   const validGroup = {
     kind: 'group',
