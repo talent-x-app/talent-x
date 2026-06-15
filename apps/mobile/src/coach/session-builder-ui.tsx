@@ -83,9 +83,10 @@ export interface BlockParamField {
   /**
    * `int` (défaut) / `number` (décimal autorisé, ex. espacement en m) → saisie numérique ;
    * `select` → choix parmi `options` (param libre en chaîne, ex. discipline, cf. ADR-25) ;
-   * `text` → chaîne libre courte (ex. tempo « 3-1-1-0 », cf. ADR-28 règle 6).
+   * `text` → chaîne libre courte (ex. tempo « 3-1-1-0 », cf. ADR-28 règle 6) ;
+   * `bool` → bascule Oui/Non sérialisée en **booléen** (ex. zone lancée du sprint, ADR-38).
    */
-  kind?: 'int' | 'number' | 'select' | 'text';
+  kind?: 'int' | 'number' | 'select' | 'text' | 'bool';
   /** Options d'un champ `select` (valeur stockée + libellé affiché). */
   options?: { value: string; label: string }[];
   /**
@@ -111,6 +112,42 @@ export interface BlockTypeSpec {
 const CIRCUIT_PARAM_FIELDS: BlockParamField[] = [
   { key: 'rounds', label: 'Tours (nombre de circuits)', placeholder: 'Ex. 3' },
   { key: 'stationSeconds', label: 'Durée par station (s)', placeholder: 'Ex. 45' },
+];
+
+/**
+ * Jeux d'options partagés par les `params` additifs de l'assistant par discipline (ADR-38 §2).
+ * Mutualisés ici car réutilisés par plusieurs disciplines (ex. `startType`/`intensityMode`
+ * communs à sprint et haies). Les valeurs stockées sont stables (contrat) ; seul le libellé est FR.
+ */
+const START_TYPE_OPTIONS = [
+  { value: 'standing', label: 'Debout' },
+  { value: 'three_point', label: '3 appuis' },
+  { value: 'blocks', label: 'Blocks' },
+  { value: 'flying', label: 'Lancé' },
+];
+const INTENSITY_MODE_OPTIONS = [
+  { value: 'percent_record', label: '% du record' },
+  { value: 'target_time', label: 'Temps cible' },
+  { value: 'speed', label: 'Vitesse' },
+];
+const LEG_OPTIONS = [
+  { value: 'left', label: 'Gauche' },
+  { value: 'right', label: 'Droite' },
+];
+const TARGET_MODE_OPTIONS = [
+  { value: 'percent', label: '% du record' },
+  { value: 'absolute', label: 'Absolu' },
+];
+
+/** Champs d'intensité communs sprint/haies (mode + valeur, cf. ADR-38). */
+const INTENSITY_PARAM_FIELDS: BlockParamField[] = [
+  {
+    key: 'intensityMode',
+    label: 'Référentiel d’intensité',
+    kind: 'select',
+    options: INTENSITY_MODE_OPTIONS,
+  },
+  { key: 'intensityValue', label: 'Valeur d’intensité', placeholder: 'Ex. 90', kind: 'number' },
 ];
 
 /**
@@ -152,6 +189,18 @@ export const BLOCK_TYPE_SPECS: BlockTypeSpec[] = [
       { key: 'workSeconds', label: 'Effort (s)', placeholder: 'Ex. 90' },
       { key: 'recoverySeconds', label: 'Récupération (s)', placeholder: 'Ex. 120' },
       { key: 'percentVma', label: 'Intensité (% VMA)', placeholder: 'Ex. 105' },
+      // ADR-38 — partage les repères d'endurance (type de récup, épreuve, zone cardio).
+      {
+        key: 'recoveryType',
+        label: 'Type de récupération',
+        kind: 'select',
+        options: [
+          { value: 'active', label: 'Active' },
+          { value: 'passive', label: 'Passive' },
+        ],
+      },
+      { key: 'specificEvent', label: 'Épreuve spécifique', placeholder: 'Ex. 3000m', kind: 'text' },
+      { key: 'hrZone', label: 'Zone cardio (1-5)', placeholder: 'Ex. 4' },
     ],
   },
   {
@@ -165,6 +214,10 @@ export const BLOCK_TYPE_SPECS: BlockTypeSpec[] = [
       { key: 'distanceMeters', label: 'Distance (m)', placeholder: 'Ex. 60', required: true },
       { key: 'recoverySeconds', label: 'Récupération (s)', placeholder: 'Ex. 180' },
       { key: 'percentVma', label: 'Intensité (% VMA)', placeholder: 'Ex. 120' },
+      // ADR-38 — assistant Sprint : type de départ, zone lancée, référentiel d'intensité.
+      { key: 'startType', label: 'Type de départ', kind: 'select', options: START_TYPE_OPTIONS },
+      { key: 'flyingZone', label: 'Zone lancée', kind: 'bool' },
+      ...INTENSITY_PARAM_FIELDS,
     ],
   },
   {
@@ -176,6 +229,21 @@ export const BLOCK_TYPE_SPECS: BlockTypeSpec[] = [
       { key: 'distanceMeters', label: 'Distance (m)', placeholder: 'Ex. 5000', required: true },
       { key: 'paceSecondsPerKm', label: 'Allure cible (s/km)', placeholder: 'Ex. 300' },
       { key: 'elevationMeters', label: 'Dénivelé D+ (m)', placeholder: 'Ex. 120' },
+      // ADR-38 — assistant Demi-fond/Endurance : durée d'effort, récup, intensité, repère.
+      { key: 'workSeconds', label: 'Effort (s)', placeholder: 'Ex. 90' },
+      { key: 'recoverySeconds', label: 'Récupération (s)', placeholder: 'Ex. 120' },
+      {
+        key: 'recoveryType',
+        label: 'Type de récupération',
+        kind: 'select',
+        options: [
+          { value: 'active', label: 'Active' },
+          { value: 'passive', label: 'Passive' },
+        ],
+      },
+      { key: 'percentVma', label: 'Intensité (% VMA)', placeholder: 'Ex. 105' },
+      { key: 'specificEvent', label: 'Épreuve spécifique', placeholder: 'Ex. 3000m', kind: 'text' },
+      { key: 'hrZone', label: 'Zone cardio (1-5)', placeholder: 'Ex. 4' },
     ],
   },
   {
@@ -194,19 +262,60 @@ export const BLOCK_TYPE_SPECS: BlockTypeSpec[] = [
       { key: 'heightCm', label: 'Hauteur (cm)', placeholder: 'Ex. 84', kind: 'number' },
       { key: 'spacingMeters', label: 'Espacement (m)', placeholder: 'Ex. 8.5', kind: 'number' },
       { key: 'rhythmSteps', label: 'Rythme (appuis entre haies)', placeholder: 'Ex. 3' },
+      // ADR-38 — assistant Haies : épreuve, mode d'espacement, nb de haies, élan, jambe d'attaque.
+      { key: 'event', label: 'Épreuve', placeholder: 'Ex. 110mH', kind: 'text' },
+      {
+        key: 'spacingMode',
+        label: 'Mode d’espacement',
+        kind: 'select',
+        options: [
+          { value: 'regulation', label: 'Réglementaire' },
+          { value: 'modified', label: 'Modifié' },
+        ],
+      },
+      { key: 'hurdleCount', label: 'Nombre de haies', placeholder: 'Ex. 10' },
+      {
+        key: 'approachMeters',
+        label: 'Distance d’élan (m)',
+        placeholder: 'Ex. 13.72',
+        kind: 'number',
+      },
+      { key: 'leadLeg', label: 'Jambe d’attaque', kind: 'select', options: LEG_OPTIONS },
+      { key: 'startType', label: 'Type de départ', kind: 'select', options: START_TYPE_OPTIONS },
+      ...INTENSITY_PARAM_FIELDS,
     ],
   },
   {
     type: BlockType.jumps,
     label: 'Sauts',
-    // TLX-058 — Sauts : longueur d'élan, sauts complets, contacts pliométriques.
+    // TLX-058 + ADR-38 (assistant Sauts) : discipline, élan (foulées/mètres), essais, appel,
+    // cible. `approach` + `approachUnit` généralisent `approachMeters` (rétro-compat à
+    // l'hydratation : un doc legacy `approachMeters` est lu comme `approach`/`approachUnit:meters`).
     paramFields: [
       {
-        key: 'approachMeters',
-        label: 'Longueur d’élan (m)',
-        placeholder: 'Ex. 30',
-        kind: 'number',
+        key: 'discipline',
+        label: 'Discipline',
+        kind: 'select',
+        options: [
+          { value: 'long', label: 'Longueur' },
+          { value: 'triple', label: 'Triple saut' },
+        ],
       },
+      { key: 'approach', label: 'Élan', placeholder: 'Ex. 18', kind: 'number' },
+      {
+        key: 'approachUnit',
+        label: 'Unité d’élan',
+        kind: 'select',
+        options: [
+          { value: 'steps', label: 'Foulées' },
+          { value: 'meters', label: 'Mètres' },
+        ],
+      },
+      { key: 'attempts', label: 'Essais (nombre)', placeholder: 'Ex. 6' },
+      { key: 'takeoff', label: 'Pied d’appel', kind: 'select', options: LEG_OPTIONS },
+      { key: 'targetMeters', label: 'Cible (m)', placeholder: 'Ex. 7.20', kind: 'number' },
+      { key: 'targetMode', label: 'Mode de cible', kind: 'select', options: TARGET_MODE_OPTIONS },
+      { key: 'targetPercent', label: 'Cible (% du record)', placeholder: 'Ex. 95', kind: 'number' },
       { key: 'fullJumps', label: 'Sauts complets (nombre)', placeholder: 'Ex. 6' },
       { key: 'plyoContacts', label: 'Contacts pliométriques (nombre)', placeholder: 'Ex. 40' },
     ],
@@ -226,6 +335,50 @@ export const BLOCK_TYPE_SPECS: BlockTypeSpec[] = [
       },
       { key: 'techniqueThrows', label: 'Lancers technique (nombre)', placeholder: 'Ex. 10' },
       { key: 'fullThrows', label: 'Lancers complets (nombre)', placeholder: 'Ex. 6' },
+      // ADR-38 — assistant Lancers : discipline, sexe (poids réglementaires), état de l'engin,
+      // cible, style (poids).
+      {
+        key: 'discipline',
+        label: 'Discipline',
+        kind: 'select',
+        options: [
+          { value: 'shot', label: 'Poids' },
+          { value: 'discus', label: 'Disque' },
+          { value: 'javelin', label: 'Javelot' },
+          { value: 'hammer', label: 'Marteau' },
+        ],
+      },
+      {
+        key: 'sex',
+        label: 'Catégorie',
+        kind: 'select',
+        options: [
+          { value: 'M', label: 'Hommes' },
+          { value: 'F', label: 'Femmes' },
+        ],
+      },
+      {
+        key: 'implementState',
+        label: 'État de l’engin',
+        kind: 'select',
+        options: [
+          { value: 'regulation', label: 'Réglementaire' },
+          { value: 'heavy', label: 'Lourd' },
+          { value: 'light', label: 'Léger' },
+        ],
+      },
+      { key: 'targetMeters', label: 'Cible (m)', placeholder: 'Ex. 18.50', kind: 'number' },
+      { key: 'targetMode', label: 'Mode de cible', kind: 'select', options: TARGET_MODE_OPTIONS },
+      { key: 'targetPercent', label: 'Cible (% du record)', placeholder: 'Ex. 92', kind: 'number' },
+      {
+        key: 'style',
+        label: 'Style (poids)',
+        kind: 'select',
+        options: [
+          { value: 'glide', label: 'Translation' },
+          { value: 'spin', label: 'Rotation' },
+        ],
+      },
     ],
   },
   {
@@ -248,6 +401,10 @@ export const BLOCK_TYPE_SPECS: BlockTypeSpec[] = [
       },
       { key: 'startHeightCm', label: 'Barre de départ (cm)', placeholder: 'Ex. 165' },
       { key: 'incrementCm', label: 'Montée entre barres (cm)', placeholder: 'Ex. 5' },
+      // ADR-38 — assistant Sauts verticaux : nb de barres planifiées, essais par barre, prise (perche).
+      { key: 'bars', label: 'Nombre de barres', placeholder: 'Ex. 6' },
+      { key: 'attemptsPerBar', label: 'Essais par barre', placeholder: 'Ex. 3' },
+      { key: 'gripCm', label: 'Prise (cm, perche)', placeholder: 'Ex. 430', kind: 'number' },
     ],
   },
   // TLX-061 — Gainage / Circuit / Échauffement / Retour au calme : éditeur partagé.
@@ -351,10 +508,26 @@ export function makeEmptyGroup(): EditableGroup {
   };
 }
 
+/**
+ * Normalise les `params` legacy d'un type avant hydratation (ADR-38). `jumps` : un document
+ * antérieur portant `approachMeters` (TLX-058) est relu comme `approach` + `approachUnit:
+ * "meters"` (la clé canonique généralisée), sans perte de sens. Copie défensive — n'écrase
+ * jamais une valeur déjà au nouveau format.
+ */
+function normalizeLegacyParams(
+  type: BlockType,
+  src: Record<string, unknown>,
+): Record<string, unknown> {
+  if (type === BlockType.jumps && src.approachMeters != null && src.approach == null) {
+    return { ...src, approach: src.approachMeters, approachUnit: 'meters' };
+  }
+  return src;
+}
+
 /** Hydrate un bloc éditable depuis un `Exercise` du contrat (feuille). */
 function blockFromExercise(ex: Exercise): EditableBlock {
   const type = (ex.type ?? BlockType.custom) as BlockType;
-  const src = (ex.params ?? {}) as Record<string, unknown>;
+  const src = normalizeLegacyParams(type, (ex.params ?? {}) as Record<string, unknown>);
   const params: Record<string, string> = {};
   specForType(type).paramFields?.forEach((f) => {
     if (src[f.key] != null) params[f.key] = String(src[f.key]);
@@ -452,7 +625,7 @@ export function blockToExercise(block: EditableBlock, order: number, inGroup = f
   // les autres un nombre positif.
   const paramFields = specForType(block.type).paramFields;
   if (paramFields?.length) {
-    const params: Record<string, number | string> = {};
+    const params: Record<string, number | string | boolean> = {};
     paramFields.forEach((f) => {
       if (f.kind === 'select') {
         const raw = (block.params[f.key] ?? '').trim();
@@ -462,6 +635,13 @@ export function blockToExercise(block: EditableBlock, order: number, inGroup = f
       if (f.kind === 'text') {
         const raw = (block.params[f.key] ?? '').trim();
         if (raw !== '') params[f.key] = raw;
+        return;
+      }
+      if (f.kind === 'bool') {
+        // Bascule Oui/Non → booléen ; une valeur non posée n'est pas sérialisée.
+        const raw = (block.params[f.key] ?? '').trim();
+        if (raw === 'true') params[f.key] = true;
+        else if (raw === 'false') params[f.key] = false;
         return;
       }
       const raw = block.params[f.key] ?? '';
@@ -536,6 +716,10 @@ function blockMissingRequiredParam(block: EditableBlock): BlockParamField | null
     }
     if (field.kind === 'text') {
       if (raw === '') return field;
+      continue;
+    }
+    if (field.kind === 'bool') {
+      if (raw !== 'true' && raw !== 'false') return field;
       continue;
     }
     const n = field.kind === 'number' ? toPositiveNumber(raw) : toPositiveInt(raw);
@@ -1006,8 +1190,19 @@ function BlockParamsEditor({
       >
         Paramètres — {spec.label}
       </Text>
-      {spec.paramFields.map((field) =>
-        field.kind === 'select' ? (
+      {spec.paramFields.map((field) => {
+        // `select` (options explicites) et `bool` (bascule Oui/Non → "true"/"false") partagent
+        // le même rendu en chips ; les autres kinds sont des saisies texte/numériques.
+        const chipOptions =
+          field.kind === 'select'
+            ? field.options
+            : field.kind === 'bool'
+              ? [
+                  { value: 'true', label: 'Oui' },
+                  { value: 'false', label: 'Non' },
+                ]
+              : undefined;
+        return chipOptions ? (
           <View key={field.key} style={{ gap: spacing[2] }}>
             <Text
               style={{
@@ -1019,7 +1214,7 @@ function BlockParamsEditor({
               {field.required ? `${field.label} (requis)` : field.label}
             </Text>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] }}>
-              {field.options?.map((opt) => (
+              {chipOptions.map((opt) => (
                 <Chip
                   key={opt.value}
                   testID={`${tid}-param-${field.key}-${opt.value}`}
@@ -1043,8 +1238,8 @@ function BlockParamsEditor({
             }
             placeholder={field.placeholder}
           />
-        ),
-      )}
+        );
+      })}
     </View>
   );
 }

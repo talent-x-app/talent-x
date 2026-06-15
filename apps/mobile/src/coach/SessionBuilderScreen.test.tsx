@@ -357,7 +357,7 @@ describe('SessionBuilderScreen (TLX-052 — C-05)', () => {
     });
   });
 
-  it('sélectionne Sauts → sérialise type + params (élan décimal, complets, pliométrie) (TLX-058)', async () => {
+  it('sélectionne Sauts → sérialise type + params (discipline, élan+unité, cible, ADR-38) (TLX-058)', async () => {
     mockCreateSession.mockResolvedValue({ status: 201, data: { id: 's-jmp' } });
     render(<SessionBuilderScreen />, { wrapper: Wrapper });
 
@@ -366,9 +366,13 @@ describe('SessionBuilderScreen (TLX-052 — C-05)', () => {
     fireEvent.press(screen.getByTestId('block-0-type-jumps'));
 
     expect(screen.getByTestId('block-0-params')).toBeOnTheScreen();
-    fireEvent.changeText(screen.getByTestId('block-0-param-approachMeters'), '30.5');
+    // Nouveaux champs ADR-38 éditables via le constructeur générique : discipline + unité
+    // d'élan (chips select), élan/cible (saisie), sauts complets.
+    fireEvent.press(screen.getByTestId('block-0-param-discipline-long'));
+    fireEvent.changeText(screen.getByTestId('block-0-param-approach'), '18');
+    fireEvent.press(screen.getByTestId('block-0-param-approachUnit-steps'));
+    fireEvent.changeText(screen.getByTestId('block-0-param-targetMeters'), '7.2');
     fireEvent.changeText(screen.getByTestId('block-0-param-fullJumps'), '6');
-    fireEvent.changeText(screen.getByTestId('block-0-param-plyoContacts'), '40');
     fireEvent.press(screen.getByTestId('session-save'));
 
     await waitFor(() => expect(mockCreateSession).toHaveBeenCalled());
@@ -377,7 +381,41 @@ describe('SessionBuilderScreen (TLX-052 — C-05)', () => {
       name: 'Longueur — élan complet',
       order: 1,
       type: 'jumps',
-      params: { approachMeters: 30.5, fullJumps: 6, plyoContacts: 40 },
+      params: {
+        discipline: 'long',
+        approach: 18,
+        approachUnit: 'steps',
+        targetMeters: 7.2,
+        fullJumps: 6,
+      },
+    });
+  });
+
+  it('sélectionne Sprints → sérialise les params additifs (type de départ, zone lancée bool, ADR-38)', async () => {
+    mockCreateSession.mockResolvedValue({ status: 201, data: { id: 's-spr' } });
+    render(<SessionBuilderScreen />, { wrapper: Wrapper });
+
+    fireEvent.changeText(screen.getByTestId('session-field-title'), 'Vitesse');
+    fireEvent.changeText(screen.getByTestId('block-0-name'), '30 m lancé');
+    fireEvent.press(screen.getByTestId('block-0-type-sprint'));
+
+    expect(screen.getByTestId('block-0-params')).toBeOnTheScreen();
+    fireEvent.changeText(screen.getByTestId('block-0-param-distanceMeters'), '30');
+    fireEvent.press(screen.getByTestId('block-0-param-startType-flying'));
+    fireEvent.press(screen.getByTestId('block-0-param-flyingZone-true'));
+    fireEvent.press(screen.getByTestId('block-0-param-intensityMode-percent_record'));
+    fireEvent.changeText(screen.getByTestId('block-0-param-intensityValue'), '95');
+    fireEvent.press(screen.getByTestId('session-save'));
+
+    await waitFor(() => expect(mockCreateSession).toHaveBeenCalled());
+    const item = mockCreateSession.mock.calls[0][0].exercises.items[0];
+    expect(item.type).toBe('sprint');
+    expect(item.params).toMatchObject({
+      distanceMeters: 30,
+      startType: 'flying',
+      flyingZone: true,
+      intensityMode: 'percent_record',
+      intensityValue: 95,
     });
   });
 

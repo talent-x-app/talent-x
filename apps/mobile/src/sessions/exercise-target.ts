@@ -116,11 +116,15 @@ function typedTarget(ex: Exercise): string | undefined {
       ]);
     }
     case BlockType.jumps: {
-      const approach = num(p, 'approachMeters');
+      // `approach` + `approachUnit` (ADR-38) ; repli sur `approachMeters` legacy (= mètres).
+      const approach = num(p, 'approach') ?? num(p, 'approachMeters');
+      const unit = str(p, 'approachUnit');
+      const target = num(p, 'targetMeters');
       const full = num(p, 'fullJumps');
       const plyo = num(p, 'plyoContacts');
       return join([
-        approach != null ? `élan ${approach}m` : undefined,
+        approach != null ? `élan ${approach}${unit === 'steps' ? ' foulées' : 'm'}` : undefined,
+        target != null ? `cible ${target}m` : undefined,
         full != null ? `${full} complets` : undefined,
         plyo != null ? `${plyo} contacts` : undefined,
       ]);

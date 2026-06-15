@@ -85,3 +85,146 @@ describe('nodesFromExercises — hydratation v3 (ADR-27, Lot 3)', () => {
     expect((nodes[0] as { name: string }).name).toBe('B');
   });
 });
+
+describe('params additifs par discipline — round-trip (ADR-38, TLX-153)', () => {
+  /** Hydrate puis re-sérialise un exercice seul (order global = 1) → forme canonique. */
+  const roundTrip = (exercise: Exercise): Exercise =>
+    nodesToItems(nodesFromExercises([exercise]))[0] as Exercise;
+
+  it('sprint : startType (select) / flyingZone (bool) / intensité préservés', () => {
+    const input = ex({
+      name: '30 m',
+      order: 1,
+      type: BlockType.sprint,
+      params: {
+        distanceMeters: 30,
+        startType: 'blocks',
+        flyingZone: false,
+        intensityMode: 'percent_record',
+        intensityValue: 90,
+      },
+    });
+    expect(roundTrip(input)).toEqual(input);
+  });
+
+  it('sprint : flyingZone=true sérialisé en booléen', () => {
+    const out = roundTrip(
+      ex({
+        name: 'Lancé',
+        order: 1,
+        type: BlockType.sprint,
+        params: { distanceMeters: 40, flyingZone: true },
+      }),
+    );
+    expect(out.params).toEqual({ distanceMeters: 40, flyingZone: true });
+  });
+
+  it('hurdles : event (text) / spacingMode / leadLeg / approachMeters préservés', () => {
+    const input = ex({
+      name: '110 mH',
+      order: 1,
+      type: BlockType.hurdles,
+      params: {
+        distanceMeters: 110,
+        event: '110mH',
+        spacingMode: 'regulation',
+        hurdleCount: 10,
+        approachMeters: 13.72,
+        leadLeg: 'left',
+        startType: 'blocks',
+      },
+    });
+    expect(roundTrip(input)).toEqual(input);
+  });
+
+  it('endurance : recoveryType / workSeconds / hrZone / specificEvent préservés', () => {
+    const input = ex({
+      name: 'VMA',
+      order: 1,
+      type: BlockType.endurance,
+      params: {
+        distanceMeters: 400,
+        workSeconds: 90,
+        recoveryType: 'active',
+        percentVma: 105,
+        specificEvent: '3000m',
+        hrZone: 4,
+      },
+    });
+    expect(roundTrip(input)).toEqual(input);
+  });
+
+  it('jumps : discipline / approach + approachUnit / targetMode / targetPercent préservés', () => {
+    const input = ex({
+      name: 'Longueur',
+      order: 1,
+      type: BlockType.jumps,
+      params: {
+        discipline: 'long',
+        approach: 18,
+        approachUnit: 'steps',
+        attempts: 6,
+        takeoff: 'left',
+        targetMeters: 7.2,
+        targetMode: 'percent',
+        targetPercent: 95,
+      },
+    });
+    expect(roundTrip(input)).toEqual(input);
+  });
+
+  it('jumps : approachMeters legacy migré en approach + approachUnit:meters (rétro-compat)', () => {
+    const out = roundTrip(
+      ex({ name: 'Triple', order: 1, type: BlockType.jumps, params: { approachMeters: 38 } }),
+    );
+    expect(out.params).toEqual({ approach: 38, approachUnit: 'meters' });
+  });
+
+  it('vertical_jumps : bars / attemptsPerBar / gripCm préservés', () => {
+    const input = ex({
+      name: 'Perche',
+      order: 1,
+      type: BlockType.vertical_jumps,
+      params: {
+        discipline: 'pole',
+        startHeightCm: 420,
+        incrementCm: 10,
+        bars: 6,
+        attemptsPerBar: 3,
+        gripCm: 430,
+      },
+    });
+    expect(roundTrip(input)).toEqual(input);
+  });
+
+  it('throws : discipline / sex / implementState / targetMode / style préservés', () => {
+    const input = ex({
+      name: 'Poids',
+      order: 1,
+      type: BlockType.throws,
+      params: {
+        implementKg: 7.26,
+        discipline: 'shot',
+        sex: 'M',
+        implementState: 'regulation',
+        targetMeters: 18.5,
+        targetMode: 'absolute',
+        targetPercent: 92,
+        style: 'spin',
+      },
+    });
+    expect(roundTrip(input)).toEqual(input);
+  });
+
+  it('rejette une valeur de select hors options (non sérialisée)', () => {
+    const out = roundTrip(
+      ex({
+        name: 'X',
+        order: 1,
+        type: BlockType.sprint,
+        params: { distanceMeters: 60, startType: 'bogus' },
+      }),
+    );
+    expect(out.params).toEqual({ distanceMeters: 60 });
+  });
+});

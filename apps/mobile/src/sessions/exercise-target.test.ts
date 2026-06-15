@@ -58,7 +58,7 @@ describe('formatExerciseTarget (TLX-062 — cibles de bloc)', () => {
     ).toBe('h 84cm · esp. 8.5m · rythme 3');
   });
 
-  it('jumps : élan, complets, contacts', () => {
+  it('jumps : élan (legacy approachMeters = mètres), complets, contacts', () => {
     expect(
       formatExerciseTarget(
         ex({
@@ -67,6 +67,17 @@ describe('formatExerciseTarget (TLX-062 — cibles de bloc)', () => {
         }),
       ),
     ).toBe('élan 30m · 6 complets · 40 contacts');
+  });
+
+  it('jumps : élan en foulées + cible (ADR-38)', () => {
+    expect(
+      formatExerciseTarget(
+        ex({
+          type: BlockType.jumps,
+          params: { approach: 18, approachUnit: 'steps', targetMeters: 7.2, attempts: 6 },
+        }),
+      ),
+    ).toBe('élan 18 foulées · cible 7.2m');
   });
 
   it('vertical_jumps : discipline + barre de départ (cm → m) + montée (ADR-25)', () => {
