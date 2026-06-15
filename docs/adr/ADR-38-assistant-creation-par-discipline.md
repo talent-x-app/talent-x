@@ -1,6 +1,6 @@
 # ADR-38 — Assistant de création/affichage de séance par discipline (extension additive d'`exercises` v3)
 
-- **Statut :** Proposé
+- **Statut :** Accepté (2026-06-15)
 - **Date :** 2026-06-15
 - **Complète :** ADR-18 (`exercises` v2, `BlockType` + `params` libres), ADR-27 (`exercises`
   v3, groupes `kind: "group"` / `groupType: "series"`), ADR-28 (brief de séance), ADR-20/21
