@@ -18,9 +18,7 @@ import { Button, Card, Chip } from '../components/ui';
 import { useToast } from '../feedback';
 import { COMPETITIONS_QUERY_KEY } from '../competitions/competitions-query';
 import { competitionEngageHref } from '../competitions/navigation';
-
-/** Date calendaire `AAAA-MM-JJ` (validation légère côté client ; le backend fait foi). */
-const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+import { isValidCalendarDate } from '../dates/calendar-date';
 
 /**
  * Constructeur de compétition (TLX-101, ADR-24 — variante allégée de C-05). En-tête
@@ -135,11 +133,11 @@ export function CompetitionBuilderScreen({ competitionId }: { competitionId?: st
       setError('Donne un nom à la compétition.');
       return;
     }
-    if (!DATE_RE.test(startDate.trim())) {
+    if (!isValidCalendarDate(startDate)) {
       setError('Renseigne une date de début au format AAAA-MM-JJ.');
       return;
     }
-    if (endDate.trim() !== '' && !DATE_RE.test(endDate.trim())) {
+    if (endDate.trim() !== '' && !isValidCalendarDate(endDate)) {
       setError('La date de fin doit être au format AAAA-MM-JJ.');
       return;
     }

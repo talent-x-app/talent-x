@@ -63,6 +63,16 @@ describe('CompetitionBuilderScreen (TLX-101)', () => {
     expect(mockCreateCompetition).not.toHaveBeenCalled();
   });
 
+  it('refuse une date de début impossible que la regex seule acceptait (TLX-167)', () => {
+    render(<CompetitionBuilderScreen />, { wrapper: Wrapper });
+    fireEvent.changeText(screen.getByTestId('competition-field-name'), 'Meeting');
+    // Bien formée `AAAA-MM-JJ` mais inexistante : bloquée côté client (plus de 400 opaque).
+    fireEvent.changeText(screen.getByTestId('competition-field-start'), '2026-02-30');
+    fireEvent.press(screen.getByTestId('competition-save'));
+    expect(screen.getByTestId('competition-builder-validation')).toHaveTextContent(/début/i);
+    expect(mockCreateCompetition).not.toHaveBeenCalled();
+  });
+
   it('refuse une date de fin antérieure au début', () => {
     render(<CompetitionBuilderScreen />, { wrapper: Wrapper });
     fireEvent.changeText(screen.getByTestId('competition-field-name'), 'Meeting');
