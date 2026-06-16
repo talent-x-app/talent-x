@@ -68,46 +68,46 @@ describe('DisciplineAssistantScreen — Sprint (ADR-38, TLX-155)', () => {
     expect(screen.getByTestId('session-builder-title')).toHaveTextContent('Assistant Sprint');
     expect(screen.getByTestId('assistant-presets')).toBeOnTheScreen();
     expect(screen.getByTestId('assistant-preset-max_velocity')).toBeOnTheScreen();
-    // ADR-39 : Sprint rend la carte d'effort dédiée (pas l'éditeur de blocs générique).
+    // ADR-39 : Sprint rend le canvas d'effort dédié (pas l'éditeur de blocs générique).
     expect(screen.getByTestId('sprint-effort-canvas')).toBeOnTheScreen();
-    expect(screen.getByTestId('effort-0-0')).toBeOnTheScreen();
+    // La seed comprend 1 carte de série + barres Échauffement / RAC.
+    expect(screen.getByTestId('series-card-0')).toBeOnTheScreen();
+    expect(screen.getByTestId('warmup-bar')).toBeOnTheScreen();
+    expect(screen.getByTestId('cooldown-bar')).toBeOnTheScreen();
   });
 
-  it('ADR-39 : la carte d’effort édite les params et sérialise vers /sessions', async () => {
+  it("ADR-39 : le canvas d'effort édite les params et sérialise vers /sessions", async () => {
     mockCreateSession.mockResolvedValue({ status: 201, data: { id: 's3', title: 'Carte' } });
     render(<DisciplineAssistantScreen discipline="sprint" />, { wrapper: Wrapper });
 
-    // Édition via la carte (seed = 1 effort vierge).
-    fireEvent.press(screen.getByTestId('effort-0-0-dist-60')); // distance 60 m
-    fireEvent.press(screen.getByTestId('effort-0-0-reps-inc')); // reps 1 → 2
-    fireEvent.press(screen.getByTestId('effort-0-0-reps-inc')); // reps 2 → 3
-    fireEvent.press(screen.getByTestId('effort-0-0-series-inc')); // séries 1 → 2
-    fireEvent.press(screen.getByTestId('effort-0-0-start-blocks')); // départ Blocks
-    fireEvent.press(screen.getByTestId('effort-0-0-imode-percent_record')); // référentiel % record
-    fireEvent.press(screen.getByTestId('effort-0-0-ivalue-inc')); // 95 → 100 %
-    fireEvent.press(screen.getByTestId('effort-0-0-recov-240')); // récup r 4′
-    fireEvent.press(screen.getByTestId('effort-0-0-rtype-passive')); // récup passive (ADR-39)
-    fireEvent.press(screen.getByTestId('effort-0-0-bigR-480')); // récup R 8′
+    // Seed : [warmup, série(60m 95% blocks rounds=1 restR=300s), cooldown]
+    // Édition via le canvas (1 carte de série = 1 EditableGroup).
+    fireEvent.changeText(screen.getByTestId('series-card-0-sprint-0-dist'), '80'); // distance 80 m
+    fireEvent.changeText(screen.getByTestId('series-card-0-sprint-0-int'), '90'); // intensité 90 %
+    fireEvent.press(screen.getByTestId('series-card-0-rounds-inc')); // séries 1 → 2
+    fireEvent.press(screen.getByTestId('series-card-0-start-standing')); // départ Debout
+    fireEvent.changeText(screen.getByTestId('series-card-0-restR'), '6'); // récup R 6 min = 360 s
 
     fireEvent.changeText(screen.getByTestId('session-field-title'), 'Carte sprint');
     fireEvent.press(screen.getByTestId('session-save'));
 
     await waitFor(() => expect(mockCreateSession).toHaveBeenCalled());
     const body = mockCreateSession.mock.calls[0][0];
-    const group = body.exercises.items[0];
+    // nodes = [warmup, série, cooldown] → items[1] = groupe sprint
+    const group = body.exercises.items[1];
+    expect(group.kind).toBe('group');
     expect(group.groupType).toBe('series');
     expect(group.rounds).toBe(2);
-    expect(group.restBetweenRoundsSeconds).toBe(480);
+    expect(group.restBetweenRoundsSeconds).toBe(360);
     expect(group.items[0]).toMatchObject({
       type: 'sprint',
       params: {
-        distanceMeters: 60,
-        reps: 3,
+        distanceMeters: 80,
+        reps: 1,
         recoverySeconds: 240,
-        recoveryType: 'passive',
-        startType: 'blocks',
+        startType: 'standing',
         intensityMode: 'percent_record',
-        intensityValue: 100,
+        intensityValue: 90,
       },
     });
   });
@@ -127,6 +127,7 @@ describe('DisciplineAssistantScreen — Sprint (ADR-38, TLX-155)', () => {
     expect(body.status).toBe('published');
     expect(body.exercises.schemaVersion).toBe(3);
 
+    // Après preset, les nodes = [seriesA, seriesB] (sans warmup/cooldown — preset reset les nodes).
     const group = body.exercises.items[0];
     expect(group.kind).toBe('group');
     expect(group.groupType).toBe('series');
@@ -150,7 +151,7 @@ describe('DisciplineAssistantScreen — Sprint (ADR-38, TLX-155)', () => {
     ['endurance', 'Assistant Demi-fond / Endurance'],
     ['jumps', 'Assistant Sauts'],
     ['throws', 'Assistant Lancers'],
-  ])('rend l’assistant %s avec son titre + ses presets', (discipline, title) => {
+  ])("rend l'assistant %s avec son titre + ses presets", (discipline, title) => {
     render(<DisciplineAssistantScreen discipline={discipline} />, { wrapper: Wrapper });
     expect(screen.getByTestId('session-builder-title')).toHaveTextContent(title);
     expect(screen.getByTestId('assistant-presets')).toBeOnTheScreen();

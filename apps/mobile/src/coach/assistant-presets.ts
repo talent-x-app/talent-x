@@ -5,6 +5,7 @@ import {
   type EditableBlock,
   type EditableNode,
 } from './session-builder-ui';
+import { makeCooldownBlock, makeWarmupBlock } from './sprint-effort-card';
 import { type SessionBuilderPreset } from './SessionBuilderScreen';
 import { disciplineConfig, type DisciplineKey } from './discipline-assistants';
 
@@ -660,11 +661,34 @@ export function assistantPresets(discipline: string | undefined): SessionBuilder
 export function assistantSeed(discipline: string | undefined): EditableNode[] {
   const cfg = disciplineConfig(discipline);
   if (!cfg) return [];
-  return [
-    makeSeriesGroup({
-      name: `Série de ${cfg.effortLabel.toLowerCase()}`,
+  const series = makeSeriesGroup({
+    name: `Série de ${cfg.effortLabel.toLowerCase()}`,
+    rounds: '1',
+    items: [makeBlock({ type: cfg.blockType, name: cfg.effortLabel })],
+  });
+  // Sprint : amorce avec échauffement + 1 sprint par défaut + retour au calme (ADR-39, TLX-165).
+  if (cfg.key === 'sprint') {
+    const sprintSeries = makeSeriesGroup({
+      name: 'Série de sprint',
       rounds: '1',
-      items: [makeBlock({ type: cfg.blockType, name: cfg.effortLabel })],
-    }),
-  ];
+      restBetweenRoundsSeconds: '300',
+      items: [
+        makeBlock({
+          type: BlockType.sprint,
+          name: '60 m',
+          params: {
+            reps: '1',
+            distanceMeters: '60',
+            recoverySeconds: '240',
+            intensityMode: 'percent_record',
+            intensityValue: '95',
+            startType: 'blocks',
+            flyingZone: 'false',
+          },
+        }),
+      ],
+    });
+    return [makeWarmupBlock(), sprintSeries, makeCooldownBlock()];
+  }
+  return [series];
 }
