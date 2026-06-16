@@ -11,7 +11,7 @@ import {
   type EditableGroup,
   type EditableNode,
 } from './session-builder-ui';
-import { JUMPS_PRESETS } from './assistant-presets';
+import { JUMPS_PRESETS, JUMP_RECORDS, targetDistanceFromRecord } from './assistant-presets';
 import {
   CanvasKpiHeader,
   CellInput,
@@ -503,10 +503,15 @@ function HorizontalJumpEditor({
 }) {
   const { spacing } = useTheme();
   const approachLabel = approachUnit === 'meters' ? 'm' : 'foul.';
+  const discipline = group.items[0]?.params.discipline ?? 'long';
   const targetValue =
     targetMode === 'absolute'
       ? (group.items[0]?.params.targetMeters ?? '')
       : (group.items[0]?.params.targetPercent ?? '');
+  const targetDistance =
+    targetMode === 'percent_record'
+      ? targetDistanceFromRecord(JUMP_RECORDS, discipline, Number(targetValue) || 0)
+      : undefined;
 
   return (
     <>
@@ -593,7 +598,9 @@ function HorizontalJumpEditor({
         <InfoNote>
           {targetMode === 'absolute'
             ? 'Distance cible absolue, commune à tous les athlètes.'
-            : 'Cible individualisée · % du record de chaque athlète.'}
+            : `Cible individualisée · % du record de chaque athlète${
+                targetDistance != null ? ` (≈ ${targetDistance} m sur la référence du module)` : ''
+              }.`}
         </InfoNote>
       </View>
     </>

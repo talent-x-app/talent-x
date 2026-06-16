@@ -101,6 +101,65 @@ export const SPRINT_PRESETS: SessionBuilderPreset[] = [
   },
 ];
 
+// --- Tables de records (fictifs, ADR-40) -----------------------------------------------------
+
+/**
+ * Records fictifs (mêmes esprit/usage que les `PRESETS` des prototypes : permettent de calculer
+ * une **valeur cible réelle** — temps pour haies/sprint, distance pour sauts/lancers — à partir
+ * d'un % du record. Valeurs plausibles mais non officielles, à affiner si besoin (TLX-168).
+ */
+export const HURDLE_RECORDS: Record<string, number> = {
+  '110mH-H': 13.8,
+  '100mH-F': 13.0,
+  '60mH-H': 7.7,
+  '60mH-F': 8.1,
+  '400mH-H': 50.0,
+  '400mH-F': 56.0,
+};
+
+/** Records fictifs de sauts horizontaux/verticaux (mètres), référence unique par discipline. */
+export const JUMP_RECORDS: Record<string, number> = {
+  long: 8.95,
+  triple: 18.29,
+  high: 2.45,
+  pole: 6.23,
+};
+
+/** Records fictifs de lancers (mètres), référence unique par discipline. */
+export const THROW_RECORDS: Record<string, number> = {
+  shot: 23.12,
+  discus: 74.08,
+  javelin: 98.48,
+  hammer: 86.74,
+};
+
+/** Clé de référentiel haies : `${event}-${sex}` (ex. `110mH-H`). */
+export function hurdleRecordKey(event: string, sex: 'H' | 'F'): string {
+  return `${event}-${sex}`;
+}
+
+/** Valeur cible (temps, s) = record × 100 ⁄ %record. `undefined` si référentiel inconnu. */
+export function targetTimeFromRecord(
+  event: string,
+  sex: 'H' | 'F',
+  percent: number,
+): number | undefined {
+  const ref = HURDLE_RECORDS[hurdleRecordKey(event, sex)];
+  if (ref == null || percent <= 0) return undefined;
+  return Math.round((ref * 100) / percent / 0.01) * 0.01;
+}
+
+/** Valeur cible (distance, m) = record × %record ⁄ 100. `undefined` si discipline inconnue. */
+export function targetDistanceFromRecord(
+  records: Record<string, number>,
+  discipline: string,
+  percent: number,
+): number | undefined {
+  const ref = records[discipline];
+  if (ref == null) return undefined;
+  return Math.round(ref * (percent / 100) * 100) / 100;
+}
+
 // --- Haies (TLX-156) -------------------------------------------------------------------------
 
 /**
@@ -544,20 +603,24 @@ function throwEffort(opts: {
   fullThrows?: number;
   implementState?: string;
   style?: string;
+  targetPercent?: number;
 }): EditableBlock {
   const params: Record<string, string> = {
     discipline: opts.discipline,
     sex: opts.sex,
     implementState: opts.implementState ?? 'regulation',
+    targetMode: 'percent_record',
   };
   const kg = regulationImplementKg(opts.discipline, opts.sex);
   if (kg != null) params.implementKg = String(kg);
   if (opts.techniqueThrows != null) params.techniqueThrows = String(opts.techniqueThrows);
   if (opts.fullThrows != null) params.fullThrows = String(opts.fullThrows);
   if (opts.style) params.style = opts.style;
+  if (opts.targetPercent != null) params.targetPercent = String(opts.targetPercent);
   return makeBlock({ type: BlockType.throws, name: opts.name, params });
 }
 
+/** Presets Lancers réalignés sur les prototypes (ADR-40, TLX-168). */
 export const THROWS_PRESETS: SessionBuilderPreset[] = [
   {
     key: 'shot_technique',
@@ -571,9 +634,10 @@ export const THROWS_PRESETS: SessionBuilderPreset[] = [
             discipline: 'shot',
             sex: 'M',
             name: 'Poids technique',
-            techniqueThrows: 10,
-            fullThrows: 0,
+            techniqueThrows: 12,
+            fullThrows: 4,
             style: 'spin',
+            targetPercent: 90,
           }),
         ],
       }),
@@ -591,9 +655,10 @@ export const THROWS_PRESETS: SessionBuilderPreset[] = [
             discipline: 'shot',
             sex: 'M',
             name: 'Poids jets pleins',
-            techniqueThrows: 2,
-            fullThrows: 6,
+            techniqueThrows: 4,
+            fullThrows: 10,
             style: 'spin',
+            targetPercent: 95,
           }),
         ],
       }),
@@ -613,6 +678,7 @@ export const THROWS_PRESETS: SessionBuilderPreset[] = [
             name: 'Disque compétition',
             techniqueThrows: 2,
             fullThrows: 6,
+            targetPercent: 100,
           }),
         ],
       }),
@@ -631,8 +697,32 @@ export const THROWS_PRESETS: SessionBuilderPreset[] = [
             sex: 'M',
             name: 'Poids lourd',
             implementState: 'heavy',
+            techniqueThrows: 6,
             fullThrows: 8,
             style: 'glide',
+            targetPercent: 85,
+          }),
+        ],
+      }),
+    ],
+  },
+  {
+    key: 'shot_light',
+    label: 'Poids — engin léger',
+    build: () => [
+      makeSeriesGroup({
+        name: 'Poids — engin léger',
+        rounds: '1',
+        items: [
+          throwEffort({
+            discipline: 'shot',
+            sex: 'M',
+            name: 'Poids léger',
+            implementState: 'light',
+            techniqueThrows: 4,
+            fullThrows: 10,
+            style: 'spin',
+            targetPercent: 100,
           }),
         ],
       }),

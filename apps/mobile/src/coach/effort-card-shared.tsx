@@ -157,6 +157,7 @@ export function SeriesCardFrame({
   return (
     <Card testID={testID}>
       <Pressable
+        testID={`${testID}-toggle`}
         onPress={() => setCollapsed((v) => !v)}
         style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[3] }}
         accessibilityRole="button"
