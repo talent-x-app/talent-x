@@ -512,6 +512,26 @@ export function makeBlock(over: Partial<EditableBlock> & { type: BlockType }): E
   return { ...makeEmptyBlock(), ...over };
 }
 
+/** Bloc d'échauffement par défaut pour l'assistant Sprint (ADR-39). */
+export function makeWarmupBlock(): EditableBlock {
+  return makeBlock({
+    type: BlockType.warmup,
+    name: 'Échauffement',
+    notes: 'Footing 12′ · gammes (4×2×30 m) · 3 lignes droites · ~25 min',
+    params: {},
+  });
+}
+
+/** Bloc de retour au calme par défaut pour l'assistant Sprint (ADR-39). */
+export function makeCooldownBlock(): EditableBlock {
+  return makeBlock({
+    type: BlockType.cooldown,
+    name: 'Retour au calme',
+    notes: 'Footing 8′ · étirements · respiration · ~10 min',
+    params: {},
+  });
+}
+
 /**
  * Groupe « série » pré-rempli (assistants par discipline, ADR-38) : `groupType: "series"` par
  * défaut, membres fournis par l'appelant. Réutilisé par les presets pour structurer une séance

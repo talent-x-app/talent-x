@@ -7,13 +7,19 @@ import { Button, Card, Chip, Stepper } from '../components/ui';
 import {
   isEditableGroup,
   makeBlock,
+  makeCooldownBlock,
   makeSeriesGroup,
+  makeWarmupBlock,
   nodesToItems,
   type EditableBlock,
   type EditableGroup,
   type EditableNode,
 } from './session-builder-ui';
+import { SPRINT_PRESETS } from './assistant-presets';
 import { formatDistanceVolume, sessionKpis } from '../sessions/session-summary';
+
+// Re-exports pour les consommateurs existants (tests, assistant-presets).
+export { makeWarmupBlock, makeCooldownBlock };
 
 /**
  * Canvas Sprint (ADR-39, TLX-165) — layout fidèle à la maquette.
@@ -37,45 +43,6 @@ const INTENSITY_MODES = [
   { value: 'percent_record', label: '% record' },
   { value: 'target_time', label: 'Temps cible' },
   { value: 'speed', label: 'Vitesse m/s' },
-];
-
-const SPRINT_PRESETS_UI = [
-  {
-    key: 'accel',
-    label: 'Départs / Accélération',
-    seriesCount: 1,
-    restR: 180,
-    start: 'blocks',
-    sprints: [{ distance: 30, intensity: 100, recovery: 180 }],
-  },
-  {
-    key: 'vmax',
-    label: 'Vitesse max',
-    seriesCount: 2,
-    restR: 360,
-    start: 'blocks',
-    sprints: [
-      { distance: 30, intensity: 90, recovery: 180 },
-      { distance: 40, intensity: 95, recovery: 240 },
-      { distance: 50, intensity: 100, recovery: 300 },
-    ],
-  },
-  {
-    key: 'vendur',
-    label: 'Endurance de vitesse',
-    seriesCount: 1,
-    restR: 480,
-    start: 'three_point',
-    sprints: [{ distance: 120, intensity: 95, recovery: 480 }],
-  },
-  {
-    key: 'lactic',
-    label: 'Résistance / lactique',
-    seriesCount: 1,
-    restR: 600,
-    start: 'standing',
-    sprints: [{ distance: 200, intensity: 92, recovery: 600 }],
-  },
 ];
 
 // ---------- Helpers -------------------------------------------------------------------------
@@ -141,26 +108,6 @@ function makeSprintBlock(opts: {
       startType: opts.startType,
       flyingZone: opts.flyingZone ? 'true' : 'false',
     },
-  });
-}
-
-/** Bloc d'échauffement par défaut. */
-export function makeWarmupBlock(): EditableBlock {
-  return makeBlock({
-    type: BlockType.warmup,
-    name: 'Échauffement',
-    notes: 'Footing 12′ · gammes (4×2×30 m) · 3 lignes droites · ~25 min',
-    params: {},
-  });
-}
-
-/** Bloc de retour au calme par défaut. */
-export function makeCooldownBlock(): EditableBlock {
-  return makeBlock({
-    type: BlockType.cooldown,
-    name: 'Retour au calme',
-    notes: 'Footing 8′ · étirements · respiration · ~10 min',
-    params: {},
   });
 }
 
@@ -297,27 +244,16 @@ export function SprintEffortCanvas({
   }
 
   function applyPreset(gi: number, presetKey: string) {
-    const preset = SPRINT_PRESETS_UI.find((p) => p.key === presetKey);
+    const preset = SPRINT_PRESETS.find((p) => p.key === presetKey);
     if (!preset) return;
+    const built = preset.build();
+    const builtGroup = built.find((n) => isEditableGroup(n)) as EditableGroup | undefined;
+    if (!builtGroup) return;
     commit(
       series.map((g, i) => {
         if (i !== gi) return g;
-        const currentIntensityMode = serieProps(g).intensityMode;
-        return {
-          ...g,
-          rounds: String(preset.seriesCount),
-          restBetweenRoundsSeconds: String(preset.restR),
-          items: preset.sprints.map((sp) =>
-            makeSprintBlock({
-              distance: sp.distance,
-              intensity: sp.intensity,
-              recovery: sp.recovery,
-              intensityMode: currentIntensityMode,
-              startType: preset.start,
-              flyingZone: false,
-            }),
-          ),
-        };
+        // Préserve la clé pour ne pas re-monter la carte (conserve l'état réduit/développé).
+        return { ...builtGroup, key: g.key };
       }),
     );
   }
@@ -532,6 +468,7 @@ function SeriesCard({
   onDelete: () => void;
 }) {
   const [collapsed, setCollapsed] = useState(false);
+  const [selectedPresetKey, setSelectedPresetKey] = useState('');
   const { colors, typography, spacing, radius } = useTheme();
   const tid = `series-card-${index}`;
   const { intensityMode, startType, flyingZone, rounds, restR } = serieProps(group);
@@ -634,7 +571,14 @@ function SeriesCard({
           >
             <View style={{ flex: 1, minWidth: 130 }}>
               <FieldLabel>Modèle</FieldLabel>
-              <PresetPicker testID={`${tid}-preset`} onSelect={onApplyPreset} />
+              <PresetPicker
+                testID={`${tid}-preset`}
+                selectedKey={selectedPresetKey}
+                onSelect={(key) => {
+                  setSelectedPresetKey(key);
+                  onApplyPreset(key);
+                }}
+              />
             </View>
             <View>
               <FieldLabel>Séries</FieldLabel>
@@ -1037,10 +981,19 @@ function SwitchToggle({
   );
 }
 
-/** Sélecteur de preset en liste déroulante. */
-function PresetPicker({ onSelect, testID }: { onSelect: (key: string) => void; testID?: string }) {
+/** Sélecteur de preset en liste déroulante — affiche le nom du modèle sélectionné. */
+function PresetPicker({
+  selectedKey,
+  onSelect,
+  testID,
+}: {
+  selectedKey: string;
+  onSelect: (key: string) => void;
+  testID?: string;
+}) {
   const [open, setOpen] = useState(false);
   const { colors, typography, spacing, radius, borderWidth } = useTheme();
+  const selectedLabel = SPRINT_PRESETS.find((p) => p.key === selectedKey)?.label;
 
   if (!open) {
     return (
@@ -1055,7 +1008,7 @@ function PresetPicker({ onSelect, testID }: { onSelect: (key: string) => void; t
           justifyContent: 'space-between',
           borderRadius: radius.sm,
           borderWidth: borderWidth.hairline,
-          borderColor: colors.borderStrong,
+          borderColor: selectedLabel ? colors.accent : colors.borderStrong,
           backgroundColor: colors.surfaceSunken,
           gap: spacing[2],
         }}
@@ -1063,15 +1016,21 @@ function PresetPicker({ onSelect, testID }: { onSelect: (key: string) => void; t
         <Text
           style={{
             flex: 1,
-            color: colors.textMuted,
-            fontFamily: typography.fontFamily.regular,
+            color: selectedLabel ? colors.accentText : colors.textMuted,
+            fontFamily: selectedLabel
+              ? typography.fontFamily.medium
+              : typography.fontFamily.regular,
             fontSize: typography.bodySm.fontSize,
           }}
           numberOfLines={1}
         >
-          Choisir un modèle…
+          {selectedLabel ?? 'Choisir un modèle…'}
         </Text>
-        <Feather name="chevron-down" size={14} color={colors.textMuted} />
+        <Feather
+          name="chevron-down"
+          size={14}
+          color={selectedLabel ? colors.accentText : colors.textMuted}
+        />
       </Pressable>
     );
   }
@@ -1086,9 +1045,10 @@ function PresetPicker({ onSelect, testID }: { onSelect: (key: string) => void; t
         overflow: 'hidden',
       }}
     >
-      {SPRINT_PRESETS_UI.map((p) => (
+      {SPRINT_PRESETS.map((p) => (
         <Pressable
           key={p.key}
+          testID={testID ? `${testID}-${p.key}` : undefined}
           onPress={() => {
             onSelect(p.key);
             setOpen(false);
@@ -1096,13 +1056,21 @@ function PresetPicker({ onSelect, testID }: { onSelect: (key: string) => void; t
           style={({ pressed }) => ({
             paddingHorizontal: spacing[3],
             paddingVertical: spacing[2],
-            backgroundColor: pressed ? colors.accentSubtle : 'transparent',
+            backgroundColor:
+              p.key === selectedKey
+                ? colors.accentSubtle
+                : pressed
+                  ? colors.surfaceSunken
+                  : 'transparent',
           })}
         >
           <Text
             style={{
-              color: colors.textPrimary,
-              fontFamily: typography.fontFamily.regular,
+              color: p.key === selectedKey ? colors.accentText : colors.textPrimary,
+              fontFamily:
+                p.key === selectedKey
+                  ? typography.fontFamily.semibold
+                  : typography.fontFamily.regular,
               fontSize: typography.bodySm.fontSize,
             }}
           >

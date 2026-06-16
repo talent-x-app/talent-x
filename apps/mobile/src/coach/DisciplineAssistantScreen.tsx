@@ -21,7 +21,7 @@ export function DisciplineAssistantScreen({ discipline }: { discipline?: string 
     <SessionBuilderScreen
       titleText={`Assistant ${cfg.label}`}
       seed={seed}
-      presets={presets}
+      presets={cfg.key === 'sprint' ? [] : presets}
       // ADR-39 (TLX-165) : Sprint utilise la carte d'effort dédiée ; les autres disciplines
       // restent sur l'éditeur de blocs générique en attendant leur carte (TLX-167, différé).
       renderCanvas={

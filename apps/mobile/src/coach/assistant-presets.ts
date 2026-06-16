@@ -1,11 +1,12 @@
 import { BlockType } from '@talent-x/api-client';
 import {
   makeBlock,
+  makeCooldownBlock,
   makeSeriesGroup,
+  makeWarmupBlock,
   type EditableBlock,
   type EditableNode,
 } from './session-builder-ui';
-import { makeCooldownBlock, makeWarmupBlock } from './sprint-effort-card';
 import { type SessionBuilderPreset } from './SessionBuilderScreen';
 import { disciplineConfig, type DisciplineKey } from './discipline-assistants';
 
@@ -54,8 +55,8 @@ function sprintSeries(
   });
 }
 
-/** Presets Sprint repris de la maquette (ADR-38, TLX-155). */
-const SPRINT_PRESETS: SessionBuilderPreset[] = [
+/** Presets Sprint repris de la maquette (ADR-38, TLX-155). Exporté pour le canvas Sprint (ADR-39). */
+export const SPRINT_PRESETS: SessionBuilderPreset[] = [
   {
     key: 'starts',
     label: 'Départs / Accélération',

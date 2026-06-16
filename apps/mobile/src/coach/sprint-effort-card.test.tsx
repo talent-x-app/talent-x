@@ -248,8 +248,8 @@ describe('SprintEffortCanvas', () => {
     });
     const [arg] = onChange.mock.calls[onChange.mock.calls.length - 1];
     expect(arg[1].rounds).toBe('2');
-    expect(arg[1].items.length).toBe(3);
-    expect(arg[1].items[0].params.distanceMeters).toBe('30');
+    expect(arg[1].items.length).toBe(2);
+    expect(arg[1].items[0].params.distanceMeters).toBe('60');
   });
 
   it("change le mode d'intensité pour toute la série", () => {

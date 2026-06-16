@@ -66,8 +66,9 @@ describe('DisciplineAssistantScreen — Sprint (ADR-38, TLX-155)', () => {
   it('rend le titre dédié + les presets Sprint + une série amorcée', () => {
     render(<DisciplineAssistantScreen discipline="sprint" />, { wrapper: Wrapper });
     expect(screen.getByTestId('session-builder-title')).toHaveTextContent('Assistant Sprint');
-    expect(screen.getByTestId('assistant-presets')).toBeOnTheScreen();
-    expect(screen.getByTestId('assistant-preset-max_velocity')).toBeOnTheScreen();
+    // ADR-39/TLX-165 : Sprint n'a pas de barre de presets globale ; le sélecteur est dans la carte.
+    expect(screen.queryByTestId('assistant-presets')).toBeNull();
+    expect(screen.getByTestId('series-card-0-preset')).toBeOnTheScreen();
     // ADR-39 : Sprint rend le canvas d'effort dédié (pas l'éditeur de blocs générique).
     expect(screen.getByTestId('sprint-effort-canvas')).toBeOnTheScreen();
     // La seed comprend 1 carte de série + barres Échauffement / RAC.
@@ -116,7 +117,9 @@ describe('DisciplineAssistantScreen — Sprint (ADR-38, TLX-155)', () => {
     mockCreateSession.mockResolvedValue({ status: 201, data: { id: 's1', title: 'Vitesse' } });
     render(<DisciplineAssistantScreen discipline="sprint" />, { wrapper: Wrapper });
 
-    fireEvent.press(screen.getByTestId('assistant-preset-max_velocity'));
+    // Le sélecteur de preset est dans la carte série (plus de barre globale pour Sprint).
+    fireEvent.press(screen.getByTestId('series-card-0-preset'));
+    fireEvent.press(screen.getByTestId('series-card-0-preset-max_velocity'));
     fireEvent.changeText(screen.getByTestId('session-field-title'), 'Vitesse max — mardi');
     fireEvent.press(screen.getByTestId('session-status-published'));
     fireEvent.press(screen.getByTestId('session-save'));
@@ -127,8 +130,9 @@ describe('DisciplineAssistantScreen — Sprint (ADR-38, TLX-155)', () => {
     expect(body.status).toBe('published');
     expect(body.exercises.schemaVersion).toBe(3);
 
-    // Après preset, les nodes = [seriesA, seriesB] (sans warmup/cooldown — preset reset les nodes).
-    const group = body.exercises.items[0];
+    // Après preset dans la carte 0 : nodes = [warmup, seriesA, seriesB?, cooldown].
+    // Le canvas garantit warmup en [0] → items[1] est la première série.
+    const group = body.exercises.items[1];
     expect(group.kind).toBe('group');
     expect(group.groupType).toBe('series');
     expect(group.rounds).toBe(2);
