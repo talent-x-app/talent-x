@@ -39,6 +39,7 @@ import {
 } from './brief-editor';
 import { assignSessionHref, coachTemplatesHref } from './navigation';
 import { EXERCISES_SCHEMA_VERSION } from '../sessions/exercises-doc';
+import { isValidCalendarDate } from '../dates/calendar-date';
 
 /**
  * Constructeur de séance (C-05 — TLX-052). En-tête (titre, description, date, statut) +
@@ -330,6 +331,13 @@ export function SessionBuilderScreen({
     setError(null);
     if (title.trim() === '') {
       setError('Donne un titre à la séance.');
+      return;
+    }
+    // Date optionnelle, mais si renseignée elle doit être une vraie date calendaire : sans
+    // ce garde, une saisie malformée (`AAAA-MM-JJ` libre) partirait en 400 `@IsDateString`
+    // opaque, affiché comme un échec d'enregistrement générique (TLX-167). Masquée en modèle.
+    if (!isTemplate && scheduledDate.trim() !== '' && !isValidCalendarDate(scheduledDate)) {
+      setError('Indique une date valide au format AAAA-MM-JJ (ex. 2026-06-20).');
       return;
     }
     // Parcours group-aware : nom manquant, groupe vide/sans nom, ou `param` requis (TLX-91)

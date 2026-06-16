@@ -128,6 +128,24 @@ describe('SessionBuilderScreen (TLX-052 — C-05)', () => {
     return waitFor(() => expect(mockCreateSession).toHaveBeenCalled());
   });
 
+  it('refuse la sauvegarde si la date prévue est malformée (TLX-167)', async () => {
+    render(<SessionBuilderScreen />, { wrapper: Wrapper });
+    fireEvent.changeText(screen.getByTestId('session-field-title'), 'Vitesse');
+    fireEvent.changeText(screen.getByTestId('block-0-name'), 'Footing');
+    // Jour impossible : la regex seule l'aurait laissé filer en 400 serveur opaque.
+    fireEvent.changeText(screen.getByTestId('session-field-date'), '2026-02-30');
+    fireEvent.press(screen.getByTestId('session-save'));
+    expect(screen.getByTestId('session-builder-validation')).toHaveTextContent(/date valide/i);
+    expect(mockCreateSession).not.toHaveBeenCalled();
+
+    // Corrigée en une vraie date → l'enregistrement passe et la date est sérialisée.
+    mockCreateSession.mockResolvedValue({ status: 201, data: { id: 's-date' } });
+    fireEvent.changeText(screen.getByTestId('session-field-date'), '2026-06-20');
+    fireEvent.press(screen.getByTestId('session-save'));
+    await waitFor(() => expect(mockCreateSession).toHaveBeenCalled());
+    expect(mockCreateSession.mock.calls[0][0].scheduledDate).toBe('2026-06-20');
+  });
+
   it('ajoute et supprime des blocs', () => {
     render(<SessionBuilderScreen />, { wrapper: Wrapper });
     fireEvent.press(screen.getByTestId('session-add-block'));

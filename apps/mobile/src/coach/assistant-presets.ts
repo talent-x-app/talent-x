@@ -1,7 +1,9 @@
 import { BlockType } from '@talent-x/api-client';
 import {
   makeBlock,
+  makeCooldownBlock,
   makeSeriesGroup,
+  makeWarmupBlock,
   type EditableBlock,
   type EditableNode,
 } from './session-builder-ui';
@@ -53,8 +55,8 @@ function sprintSeries(
   });
 }
 
-/** Presets Sprint repris de la maquette (ADR-38, TLX-155). */
-const SPRINT_PRESETS: SessionBuilderPreset[] = [
+/** Presets Sprint repris de la maquette (ADR-38, TLX-155). Exporté pour le canvas Sprint (ADR-39). */
+export const SPRINT_PRESETS: SessionBuilderPreset[] = [
   {
     key: 'starts',
     label: 'Départs / Accélération',
@@ -153,7 +155,7 @@ function hurdleEffort(opts: {
   });
 }
 
-const HURDLES_PRESETS: SessionBuilderPreset[] = [
+export const HURDLES_PRESETS: SessionBuilderPreset[] = [
   {
     key: 'h110',
     label: '110 m haies (H)',
@@ -257,7 +259,7 @@ function enduranceEffort(opts: {
   });
 }
 
-const ENDURANCE_PRESETS: SessionBuilderPreset[] = [
+export const ENDURANCE_PRESETS: SessionBuilderPreset[] = [
   {
     key: 'fundamental',
     label: 'Endurance fondamentale',
@@ -411,7 +413,7 @@ function verticalJump(opts: {
   return makeBlock({ type: BlockType.vertical_jumps, name: opts.name, params });
 }
 
-const JUMPS_PRESETS: SessionBuilderPreset[] = [
+export const JUMPS_PRESETS: SessionBuilderPreset[] = [
   {
     key: 'long_full',
     label: 'Longueur — élan complet',
@@ -556,7 +558,7 @@ function throwEffort(opts: {
   return makeBlock({ type: BlockType.throws, name: opts.name, params });
 }
 
-const THROWS_PRESETS: SessionBuilderPreset[] = [
+export const THROWS_PRESETS: SessionBuilderPreset[] = [
   {
     key: 'shot_technique',
     label: 'Poids — technique',
@@ -660,11 +662,34 @@ export function assistantPresets(discipline: string | undefined): SessionBuilder
 export function assistantSeed(discipline: string | undefined): EditableNode[] {
   const cfg = disciplineConfig(discipline);
   if (!cfg) return [];
-  return [
-    makeSeriesGroup({
-      name: `Série de ${cfg.effortLabel.toLowerCase()}`,
+  const series = makeSeriesGroup({
+    name: `Série de ${cfg.effortLabel.toLowerCase()}`,
+    rounds: '1',
+    items: [makeBlock({ type: cfg.blockType, name: cfg.effortLabel })],
+  });
+  // Sprint : amorce avec échauffement + 1 sprint par défaut + retour au calme (ADR-39, TLX-165).
+  if (cfg.key === 'sprint') {
+    const sprintSeries = makeSeriesGroup({
+      name: 'Série de sprint',
       rounds: '1',
-      items: [makeBlock({ type: cfg.blockType, name: cfg.effortLabel })],
-    }),
-  ];
+      restBetweenRoundsSeconds: '300',
+      items: [
+        makeBlock({
+          type: BlockType.sprint,
+          name: '60 m',
+          params: {
+            reps: '1',
+            distanceMeters: '60',
+            recoverySeconds: '240',
+            intensityMode: 'percent_record',
+            intensityValue: '95',
+            startType: 'blocks',
+            flyingZone: 'false',
+          },
+        }),
+      ],
+    });
+    return [makeWarmupBlock(), sprintSeries, makeCooldownBlock()];
+  }
+  return [series];
 }

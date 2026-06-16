@@ -14,7 +14,7 @@ import {
   type EditableGroup,
   type EditableNode,
 } from './session-builder-ui';
-import { SPRINT_PRESETS } from './assistant-presets';
+import { HURDLES_PRESETS } from './assistant-presets';
 import { formatDistanceVolume, sessionKpis } from '../sessions/session-summary';
 import {
   CanvasKpiHeader,
@@ -28,22 +28,17 @@ import {
   PresetPicker,
   SegmentedControl,
   SeriesCardFrame,
-  SwitchToggle,
   WarmupCooldownBar,
   formatMinutes,
   splitEffortNodes,
 } from './effort-card-shared';
 
-// Re-exports pour les consommateurs existants (tests, assistant-presets).
-export { makeWarmupBlock, makeCooldownBlock };
-
 /**
- * Canvas Sprint (ADR-39, TLX-165) — layout fidèle à la maquette.
- * Structure : Échauffement · cartes de série · Retour au calme · + ajouter.
- * 1 carte = 1 série (EditableGroup). Chaque sprint = 1 feuille (EditableBlock).
- * Les propriétés partagées d'une série (intensityMode, startType, flyingZone)
- * sont portées par les params de chaque sprint du groupe pour garantir le round-trip
- * sans perte (invariant ADR-27/38). Zéro changement de contrat.
+ * Canvas Haies (ADR-39, TLX-166) — même patron que Sprint : Échauffement · cartes de série ·
+ * Retour au calme · + ajouter. 1 carte = 1 série, 1 ligne = 1 passage de haies. Les paramètres
+ * techniques de l'épreuve (épreuve, rythme, espacement, nb de haies, jambe d'attaque, départ,
+ * référentiel d'intensité) sont partagés par la série ; distance/hauteur/récup varient par
+ * passage. Zéro changement de contrat — sérialisé via `nodesToItems`.
  */
 
 // ---------- Référence données ----------------------------------------------------------------
@@ -55,6 +50,11 @@ const START_TYPES = [
   { value: 'flying', label: 'Lancé' },
 ];
 
+const LEAD_LEGS = [
+  { value: 'left', label: 'Gauche' },
+  { value: 'right', label: 'Droite' },
+];
+
 const INTENSITY_MODES = [
   { value: 'percent_record', label: '% record' },
   { value: 'target_time', label: 'Temps cible' },
@@ -63,13 +63,17 @@ const INTENSITY_MODES = [
 
 // ---------- Helpers -------------------------------------------------------------------------
 
-/** Propriétés partagées d'une série, lues depuis le premier sprint du groupe. */
+/** Propriétés partagées d'une série, lues depuis le premier passage du groupe. */
 function serieProps(group: EditableGroup) {
   const first = group.items[0];
   return {
-    intensityMode: first?.params.intensityMode ?? 'percent_record',
+    event: first?.params.event ?? 'Haies',
+    rhythmSteps: first?.params.rhythmSteps ?? '',
+    spacingMeters: first?.params.spacingMeters ?? '',
+    hurdleCount: first?.params.hurdleCount ?? '',
+    leadLeg: first?.params.leadLeg ?? 'left',
     startType: first?.params.startType ?? 'blocks',
-    flyingZone: first?.params.flyingZone === 'true',
+    intensityMode: first?.params.intensityMode ?? 'percent_record',
     rounds: Math.max(1, Number(group.rounds) || 1),
     restR: Math.max(0, Number(group.restBetweenRoundsSeconds) || 0),
   };
@@ -77,57 +81,81 @@ function serieProps(group: EditableGroup) {
 
 /** Résumé condensé d'une série pour la tuile réduite. */
 function serieSummary(group: EditableGroup): string {
-  const { intensityMode, startType, rounds, restR } = serieProps(group);
-  const dists = group.items.map((b) => b.params.distanceMeters ?? '?').join('·');
-  const vals = group.items.map((b) => Number(b.params.intensityValue) || 0);
-  const mn = Math.min(...vals);
-  const mx = Math.max(...vals);
-  const unit = intensityMode === 'percent_record' ? '%' : intensityMode === 'speed' ? ' m/s' : ' s';
-  const intStr = mn === mx ? `${mn}${unit}` : `${mn}→${mx}${unit}`;
-  const startLabel =
-    START_TYPES.find((s) => s.value === startType)?.label.toLowerCase() ?? startType;
-  return `${rounds} × (${dists} m) · ${startLabel} · ${intStr} · R ${formatMinutes(restR)}`;
+  const { event, rhythmSteps, hurdleCount, rounds, restR } = serieProps(group);
+  const heights = group.items.map((b) => b.params.heightCm ?? '?').join('·');
+  const parts = [`${rounds} × ${event}`];
+  if (hurdleCount) parts.push(`${hurdleCount} haies`);
+  parts.push(`${heights} cm`);
+  if (rhythmSteps) parts.push(`${rhythmSteps} appuis`);
+  parts.push(`R ${formatMinutes(restR)}`);
+  return parts.join(' · ');
 }
 
-/** Estimation de durée globale (base 25 min échauff + efforts + récups). */
+/** Estimation de durée globale (base 25 min échauff + passages + récups). */
 function estMinutes(series: EditableGroup[]): number {
   let sec = 25 * 60;
   for (const g of series) {
     const { rounds, restR } = serieProps(g);
-    const recupItems = g.items.reduce((a, b) => a + (Number(b.params.recoverySeconds) || 180), 0);
-    sec += rounds * (recupItems + g.items.length * 10) + (rounds - 1) * restR;
+    const recupItems = g.items.reduce((a, b) => a + (Number(b.params.recoverySeconds) || 300), 0);
+    sec += rounds * (recupItems + g.items.length * 20) + (rounds - 1) * restR;
   }
   return Math.round(sec / 60);
 }
 
-/** Sprint bloc avec les propriétés partagées de la série. */
-function makeSprintBlock(opts: {
-  distance?: number;
-  intensity?: number;
-  recovery?: number;
-  intensityMode: string;
+/** Passage de haies avec les propriétés partagées de la série. */
+function makeHurdleBlock(opts: {
+  event: string;
+  distanceMeters?: number;
+  heightCm?: number;
+  spacingMeters?: string;
+  hurdleCount?: string;
+  rhythmSteps?: string;
+  leadLeg: string;
   startType: string;
-  flyingZone: boolean;
+  intensityMode: string;
+  recovery?: number;
 }): EditableBlock {
-  const d = opts.distance ?? 60;
   return makeBlock({
-    type: BlockType.sprint,
-    name: `${d} m`,
+    type: BlockType.hurdles,
+    name: opts.event,
     params: {
-      reps: '1',
-      distanceMeters: String(d),
-      recoverySeconds: String(opts.recovery ?? 240),
-      intensityMode: opts.intensityMode,
-      intensityValue: String(opts.intensity ?? 95),
+      event: opts.event,
+      distanceMeters: String(opts.distanceMeters ?? 110),
+      heightCm: String(opts.heightCm ?? 84),
+      spacingMeters: opts.spacingMeters ?? '',
+      spacingMode: 'regulation',
+      hurdleCount: opts.hurdleCount ?? '',
+      rhythmSteps: opts.rhythmSteps ?? '',
+      leadLeg: opts.leadLeg,
       startType: opts.startType,
-      flyingZone: opts.flyingZone ? 'true' : 'false',
+      intensityMode: opts.intensityMode,
+      recoverySeconds: String(opts.recovery ?? 300),
     },
+  });
+}
+
+function defaultHurdleSeries(): EditableGroup {
+  return makeSeriesGroup({
+    name: 'Série de haies',
+    rounds: '4',
+    restBetweenRoundsSeconds: '300',
+    items: [
+      makeHurdleBlock({
+        event: 'Haies',
+        distanceMeters: 110,
+        heightCm: 84,
+        leadLeg: 'left',
+        startType: 'blocks',
+        intensityMode: 'percent_record',
+        recovery: 300,
+      }),
+    ],
   });
 }
 
 // ---------- Canvas principal ----------------------------------------------------------------
 
-export function SprintEffortCanvas({
+export function HurdlesEffortCanvas({
   nodes,
   onChange,
 }: {
@@ -154,87 +182,76 @@ export function SprintEffortCanvas({
     commit(series.map((g, i) => (i === gi ? { ...g, ...patch } : g)));
   }
 
-  /** Met à jour un param partagé de série sur tous les blocs du groupe. */
+  /** Met à jour un param partagé de série sur tous les passages du groupe. */
   function patchSerieParam(gi: number, paramPatch: Record<string, string>) {
     commit(
       series.map((g, i) => {
         if (i !== gi) return g;
         return {
           ...g,
-          items: g.items.map((b) => ({ ...b, params: { ...b.params, ...paramPatch } })),
-        };
-      }),
-    );
-  }
-
-  /** Met à jour les params d'un sprint spécifique (bi dans le groupe gi). */
-  function patchSprint(gi: number, bi: number, paramPatch: Record<string, string>) {
-    commit(
-      series.map((g, i) => {
-        if (i !== gi) return g;
-        return {
-          ...g,
-          items: g.items.map((b, j) => {
-            if (j !== bi) return b;
+          items: g.items.map((b) => {
             const params = { ...b.params, ...paramPatch };
-            const name =
-              paramPatch.distanceMeters != null ? `${paramPatch.distanceMeters} m` : b.name;
-            return { ...b, name, params };
+            return { ...b, name: params.event || b.name, params };
           }),
         };
       }),
     );
   }
 
-  function addSprint(gi: number) {
+  function patchPass(gi: number, bi: number, paramPatch: Record<string, string>) {
     commit(
       series.map((g, i) => {
         if (i !== gi) return g;
-        const { intensityMode, startType, flyingZone } = serieProps(g);
-        const last = g.items[g.items.length - 1];
-        const newSprint = makeSprintBlock({
-          distance: Number(last?.params.distanceMeters) || 60,
-          intensity: Number(last?.params.intensityValue) || 95,
-          recovery: 240,
-          intensityMode,
-          startType,
-          flyingZone,
-        });
-        return { ...g, items: [...g.items, newSprint] };
+        return {
+          ...g,
+          items: g.items.map((b, j) =>
+            j === bi ? { ...b, params: { ...b.params, ...paramPatch } } : b,
+          ),
+        };
       }),
     );
   }
 
-  function removeSprint(gi: number, bi: number) {
+  function addPass(gi: number) {
+    commit(
+      series.map((g, i) => {
+        if (i !== gi) return g;
+        const p = serieProps(g);
+        const last = g.items[g.items.length - 1];
+        return {
+          ...g,
+          items: [
+            ...g.items,
+            makeHurdleBlock({
+              event: p.event,
+              distanceMeters: Number(last?.params.distanceMeters) || 110,
+              heightCm: Number(last?.params.heightCm) || 84,
+              spacingMeters: p.spacingMeters,
+              hurdleCount: p.hurdleCount,
+              rhythmSteps: p.rhythmSteps,
+              leadLeg: p.leadLeg,
+              startType: p.startType,
+              intensityMode: p.intensityMode,
+              recovery: 300,
+            }),
+          ],
+        };
+      }),
+    );
+  }
+
+  function removePass(gi: number, bi: number) {
     commit(
       series.map((g, i) => {
         if (i !== gi) return g;
         const remaining = g.items.filter((_, j) => j !== bi);
-        // Ne retire pas si c'est le dernier sprint
         return { ...g, items: remaining.length > 0 ? remaining : g.items };
       }),
     );
   }
 
   function addSerie() {
-    commit([
-      ...series,
-      makeSeriesGroup({
-        name: 'Série de sprint',
-        rounds: '1',
-        restBetweenRoundsSeconds: '300',
-        items: [
-          makeSprintBlock({
-            distance: 60,
-            intensity: 95,
-            recovery: 240,
-            intensityMode: 'percent_record',
-            startType: 'blocks',
-            flyingZone: false,
-          }),
-        ],
-      }),
-    ]);
+    commit([...series, defaultHurdleSeries()]);
   }
 
   function removeSerie(gi: number) {
@@ -251,32 +268,24 @@ export function SprintEffortCanvas({
   }
 
   function applyPreset(gi: number, presetKey: string) {
-    const preset = SPRINT_PRESETS.find((p) => p.key === presetKey);
+    const preset = HURDLES_PRESETS.find((p) => p.key === presetKey);
     if (!preset) return;
-    const built = preset.build();
-    const builtGroup = built.find((n) => isEditableGroup(n)) as EditableGroup | undefined;
+    const builtGroup = preset.build().find((n) => isEditableGroup(n)) as EditableGroup | undefined;
     if (!builtGroup) return;
-    commit(
-      series.map((g, i) => {
-        if (i !== gi) return g;
-        // Préserve la clé pour ne pas re-monter la carte (conserve l'état réduit/développé).
-        return { ...builtGroup, key: g.key };
-      }),
-    );
+    commit(series.map((g, i) => (i === gi ? { ...builtGroup, key: g.key } : g)));
   }
 
-  // KPIs haute intensité (hors échauffement/RAC)
   const kpis = sessionKpis(nodesToItems(series));
   const volStr = formatDistanceVolume(kpis.distanceMeters) ?? '0 m';
 
   return (
     <EffortCanvasShell
-      testID="sprint-effort-canvas"
+      testID="hurdles-effort-canvas"
       header={
         <CanvasKpiHeader
-          testID="sprint-canvas-summary"
-          title={`Volume haute intensité : ${volStr}`}
-          subtitle={`· ${kpis.efforts} sprints · ~${estMinutes(series)} min`}
+          testID="hurdles-canvas-summary"
+          title={`Course haies : ${volStr}`}
+          subtitle={`· ${kpis.efforts} passages · ~${estMinutes(series)} min`}
         />
       }
       warmup={
@@ -298,19 +307,19 @@ export function SprintEffortCanvas({
         />
       }
       onAddSeries={addSerie}
-      addSeriesTestID="sprint-add-series"
+      addSeriesTestID="hurdles-add-series"
     >
       {series.map((group, gi) => (
-        <SeriesCard
+        <HurdlesSeriesCard
           key={group.key}
           group={group}
           index={gi}
           total={series.length}
           onPatchGroup={(patch) => patchGroup(gi, patch)}
           onPatchSerieParam={(patch) => patchSerieParam(gi, patch)}
-          onPatchSprint={(bi, patch) => patchSprint(gi, bi, patch)}
-          onAddSprint={() => addSprint(gi)}
-          onRemoveSprint={(bi) => removeSprint(gi, bi)}
+          onPatchPass={(bi, patch) => patchPass(gi, bi, patch)}
+          onAddPass={() => addPass(gi)}
+          onRemovePass={(bi) => removePass(gi, bi)}
           onApplyPreset={(key) => applyPreset(gi, key)}
           onMoveUp={() => moveSerie(gi, -1)}
           onMoveDown={() => moveSerie(gi, 1)}
@@ -323,15 +332,15 @@ export function SprintEffortCanvas({
 
 // ---------- Carte de série ------------------------------------------------------------------
 
-function SeriesCard({
+function HurdlesSeriesCard({
   group,
   index,
   total,
   onPatchGroup,
   onPatchSerieParam,
-  onPatchSprint,
-  onAddSprint,
-  onRemoveSprint,
+  onPatchPass,
+  onAddPass,
+  onRemovePass,
   onApplyPreset,
   onMoveUp,
   onMoveDown,
@@ -342,18 +351,28 @@ function SeriesCard({
   total: number;
   onPatchGroup: (patch: Partial<EditableGroup>) => void;
   onPatchSerieParam: (patch: Record<string, string>) => void;
-  onPatchSprint: (bi: number, patch: Record<string, string>) => void;
-  onAddSprint: () => void;
-  onRemoveSprint: (bi: number) => void;
+  onPatchPass: (bi: number, patch: Record<string, string>) => void;
+  onAddPass: () => void;
+  onRemovePass: (bi: number) => void;
   onApplyPreset: (key: string) => void;
   onMoveUp: () => void;
   onMoveDown: () => void;
   onDelete: () => void;
 }) {
   const [selectedPresetKey, setSelectedPresetKey] = useState('');
-  const { colors, typography, spacing } = useTheme();
+  const { spacing } = useTheme();
   const tid = `series-card-${index}`;
-  const { intensityMode, startType, flyingZone, rounds, restR } = serieProps(group);
+  const {
+    event,
+    rhythmSteps,
+    spacingMeters,
+    hurdleCount,
+    leadLeg,
+    startType,
+    intensityMode,
+    rounds,
+    restR,
+  } = serieProps(group);
 
   return (
     <SeriesCardFrame
@@ -375,7 +394,7 @@ function SeriesCard({
           <FieldLabel>Modèle</FieldLabel>
           <PresetPicker
             testID={`${tid}-preset`}
-            presets={SPRINT_PRESETS}
+            presets={HURDLES_PRESETS}
             selectedKey={selectedPresetKey}
             onSelect={(key) => {
               setSelectedPresetKey(key);
@@ -411,24 +430,66 @@ function SeriesCard({
         </View>
       </View>
 
-      {/* Tableau des sprints */}
+      {/* Paramètres techniques de l'épreuve */}
+      <View style={{ gap: spacing[2] }}>
+        <FieldLabel>Épreuve</FieldLabel>
+        <CellInput
+          testID={`${tid}-event`}
+          value={event}
+          onChangeText={(t) => onPatchSerieParam({ event: t })}
+          placeholder="Ex. 110mH"
+        />
+        <View style={{ flexDirection: 'row', gap: spacing[2] }}>
+          <View style={{ flex: 1 }}>
+            <FieldLabel>Nb de haies</FieldLabel>
+            <CellInput
+              testID={`${tid}-hurdleCount`}
+              value={hurdleCount}
+              onChangeText={(t) => onPatchSerieParam({ hurdleCount: t })}
+              placeholder="10"
+            />
+          </View>
+          <View style={{ flex: 1 }}>
+            <FieldLabel>Espacement</FieldLabel>
+            <CellInput
+              testID={`${tid}-spacing`}
+              value={spacingMeters}
+              onChangeText={(t) => onPatchSerieParam({ spacingMeters: t })}
+              unit="m"
+              decimal
+              placeholder="9.14"
+            />
+          </View>
+          <View style={{ flex: 1 }}>
+            <FieldLabel>Rythme</FieldLabel>
+            <CellInput
+              testID={`${tid}-rhythm`}
+              value={rhythmSteps}
+              onChangeText={(t) => onPatchSerieParam({ rhythmSteps: t })}
+              unit="appuis"
+              placeholder="3"
+            />
+          </View>
+        </View>
+      </View>
+
+      {/* Tableau des passages */}
       <EffortTable
-        title="Sprints de la série"
-        onAddRow={onAddSprint}
-        addRowTestID={`${tid}-add-sprint`}
-        columns={[{ label: 'Distance' }, { label: 'Intensité' }, { label: 'Récup r' }]}
+        title="Passages de la série"
+        onAddRow={onAddPass}
+        addRowTestID={`${tid}-add-pass`}
+        columns={[{ label: 'Distance' }, { label: 'Hauteur' }, { label: 'Récup r' }]}
       >
         {group.items.map((block, bi) => (
-          <SprintRow
+          <HurdlePassRow
             key={block.key}
             block={block}
             index={bi}
             isLast={bi === group.items.length - 1}
             canDelete={group.items.length > 1}
-            intensityMode={intensityMode}
-            onPatch={(patch) => onPatchSprint(bi, patch)}
-            onDelete={() => onRemoveSprint(bi)}
-            testIDPrefix={`${tid}-sprint-${bi}`}
+            onPatch={(patch) => onPatchPass(bi, patch)}
+            onDelete={() => onRemovePass(bi)}
+            testIDPrefix={`${tid}-pass-${bi}`}
           />
         ))}
       </EffortTable>
@@ -442,10 +503,28 @@ function SeriesCard({
           selected={intensityMode}
           onSelect={(v) => onPatchSerieParam({ intensityMode: v })}
         />
-        <InfoNote>{intensityNote(intensityMode)}</InfoNote>
+        <InfoNote>
+          Cible individualisée · % du record sur l'épreuve de chaque athlète. La distance de course
+          sert au suivi de progression.
+        </InfoNote>
       </View>
 
-      {/* Départ + zone d'élan */}
+      {/* Jambe d'attaque + départ */}
+      <View style={{ gap: spacing[2] }}>
+        <FieldLabel>Jambe d'attaque</FieldLabel>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] }}>
+          {LEAD_LEGS.map((l) => (
+            <Chip
+              key={l.value}
+              testID={`${tid}-lead-${l.value}`}
+              selected={leadLeg === l.value}
+              onPress={() => onPatchSerieParam({ leadLeg: l.value })}
+            >
+              {l.label}
+            </Chip>
+          ))}
+        </View>
+      </View>
       <View style={{ gap: spacing[2] }}>
         <FieldLabel>Départ</FieldLabel>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] }}>
@@ -460,42 +539,18 @@ function SeriesCard({
             </Chip>
           ))}
         </View>
-        <View
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: spacing[3],
-            marginTop: spacing[1],
-          }}
-        >
-          <SwitchToggle
-            testID={`${tid}-flying`}
-            value={flyingZone}
-            onValueChange={(v) => onPatchSerieParam({ flyingZone: v ? 'true' : 'false' })}
-          />
-          <Text
-            style={{
-              color: colors.textSecondary,
-              fontFamily: typography.fontFamily.regular,
-              fontSize: typography.bodySm.fontSize,
-            }}
-          >
-            Zone d'élan (départ lancé)
-          </Text>
-        </View>
       </View>
     </SeriesCardFrame>
   );
 }
 
-// ---------- Rangée sprint -------------------------------------------------------------------
+// ---------- Rangée passage ------------------------------------------------------------------
 
-function SprintRow({
+function HurdlePassRow({
   block,
   index,
   isLast,
   canDelete,
-  intensityMode,
   onPatch,
   onDelete,
   testIDPrefix,
@@ -504,37 +559,33 @@ function SprintRow({
   index: number;
   isLast: boolean;
   canDelete: boolean;
-  intensityMode: string;
   onPatch: (patch: Record<string, string>) => void;
   onDelete: () => void;
   testIDPrefix: string;
 }) {
   const { colors, typography } = useTheme();
-  const intensityUnit =
-    intensityMode === 'percent_record' ? '%' : intensityMode === 'speed' ? 'm/s' : 's';
-
   return (
     <EffortRowFrame
       testID={testIDPrefix}
       index={index}
       canDelete={canDelete}
       onDelete={onDelete}
-      deleteLabel="Supprimer ce sprint"
+      deleteLabel="Supprimer ce passage"
     >
       <CellInput
         testID={`${testIDPrefix}-dist`}
         value={block.params.distanceMeters ?? ''}
         onChangeText={(t) => onPatch({ distanceMeters: t })}
         unit="m"
+        decimal
       />
       <CellInput
-        testID={`${testIDPrefix}-int`}
-        value={block.params.intensityValue ?? ''}
-        onChangeText={(t) => onPatch({ intensityValue: t })}
-        unit={intensityUnit}
-        decimal={intensityMode !== 'percent_record'}
+        testID={`${testIDPrefix}-height`}
+        value={block.params.heightCm ?? ''}
+        onChangeText={(t) => onPatch({ heightCm: t })}
+        unit="cm"
+        decimal
       />
-      {/* Récup r — dernier sprint : → R (récupération de série), sinon saisie en min */}
       {isLast ? (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
           <Text
@@ -563,13 +614,4 @@ function SprintRow({
       )}
     </EffortRowFrame>
   );
-}
-
-/** Note du référentiel d'intensité selon le mode. */
-function intensityNote(intensityMode: string): string {
-  return intensityMode === 'percent_record'
-    ? 'Cible individualisée · % du record de la distance de chaque sprint.'
-    : intensityMode === 'speed'
-      ? 'Vitesse cible en m/s · mesurée par radar ou GPS.'
-      : 'Temps cible absolu, commun à tous les athlètes.';
 }
