@@ -1,8 +1,31 @@
-import { useMemo } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import { SessionBuilderScreen } from './SessionBuilderScreen';
-import { disciplineConfig } from './discipline-assistants';
-import { assistantPresets, assistantSeed } from './assistant-presets';
+import type { EditableNode } from './session-builder-ui';
+import { disciplineConfig, type DisciplineKey } from './discipline-assistants';
+import { assistantSeed } from './assistant-presets';
 import { SprintEffortCanvas } from './sprint-effort-card';
+import { HurdlesEffortCanvas } from './hurdles-effort-card';
+import { EnduranceEffortCanvas } from './endurance-effort-card';
+import { JumpsEffortCanvas } from './jumps-effort-card';
+import { ThrowsEffortCanvas } from './throws-effort-card';
+
+type CanvasCtx = {
+  nodes: EditableNode[];
+  setNodes: React.Dispatch<React.SetStateAction<EditableNode[]>>;
+};
+
+/**
+ * Canvas d'effort dédié par discipline (ADR-39, TLX-165→167). Chaque discipline a sa carte
+ * fidèle à la maquette ; le sélecteur de modèle vit **dans** chaque carte de série (plus de barre
+ * de presets globale). La séance produite reste éditable en C-05 sans perte.
+ */
+const DISCIPLINE_CANVAS: Record<DisciplineKey, (ctx: CanvasCtx) => ReactNode> = {
+  sprint: ({ nodes, setNodes }) => <SprintEffortCanvas nodes={nodes} onChange={setNodes} />,
+  hurdles: ({ nodes, setNodes }) => <HurdlesEffortCanvas nodes={nodes} onChange={setNodes} />,
+  endurance: ({ nodes, setNodes }) => <EnduranceEffortCanvas nodes={nodes} onChange={setNodes} />,
+  jumps: ({ nodes, setNodes }) => <JumpsEffortCanvas nodes={nodes} onChange={setNodes} />,
+  throws: ({ nodes, setNodes }) => <ThrowsEffortCanvas nodes={nodes} onChange={setNodes} />,
+};
 
 /**
  * Assistant de création par discipline (ADR-38, TLX-155→159). Mince surcouche du constructeur
@@ -14,21 +37,16 @@ import { SprintEffortCanvas } from './sprint-effort-card';
 export function DisciplineAssistantScreen({ discipline }: { discipline?: string }) {
   const cfg = disciplineConfig(discipline);
   const seed = useMemo(() => () => assistantSeed(discipline), [discipline]);
-  const presets = useMemo(() => assistantPresets(discipline), [discipline]);
 
   if (!cfg) return <SessionBuilderScreen />;
   return (
     <SessionBuilderScreen
       titleText={`Assistant ${cfg.label}`}
       seed={seed}
-      presets={cfg.key === 'sprint' ? [] : presets}
-      // ADR-39 (TLX-165) : Sprint utilise la carte d'effort dédiée ; les autres disciplines
-      // restent sur l'éditeur de blocs générique en attendant leur carte (TLX-167, différé).
-      renderCanvas={
-        cfg.key === 'sprint'
-          ? ({ nodes, setNodes }) => <SprintEffortCanvas nodes={nodes} onChange={setNodes} />
-          : undefined
-      }
+      // Toutes les disciplines ont désormais leur carte d'effort dédiée avec un sélecteur de
+      // modèle interne → pas de barre de presets globale.
+      presets={[]}
+      renderCanvas={DISCIPLINE_CANVAS[cfg.key]}
     />
   );
 }

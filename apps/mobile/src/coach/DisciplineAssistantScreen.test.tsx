@@ -151,27 +151,32 @@ describe('DisciplineAssistantScreen — Sprint (ADR-38, TLX-155)', () => {
   });
 
   it.each([
-    ['hurdles', 'Assistant Haies'],
-    ['endurance', 'Assistant Demi-fond / Endurance'],
-    ['jumps', 'Assistant Sauts'],
-    ['throws', 'Assistant Lancers'],
-  ])("rend l'assistant %s avec son titre + ses presets", (discipline, title) => {
+    ['hurdles', 'Assistant Haies', 'hurdles-effort-canvas'],
+    ['endurance', 'Assistant Demi-fond / Endurance', 'endurance-effort-canvas'],
+    ['jumps', 'Assistant Sauts', 'jumps-effort-canvas'],
+    ['throws', 'Assistant Lancers', 'throws-effort-canvas'],
+  ])("rend l'assistant %s avec sa carte d'effort dédiée", (discipline, title, canvasTestID) => {
     render(<DisciplineAssistantScreen discipline={discipline} />, { wrapper: Wrapper });
     expect(screen.getByTestId('session-builder-title')).toHaveTextContent(title);
-    expect(screen.getByTestId('assistant-presets')).toBeOnTheScreen();
+    // ADR-39/TLX-167 : carte d'effort dédiée + sélecteur de modèle interne (plus de barre globale).
+    expect(screen.queryByTestId('assistant-presets')).toBeNull();
+    expect(screen.getByTestId(canvasTestID)).toBeOnTheScreen();
+    expect(screen.getByTestId('series-card-0-preset')).toBeOnTheScreen();
   });
 
-  it('Haies : applique un preset → POST /sessions type hurdles, distance dérivée', async () => {
+  it('Haies : applique un preset dans la carte → POST /sessions type hurdles, distance dérivée', async () => {
     mockCreateSession.mockResolvedValue({ status: 201, data: { id: 's2', title: 'Haies' } });
     render(<DisciplineAssistantScreen discipline="hurdles" />, { wrapper: Wrapper });
 
-    fireEvent.press(screen.getByTestId('assistant-preset-h110'));
+    fireEvent.press(screen.getByTestId('series-card-0-preset'));
+    fireEvent.press(screen.getByTestId('series-card-0-preset-h110'));
     fireEvent.changeText(screen.getByTestId('session-field-title'), '110 m haies');
     fireEvent.press(screen.getByTestId('session-save'));
 
     await waitFor(() => expect(mockCreateSession).toHaveBeenCalled());
     const body = mockCreateSession.mock.calls[0][0];
-    const effort = body.exercises.items[0].items[0];
+    // Haies encadre la série d'un échauffement/RAC → items = [warmup, série, cooldown].
+    const effort = body.exercises.items[1].items[0];
     expect(effort.type).toBe('hurdles');
     expect(effort.params.distanceMeters).toBe(110);
   });

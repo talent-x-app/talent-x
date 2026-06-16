@@ -155,7 +155,7 @@ function hurdleEffort(opts: {
   });
 }
 
-const HURDLES_PRESETS: SessionBuilderPreset[] = [
+export const HURDLES_PRESETS: SessionBuilderPreset[] = [
   {
     key: 'h110',
     label: '110 m haies (H)',
@@ -259,7 +259,7 @@ function enduranceEffort(opts: {
   });
 }
 
-const ENDURANCE_PRESETS: SessionBuilderPreset[] = [
+export const ENDURANCE_PRESETS: SessionBuilderPreset[] = [
   {
     key: 'fundamental',
     label: 'Endurance fondamentale',
@@ -413,7 +413,7 @@ function verticalJump(opts: {
   return makeBlock({ type: BlockType.vertical_jumps, name: opts.name, params });
 }
 
-const JUMPS_PRESETS: SessionBuilderPreset[] = [
+export const JUMPS_PRESETS: SessionBuilderPreset[] = [
   {
     key: 'long_full',
     label: 'Longueur — élan complet',
@@ -558,7 +558,7 @@ function throwEffort(opts: {
   return makeBlock({ type: BlockType.throws, name: opts.name, params });
 }
 
-const THROWS_PRESETS: SessionBuilderPreset[] = [
+export const THROWS_PRESETS: SessionBuilderPreset[] = [
   {
     key: 'shot_technique',
     label: 'Poids — technique',
