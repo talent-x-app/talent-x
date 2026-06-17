@@ -50,8 +50,8 @@ const APPROACH_UNITS = [
 ];
 
 const TAKEOFFS = [
-  { value: 'left', label: 'Gauche' },
-  { value: 'right', label: 'Droite' },
+  { value: 'board', label: 'Planche' },
+  { value: 'zone', label: 'Zone' },
 ];
 
 const TARGET_MODES = [
@@ -76,7 +76,7 @@ function serieProps(group: EditableGroup) {
     discipline,
     vertical: isVerticalDiscipline(discipline),
     approachUnit: first?.params.approachUnit ?? 'steps',
-    takeoff: first?.params.takeoff ?? 'left',
+    takeoff: first?.params.takeoff ?? 'board',
     targetMode: first?.params.targetMode ?? 'percent_record',
     rounds: Math.max(1, Number(group.rounds) || 1),
     restR: Math.max(0, Number(group.restBetweenRoundsSeconds) || 0),
@@ -179,7 +179,7 @@ function defaultJumpSeries(): EditableGroup {
       makeHorizontalJump({
         discipline: 'long',
         approachUnit: 'steps',
-        takeoff: 'left',
+        takeoff: 'board',
         targetMode: 'percent_record',
         approach: 18,
         attempts: 1,
@@ -527,7 +527,7 @@ function HorizontalJumpEditor({
           />
         </View>
         <View style={{ gap: spacing[2] }}>
-          <FieldLabel>Pied d'appel</FieldLabel>
+          <FieldLabel>Planche / Zone</FieldLabel>
           <View style={{ flexDirection: 'row', gap: spacing[2] }}>
             {TAKEOFFS.map((t) => (
               <Chip

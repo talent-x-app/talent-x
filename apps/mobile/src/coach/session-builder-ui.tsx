@@ -130,12 +130,12 @@ const INTENSITY_MODE_OPTIONS = [
   { value: 'target_time', label: 'Temps cible' },
   { value: 'speed', label: 'Vitesse' },
 ];
-const LEG_OPTIONS = [
-  { value: 'left', label: 'Gauche' },
-  { value: 'right', label: 'Droite' },
+const TAKEOFF_OPTIONS = [
+  { value: 'board', label: 'Planche' },
+  { value: 'zone', label: 'Zone' },
 ];
 // ADR-40 — Haies : la jambe d'attaque peut être alternée (ex. 400 m haies), contrairement au
-// pied d'appel des sauts (`LEG_OPTIONS`) qui reste binaire.
+// type d'appel des sauts (`TAKEOFF_OPTIONS`, Planche/Zone) qui reste binaire.
 const HURDLES_LEAD_LEG_OPTIONS = [
   { value: 'left', label: 'Gauche' },
   { value: 'right', label: 'Droite' },
@@ -340,7 +340,7 @@ export const BLOCK_TYPE_SPECS: BlockTypeSpec[] = [
         ],
       },
       { key: 'attempts', label: 'Essais (nombre)', placeholder: 'Ex. 6' },
-      { key: 'takeoff', label: 'Pied d’appel', kind: 'select', options: LEG_OPTIONS },
+      { key: 'takeoff', label: 'Planche / Zone', kind: 'select', options: TAKEOFF_OPTIONS },
       { key: 'targetMeters', label: 'Cible (m)', placeholder: 'Ex. 7.20', kind: 'number' },
       { key: 'targetMode', label: 'Mode de cible', kind: 'select', options: TARGET_MODE_OPTIONS },
       { key: 'targetPercent', label: 'Cible (% du record)', placeholder: 'Ex. 95', kind: 'number' },

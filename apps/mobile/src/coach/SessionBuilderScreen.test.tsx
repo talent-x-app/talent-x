@@ -539,7 +539,7 @@ describe('SessionBuilderScreen (TLX-052 — C-05)', () => {
     });
   });
 
-  it('édition : hydrate type et params d’un bloc intervalle', async () => {
+  it('édition : hydrate type et params d’un bloc intervalle mêlé à un bloc custom (générique, mélange — ADR-40)', async () => {
     mockGetSession.mockResolvedValue({
       status: 200,
       data: {
@@ -551,6 +551,9 @@ describe('SessionBuilderScreen (TLX-052 — C-05)', () => {
           schemaVersion: 2,
           items: [
             { name: '5 × 200m', order: 1, type: 'interval', params: { reps: 5, workSeconds: 30 } },
+            // Bloc custom mêlé → structure hétérogène, repli sur l'éditeur générique (ADR-40 §2)
+            // au lieu de la carte Endurance dédiée, ce qui garde ce test sur le chemin générique.
+            { name: 'Gainage libre', order: 2, type: 'custom' },
           ],
         },
       },
@@ -560,6 +563,101 @@ describe('SessionBuilderScreen (TLX-052 — C-05)', () => {
     await waitFor(() => expect(screen.getByTestId('block-0-params')).toBeOnTheScreen());
     expect(screen.getByTestId('block-0-param-reps').props.value).toBe('5');
     expect(screen.getByTestId('block-0-param-workSeconds').props.value).toBe('30');
+  });
+
+  it('édition (ADR-40 §2) : séance pure haies → carte dédiée au lieu de l’éditeur générique', async () => {
+    mockGetSession.mockResolvedValue({
+      status: 200,
+      data: {
+        id: 's-hurdles',
+        title: 'Haies',
+        status: 'draft',
+        coachId: 'c-1',
+        exercises: {
+          schemaVersion: 3,
+          items: [
+            {
+              kind: 'group',
+              name: 'Série haies',
+              order: 1,
+              groupType: 'series',
+              rounds: 3,
+              items: [
+                { name: '10 haies', order: 1, type: 'hurdles', params: { distanceMeters: 110 } },
+              ],
+            },
+          ],
+        },
+      },
+    });
+    render(<SessionBuilderScreen sessionId="s-hurdles" />, { wrapper: Wrapper });
+
+    await waitFor(() => expect(screen.getByTestId('hurdles-effort-canvas')).toBeOnTheScreen());
+    expect(screen.queryByText(/Blocs et groupes/)).toBeNull();
+    expect(screen.queryByTestId('session-builder-mixed-banner')).toBeNull();
+  });
+
+  it('édition (ADR-40 §2) : séance mixte (sprint + haies) → générique + bandeau « édition avancée »', async () => {
+    mockGetSession.mockResolvedValue({
+      status: 200,
+      data: {
+        id: 's-mixed',
+        title: 'Mixte',
+        status: 'draft',
+        coachId: 'c-1',
+        exercises: {
+          schemaVersion: 3,
+          items: [
+            {
+              kind: 'group',
+              name: 'Série sprint',
+              order: 1,
+              groupType: 'series',
+              rounds: 2,
+              items: [{ name: '60m', order: 1, type: 'sprint', params: { distanceMeters: 60 } }],
+            },
+            {
+              kind: 'group',
+              name: 'Série haies',
+              order: 2,
+              groupType: 'series',
+              rounds: 2,
+              items: [
+                { name: '10 haies', order: 2, type: 'hurdles', params: { distanceMeters: 110 } },
+              ],
+            },
+          ],
+        },
+      },
+    });
+    render(<SessionBuilderScreen sessionId="s-mixed" />, { wrapper: Wrapper });
+
+    await waitFor(() =>
+      expect(screen.getByTestId('session-builder-mixed-banner')).toBeOnTheScreen(),
+    );
+    expect(screen.getByText(/Blocs et groupes/)).toBeOnTheScreen();
+    expect(screen.queryByTestId('hurdles-effort-canvas')).toBeNull();
+    expect(screen.queryByTestId('sprint-effort-canvas')).toBeNull();
+  });
+
+  it('édition (ADR-40 §2) : séance sans aucun bloc reconnu (custom seul) → générique sans bandeau', async () => {
+    mockGetSession.mockResolvedValue({
+      status: 200,
+      data: {
+        id: 's-custom',
+        title: 'Libre',
+        status: 'draft',
+        coachId: 'c-1',
+        exercises: {
+          schemaVersion: 2,
+          items: [{ name: 'Gainage', order: 1, type: 'custom' }],
+        },
+      },
+    });
+    render(<SessionBuilderScreen sessionId="s-custom" />, { wrapper: Wrapper });
+
+    await waitFor(() => expect(screen.getByText(/Blocs et groupes/)).toBeOnTheScreen());
+    expect(screen.queryByTestId('session-builder-mixed-banner')).toBeNull();
   });
 
   it('charge une séance existante puis la met à jour (PUT)', async () => {

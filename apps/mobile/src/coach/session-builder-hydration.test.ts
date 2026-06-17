@@ -164,7 +164,7 @@ describe('params additifs par discipline — round-trip (ADR-38, TLX-153)', () =
         approach: 18,
         approachUnit: 'steps',
         attempts: 6,
-        takeoff: 'left',
+        takeoff: 'board',
         targetMeters: 7.2,
         targetMode: 'percent',
         targetPercent: 95,

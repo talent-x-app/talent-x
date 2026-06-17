@@ -41,7 +41,7 @@ function makeHorizontal(): EditableGroup {
           approach: '18',
           approachUnit: 'steps',
           attempts: '1',
-          takeoff: 'left',
+          takeoff: 'board',
           targetMode: 'percent_record',
         },
       }),

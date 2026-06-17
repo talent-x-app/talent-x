@@ -450,7 +450,7 @@ function horizontalJump(opts: {
       approach: String(opts.approach),
       approachUnit: opts.approachUnit,
       attempts: String(opts.attempts),
-      takeoff: 'left',
+      takeoff: 'board',
       recoverySeconds: String(opts.recoverySeconds),
     },
   });

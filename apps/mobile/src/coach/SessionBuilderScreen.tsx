@@ -40,6 +40,8 @@ import {
 import { assignSessionHref, coachTemplatesHref } from './navigation';
 import { EXERCISES_SCHEMA_VERSION } from '../sessions/exercises-doc';
 import { isValidCalendarDate } from '../dates/calendar-date';
+import { hasAnyRecognizedBlock, inferDiscipline } from './discipline-inference';
+import { DISCIPLINE_CANVAS } from './DisciplineAssistantScreen';
 
 /**
  * Constructeur de séance (C-05 — TLX-052). En-tête (titre, description, date, statut) +
@@ -104,6 +106,13 @@ export function SessionBuilderScreen({
 
   // Mode modèle (C-10, ADR-29) : un modèle est non daté et non assignable.
   const isTemplate = status === SessionStatus.template;
+
+  // Inférence de discipline (ADR-40 §2) : en édition, route vers la carte dédiée dès que le
+  // contenu existant est homogène et reconnu — sans champ `discipline` persisté. Le bandeau
+  // « édition avancée » ne s'affiche que si l'inférence échoue à cause d'un **mélange** (au
+  // moins un bloc reconnu présent), pas quand il n'y a simplement rien à inférer.
+  const inferredDiscipline = isEdit ? inferDiscipline(nodes) : null;
+  const showMixedBanner = isEdit && inferredDiscipline == null && hasAnyRecognizedBlock(nodes);
 
   // Mode édition : charge la séance existante puis hydrate le formulaire.
   const existing = useQuery({
@@ -541,12 +550,27 @@ export function SessionBuilderScreen({
           </View>
         ) : null}
 
-        {/* Canvas : carte d'effort dédiée (assistant, ADR-39) ou blocs génériques (C-05). La
-            carte partage le même état `nodes` → séance éditable en C-05 sans perte. */}
+        {/* Canvas : carte d'effort dédiée (assistant à la création, ADR-39 ; ou inférée en
+            édition, ADR-40 §2) ou blocs génériques (C-05). La carte partage le même état
+            `nodes` → séance éditable en C-05 sans perte dans les deux sens. */}
         {renderCanvas != null && !isEdit ? (
           renderCanvas({ nodes, setNodes })
+        ) : isEdit && inferredDiscipline != null ? (
+          DISCIPLINE_CANVAS[inferredDiscipline]({ nodes, setNodes })
         ) : (
           <View style={{ gap: spacing[3] }}>
+            {showMixedBanner ? (
+              <Text
+                testID="session-builder-mixed-banner"
+                style={{
+                  color: colors.textSecondary,
+                  fontFamily: typography.fontFamily.regular,
+                  fontSize: typography.bodySm.fontSize,
+                }}
+              >
+                Édition avancée — structure personnalisée
+              </Text>
+            ) : null}
             <Text
               style={{
                 color: colors.textSecondary,

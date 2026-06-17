@@ -9,7 +9,7 @@ import { EnduranceEffortCanvas } from './endurance-effort-card';
 import { JumpsEffortCanvas } from './jumps-effort-card';
 import { ThrowsEffortCanvas } from './throws-effort-card';
 
-type CanvasCtx = {
+export type CanvasCtx = {
   nodes: EditableNode[];
   setNodes: React.Dispatch<React.SetStateAction<EditableNode[]>>;
 };
@@ -18,8 +18,12 @@ type CanvasCtx = {
  * Canvas d'effort dédié par discipline (ADR-39, TLX-165→167). Chaque discipline a sa carte
  * fidèle à la maquette ; le sélecteur de modèle vit **dans** chaque carte de série (plus de barre
  * de presets globale). La séance produite reste éditable en C-05 sans perte.
+ *
+ * Exporté : réutilisé par `SessionBuilderScreen` en **édition** pour router vers la carte dédiée
+ * dès que la discipline est inférée du contenu existant (ADR-40 §2) — même registre qu'à la
+ * création, aucun doublon de câblage par discipline.
  */
-const DISCIPLINE_CANVAS: Record<DisciplineKey, (ctx: CanvasCtx) => ReactNode> = {
+export const DISCIPLINE_CANVAS: Record<DisciplineKey, (ctx: CanvasCtx) => ReactNode> = {
   sprint: ({ nodes, setNodes }) => <SprintEffortCanvas nodes={nodes} onChange={setNodes} />,
   hurdles: ({ nodes, setNodes }) => <HurdlesEffortCanvas nodes={nodes} onChange={setNodes} />,
   endurance: ({ nodes, setNodes }) => <EnduranceEffortCanvas nodes={nodes} onChange={setNodes} />,
