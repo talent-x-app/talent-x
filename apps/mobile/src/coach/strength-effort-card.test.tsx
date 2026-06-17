@@ -146,6 +146,37 @@ describe('StrengthEffortCanvas', () => {
     expect(h.blocks()).toHaveLength(1);
   });
 
+  it('« Autre exercice… » : écrit le nom libre, efface exerciseKey, pas de note ≈kg', () => {
+    const h = setup(muscuCanvas());
+    // Ouvre le picker puis choisit l'entrée libre.
+    act(() => fireEvent.press(screen.getByTestId('series-card-0-ex-0-exercise')));
+    act(() => fireEvent.press(screen.getByTestId('series-card-0-ex-0-exercise-__custom__')));
+    // Le champ texte libre apparaît ; on saisit un nom.
+    act(() =>
+      fireEvent.changeText(screen.getByTestId('series-card-0-ex-0-custom-name'), 'Gainage oblique'),
+    );
+    const b = h.blocks()[0];
+    expect(b.name).toBe('Gainage oblique');
+    expect(b.params.exerciseKey).toBeUndefined();
+    expect(screen.queryByText(/≈ \d+ kg/)).toBeNull();
+  });
+
+  it('hydrate un exerciseKey inconnu → état « Autre » avec le nom personnalisé', () => {
+    const custom = makeBlock({
+      type: BlockType.strength,
+      name: 'Mon exercice maison',
+      sets: '3',
+      reps: '10',
+      params: { exerciseKey: 'inconnu_xyz' },
+    });
+    setup([makeWarmupBlock(), custom, makeCooldownBlock()]);
+    // Le champ texte libre est présent et affiche le nom hydraté.
+    expect(screen.getByTestId('series-card-0-ex-0-custom-name').props.value).toBe(
+      'Mon exercice maison',
+    );
+    expect(screen.queryByText(/≈ \d+ kg/)).toBeNull();
+  });
+
   it('ajoute un bloc de travail (nouvelle carte PPG distincte)', () => {
     const h = setup(muscuCanvas());
     act(() => fireEvent.press(screen.getByTestId('strength-add-series')));

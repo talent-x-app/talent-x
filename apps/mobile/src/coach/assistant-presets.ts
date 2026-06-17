@@ -743,31 +743,115 @@ export const THROWS_PRESETS: SessionBuilderPreset[] = [
  * tant que l'individualisation par athlète n'est pas livrée (différée, cohérent ADR-20).
  */
 export const ONE_RM_REFERENCE: Record<string, number> = {
+  // Haltérophilie / mouvements rapides
+  clean: 90,
+  power_clean: 85,
+  snatch: 70,
+  high_pull: 75,
+  push_press: 80,
+  // Bas du corps / squats
   squat: 140,
+  front_squat: 110,
+  split_squat: 70,
+  lunge: 80,
+  step_up: 60,
+  // Chaîne postérieure
   deadlift: 160,
+  romanian_deadlift: 130,
+  good_morning: 70,
+  hipthrust: 150,
+  // Haut du corps
   bench: 100,
+  incline_bench: 85,
   ohp: 60,
   row: 80,
   pullup: 90,
-  clean: 90,
-  snatch: 70,
-  lunge: 80,
-  hipthrust: 150,
 };
 
-/** Libellés FR des exercices de musculation (clé `params.exerciseKey` ↔ libellé `name`). */
+/**
+ * Libellés FR des exercices de musculation (clé `params.exerciseKey` ↔ libellé `name`).
+ * Set « starter » (~28). Les mouvements barre/compound ont un 1RM dans `ONE_RM_REFERENCE` ;
+ * les exercices au poids de corps / pliométrie / gainage / medecine-ball n'ont **qu'un libellé**
+ * (pas d'entrée 1RM → `targetLoadFromOneRm` renvoie `undefined`, la cible %1RM ne s'affiche pas).
+ */
 export const EXERCISE_LABELS: Record<string, string> = {
+  // Haltérophilie
+  clean: 'Épaulé',
+  power_clean: 'Épaulé puissance',
+  snatch: 'Arraché',
+  high_pull: 'Tirage haltéro',
+  push_press: 'Développé jeté',
+  // Bas du corps
   squat: 'Squat',
+  front_squat: 'Squat avant',
+  split_squat: 'Fentes bulgares',
+  lunge: 'Fentes',
+  step_up: 'Montée sur banc',
+  // Chaîne postérieure
   deadlift: 'Soulevé de terre',
+  romanian_deadlift: 'Soulevé de terre roumain',
+  good_morning: 'Good morning',
+  hipthrust: 'Hip thrust',
+  nordic_curl: 'Nordic (ischios)',
+  glute_bridge: 'Pont fessier',
+  calf_raise: 'Mollets',
+  // Haut du corps
   bench: 'Développé couché',
+  incline_bench: 'Développé incliné',
   ohp: 'Développé militaire',
   row: 'Tirage',
   pullup: 'Tractions lestées',
-  clean: 'Épaulé',
-  snatch: 'Arraché',
-  lunge: 'Fentes',
-  hipthrust: 'Hip thrust',
+  // Gainage / core
+  plank: 'Gainage',
+  side_plank: 'Gainage latéral',
+  hollow_hold: 'Hollow hold',
+  leg_raise: 'Relevé de jambes',
+  pallof_press: 'Pallof press',
+  // Pliométrie / medecine-ball
+  box_jump: 'Saut sur banc',
+  squat_jump: 'Squat sauté',
+  drop_jump: 'Saut en contrebas',
+  bounds: 'Foulées bondissantes',
+  medball_chest: 'Lancer medecine-ball (poitrine)',
+  medball_overhead: 'Lancer medecine-ball (au-dessus)',
+  mountain_climbers: 'Mountain climbers',
 };
+
+/**
+ * Regroupement ordonné des exercices pour un sélecteur catégorisé (optionnel, additif).
+ * Couvre toutes les clés de `EXERCISE_LABELS`. Le picker plat actuel n'est pas obligé de
+ * l'utiliser ; exporté pour un rendu par sections ultérieur.
+ */
+export const EXERCISE_GROUPS: { label: string; keys: string[] }[] = [
+  { label: 'Haltérophilie', keys: ['clean', 'power_clean', 'snatch', 'high_pull', 'push_press'] },
+  { label: 'Bas du corps', keys: ['squat', 'front_squat', 'split_squat', 'lunge', 'step_up'] },
+  {
+    label: 'Chaîne postérieure',
+    keys: [
+      'deadlift',
+      'romanian_deadlift',
+      'good_morning',
+      'hipthrust',
+      'nordic_curl',
+      'glute_bridge',
+      'calf_raise',
+    ],
+  },
+  { label: 'Haut du corps', keys: ['bench', 'incline_bench', 'ohp', 'row', 'pullup'] },
+  { label: 'Gainage', keys: ['plank', 'side_plank', 'hollow_hold', 'leg_raise', 'pallof_press'] },
+  {
+    label: 'Pliométrie / Medball',
+    keys: [
+      'box_jump',
+      'squat_jump',
+      'drop_jump',
+      'bounds',
+      'medball_chest',
+      'medball_overhead',
+      'mountain_climbers',
+    ],
+  },
+];
 
 /** Charge cible (kg) = 1RM × % ⁄ 100, arrondie. `undefined` si l'exercice n'a pas de 1RM connu. */
 export function targetLoadFromOneRm(exerciseKey: string, percent: number): number | undefined {

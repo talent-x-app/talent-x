@@ -78,11 +78,20 @@ const PRESET_TIPS: Record<string, string> = {
   core_ppg: 'Gainage : tenir la posture, ne pas relâcher le bassin, respirer régulièrement.',
 };
 
-/** Options d'exercices Muscu (clés `ONE_RM_REFERENCE`/`EXERCISE_LABELS`). */
-const EXERCISE_OPTIONS = Object.keys(EXERCISE_LABELS).map((key) => ({
-  value: key,
-  label: EXERCISE_LABELS[key],
-}));
+/** Clé sentinelle « Autre exercice… » : exercice libre saisi à la main (pas de clé catalogue). */
+const CUSTOM_EXERCISE_KEY = '__custom__';
+
+/** Options d'exercices Muscu (clés `ONE_RM_REFERENCE`/`EXERCISE_LABELS`) + entrée libre. */
+const EXERCISE_OPTIONS = [
+  ...Object.keys(EXERCISE_LABELS).map((key) => ({ value: key, label: EXERCISE_LABELS[key] })),
+  { value: CUSTOM_EXERCISE_KEY, label: 'Autre exercice…' },
+];
+
+/** Un bloc est en mode « Autre » si son `exerciseKey` est absent ou hors catalogue. */
+function isCustomExercise(block: EditableBlock): boolean {
+  const key = block.params.exerciseKey;
+  return key == null || key === '' || EXERCISE_LABELS[key] == null;
+}
 
 // ---------- Modèle de séries (segments du canvas plat) --------------------------------------
 
@@ -369,6 +378,13 @@ export function StrengthEffortCanvas({
   function setMuscuExercise(si: number, bi: number, exerciseKey: string) {
     const cur = series[si];
     if (cur.kind !== 'muscu') return;
+    if (exerciseKey === CUSTOM_EXERCISE_KEY) {
+      // « Autre » : on efface `exerciseKey` (plus de référence %1RM) et on laisse le coach
+      // saisir le nom libre via le champ texte ; `name` vidé pour montrer le placeholder.
+      const { exerciseKey: _drop, ...rest } = cur.blocks[bi].params;
+      patchMuscuRow(si, bi, { name: '', params: rest });
+      return;
+    }
     patchMuscuRow(si, bi, {
       name: EXERCISE_LABELS[exerciseKey] ?? exerciseKey,
       params: { ...cur.blocks[bi].params, exerciseKey },
@@ -766,6 +782,7 @@ function MuscuRow({
 }) {
   const { spacing } = useTheme();
   const exerciseKey = block.params.exerciseKey ?? '';
+  const custom = isCustomExercise(block);
   const targetKg =
     loadMode === 'percent_1rm'
       ? targetLoadFromOneRm(exerciseKey, Number(block.loadValue) || 0)
@@ -780,12 +797,20 @@ function MuscuRow({
         onDelete={onDelete}
         deleteLabel="Supprimer cet exercice"
       >
-        <View style={{ flex: 2 }}>
+        <View style={{ flex: 2, gap: spacing[1] }}>
           <ExercisePicker
             testID={`${testIDPrefix}-exercise`}
-            selectedKey={exerciseKey}
+            selectedKey={custom ? CUSTOM_EXERCISE_KEY : exerciseKey}
             onSelect={onSetExercise}
           />
+          {custom ? (
+            <NameInput
+              testID={`${testIDPrefix}-custom-name`}
+              value={block.name}
+              onChangeText={(t) => onPatch({ name: t })}
+              placeholder="Nom de l’exercice"
+            />
+          ) : null}
         </View>
         <CellInput
           testID={`${testIDPrefix}-sets`}
@@ -914,10 +939,12 @@ function NameInput({
   value,
   onChangeText,
   testID,
+  placeholder = 'Nom de la station',
 }: {
   value: string;
   onChangeText: (t: string) => void;
   testID: string;
+  placeholder?: string;
 }) {
   const { colors, typography, spacing, radius, borderWidth } = useTheme();
   return (
@@ -936,7 +963,7 @@ function NameInput({
         testID={testID}
         value={value}
         onChangeText={onChangeText}
-        placeholder="Nom de la station"
+        placeholder={placeholder}
         placeholderTextColor={colors.textMuted}
         style={{
           color: colors.textPrimary,

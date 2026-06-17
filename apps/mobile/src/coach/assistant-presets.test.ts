@@ -7,6 +7,7 @@ import {
   targetLoadFromOneRm,
   ONE_RM_REFERENCE,
   EXERCISE_LABELS,
+  EXERCISE_GROUPS,
 } from './assistant-presets';
 
 /** Sérialise le 1er effort du 1er preset d'une discipline → feuille `Exercise` v3. */
@@ -115,8 +116,30 @@ describe('targetLoadFromOneRm (ADR-41 §4)', () => {
   it('exercice inconnu → undefined', () => {
     expect(targetLoadFromOneRm('bogus', 90)).toBeUndefined();
   });
-  it('table et libellés couvrent les mêmes clés', () => {
-    expect(Object.keys(ONE_RM_REFERENCE).sort()).toEqual(Object.keys(EXERCISE_LABELS).sort());
+  it('toute clé 1RM possède un libellé (mouvements barre/compound)', () => {
+    for (const key of Object.keys(ONE_RM_REFERENCE)) {
+      expect(EXERCISE_LABELS[key]).toBeTruthy();
+    }
+  });
+  it('exercices au poids de corps / pliométrie / gainage : libellé sans 1RM', () => {
+    for (const key of ['plank', 'box_jump', 'nordic_curl', 'mountain_climbers']) {
+      expect(EXERCISE_LABELS[key]).toBeTruthy();
+      expect(ONE_RM_REFERENCE[key]).toBeUndefined();
+      expect(targetLoadFromOneRm(key, 80)).toBeUndefined();
+    }
+  });
+});
+
+describe('catalogue d’exercices (ADR-41, set starter)', () => {
+  it('compte ~28+ exercices, ~19 avec 1RM', () => {
+    expect(Object.keys(EXERCISE_LABELS).length).toBeGreaterThanOrEqual(28);
+    expect(Object.keys(ONE_RM_REFERENCE).length).toBe(19);
+  });
+  it('EXERCISE_GROUPS couvre toutes les clés sans doublon ni clé inconnue', () => {
+    const grouped = EXERCISE_GROUPS.flatMap((g) => g.keys);
+    expect(new Set(grouped).size).toBe(grouped.length);
+    expect(grouped.sort()).toEqual(Object.keys(EXERCISE_LABELS).sort());
+    for (const key of grouped) expect(EXERCISE_LABELS[key]).toBeTruthy();
   });
 });
 
