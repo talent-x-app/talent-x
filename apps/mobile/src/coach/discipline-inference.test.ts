@@ -1,5 +1,10 @@
 import { BlockType } from '@talent-x/api-client';
-import { hasAnyRecognizedBlock, inferDiscipline } from './discipline-inference';
+import {
+  hasAnyRecognizedBlock,
+  inferDiscipline,
+  disciplineOfNode,
+  segmentSession,
+} from './discipline-inference';
 import {
   makeBlock,
   makeEmptyBlock,
@@ -167,5 +172,87 @@ describe('hasAnyRecognizedBlock (bandeau « édition avancée », ADR-40 §2)', 
       makeBlock({ type: BlockType.cooldown }),
     ];
     expect(hasAnyRecognizedBlock(nodes)).toBe(false);
+  });
+});
+
+describe('disciplineOfNode (ADR-42 §1)', () => {
+  it('bloc sprint → sprint', () => {
+    expect(disciplineOfNode(makeBlock({ type: BlockType.sprint }))).toBe('sprint');
+  });
+
+  it('bloc custom → null', () => {
+    expect(disciplineOfNode(makeBlock({ type: BlockType.custom }))).toBeNull();
+  });
+
+  it('warmup → null', () => {
+    expect(disciplineOfNode(makeBlock({ type: BlockType.warmup }))).toBeNull();
+  });
+
+  it('groupe homogène sprint → sprint', () => {
+    expect(
+      disciplineOfNode(makeSeriesGroup({ items: [makeBlock({ type: BlockType.sprint })] })),
+    ).toBe('sprint');
+  });
+
+  it('groupe mixte (sprint + haies) → null', () => {
+    expect(
+      disciplineOfNode(
+        makeSeriesGroup({
+          items: [makeBlock({ type: BlockType.sprint }), makeBlock({ type: BlockType.hurdles })],
+        }),
+      ),
+    ).toBeNull();
+  });
+});
+
+describe('segmentSession (ADR-42 §1)', () => {
+  it('liste vide → []', () => {
+    expect(segmentSession([])).toEqual([]);
+  });
+
+  it('run sprint pur → 1 segment discipline', () => {
+    const nodes: EditableNode[] = [
+      makeSeriesGroup({ items: [makeBlock({ type: BlockType.sprint })] }),
+      makeSeriesGroup({ items: [makeBlock({ type: BlockType.sprint })] }),
+    ];
+    const segs = segmentSession(nodes);
+    expect(segs).toHaveLength(1);
+    expect(segs[0]).toMatchObject({ kind: 'discipline', discipline: 'sprint', start: 0, end: 2 });
+    expect(segs[0].nodes).toHaveLength(2);
+  });
+
+  it('sprint puis strength → 2 segments discipline', () => {
+    const nodes: EditableNode[] = [
+      makeSeriesGroup({ items: [makeBlock({ type: BlockType.sprint })] }),
+      makeBlock({ type: BlockType.strength }),
+    ];
+    const segs = segmentSession(nodes);
+    expect(segs).toHaveLength(2);
+    expect(segs[0]).toMatchObject({ kind: 'discipline', discipline: 'sprint' });
+    expect(segs[1]).toMatchObject({ kind: 'discipline', discipline: 'strength' });
+  });
+
+  it('sprint, custom, haies → discipline/custom/discipline', () => {
+    const nodes: EditableNode[] = [
+      makeSeriesGroup({ items: [makeBlock({ type: BlockType.sprint })] }),
+      makeBlock({ type: BlockType.custom }),
+      makeSeriesGroup({ items: [makeBlock({ type: BlockType.hurdles })] }),
+    ];
+    const segs = segmentSession(nodes);
+    expect(segs).toHaveLength(3);
+    expect(segs[0]).toMatchObject({ kind: 'discipline', discipline: 'sprint', start: 0, end: 1 });
+    expect(segs[1]).toMatchObject({ kind: 'custom', start: 1, end: 2 });
+    expect(segs[2]).toMatchObject({ kind: 'discipline', discipline: 'hurdles', start: 2, end: 3 });
+  });
+
+  it('groupe de disciplines mixtes → 1 segment custom', () => {
+    const nodes: EditableNode[] = [
+      makeSeriesGroup({
+        items: [makeBlock({ type: BlockType.sprint }), makeBlock({ type: BlockType.hurdles })],
+      }),
+    ];
+    const segs = segmentSession(nodes);
+    expect(segs).toHaveLength(1);
+    expect(segs[0]).toMatchObject({ kind: 'custom', start: 0, end: 1 });
   });
 });
