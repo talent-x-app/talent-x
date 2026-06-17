@@ -18,12 +18,12 @@ import {
  * cible ≈kg dérivée du %1RM, bascule Mode → PPG (stations), presets, ajout/suppression.
  */
 
-function setup(initial: EditableNode[]) {
+function setup(initial: EditableNode[], embedded = false) {
   const ref: { nodes: EditableNode[] } = { nodes: initial };
   function Harness() {
     const [nodes, setNodes] = useState(initial);
     ref.nodes = nodes;
-    return <StrengthEffortCanvas nodes={nodes} onChange={setNodes} />;
+    return <StrengthEffortCanvas nodes={nodes} onChange={setNodes} embedded={embedded} />;
   }
   render(<Harness />);
   return {
@@ -183,5 +183,14 @@ describe('StrengthEffortCanvas', () => {
     expect(screen.getByTestId('series-card-1')).toBeTruthy();
     // La nouvelle carte est un groupe PPG (nœud distinct, ne fusionne pas avec le bloc Muscu).
     expect(h.groups()).toHaveLength(1);
+  });
+
+  it('mode encart : séries + ajout rendus, en-tête KPI et barres écha/RAC masqués', () => {
+    setup(muscuCanvas(), true);
+    expect(screen.getByTestId('series-card-0')).toBeTruthy();
+    expect(screen.getByTestId('strength-add-series')).toBeTruthy();
+    expect(screen.queryByTestId('strength-canvas-summary')).toBeNull();
+    expect(screen.queryByTestId('warmup-bar')).toBeNull();
+    expect(screen.queryByTestId('cooldown-bar')).toBeNull();
   });
 });

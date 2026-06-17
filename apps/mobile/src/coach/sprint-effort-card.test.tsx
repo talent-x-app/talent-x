@@ -298,4 +298,13 @@ describe('SprintEffortCanvas', () => {
     const [arg] = onChange.mock.calls[onChange.mock.calls.length - 1];
     expect((arg[0] as EditableBlock).notes).toBe('Test échauffement');
   });
+
+  it('mode encart : séries + ajout rendus, en-tête KPI et barres écha/RAC masqués', () => {
+    render(<SprintEffortCanvas nodes={defaultNodes()} onChange={jest.fn()} embedded />);
+    expect(screen.getByTestId('series-card-0')).toBeTruthy();
+    expect(screen.getByTestId('sprint-add-series')).toBeTruthy();
+    expect(screen.queryByTestId('sprint-canvas-summary')).toBeNull();
+    expect(screen.queryByTestId('warmup-bar')).toBeNull();
+    expect(screen.queryByTestId('cooldown-bar')).toBeNull();
+  });
 });

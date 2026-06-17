@@ -186,9 +186,11 @@ function defaultEnduranceSeries(): EditableGroup {
 export function EnduranceEffortCanvas({
   nodes,
   onChange,
+  embedded = false,
 }: {
   nodes: EditableNode[];
   onChange: (next: EditableNode[]) => void;
+  embedded?: boolean;
 }) {
   const series = nodes.filter((n) => isEditableGroup(n)) as EditableGroup[];
 
@@ -313,11 +315,13 @@ export function EnduranceEffortCanvas({
     <EffortCanvasShell
       testID="endurance-effort-canvas"
       header={
-        <CanvasKpiHeader
-          testID="endurance-canvas-summary"
-          title={`Volume : ${volStr}`}
-          subtitle={`· ${kpis.efforts} efforts · ~${estMinutes(series)} min`}
-        />
+        embedded ? undefined : (
+          <CanvasKpiHeader
+            testID="endurance-canvas-summary"
+            title={`Volume : ${volStr}`}
+            subtitle={`· ${kpis.efforts} efforts · ~${estMinutes(series)} min`}
+          />
+        )
       }
       onAddSeries={addSerie}
       addSeriesTestID="endurance-add-series"

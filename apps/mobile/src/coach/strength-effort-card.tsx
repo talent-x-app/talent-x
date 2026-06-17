@@ -284,9 +284,11 @@ function estMinutes(series: Series[]): number {
 export function StrengthEffortCanvas({
   nodes,
   onChange,
+  embedded = false,
 }: {
   nodes: EditableNode[];
   onChange: (next: EditableNode[]) => void;
+  embedded?: boolean;
 }) {
   const { warmup, cooldown } = splitEffortNodes(
     nodes,
@@ -498,29 +500,35 @@ export function StrengthEffortCanvas({
     <EffortCanvasShell
       testID="strength-effort-canvas"
       header={
-        <CanvasKpiHeader
-          testID="strength-canvas-summary"
-          title={`${series.length} bloc${series.length > 1 ? 's' : ''} · ${tonnageBadge(series)}`}
-          subtitle={`· ~${estMinutes(series)} min`}
-        />
+        embedded ? undefined : (
+          <CanvasKpiHeader
+            testID="strength-canvas-summary"
+            title={`${series.length} bloc${series.length > 1 ? 's' : ''} · ${tonnageBadge(series)}`}
+            subtitle={`· ~${estMinutes(series)} min`}
+          />
+        )
       }
       warmup={
-        <WarmupCooldownBar
-          testID="warmup-bar"
-          icon="activity"
-          title={warmup.name}
-          subtitle={warmup.notes}
-          onEditNotes={(notes) => commit(series, { ...warmup, notes }, cooldown)}
-        />
+        embedded ? undefined : (
+          <WarmupCooldownBar
+            testID="warmup-bar"
+            icon="activity"
+            title={warmup.name}
+            subtitle={warmup.notes}
+            onEditNotes={(notes) => commit(series, { ...warmup, notes }, cooldown)}
+          />
+        )
       }
       cooldown={
-        <WarmupCooldownBar
-          testID="cooldown-bar"
-          icon="wind"
-          title={cooldown.name}
-          subtitle={cooldown.notes}
-          onEditNotes={(notes) => commit(series, warmup, { ...cooldown, notes })}
-        />
+        embedded ? undefined : (
+          <WarmupCooldownBar
+            testID="cooldown-bar"
+            icon="wind"
+            title={cooldown.name}
+            subtitle={cooldown.notes}
+            onEditNotes={(notes) => commit(series, warmup, { ...cooldown, notes })}
+          />
+        )
       }
       onAddSeries={addSerie}
       addSeriesTestID="strength-add-series"

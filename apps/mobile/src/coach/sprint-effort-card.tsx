@@ -130,9 +130,11 @@ function makeSprintBlock(opts: {
 export function SprintEffortCanvas({
   nodes,
   onChange,
+  embedded = false,
 }: {
   nodes: EditableNode[];
   onChange: (next: EditableNode[]) => void;
+  embedded?: boolean;
 }) {
   const { warmup, cooldown, series } = splitEffortNodes(
     nodes,
@@ -273,29 +275,35 @@ export function SprintEffortCanvas({
     <EffortCanvasShell
       testID="sprint-effort-canvas"
       header={
-        <CanvasKpiHeader
-          testID="sprint-canvas-summary"
-          title={`Volume haute intensité : ${volStr}`}
-          subtitle={`· ${kpis.efforts} sprints · ~${estMinutes(series)} min`}
-        />
+        embedded ? undefined : (
+          <CanvasKpiHeader
+            testID="sprint-canvas-summary"
+            title={`Volume haute intensité : ${volStr}`}
+            subtitle={`· ${kpis.efforts} sprints · ~${estMinutes(series)} min`}
+          />
+        )
       }
       warmup={
-        <WarmupCooldownBar
-          testID="warmup-bar"
-          icon="activity"
-          title={warmup.name}
-          subtitle={warmup.notes}
-          onEditNotes={(notes) => commit(series, { ...warmup, notes }, cooldown)}
-        />
+        embedded ? undefined : (
+          <WarmupCooldownBar
+            testID="warmup-bar"
+            icon="activity"
+            title={warmup.name}
+            subtitle={warmup.notes}
+            onEditNotes={(notes) => commit(series, { ...warmup, notes }, cooldown)}
+          />
+        )
       }
       cooldown={
-        <WarmupCooldownBar
-          testID="cooldown-bar"
-          icon="wind"
-          title={cooldown.name}
-          subtitle={cooldown.notes}
-          onEditNotes={(notes) => commit(series, warmup, { ...cooldown, notes })}
-        />
+        embedded ? undefined : (
+          <WarmupCooldownBar
+            testID="cooldown-bar"
+            icon="wind"
+            title={cooldown.name}
+            subtitle={cooldown.notes}
+            onEditNotes={(notes) => commit(series, warmup, { ...cooldown, notes })}
+          />
+        )
       }
       onAddSeries={addSerie}
       addSeriesTestID="sprint-add-series"

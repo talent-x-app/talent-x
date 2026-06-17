@@ -174,9 +174,11 @@ function defaultThrowSeries(): EditableGroup {
 export function ThrowsEffortCanvas({
   nodes,
   onChange,
+  embedded = false,
 }: {
   nodes: EditableNode[];
   onChange: (next: EditableNode[]) => void;
+  embedded?: boolean;
 }) {
   const series = nodes.filter((n) => isEditableGroup(n)) as EditableGroup[];
 
@@ -292,11 +294,13 @@ export function ThrowsEffortCanvas({
     <EffortCanvasShell
       testID="throws-effort-canvas"
       header={
-        <CanvasKpiHeader
-          testID="throws-canvas-summary"
-          title={`${tech} lancers technique · ${full} complets`}
-          subtitle={`· ~${estMinutes(series)} min`}
-        />
+        embedded ? undefined : (
+          <CanvasKpiHeader
+            testID="throws-canvas-summary"
+            title={`${tech} lancers technique · ${full} complets`}
+            subtitle={`· ~${estMinutes(series)} min`}
+          />
+        )
       }
       onAddSeries={addSerie}
       addSeriesTestID="throws-add-series"

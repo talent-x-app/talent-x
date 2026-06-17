@@ -59,7 +59,8 @@ export function EffortCanvasShell({
   children,
 }: {
   testID: string;
-  header: ReactNode;
+  /** En-tête KPI de la carte. Omis en mode encart (`embedded`) — le composite porte le chrome. */
+  header?: ReactNode;
   warmup?: ReactNode;
   cooldown?: ReactNode;
   onAddSeries: () => void;

@@ -170,9 +170,11 @@ function defaultHurdleSeries(): EditableGroup {
 export function HurdlesEffortCanvas({
   nodes,
   onChange,
+  embedded = false,
 }: {
   nodes: EditableNode[];
   onChange: (next: EditableNode[]) => void;
+  embedded?: boolean;
 }) {
   const { warmup, cooldown, series } = splitEffortNodes(
     nodes,
@@ -296,29 +298,35 @@ export function HurdlesEffortCanvas({
     <EffortCanvasShell
       testID="hurdles-effort-canvas"
       header={
-        <CanvasKpiHeader
-          testID="hurdles-canvas-summary"
-          title={`Course haies : ${volStr}`}
-          subtitle={`· ${kpis.efforts} passages · ~${estMinutes(series)} min`}
-        />
+        embedded ? undefined : (
+          <CanvasKpiHeader
+            testID="hurdles-canvas-summary"
+            title={`Course haies : ${volStr}`}
+            subtitle={`· ${kpis.efforts} passages · ~${estMinutes(series)} min`}
+          />
+        )
       }
       warmup={
-        <WarmupCooldownBar
-          testID="warmup-bar"
-          icon="activity"
-          title={warmup.name}
-          subtitle={warmup.notes}
-          onEditNotes={(notes) => commit(series, { ...warmup, notes }, cooldown)}
-        />
+        embedded ? undefined : (
+          <WarmupCooldownBar
+            testID="warmup-bar"
+            icon="activity"
+            title={warmup.name}
+            subtitle={warmup.notes}
+            onEditNotes={(notes) => commit(series, { ...warmup, notes }, cooldown)}
+          />
+        )
       }
       cooldown={
-        <WarmupCooldownBar
-          testID="cooldown-bar"
-          icon="wind"
-          title={cooldown.name}
-          subtitle={cooldown.notes}
-          onEditNotes={(notes) => commit(series, warmup, { ...cooldown, notes })}
-        />
+        embedded ? undefined : (
+          <WarmupCooldownBar
+            testID="cooldown-bar"
+            icon="wind"
+            title={cooldown.name}
+            subtitle={cooldown.notes}
+            onEditNotes={(notes) => commit(series, warmup, { ...cooldown, notes })}
+          />
+        )
       }
       onAddSeries={addSerie}
       addSeriesTestID="hurdles-add-series"

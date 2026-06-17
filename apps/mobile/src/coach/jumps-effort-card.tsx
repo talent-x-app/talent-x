@@ -193,9 +193,11 @@ function defaultJumpSeries(): EditableGroup {
 export function JumpsEffortCanvas({
   nodes,
   onChange,
+  embedded = false,
 }: {
   nodes: EditableNode[];
   onChange: (next: EditableNode[]) => void;
+  embedded?: boolean;
 }) {
   const series = nodes.filter((n) => isEditableGroup(n)) as EditableGroup[];
 
@@ -328,11 +330,13 @@ export function JumpsEffortCanvas({
     <EffortCanvasShell
       testID="jumps-effort-canvas"
       header={
-        <CanvasKpiHeader
-          testID="jumps-canvas-summary"
-          title={`${totalAttempts(series)} essais planifiés`}
-          subtitle={`· ~${estMinutes(series)} min`}
-        />
+        embedded ? undefined : (
+          <CanvasKpiHeader
+            testID="jumps-canvas-summary"
+            title={`${totalAttempts(series)} essais planifiés`}
+            subtitle={`· ~${estMinutes(series)} min`}
+          />
+        )
       }
       onAddSeries={addSerie}
       addSeriesTestID="jumps-add-series"
