@@ -307,7 +307,11 @@ export function StrengthEffortCanvas({
     newWarmup: EditableBlock = warmup,
     newCooldown: EditableBlock = cooldown,
   ) {
-    onChange([newWarmup, ...fromSeries(newSeries), newCooldown]);
+    // En mode encart (composite ADR-42), l'échauffement / retour au calme sont gérés au niveau
+    // séance : la carte ne sérialise que ses séries, sinon elle réinjecte un warmup/cooldown
+    // fantôme au milieu de la séance à chaque interaction (blocs « Échauffement / Retour au calme »
+    // dupliqués). En standalone, elle encadre comme avant.
+    onChange(embedded ? fromSeries(newSeries) : [newWarmup, ...fromSeries(newSeries), newCooldown]);
   }
 
   function patchSeries(si: number, next: Series) {

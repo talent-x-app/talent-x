@@ -120,6 +120,20 @@ describe('CompositeCanvas (ADR-42)', () => {
     expect(h.nodes().length).toBeGreaterThan(before);
   });
 
+  it('éditer une carte en encart n’injecte aucun bloc échauffement/retour au calme fantôme', () => {
+    // Régression : en mode encart les cartes ne doivent PAS sérialiser warmup/cooldown (gérés au
+    // niveau séance) — sinon des blocs « Échauffement / Retour au calme » dupliqués apparaissent
+    // au milieu de la séance composite à chaque interaction.
+    const h = setup([sprintSegment()]);
+    fireEvent.press(screen.getByTestId('sprint-add-series'));
+    const types = h
+      .nodes()
+      .filter((n) => !isEditableGroup(n))
+      .map((n) => (n as EditableBlock).type);
+    expect(types).not.toContain(BlockType.warmup);
+    expect(types).not.toContain(BlockType.cooldown);
+  });
+
   it('éditer le segment Personnalisé via session-add-block remonte au parent', () => {
     const h = setup([customBlock()]);
     const before = h.nodes().length;

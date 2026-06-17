@@ -189,7 +189,10 @@ export function HurdlesEffortCanvas({
     newWarmup: EditableBlock = warmup,
     newCooldown: EditableBlock = cooldown,
   ) {
-    onChange([newWarmup, ...newSeries, newCooldown]);
+    // En mode encart (composite ADR-42), l'échauffement / retour au calme sont portés au niveau
+    // séance : on ne sérialise que les séries, sinon un warmup/cooldown fantôme est réinjecté au
+    // milieu de la séance composite à chaque interaction. En standalone, on encadre comme avant.
+    onChange(embedded ? newSeries : [newWarmup, ...newSeries, newCooldown]);
   }
 
   function patchGroup(gi: number, patch: Partial<EditableGroup>) {
