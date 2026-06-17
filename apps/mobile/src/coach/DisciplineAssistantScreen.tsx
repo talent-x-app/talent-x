@@ -8,6 +8,7 @@ import { HurdlesEffortCanvas } from './hurdles-effort-card';
 import { EnduranceEffortCanvas } from './endurance-effort-card';
 import { JumpsEffortCanvas } from './jumps-effort-card';
 import { ThrowsEffortCanvas } from './throws-effort-card';
+import { StrengthEffortCanvas } from './strength-effort-card';
 
 export type CanvasCtx = {
   nodes: EditableNode[];
@@ -23,16 +24,16 @@ export type CanvasCtx = {
  * dès que la discipline est inférée du contenu existant (ADR-40 §2) — même registre qu'à la
  * création, aucun doublon de câblage par discipline.
  */
-// `Partial` : la discipline `strength` (Renforcement / PPG, ADR-41) est livrée en deux temps —
-// la couche données/contrat (phase A, ce lot) sans carte dédiée, la carte `StrengthEffortCanvas`
-// arrivant en phase B (TLX-173). Tant qu'elle manque, l'assistant retombe sur le constructeur
-// générique (C-05) — lecture défensive côté `cfg.key` et inférence en édition.
-export const DISCIPLINE_CANVAS: Partial<Record<DisciplineKey, (ctx: CanvasCtx) => ReactNode>> = {
+// Les 6 disciplines ont désormais leur carte d'effort dédiée (ADR-41 phase B, TLX-173) : la carte
+// `StrengthEffortCanvas` (Renforcement / PPG) complète le registre. `Record` plein → plus de repli
+// générique nécessaire à la création comme à l'édition par inférence.
+export const DISCIPLINE_CANVAS: Record<DisciplineKey, (ctx: CanvasCtx) => ReactNode> = {
   sprint: ({ nodes, setNodes }) => <SprintEffortCanvas nodes={nodes} onChange={setNodes} />,
   hurdles: ({ nodes, setNodes }) => <HurdlesEffortCanvas nodes={nodes} onChange={setNodes} />,
   endurance: ({ nodes, setNodes }) => <EnduranceEffortCanvas nodes={nodes} onChange={setNodes} />,
   jumps: ({ nodes, setNodes }) => <JumpsEffortCanvas nodes={nodes} onChange={setNodes} />,
   throws: ({ nodes, setNodes }) => <ThrowsEffortCanvas nodes={nodes} onChange={setNodes} />,
+  strength: ({ nodes, setNodes }) => <StrengthEffortCanvas nodes={nodes} onChange={setNodes} />,
 };
 
 /**

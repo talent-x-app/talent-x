@@ -162,6 +162,30 @@ describe('CoachSessionDetailScreen (C-05 — détail lecture seule)', () => {
     expect(screen.getByTestId('coach-session-discipline-summary')).toHaveTextContent(/Haies/);
   });
 
+  it('ADR-41 §6 : séance renforcement (strength) → résumé discipline « Renforcement / PPG »', async () => {
+    mockGetSession.mockResolvedValue({
+      status: 200,
+      data: {
+        ...SESSION,
+        exercises: {
+          schemaVersion: 3,
+          items: [
+            { name: 'Squat', order: 0, type: 'strength', sets: 4, reps: 5, params: {} },
+            { name: 'Développé couché', order: 1, type: 'strength', sets: 4, reps: 10, params: {} },
+          ],
+        },
+      },
+    });
+    render(<CoachSessionDetailScreen />, { wrapper: Wrapper });
+
+    await waitFor(() =>
+      expect(screen.getByTestId('coach-session-discipline-summary')).toBeOnTheScreen(),
+    );
+    expect(screen.getByTestId('coach-session-discipline-summary')).toHaveTextContent(
+      /Renforcement \/ PPG/,
+    );
+  });
+
   it('ADR-40 §3 : structure non inférable (groupes hétérogènes) → pas de résumé, rendu inchangé', async () => {
     mockGetSession.mockResolvedValue({ status: 200, data: SESSION });
     render(<CoachSessionDetailScreen />, { wrapper: Wrapper });
