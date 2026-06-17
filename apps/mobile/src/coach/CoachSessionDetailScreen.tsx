@@ -3,14 +3,19 @@ import { useTheme } from '@talent-x/design-tokens';
 import { useQuery } from '@tanstack/react-query';
 import { Feather } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useMemo } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { Button, Card } from '../components/ui';
 import { SESSION_STATUS_META } from '../calendar/calendar-model';
 import { formatSessionDate } from '../athlete/athlete-session-ui';
 import { SessionContent } from '../sessions/session-content-ui';
+import { countLeaves } from '../sessions/exercises-doc';
 import { FeedbackThread } from '../comments/FeedbackThread';
 import { CoachBriefReview } from './brief-editor';
 import { assignSessionHref, editSessionHref } from './navigation';
+import { inferDiscipline } from './discipline-inference';
+import { disciplineConfig } from './discipline-assistants';
+import { nodesFromExercises } from './session-builder-ui';
 
 /**
  * Détail d'une séance côté coach (C-05) en **lecture seule** — mode par défaut, découplé du
@@ -35,6 +40,21 @@ export function CoachSessionDetailScreen() {
 
   const statusMeta = session.data ? SESSION_STATUS_META[session.data.status] : undefined;
   const exercises = session.data?.exercises?.items ?? [];
+
+  // ADR-40 §3 : même inférence que le constructeur (édition), en lecture seule — un résumé
+  // compatible avec la carte dédiée s'affiche si la discipline est reconnue, sans rendre le
+  // canvas éditable (ce résumé ne fait que compléter `SessionContent`, repli identique sinon).
+  const inferredDiscipline = useMemo(
+    () => inferDiscipline(nodesFromExercises(exercises)),
+    [exercises],
+  );
+  const disciplineSummary = useMemo(() => {
+    if (inferredDiscipline == null) return null;
+    const cfg = disciplineConfig(inferredDiscipline);
+    if (!cfg) return null;
+    const count = countLeaves(exercises);
+    return `${cfg.label} — ${count} ${cfg.effortLabel.toLowerCase()}${count > 1 ? 's' : ''}`;
+  }, [inferredDiscipline, exercises]);
 
   return (
     <ScrollView
@@ -141,6 +161,18 @@ export function CoachSessionDetailScreen() {
                 }}
               >
                 {session.data.description}
+              </Text>
+            ) : null}
+            {disciplineSummary != null ? (
+              <Text
+                testID="coach-session-discipline-summary"
+                style={{
+                  color: colors.accentText,
+                  fontFamily: typography.fontFamily.medium,
+                  fontSize: typography.bodySm.fontSize,
+                }}
+              >
+                {disciplineSummary}
               </Text>
             ) : null}
           </View>
