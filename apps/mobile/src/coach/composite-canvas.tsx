@@ -1,5 +1,6 @@
-import { type ReactNode } from 'react';
-import { Text, View } from 'react-native';
+import { useState, type ReactNode } from 'react';
+import { Pressable, Text, View } from 'react-native';
+import { Feather } from '@expo/vector-icons';
 import { useTheme } from '@talent-x/design-tokens';
 import { BlockType } from '@talent-x/api-client';
 import {
@@ -13,7 +14,6 @@ import {
 } from './session-builder-ui';
 import {
   CanvasKpiHeader,
-  PresetPicker,
   SmallIconBtn,
   WarmupCooldownBar,
   splitEffortNodes,
@@ -119,6 +119,8 @@ export function CompositeCanvas({
         }
       />
 
+      <AddBlocPicker onAdd={addBloc} />
+
       {segments.map((seg, segIndex) => (
         <BlocFrame
           key={`${seg.kind}-${seg.start}`}
@@ -153,8 +155,6 @@ export function CompositeCanvas({
           commitWith(series, hasWarmup ? warmup : null, { ...cooldown, notes })
         }
       />
-
-      <AddBlocPicker onAdd={addBloc} />
     </View>
   );
 }
@@ -264,18 +264,133 @@ function BlocFrame({
   );
 }
 
-/** Sélecteur « + bloc » : 6 disciplines + « Personnalisé ». Réutilise `PresetPicker`. */
+/**
+ * Sélecteur « + bloc » : un CTA explicite (« Ajouter un bloc »), placé juste après l'échauffement
+ * (au-dessus des segments) plutôt qu'en bas de l'écran — c'est l'action principale du composite.
+ * Pressé, il déplie une grille de puces icône + libellé (6 disciplines + « Personnalisé »), plus
+ * lisible qu'un menu déroulant « Choisir un modèle… ».
+ */
 function AddBlocPicker({ onAdd }: { onAdd: (choice: DisciplineKey | 'custom') => void }) {
-  const options = [
-    ...DISCIPLINES.map((d) => ({ key: d.key, label: d.label })),
-    { key: 'custom', label: 'Personnalisé' },
+  const [open, setOpen] = useState(false);
+  const { colors, typography, spacing, radius, borderWidth } = useTheme();
+  const options: {
+    key: DisciplineKey | 'custom';
+    label: string;
+    icon: keyof typeof Feather.glyphMap;
+  }[] = [
+    ...DISCIPLINES.map((d) => ({ key: d.key, label: d.label, icon: d.icon })),
+    { key: 'custom', label: 'Personnalisé', icon: 'edit-3' },
   ];
+
+  if (!open) {
+    return (
+      <Pressable
+        testID="composite-add-bloc"
+        onPress={() => setOpen(true)}
+        accessibilityRole="button"
+        accessibilityLabel="Ajouter un bloc"
+        style={({ pressed }) => ({
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: spacing[2],
+          height: 48,
+          borderRadius: radius.md,
+          borderWidth: borderWidth.hairline,
+          borderStyle: 'dashed',
+          borderColor: colors.accent,
+          backgroundColor: pressed ? colors.accentSubtle : 'transparent',
+        })}
+      >
+        <Feather name="plus-circle" size={18} color={colors.accentText} />
+        <Text
+          style={{
+            color: colors.accentText,
+            fontFamily: typography.fontFamily.semibold,
+            fontSize: typography.body.fontSize,
+          }}
+        >
+          Ajouter un bloc
+        </Text>
+      </Pressable>
+    );
+  }
+
   return (
-    <PresetPicker
-      testID="composite-add-bloc"
-      presets={options}
-      selectedKey=""
-      onSelect={(key) => onAdd(key as DisciplineKey | 'custom')}
-    />
+    <View
+      style={{
+        borderRadius: radius.md,
+        borderWidth: borderWidth.hairline,
+        borderColor: colors.borderStrong,
+        backgroundColor: colors.surface,
+        padding: spacing[3],
+        gap: spacing[3],
+      }}
+    >
+      <Text
+        style={{
+          color: colors.textSecondary,
+          fontFamily: typography.fontFamily.medium,
+          fontSize: typography.bodySm.fontSize,
+          textTransform: 'uppercase',
+          letterSpacing: 0.6,
+        }}
+      >
+        Quelle discipline pour ce bloc ?
+      </Text>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] }}>
+        {options.map((opt) => (
+          <Pressable
+            key={opt.key}
+            testID={`composite-add-bloc-${opt.key}`}
+            onPress={() => {
+              onAdd(opt.key);
+              setOpen(false);
+            }}
+            accessibilityRole="button"
+            accessibilityLabel={opt.label}
+            style={({ pressed }) => ({
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: spacing[1],
+              paddingVertical: spacing[2],
+              paddingHorizontal: spacing[3],
+              borderRadius: radius.pill,
+              borderWidth: borderWidth.hairline,
+              borderColor: colors.borderStrong,
+              backgroundColor: pressed ? colors.accentSubtle : colors.surfaceSunken,
+            })}
+          >
+            <Feather name={opt.icon} size={14} color={colors.textSecondary} />
+            <Text
+              style={{
+                color: colors.textPrimary,
+                fontFamily: typography.fontFamily.medium,
+                fontSize: typography.bodySm.fontSize,
+              }}
+            >
+              {opt.label}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+      <Pressable
+        testID="composite-add-bloc-cancel"
+        onPress={() => setOpen(false)}
+        accessibilityRole="button"
+        accessibilityLabel="Annuler"
+        style={{ alignSelf: 'flex-start' }}
+      >
+        <Text
+          style={{
+            color: colors.textMuted,
+            fontFamily: typography.fontFamily.regular,
+            fontSize: typography.bodySm.fontSize,
+          }}
+        >
+          Annuler
+        </Text>
+      </Pressable>
+    </View>
   );
 }
