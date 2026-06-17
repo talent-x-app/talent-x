@@ -14,7 +14,7 @@ import {
   type EditableGroup,
   type EditableNode,
 } from './session-builder-ui';
-import { HURDLES_PRESETS } from './assistant-presets';
+import { HURDLES_PRESETS, targetTimeFromRecord } from './assistant-presets';
 import { formatDistanceVolume, sessionKpis } from '../sessions/session-summary';
 import {
   CanvasKpiHeader,
@@ -53,12 +53,18 @@ const START_TYPES = [
 const LEAD_LEGS = [
   { value: 'left', label: 'Gauche' },
   { value: 'right', label: 'Droite' },
+  { value: 'alt', label: 'Alternée' },
 ];
 
 const INTENSITY_MODES = [
   { value: 'percent_record', label: '% record' },
   { value: 'target_time', label: 'Temps cible' },
   { value: 'speed', label: 'Vitesse m/s' },
+];
+
+const SEXES = [
+  { value: 'H', label: 'Hommes' },
+  { value: 'F', label: 'Femmes' },
 ];
 
 // ---------- Helpers -------------------------------------------------------------------------
@@ -74,6 +80,8 @@ function serieProps(group: EditableGroup) {
     leadLeg: first?.params.leadLeg ?? 'left',
     startType: first?.params.startType ?? 'blocks',
     intensityMode: first?.params.intensityMode ?? 'percent_record',
+    intensityValue: first?.params.intensityValue ?? '',
+    sex: (first?.params.sex ?? 'H') as 'H' | 'F',
     rounds: Math.max(1, Number(group.rounds) || 1),
     restR: Math.max(0, Number(group.restBetweenRoundsSeconds) || 0),
   };
@@ -113,6 +121,8 @@ function makeHurdleBlock(opts: {
   leadLeg: string;
   startType: string;
   intensityMode: string;
+  intensityValue?: string;
+  sex?: 'H' | 'F';
   recovery?: number;
 }): EditableBlock {
   return makeBlock({
@@ -129,6 +139,8 @@ function makeHurdleBlock(opts: {
       leadLeg: opts.leadLeg,
       startType: opts.startType,
       intensityMode: opts.intensityMode,
+      intensityValue: opts.intensityValue ?? '',
+      sex: opts.sex ?? 'H',
       recoverySeconds: String(opts.recovery ?? 300),
     },
   });
@@ -232,6 +244,8 @@ export function HurdlesEffortCanvas({
               leadLeg: p.leadLeg,
               startType: p.startType,
               intensityMode: p.intensityMode,
+              intensityValue: p.intensityValue,
+              sex: p.sex,
               recovery: 300,
             }),
           ],
@@ -360,7 +374,7 @@ function HurdlesSeriesCard({
   onDelete: () => void;
 }) {
   const [selectedPresetKey, setSelectedPresetKey] = useState('');
-  const { spacing } = useTheme();
+  const { colors, typography, spacing, radius, borderWidth } = useTheme();
   const tid = `series-card-${index}`;
   const {
     event,
@@ -370,9 +384,15 @@ function HurdlesSeriesCard({
     leadLeg,
     startType,
     intensityMode,
+    intensityValue,
+    sex,
     rounds,
     restR,
   } = serieProps(group);
+  const targetTime =
+    intensityMode === 'percent_record'
+      ? targetTimeFromRecord(event, sex, Number(intensityValue) || 0)
+      : undefined;
 
   return (
     <SeriesCardFrame
@@ -439,7 +459,43 @@ function HurdlesSeriesCard({
           onChangeText={(t) => onPatchSerieParam({ event: t })}
           placeholder="Ex. 110mH"
         />
+      </View>
+
+      {/* Ligne de haies — sous-carte commune à la série (ADR-40) */}
+      <View
+        testID={`${tid}-hurdle-line`}
+        style={{
+          gap: spacing[2],
+          padding: spacing[3],
+          borderRadius: radius.md,
+          borderWidth: borderWidth.hairline,
+          borderColor: colors.borderStrong,
+          backgroundColor: colors.surfaceSunken,
+        }}
+      >
+        <Text
+          style={{
+            color: colors.textSecondary,
+            fontFamily: typography.fontFamily.medium,
+            fontSize: typography.caption.fontSize,
+            textTransform: 'uppercase',
+            letterSpacing: 0.6,
+          }}
+        >
+          Ligne de haies · commune à la série
+        </Text>
         <View style={{ flexDirection: 'row', gap: spacing[2] }}>
+          <View style={{ flex: 1 }}>
+            <FieldLabel>Hauteur (1er passage)</FieldLabel>
+            <CellInput
+              testID={`${tid}-line-height`}
+              value={group.items[0]?.params.heightCm ?? ''}
+              onChangeText={(t) => onPatchPass(0, { heightCm: t })}
+              unit="cm"
+              decimal
+              placeholder="84"
+            />
+          </View>
           <View style={{ flex: 1 }}>
             <FieldLabel>Nb de haies</FieldLabel>
             <CellInput
@@ -449,6 +505,8 @@ function HurdlesSeriesCard({
               placeholder="10"
             />
           </View>
+        </View>
+        <View style={{ flexDirection: 'row', gap: spacing[2] }}>
           <View style={{ flex: 1 }}>
             <FieldLabel>Espacement</FieldLabel>
             <CellInput
@@ -494,6 +552,23 @@ function HurdlesSeriesCard({
         ))}
       </EffortTable>
 
+      {/* Catégorie (pour le référentiel de record) */}
+      <View style={{ gap: spacing[2] }}>
+        <FieldLabel>Catégorie</FieldLabel>
+        <View style={{ flexDirection: 'row', gap: spacing[2] }}>
+          {SEXES.map((s) => (
+            <Chip
+              key={s.value}
+              testID={`${tid}-sex-${s.value}`}
+              selected={sex === s.value}
+              onPress={() => onPatchSerieParam({ sex: s.value })}
+            >
+              {s.label}
+            </Chip>
+          ))}
+        </View>
+      </View>
+
       {/* Référentiel d'intensité */}
       <View style={{ gap: spacing[2] }}>
         <FieldLabel>Référentiel d'intensité</FieldLabel>
@@ -503,9 +578,19 @@ function HurdlesSeriesCard({
           selected={intensityMode}
           onSelect={(v) => onPatchSerieParam({ intensityMode: v })}
         />
+        {intensityMode === 'percent_record' && (
+          <InlineNumberInput
+            testID={`${tid}-intensityValue`}
+            value={intensityValue}
+            onChangeText={(t) => onPatchSerieParam({ intensityValue: t })}
+            placeholder="92"
+            unit="%"
+          />
+        )}
         <InfoNote>
-          Cible individualisée · % du record sur l'épreuve de chaque athlète. La distance de course
-          sert au suivi de progression.
+          {`Cible individualisée · % du record sur l'épreuve de chaque athlète. La distance de course sert au suivi de progression.${
+            targetTime != null ? ` (≈ ${targetTime} s sur la référence du module)` : ''
+          }`}
         </InfoNote>
       </View>
 

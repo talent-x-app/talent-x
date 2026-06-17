@@ -187,6 +187,8 @@ function hurdleEffort(opts: {
   runInMeters: number;
   rhythmSteps: number;
   recoverySeconds: number;
+  leadLeg?: string;
+  sex?: 'H' | 'F';
 }): EditableBlock {
   return makeBlock({
     type: BlockType.hurdles,
@@ -207,8 +209,9 @@ function hurdleEffort(opts: {
       hurdleCount: String(opts.hurdleCount),
       approachMeters: String(opts.approachMeters),
       rhythmSteps: String(opts.rhythmSteps),
-      leadLeg: 'left',
+      leadLeg: opts.leadLeg ?? 'left',
       startType: 'blocks',
+      sex: opts.sex ?? 'H',
       recoverySeconds: String(opts.recoverySeconds),
     },
   });
@@ -256,6 +259,7 @@ export const HURDLES_PRESETS: SessionBuilderPreset[] = [
             runInMeters: 10.5,
             rhythmSteps: 3,
             recoverySeconds: 300,
+            sex: 'F',
           }),
         ],
       }),
@@ -279,6 +283,7 @@ export const HURDLES_PRESETS: SessionBuilderPreset[] = [
             runInMeters: 40,
             rhythmSteps: 15,
             recoverySeconds: 420,
+            leadLeg: 'alt',
           }),
         ],
       }),

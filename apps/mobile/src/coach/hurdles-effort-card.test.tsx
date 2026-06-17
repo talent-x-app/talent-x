@@ -130,4 +130,19 @@ describe('HurdlesEffortCanvas', () => {
     act(() => fireEvent.press(screen.getByTestId('hurdles-add-series')));
     expect(h.groups()).toHaveLength(2);
   });
+
+  it('sélectionne la jambe d’attaque alternée', () => {
+    const h = setup(defaultNodes());
+    act(() => fireEvent.press(screen.getByTestId('series-card-0-lead-alt')));
+    expect(h.groups()[0].items[0].params.leadLeg).toBe('alt');
+  });
+
+  it('affiche la cible calculée (≈) quand le référentiel est % du record', () => {
+    const h = setup(defaultNodes());
+    act(() => fireEvent.press(screen.getByTestId('series-card-0-sex-H')));
+    act(() => fireEvent.changeText(screen.getByTestId('series-card-0-event'), '110mH'));
+    act(() => fireEvent.changeText(screen.getByTestId('series-card-0-intensityValue'), '95'));
+    expect(h.groups()[0].items[0].params.intensityValue).toBe('95');
+    expect(screen.getByText(/≈ .* s sur la référence du module/)).toBeTruthy();
+  });
 });
