@@ -1,5 +1,11 @@
-import { type Exercise, type ExerciseGroup } from '@talent-x/api-client';
-import { formatDistanceVolume, sessionKpis, sessionPhrase } from './session-summary';
+import { LoadUnit, type Exercise, type ExerciseGroup } from '@talent-x/api-client';
+import {
+  formatDistanceVolume,
+  formatTonnage,
+  sessionKpis,
+  sessionPhrase,
+  sessionTonnage,
+} from './session-summary';
 
 const sprint = (distanceMeters: number, order: number): Exercise => ({
   name: `${distanceMeters} m`,
@@ -92,5 +98,55 @@ describe('formatDistanceVolume (TLX-160)', () => {
   });
   it('0 ou négatif → undefined', () => {
     expect(formatDistanceVolume(0)).toBeUndefined();
+  });
+});
+
+describe('sessionTonnage (ADR-41 §5)', () => {
+  const strength = (
+    order: number,
+    sets: number,
+    reps: number,
+    load?: { value: number; unit: LoadUnit },
+  ): Exercise => ({ name: 'Squat', order, type: 'strength', sets, reps, load });
+
+  it('top-level kg : tonnage = sets × reps × kg ; repVolume = sets × reps', () => {
+    const res = sessionTonnage([strength(1, 4, 5, { value: 100, unit: LoadUnit.kg })]);
+    expect(res).toEqual({ tonnageKg: 2000, repVolume: 20 });
+  });
+
+  it('%1RM non converti : repVolume seul, tonnage 0', () => {
+    const res = sessionTonnage([strength(1, 4, 5, { value: 85, unit: LoadUnit.percent_1rm })]);
+    expect(res).toEqual({ tonnageKg: 0, repVolume: 20 });
+  });
+
+  it('PPG en groupe : effectif = rounds quand sets absent (core en reps)', () => {
+    const grp: ExerciseGroup = {
+      kind: 'group',
+      name: 'Circuit',
+      order: 1,
+      groupType: 'circuit',
+      rounds: 3,
+      items: [{ name: 'Mountain climbers', order: 2, type: 'core', reps: 20 }],
+    };
+    const res = sessionTonnage([grp]);
+    expect(res).toEqual({ tonnageKg: 0, repVolume: 60 }); // 3 tours × 20 reps
+  });
+
+  it('ignore les feuilles non strength/core (sprint)', () => {
+    const res = sessionTonnage([sprint(100, 1)]);
+    expect(res).toEqual({ tonnageKg: 0, repVolume: 0 });
+  });
+});
+
+describe('formatTonnage (ADR-41 §5)', () => {
+  it('< 1000 kg → kg', () => {
+    expect(formatTonnage(850)).toBe('850 kg');
+  });
+  it('≥ 1000 kg → tonnes (virgule décimale, entier sans décimale)', () => {
+    expect(formatTonnage(4200)).toBe('4,2 t');
+    expect(formatTonnage(2000)).toBe('2 t');
+  });
+  it('0 ou négatif → undefined', () => {
+    expect(formatTonnage(0)).toBeUndefined();
   });
 });

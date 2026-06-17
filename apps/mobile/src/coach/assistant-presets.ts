@@ -1,4 +1,4 @@
-import { BlockType } from '@talent-x/api-client';
+import { BlockType, LoadUnit } from '@talent-x/api-client';
 import {
   makeBlock,
   makeCooldownBlock,
@@ -735,13 +735,201 @@ export const THROWS_PRESETS: SessionBuilderPreset[] = [
   },
 ];
 
-/** Presets par discipline (ADR-38, TLX-155→159). */
+// --- Renforcement / PPG (TLX-172, ADR-41) ----------------------------------------------------
+
+/**
+ * 1RM de référence (kg, **fictifs** — même esprit que `HURDLE_RECORDS`/`JUMP_RECORDS`, ADR-41 §4).
+ * Sert à dériver une **charge cible** (`≈ <kg>`) en mode `% 1RM`, côté carte. Référence générique
+ * tant que l'individualisation par athlète n'est pas livrée (différée, cohérent ADR-20).
+ */
+export const ONE_RM_REFERENCE: Record<string, number> = {
+  squat: 140,
+  deadlift: 160,
+  bench: 100,
+  ohp: 60,
+  row: 80,
+  pullup: 90,
+  clean: 90,
+  snatch: 70,
+  lunge: 80,
+  hipthrust: 150,
+};
+
+/** Libellés FR des exercices de musculation (clé `params.exerciseKey` ↔ libellé `name`). */
+export const EXERCISE_LABELS: Record<string, string> = {
+  squat: 'Squat',
+  deadlift: 'Soulevé de terre',
+  bench: 'Développé couché',
+  ohp: 'Développé militaire',
+  row: 'Tirage',
+  pullup: 'Tractions lestées',
+  clean: 'Épaulé',
+  snatch: 'Arraché',
+  lunge: 'Fentes',
+  hipthrust: 'Hip thrust',
+};
+
+/** Charge cible (kg) = 1RM × % ⁄ 100, arrondie. `undefined` si l'exercice n'a pas de 1RM connu. */
+export function targetLoadFromOneRm(exerciseKey: string, percent: number): number | undefined {
+  const oneRm = ONE_RM_REFERENCE[exerciseKey];
+  if (oneRm == null) return undefined;
+  return Math.round((oneRm * percent) / 100);
+}
+
+/**
+ * Exercice de musculation typé (`strength`) : `name` (libellé), base `sets`/`reps`/`load`, et
+ * params additifs `tempo`/`rpe`/`exerciseKey` (ADR-41 §2/§3). `exerciseKey` est stocké pour que
+ * la carte puisse recalculer la charge cible %1RM. `loadUnit` retombe sur `% 1RM` quand une
+ * `loadValue` est fournie sans unité explicite.
+ */
+function strengthExercise(opts: {
+  exerciseKey: string;
+  sets: number;
+  reps: number;
+  loadValue?: number;
+  loadUnit?: LoadUnit | null;
+  rpe?: number;
+  tempo?: string;
+}): EditableBlock {
+  const params: Record<string, string> = { exerciseKey: opts.exerciseKey };
+  if (opts.tempo) params.tempo = opts.tempo;
+  if (opts.rpe != null) params.rpe = String(opts.rpe);
+  const block = makeBlock({
+    type: BlockType.strength,
+    name: EXERCISE_LABELS[opts.exerciseKey] ?? opts.exerciseKey,
+    sets: String(opts.sets),
+    reps: String(opts.reps),
+    params,
+  });
+  if (opts.loadValue != null) {
+    block.loadValue = String(opts.loadValue);
+    block.loadUnit = opts.loadUnit ?? LoadUnit.percent_1rm;
+  } else if (opts.loadUnit != null) {
+    block.loadUnit = opts.loadUnit;
+  }
+  return block;
+}
+
+/**
+ * Station PPG typée (`core`) : travail en durée (`durationSeconds`) **ou** répétitions (`reps`),
+ * récup `restSeconds`. Les tours sont portés par le `rounds` du groupe circuit (ADR-41 §2).
+ */
+function ppgStation(opts: {
+  name: string;
+  workSeconds?: number;
+  reps?: number;
+  recoverySeconds?: number;
+}): EditableBlock {
+  const block = makeBlock({ type: BlockType.core, name: opts.name });
+  if (opts.workSeconds != null) block.durationSeconds = String(opts.workSeconds);
+  if (opts.reps != null) block.reps = String(opts.reps);
+  if (opts.recoverySeconds != null) block.restSeconds = String(opts.recoverySeconds);
+  return block;
+}
+
+/**
+ * Presets Renforcement / PPG (ADR-41 §7).
+ *
+ * Modèle de données — décision ADR-41 :
+ * - **Muscu** : chaque exercice = un bloc `strength` **de premier niveau** (non groupé). Motif :
+ *   `sets` est **masqué dans un groupe** (`isBaseFieldVisible`, ADR-27 règle 6), or les séries
+ *   varient d'un exercice à l'autre ; un bloc top-level conserve donc son propre `sets` visible.
+ *   Le « bloc de travail / carte série » est un regroupement **visuel** géré par la carte (phase B),
+ *   pas un `EditableGroup`.
+ * - **PPG** : les stations partagent les tours → `makeSeriesGroup(groupType:'circuit')`,
+ *   `rounds` = nb de tours ; `sets` masqué (correct, porté par `rounds`).
+ */
+export const STRENGTH_PRESETS: SessionBuilderPreset[] = [
+  {
+    key: 'force_max',
+    label: 'Force max',
+    build: () => [
+      strengthExercise({ exerciseKey: 'squat', sets: 4, reps: 5, loadValue: 85, tempo: '31X1' }),
+      strengthExercise({
+        exerciseKey: 'deadlift',
+        sets: 3,
+        reps: 4,
+        loadValue: 80,
+        tempo: '20X0',
+      }),
+    ],
+  },
+  {
+    key: 'hypertrophy',
+    label: 'Hypertrophie',
+    build: () => [
+      strengthExercise({ exerciseKey: 'squat', sets: 4, reps: 10, loadValue: 70, tempo: '2010' }),
+      strengthExercise({ exerciseKey: 'bench', sets: 4, reps: 10, loadValue: 70, tempo: '2010' }),
+    ],
+  },
+  {
+    key: 'power',
+    label: 'Force-vitesse / Puissance',
+    build: () => [
+      strengthExercise({ exerciseKey: 'squat', sets: 5, reps: 3, loadValue: 50, tempo: 'X0X0' }),
+    ],
+  },
+  {
+    key: 'plyo',
+    label: 'Pliométrie',
+    build: () => [
+      strengthExercise({
+        exerciseKey: 'squat',
+        sets: 5,
+        reps: 5,
+        loadUnit: LoadUnit.bodyweight,
+        tempo: 'X0X0',
+      }),
+    ],
+  },
+  {
+    key: 'circuit_ppg',
+    label: 'Circuit PPG',
+    build: () => [
+      makeSeriesGroup({
+        name: 'Circuit PPG',
+        groupType: 'circuit',
+        rounds: '3',
+        restBetweenRoundsSeconds: '60',
+        items: [
+          ppgStation({ name: 'Squats sautés', workSeconds: 40, recoverySeconds: 20 }),
+          ppgStation({ name: 'Pompes', workSeconds: 40, recoverySeconds: 20 }),
+          ppgStation({ name: 'Fentes', workSeconds: 40, recoverySeconds: 20 }),
+          ppgStation({ name: 'Burpees', workSeconds: 40, recoverySeconds: 20 }),
+          ppgStation({ name: 'Gainage', workSeconds: 40, recoverySeconds: 20 }),
+          ppgStation({ name: 'Squats', workSeconds: 40, recoverySeconds: 20 }),
+        ],
+      }),
+    ],
+  },
+  {
+    key: 'core_ppg',
+    label: 'Gainage',
+    build: () => [
+      makeSeriesGroup({
+        name: 'Gainage',
+        groupType: 'circuit',
+        rounds: '3',
+        restBetweenRoundsSeconds: '60',
+        items: [
+          ppgStation({ name: 'Planche', workSeconds: 45, recoverySeconds: 15 }),
+          ppgStation({ name: 'Gainage latéral', workSeconds: 30, recoverySeconds: 15 }),
+          ppgStation({ name: 'Mountain climbers', reps: 20, recoverySeconds: 15 }),
+          ppgStation({ name: 'Superman', workSeconds: 30, recoverySeconds: 15 }),
+        ],
+      }),
+    ],
+  },
+];
+
+/** Presets par discipline (ADR-38, TLX-155→159 ; ADR-41 TLX-172). */
 const ASSISTANT_PRESETS: Record<DisciplineKey, SessionBuilderPreset[]> = {
   sprint: SPRINT_PRESETS,
   hurdles: HURDLES_PRESETS,
   endurance: ENDURANCE_PRESETS,
   jumps: JUMPS_PRESETS,
   throws: THROWS_PRESETS,
+  strength: STRENGTH_PRESETS,
 };
 
 /** Presets de la discipline (ou liste vide si inconnue/non encore fournis). */
@@ -785,6 +973,12 @@ export function assistantSeed(discipline: string | undefined): EditableNode[] {
       ],
     });
     return [makeWarmupBlock(), sprintSeries, makeCooldownBlock()];
+  }
+  // Renforcement / PPG : amorce avec le preset Force max (blocs `strength` top-level), encadré
+  // d'un échauffement et d'un retour au calme (même esprit que Sprint, ADR-41).
+  if (cfg.key === 'strength') {
+    const forceMax = STRENGTH_PRESETS.find((p) => p.key === 'force_max');
+    return [makeWarmupBlock(), ...(forceMax ? forceMax.build() : []), makeCooldownBlock()];
   }
   return [series];
 }

@@ -68,6 +68,47 @@ describe('inferDiscipline (ADR-40 §2)', () => {
     expect(inferDiscipline(nodes)).toBe('throws');
   });
 
+  it('série pure musculation (strength) → strength (ADR-41)', () => {
+    const nodes: EditableNode[] = [
+      makeSeriesGroup({ items: [makeBlock({ type: BlockType.strength })] }),
+    ];
+    expect(inferDiscipline(nodes)).toBe('strength');
+  });
+
+  it('PPG pur (core) → strength (ADR-41)', () => {
+    const nodes: EditableNode[] = [
+      makeSeriesGroup({ items: [makeBlock({ type: BlockType.core })] }),
+    ];
+    expect(inferDiscipline(nodes)).toBe('strength');
+  });
+
+  it('mélange strength + core → strength (même discipline, ADR-41)', () => {
+    const nodes: EditableNode[] = [
+      makeBlock({ type: BlockType.strength }),
+      makeSeriesGroup({
+        groupType: 'circuit',
+        items: [makeBlock({ type: BlockType.core }), makeBlock({ type: BlockType.core })],
+      }),
+    ];
+    expect(inferDiscipline(nodes)).toBe('strength');
+  });
+
+  it('mélange strength + sprint → null', () => {
+    const nodes: EditableNode[] = [
+      makeBlock({ type: BlockType.strength }),
+      makeSeriesGroup({ items: [makeBlock({ type: BlockType.sprint })] }),
+    ];
+    expect(inferDiscipline(nodes)).toBeNull();
+  });
+
+  it('mélange custom + strength → null', () => {
+    const nodes: EditableNode[] = [
+      makeBlock({ type: BlockType.custom }),
+      makeBlock({ type: BlockType.strength }),
+    ];
+    expect(inferDiscipline(nodes)).toBeNull();
+  });
+
   it('mélange sprint + haies → null', () => {
     const nodes: EditableNode[] = [
       makeSeriesGroup({ items: [makeBlock({ type: BlockType.sprint })] }),

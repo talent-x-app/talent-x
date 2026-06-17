@@ -10,7 +10,7 @@ import type { DisciplineKey } from './discipline-assistants';
  * les membres d'un groupe (une série est un `group` dont les membres partagent la discipline).
  */
 
-/** Discipline reconnue par `BlockType` parmi celles couvertes par les 5 cartes dédiées. */
+/** Discipline reconnue par `BlockType` parmi celles couvertes par les 6 cartes dédiées (ADR-41). */
 const BLOCK_TYPE_TO_DISCIPLINE: Partial<Record<BlockType, DisciplineKey>> = {
   [BlockType.sprint]: 'sprint',
   [BlockType.hurdles]: 'hurdles',
@@ -19,6 +19,9 @@ const BLOCK_TYPE_TO_DISCIPLINE: Partial<Record<BlockType, DisciplineKey>> = {
   [BlockType.jumps]: 'jumps',
   [BlockType.vertical_jumps]: 'jumps',
   [BlockType.throws]: 'throws',
+  // ADR-41 §6 — Renforcement / PPG : `strength` (muscu) et `core` (PPG) → même carte `strength`.
+  [BlockType.strength]: 'strength',
+  [BlockType.core]: 'strength',
 };
 
 /** Le bloc participe-t-il à l'inférence (hors échauffement/retour au calme) ? */
@@ -28,9 +31,10 @@ function isSignificantBlock(block: EditableBlock): boolean {
 
 /**
  * Infère la discipline d'une séance depuis ses nœuds éditables : `sprint` / `hurdles` /
- * `endurance` / `jumps` / `throws` si **tous** les blocs significatifs (hors warmup/cooldown,
- * groupes aplatis) partagent la même discipline reconnue ; `null` sinon (mélange, type non
- * couvert — `custom`/`strength`/`core` — ou aucun bloc significatif).
+ * `endurance` / `jumps` / `throws` / `strength` si **tous** les blocs significatifs (hors
+ * warmup/cooldown, groupes aplatis) partagent la même discipline reconnue ; `null` sinon
+ * (mélange, type non couvert — `custom` — ou aucun bloc significatif). Depuis ADR-41, `strength`
+ * et `core` sont couverts (→ `'strength'`) ; seul `custom` reste non couvert.
  */
 export function inferDiscipline(nodes: EditableNode[]): DisciplineKey | null {
   const significant: EditableBlock[] = [];
@@ -47,7 +51,7 @@ export function inferDiscipline(nodes: EditableNode[]): DisciplineKey | null {
   let discipline: DisciplineKey | null = null;
   for (const block of significant) {
     const key = BLOCK_TYPE_TO_DISCIPLINE[block.type];
-    if (key == null) return null; // type non couvert (custom/strength/core...) → repli générique
+    if (key == null) return null; // type non couvert (custom) → repli générique
     if (discipline == null) discipline = key;
     else if (discipline !== key) return null; // mélange de disciplines → repli générique
   }

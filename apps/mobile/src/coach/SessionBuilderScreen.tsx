@@ -555,8 +555,10 @@ export function SessionBuilderScreen({
             `nodes` → séance éditable en C-05 sans perte dans les deux sens. */}
         {renderCanvas != null && !isEdit ? (
           renderCanvas({ nodes, setNodes })
-        ) : isEdit && inferredDiscipline != null ? (
-          DISCIPLINE_CANVAS[inferredDiscipline]({ nodes, setNodes })
+        ) : isEdit &&
+          inferredDiscipline != null &&
+          DISCIPLINE_CANVAS[inferredDiscipline] != null ? (
+          DISCIPLINE_CANVAS[inferredDiscipline]!({ nodes, setNodes })
         ) : (
           <View style={{ gap: spacing[3] }}>
             {showMixedBanner ? (

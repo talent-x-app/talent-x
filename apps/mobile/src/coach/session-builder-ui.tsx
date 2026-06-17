@@ -181,6 +181,16 @@ export const BLOCK_TYPE_SPECS: BlockTypeSpec[] = [
         placeholder: 'Ex. 3-1-1-0',
         kind: 'text',
       },
+      // ADR-41 §2/§3 — params additifs (non requis) : clé d'exercice (réf. pour dériver la cible
+      // %1RM côté carte) et RPE (mode d'intensité quand `load.unit` est null). Aucun bump de
+      // contrat (`additionalProperties: true`, ADR-38 §2).
+      {
+        key: 'exerciseKey',
+        label: 'Exercice (réf.)',
+        placeholder: 'Ex. squat',
+        kind: 'text',
+      },
+      { key: 'rpe', label: 'RPE (0–10)', placeholder: 'Ex. 8', kind: 'int' },
     ],
   },
   {
