@@ -83,6 +83,40 @@ describe('SessionContent (lecture seule)', () => {
     expect(screen.queryByTestId('session-kpi-volume')).toBeNull();
   });
 
+  it('affiche les notes d’un bloc — échauffement/RAC sans params (TLX-170)', () => {
+    const withNotes = [
+      ex({
+        name: 'Échauffement',
+        order: 1,
+        type: BlockType.warmup,
+        notes: 'Footing 12′ · gammes (4×2×30 m) · 3 lignes droites',
+      }),
+      group({
+        name: 'Circuit PPG',
+        order: 2,
+        groupType: 'circuit',
+        rounds: 3,
+        notes: 'Enchaîner les stations sans relâcher le gainage',
+        items: [ex({ name: 'Gainage', order: 1, type: BlockType.core })],
+      }),
+    ];
+    render(<SessionContent exercises={withNotes} />, { wrapper: Wrapper });
+
+    // Le contenu de l'échauffement (porté par `notes`) est visible, pas seulement « — ».
+    expect(screen.getByTestId('exercise-0-notes')).toHaveTextContent(
+      'Footing 12′ · gammes (4×2×30 m) · 3 lignes droites',
+    );
+    // La consigne du groupe est rendue sous l'en-tête.
+    expect(screen.getByTestId('group-0-notes')).toHaveTextContent(
+      'Enchaîner les stations sans relâcher le gainage',
+    );
+  });
+
+  it('n’affiche pas de ligne de notes quand le bloc n’en a pas', () => {
+    render(<SessionContent exercises={[ex({ name: 'Squat', order: 1 })]} />, { wrapper: Wrapper });
+    expect(screen.queryByTestId('exercise-0-notes')).toBeNull();
+  });
+
   it('affiche les mesures relues + compteur réalisés quand une perf est fournie', () => {
     const results: ExerciseResult[] = [
       {

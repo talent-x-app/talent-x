@@ -59,9 +59,7 @@ export function GroupHeader({
     <View
       testID={testID}
       style={{
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: spacing[2],
+        gap: spacing[1],
         paddingVertical: 10,
         paddingHorizontal: 14,
         backgroundColor: colors.surfaceSunken,
@@ -69,27 +67,42 @@ export function GroupHeader({
         borderTopWidth: divider ? 1 : 0,
       }}
     >
-      <Feather name="repeat" size={14} color={colors.textMuted} />
-      <Text
-        style={{
-          flex: 1,
-          color: colors.textSecondary,
-          fontFamily: typography.fontFamily.medium,
-          fontSize: typography.bodySm.fontSize,
-        }}
-      >
-        {group.name}
-      </Text>
-      <Text
-        testID={testID ? `${testID}-rounds` : undefined}
-        style={{
-          color: colors.textMuted,
-          fontFamily: typography.fontFamily.regular,
-          fontSize: typography.bodySm.fontSize,
-        }}
-      >
-        {rounds} tours{rest}
-      </Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[2] }}>
+        <Feather name="repeat" size={14} color={colors.textMuted} />
+        <Text
+          style={{
+            flex: 1,
+            color: colors.textSecondary,
+            fontFamily: typography.fontFamily.medium,
+            fontSize: typography.bodySm.fontSize,
+          }}
+        >
+          {group.name}
+        </Text>
+        <Text
+          testID={testID ? `${testID}-rounds` : undefined}
+          style={{
+            color: colors.textMuted,
+            fontFamily: typography.fontFamily.regular,
+            fontSize: typography.bodySm.fontSize,
+          }}
+        >
+          {rounds} tours{rest}
+        </Text>
+      </View>
+      {/* Consigne d'exécution du groupe (TLX-170) — affichée si renseignée. */}
+      {group.notes ? (
+        <Text
+          testID={testID ? `${testID}-notes` : undefined}
+          style={{
+            color: colors.textMuted,
+            fontFamily: typography.fontFamily.regular,
+            fontSize: typography.caption.fontSize,
+          }}
+        >
+          {group.notes}
+        </Text>
+      ) : null}
     </View>
   );
 }
@@ -164,6 +177,20 @@ function ReadOnlyLeafRow({
           </Text>
         ) : null}
       </View>
+      {/* Notes / consignes du bloc (TLX-170) : portent tout le contenu d'un échauffement ou
+          retour au calme (params vides), et les consignes d'exécution d'un exercice. */}
+      {ex.notes ? (
+        <Text
+          testID={`exercise-${row.leafIndex}-notes`}
+          style={{
+            color: colors.textSecondary,
+            fontFamily: typography.fontFamily.regular,
+            fontSize: typography.bodySm.fontSize,
+          }}
+        >
+          {ex.notes}
+        </Text>
+      ) : null}
       {realized ? (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[1] }}>
           <Feather
