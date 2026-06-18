@@ -4,8 +4,10 @@ import {
   exerciseRenderRows,
   flattenLeaves,
   isExerciseGroup,
+  isPhaseBlock,
   leafRounds,
   resultForLeaf,
+  splitPhases,
 } from './exercises-doc';
 
 const ex = (name: string, order: number, type: BlockType = BlockType.custom): Exercise => ({
@@ -76,6 +78,43 @@ describe('exerciseRenderRows', () => {
     const rows = exerciseRenderRows([group({ items: [ex('A', 1), ex('B', 2)] })]);
     const leaves = rows.filter((r): r is Extract<typeof r, { type: 'leaf' }> => r.type === 'leaf');
     expect(leaves.map((l) => l.memberLabel)).toEqual(['1', '2']);
+  });
+});
+
+describe('phases échauffement / retour au calme (TLX-171)', () => {
+  const warmup = ex('Échauffement', 1, BlockType.warmup);
+  const cooldown = ex('Retour au calme', 4, BlockType.cooldown);
+  const items = [
+    warmup,
+    group({ order: 2, items: [ex('Squat', 2, BlockType.strength)] }),
+    ex('Sprint', 3, BlockType.sprint),
+    cooldown,
+  ];
+
+  it('isPhaseBlock distingue warmup/cooldown des exercices', () => {
+    expect(isPhaseBlock(warmup)).toBe(true);
+    expect(isPhaseBlock(cooldown)).toBe(true);
+    expect(isPhaseBlock(ex('Sprint', 3, BlockType.sprint))).toBe(false);
+    expect(isPhaseBlock(group({ items: [] }))).toBe(false);
+  });
+
+  it('splitPhases extrait warmup/cooldown et garde le corps ordonné', () => {
+    const { warmup: w, cooldown: c, body } = splitPhases(items);
+    expect(w?.name).toBe('Échauffement');
+    expect(c?.name).toBe('Retour au calme');
+    expect(body.map((n) => (isExerciseGroup(n) ? 'group' : n.name))).toEqual(['group', 'Sprint']);
+  });
+
+  it('flattenLeaves / countLeaves excluent les phases (ce ne sont pas des exercices)', () => {
+    expect(flattenLeaves(items).map((l) => l.name)).toEqual(['Squat', 'Sprint']);
+    expect(countLeaves(items)).toBe(2);
+  });
+
+  it('exerciseRenderRows n’émet aucune feuille pour les phases', () => {
+    const leafNames = exerciseRenderRows(items)
+      .filter((r): r is Extract<typeof r, { type: 'leaf' }> => r.type === 'leaf')
+      .map((r) => r.exercise.name);
+    expect(leafNames).toEqual(['Squat', 'Sprint']);
   });
 });
 

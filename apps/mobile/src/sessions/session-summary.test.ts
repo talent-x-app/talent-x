@@ -23,6 +23,20 @@ const series = (rounds: number, items: Exercise[], order = 1): ExerciseGroup => 
   items,
 });
 
+describe('phases exclues des KPIs (TLX-171)', () => {
+  const warmup: Exercise = { name: 'Échauffement', order: 1, type: 'warmup' };
+  const cooldown: Exercise = { name: 'Retour au calme', order: 3, type: 'cooldown' };
+
+  it('sessionKpis ne compte pas warmup/cooldown comme efforts', () => {
+    const kpis = sessionKpis([warmup, sprint(60, 2), cooldown]);
+    expect(kpis.efforts).toBe(1); // seul le sprint, pas les phases
+  });
+
+  it('sessionPhrase ignore les phases', () => {
+    expect(sessionPhrase([warmup, sprint(60, 2), cooldown])).toBe('60 m');
+  });
+});
+
 describe('sessionPhrase (TLX-160)', () => {
   it('groupe série : « 2 × (30·40·50 m) » (unité factorisée)', () => {
     expect(sessionPhrase([series(2, [sprint(30, 2), sprint(40, 3), sprint(50, 4)])])).toBe(

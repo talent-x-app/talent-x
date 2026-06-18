@@ -104,7 +104,9 @@ describe('CoachSessionDetailScreen (C-05 — détail lecture seule)', () => {
     // Lecture coach du brief (intent) + contenu partagé (groupe 3 tours, A1/A2).
     expect(screen.getByText('Travail de pied de force')).toBeOnTheScreen();
     expect(screen.getByTestId('group-0-rounds')).toHaveTextContent('3 tours');
-    expect(screen.getByTestId('exercise-1')).toHaveTextContent(/A1 · Squat/);
+    // Échauffement rendu en encart de phase (TLX-171), donc Squat = feuille 0 (A1).
+    expect(screen.getByTestId('session-phase-warmup')).toBeOnTheScreen();
+    expect(screen.getByTestId('exercise-0')).toHaveTextContent(/A1 · Squat/);
     // Pas de saisie de perf.
     expect(screen.queryByTestId('submit-performance')).toBeNull();
   });

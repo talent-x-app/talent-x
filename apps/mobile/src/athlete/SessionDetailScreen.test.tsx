@@ -217,20 +217,21 @@ describe('SessionDetailScreen (TLX-065/071 — A-03/A-04)', () => {
     await waitFor(() => expect(screen.getByTestId('group-0')).toBeOnTheScreen());
     expect(screen.getByTestId('group-0')).toHaveTextContent(/Contraste/);
     expect(screen.getByTestId('group-0-rounds')).toHaveTextContent('3 tours');
-    // Compteur de feuilles : 3 (1 simple + 2 membres), pas 2 nœuds.
-    expect(screen.getByTestId('exercise-count')).toHaveTextContent(/0\/3/);
-    // Membres de superset étiquetés A1/A2, indexés à plat (leafIndex 1 et 2).
-    expect(screen.getByTestId('exercise-1')).toHaveTextContent(/A1 · Squat/);
-    expect(screen.getByTestId('exercise-2')).toHaveTextContent(/A2 · Bonds/);
+    // Échauffement = phase (encart), exclu de la saisie (TLX-171) : 2 feuilles, pas 3.
+    expect(screen.getByTestId('session-phase-warmup')).toBeOnTheScreen();
+    expect(screen.getByTestId('exercise-count')).toHaveTextContent(/0\/2/);
+    // Membres de superset étiquetés A1/A2, indexés à plat (leafIndex 0 et 1).
+    expect(screen.getByTestId('exercise-0')).toHaveTextContent(/A1 · Squat/);
+    expect(screen.getByTestId('exercise-1')).toHaveTextContent(/A2 · Bonds/);
 
     // Membre de groupe → checklist multi-tours (une case « Tour k » par tour).
-    fireEvent.press(screen.getByTestId('exercise-1-round-0')); // Squat tour 1
-    fireEvent.press(screen.getByTestId('exercise-1-round-2')); // Squat tour 3 (saute le 2)
+    fireEvent.press(screen.getByTestId('exercise-0-round-0')); // Squat tour 1
+    fireEvent.press(screen.getByTestId('exercise-0-round-2')); // Squat tour 3 (saute le 2)
     fireEvent.press(screen.getByTestId('submit-performance'));
 
     await waitFor(() => expect(mockSubmitPerformance).toHaveBeenCalled());
     const [, body] = mockSubmitPerformance.mock.calls[0];
-    expect(body.results.items).toHaveLength(3); // une entrée par feuille
+    expect(body.results.items).toHaveLength(2); // une entrée par feuille (hors phases)
     const squat = body.results.items.find(
       (r: { exerciseName: string }) => r.exerciseName === 'Squat',
     );

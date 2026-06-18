@@ -1,4 +1,9 @@
-import { type ExerciseGroup, type ExerciseResult, type SessionBrief } from '@talent-x/api-client';
+import {
+  type Exercise,
+  type ExerciseGroup,
+  type ExerciseResult,
+  type SessionBrief,
+} from '@talent-x/api-client';
 import { useTheme } from '@talent-x/design-tokens';
 import { Feather } from '@expo/vector-icons';
 import { type ReactNode } from 'react';
@@ -10,6 +15,7 @@ import { formatExerciseTarget } from './exercise-target';
 import {
   exerciseRenderRows,
   resultForLeaf,
+  splitPhases,
   type ExerciseNode,
   type ExerciseRenderRow,
 } from './exercises-doc';
@@ -280,8 +286,65 @@ export function SessionSummaryCard({ exercises }: { exercises: ExerciseNode[] })
 }
 
 /**
- * Contenu d'une séance en lecture seule : brief (métriques + consigne), liste d'exercices
- * (groupes intercalés, A1/A2, cibles, mesures relues si `results`), garde-fous Réussi/Stop.
+ * Encart de **phase** (échauffement / retour au calme) — TLX-171. Présenté à part de la liste
+ * d'exercices (il n'est ni compté, ni saisi en perf) ; affiche le nom et les notes (TLX-170), qui
+ * portent tout le contenu de la phase. Exporté pour être réutilisé en mode saisie athlète.
+ */
+export function PhaseCard({
+  exercise,
+  icon,
+  testID,
+}: {
+  exercise: Exercise;
+  icon: keyof typeof Feather.glyphMap;
+  testID: string;
+}) {
+  const { colors, typography, spacing, radius, borderWidth } = useTheme();
+  return (
+    <View
+      testID={testID}
+      style={{
+        flexDirection: 'row',
+        gap: spacing[3],
+        padding: spacing[3],
+        borderRadius: radius.md,
+        borderWidth: borderWidth.hairline,
+        borderColor: colors.borderStrong,
+        backgroundColor: colors.surfaceSunken,
+      }}
+    >
+      <Feather name={icon} size={18} color={colors.textSecondary} />
+      <View style={{ flex: 1, gap: 2 }}>
+        <Text
+          style={{
+            color: colors.textPrimary,
+            fontFamily: typography.fontFamily.medium,
+            fontSize: typography.bodySm.fontSize,
+          }}
+        >
+          {exercise.name}
+        </Text>
+        {exercise.notes ? (
+          <Text
+            testID={`${testID}-notes`}
+            style={{
+              color: colors.textSecondary,
+              fontFamily: typography.fontFamily.regular,
+              fontSize: typography.caption.fontSize,
+            }}
+          >
+            {exercise.notes}
+          </Text>
+        ) : null}
+      </View>
+    </View>
+  );
+}
+
+/**
+ * Contenu d'une séance en lecture seule : brief (métriques + consigne), phases (échauffement /
+ * retour au calme) en encart, liste d'exercices (groupes intercalés, A1/A2, cibles, mesures relues
+ * si `results`), garde-fous Réussi/Stop.
  */
 export function SessionContent({
   exercises,
@@ -293,6 +356,7 @@ export function SessionContent({
   results?: ExerciseResult[];
 }) {
   const { colors, typography, spacing } = useTheme();
+  const { warmup, cooldown } = splitPhases(exercises);
   const rows = exerciseRenderRows(exercises);
   const leaves = rows.filter(
     (r): r is Extract<ExerciseRenderRow, { type: 'leaf' }> => r.type === 'leaf',
@@ -307,6 +371,10 @@ export function SessionContent({
       <BriefMetrics brief={brief} items={exercises} />
       <SessionSummaryCard exercises={exercises} />
       {brief?.athleteIntent ? <AthleteIntentBanner text={brief.athleteIntent} /> : null}
+
+      {warmup ? (
+        <PhaseCard exercise={warmup} icon="activity" testID="session-phase-warmup" />
+      ) : null}
 
       <View style={{ gap: spacing[3] }}>
         <SectionTitle testID="exercise-count">
@@ -341,6 +409,10 @@ export function SessionContent({
           </Card>
         )}
       </View>
+
+      {cooldown ? (
+        <PhaseCard exercise={cooldown} icon="wind" testID="session-phase-cooldown" />
+      ) : null}
 
       <SuccessStopCard
         successCriteria={brief?.successCriteria}

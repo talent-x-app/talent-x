@@ -1,5 +1,5 @@
 import { LoadUnit, type Exercise } from '@talent-x/api-client';
-import { isExerciseGroup, type ExerciseNode } from './exercises-doc';
+import { isExerciseGroup, isPhaseBlock, type ExerciseNode } from './exercises-doc';
 
 /**
  * Dérivations d'affichage d'une séance (ADR-38, TLX-160) — fonctions **pures**, rien de
@@ -65,7 +65,7 @@ export function sessionPhrase(items: readonly ExerciseNode[] | undefined): strin
       flushStandalone();
       const seg = phraseSegment(node.items ?? [], groupRounds(node.rounds));
       if (seg) segments.push(seg);
-    } else if (node != null) {
+    } else if (node != null && !isPhaseBlock(node)) {
       standalone.push(node);
     }
   }
@@ -92,7 +92,7 @@ export function sessionKpis(items: readonly ExerciseNode[] | undefined): Session
         efforts += rounds;
         distanceMeters += (num(leaf.params, 'distanceMeters') ?? 0) * rounds;
       }
-    } else if (node != null) {
+    } else if (node != null && !isPhaseBlock(node)) {
       efforts += 1;
       distanceMeters += num(node.params, 'distanceMeters') ?? 0;
     }

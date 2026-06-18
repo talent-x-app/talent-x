@@ -46,12 +46,14 @@ describe('SessionContent (lecture seule)', () => {
     render(<SessionContent exercises={exercises} />, { wrapper: Wrapper });
 
     expect(screen.getByTestId('group-0-rounds')).toHaveTextContent('3 tours · R 180s');
-    expect(screen.getByTestId('exercise-1')).toHaveTextContent(/A1 · Squat/);
-    expect(screen.getByTestId('exercise-2')).toHaveTextContent(/A2 · Bonds/);
-    // Compteur de feuilles (1 simple + 2 membres), sans perf → pas de fraction.
-    expect(screen.getByTestId('exercise-count')).toHaveTextContent(/Exercices · 3/);
+    // L'échauffement est une phase (encart), exclu de la liste d'exercices (TLX-171).
+    expect(screen.getByTestId('session-phase-warmup')).toHaveTextContent('Échauffement');
+    expect(screen.getByTestId('exercise-0')).toHaveTextContent(/A1 · Squat/);
+    expect(screen.getByTestId('exercise-1')).toHaveTextContent(/A2 · Bonds/);
+    // Compteur de feuilles : 2 membres (échauffement non compté).
+    expect(screen.getByTestId('exercise-count')).toHaveTextContent(/Exercices · 2/);
     // Pas de saisie : aucune case « Tour k » ni bouton de soumission.
-    expect(screen.queryByTestId('exercise-1-round-0')).toBeNull();
+    expect(screen.queryByTestId('exercise-0-round-0')).toBeNull();
     expect(screen.queryByTestId('submit-performance')).toBeNull();
   });
 
@@ -102,8 +104,8 @@ describe('SessionContent (lecture seule)', () => {
     ];
     render(<SessionContent exercises={withNotes} />, { wrapper: Wrapper });
 
-    // Le contenu de l'échauffement (porté par `notes`) est visible, pas seulement « — ».
-    expect(screen.getByTestId('exercise-0-notes')).toHaveTextContent(
+    // L'échauffement est un encart de phase (TLX-171) ; son contenu (notes, TLX-170) est visible.
+    expect(screen.getByTestId('session-phase-warmup-notes')).toHaveTextContent(
       'Footing 12′ · gammes (4×2×30 m) · 3 lignes droites',
     );
     // La consigne du groupe est rendue sous l'en-tête.
@@ -136,10 +138,10 @@ describe('SessionContent (lecture seule)', () => {
     ];
     render(<SessionContent exercises={exercises} results={results} />, { wrapper: Wrapper });
 
-    // Échauffement sans perf → non réalisé ; Squat 2/3 tours ; Bonds mesuré.
-    expect(screen.getByTestId('exercise-1-realized')).toHaveTextContent('2/3 tours');
-    expect(screen.getByTestId('exercise-2-realized')).toHaveTextContent('2.4 m');
-    // 2 feuilles réalisées sur 3 (Squat + Bonds).
-    expect(screen.getByTestId('exercise-count')).toHaveTextContent(/2\/3/);
+    // L'échauffement (phase) n'est plus une feuille ; Squat=feuille 0, Bonds=feuille 1.
+    expect(screen.getByTestId('exercise-0-realized')).toHaveTextContent('2/3 tours');
+    expect(screen.getByTestId('exercise-1-realized')).toHaveTextContent('2.4 m');
+    // 2 feuilles réalisées sur 2 (Squat + Bonds) — l'échauffement n'est pas compté.
+    expect(screen.getByTestId('exercise-count')).toHaveTextContent(/2\/2/);
   });
 });

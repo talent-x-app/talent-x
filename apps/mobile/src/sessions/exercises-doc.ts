@@ -26,13 +26,58 @@ export function isExerciseGroup(node: ExerciseNode | null | undefined): node is 
   return node != null && (node as ExerciseGroup).kind === 'group';
 }
 
-/** Feuilles (exercices) à plat, ordre de lecture préservé (membres des groupes inclus). */
+/**
+ * Valeurs `BlockType` des **phases** (contrat : stockées en chaîne, cf. talent-x-openapi.yaml).
+ * Comparées en littéral plutôt que via l'enum `BlockType` pour ne pas dépendre de sa présence à
+ * l'exécution — plusieurs écrans moquent `@talent-x/api-client` sans réexporter l'enum.
+ */
+const PHASE_TYPES: ReadonlySet<string> = new Set(['warmup', 'cooldown']);
+
+/** Le bloc est-il une phase d'un type donné (warmup / cooldown) ? */
+function isPhaseType(node: ExerciseNode | null | undefined, type: 'warmup' | 'cooldown'): boolean {
+  return !isExerciseGroup(node) && node != null && (node.type as string) === type;
+}
+
+/**
+ * Le nœud est-il une **phase** (échauffement / retour au calme) plutôt qu'un exercice ? (TLX-171).
+ * Une phase encadre la séance : elle n'est ni comptée comme exercice, ni saisie en perf — elle est
+ * présentée comme un encart dédié. Toujours un bloc de premier niveau (jamais membre de groupe).
+ */
+export function isPhaseBlock(node: ExerciseNode | null | undefined): boolean {
+  return !isExerciseGroup(node) && node != null && PHASE_TYPES.has(node.type as string);
+}
+
+/**
+ * Sépare les **phases** (premier échauffement / premier retour au calme) du **corps** d'exercices
+ * (TLX-171). Le corps conserve l'ordre de lecture ; les phases sont retournées à part pour un rendu
+ * en encart. Tout warmup/cooldown surnuméraire retombe dans le corps (cas dégénéré, cf. TLX-172).
+ */
+export function splitPhases(items: readonly ExerciseNode[] | undefined): {
+  warmup?: Exercise;
+  cooldown?: Exercise;
+  body: ExerciseNode[];
+} {
+  let warmup: Exercise | undefined;
+  let cooldown: Exercise | undefined;
+  const body: ExerciseNode[] = [];
+  for (const node of items ?? []) {
+    if (!warmup && isPhaseType(node, 'warmup')) warmup = node as Exercise;
+    else if (!cooldown && isPhaseType(node, 'cooldown')) cooldown = node as Exercise;
+    else if (node != null) body.push(node);
+  }
+  return { warmup, cooldown, body };
+}
+
+/**
+ * Feuilles (exercices) à plat, ordre de lecture préservé (membres des groupes inclus). Les blocs
+ * de **phase** (échauffement / retour au calme) sont exclus : ce ne sont pas des exercices (TLX-171).
+ */
 export function flattenLeaves(items: readonly ExerciseNode[] | undefined): Exercise[] {
   const leaves: Exercise[] = [];
   for (const node of items ?? []) {
     if (isExerciseGroup(node)) {
       for (const child of node.items ?? []) leaves.push(child);
-    } else if (node != null) {
+    } else if (node != null && !isPhaseBlock(node)) {
       leaves.push(node);
     }
   }
@@ -88,7 +133,8 @@ export function exerciseRenderRows(
         });
       });
       groupSeq++;
-    } else if (node != null) {
+    } else if (node != null && !isPhaseBlock(node)) {
+      // Les phases (échauffement / RAC) sont rendues en encart, pas dans la liste d'exercices.
       rows.push({
         type: 'leaf',
         key: `leaf-${leafIndex}`,

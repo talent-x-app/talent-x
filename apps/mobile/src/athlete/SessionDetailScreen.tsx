@@ -42,9 +42,15 @@ import {
   exerciseRenderRows,
   leafRounds,
   resultForLeaf,
+  splitPhases,
   type ExerciseRenderRow,
 } from '../sessions/exercises-doc';
-import { GroupHeader, SectionTitle, SessionContent } from '../sessions/session-content-ui';
+import {
+  GroupHeader,
+  PhaseCard,
+  SectionTitle,
+  SessionContent,
+} from '../sessions/session-content-ui';
 import { formatSessionDate, sessionTitle } from './athlete-session-ui';
 import { AthleteIntentBanner, BriefMetrics, SuccessStopCard } from './brief-ui';
 import { perfConfirmationHref } from './navigation';
@@ -139,6 +145,8 @@ export function SessionDetailScreen() {
     () => rows.filter((r): r is Extract<ExerciseRenderRow, { type: 'leaf' }> => r.type === 'leaf'),
     [rows],
   );
+  // Phases (échauffement / RAC) : présentées en encart, hors saisie de perf (TLX-171).
+  const phases = useMemo(() => splitPhases(exercises), [exercises]);
 
   // Mode d'affichage : **lecture seule par défaut** (consultation) ; l'athlète passe en
   // saisie via « Saisir ma performance » (A-04). La saisie n'est jamais imposée d'emblée.
@@ -478,6 +486,11 @@ export function SessionDetailScreen() {
                 <AthleteIntentBanner text={assignment.data.session.brief.athleteIntent} />
               ) : null}
 
+              {/* Échauffement (phase, hors saisie — TLX-171). */}
+              {phases.warmup ? (
+                <PhaseCard exercise={phases.warmup} icon="activity" testID="session-phase-warmup" />
+              ) : null}
+
               {/* A-04 : exercices de la séance — groupes (ADR-27) + feuilles cochables/mesurées. */}
               <View style={{ gap: spacing[3] }}>
                 <SectionTitle testID="exercise-count">
@@ -518,6 +531,11 @@ export function SessionDetailScreen() {
                   </Card>
                 )}
               </View>
+
+              {/* Retour au calme (phase, hors saisie — TLX-171). */}
+              {phases.cooldown ? (
+                <PhaseCard exercise={phases.cooldown} icon="wind" testID="session-phase-cooldown" />
+              ) : null}
 
               {/* A-04 : champs communs de saisie — RPE + notes. */}
               <View style={{ gap: spacing[3] }}>
