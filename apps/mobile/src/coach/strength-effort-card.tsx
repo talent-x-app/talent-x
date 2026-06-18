@@ -81,9 +81,12 @@ const PRESET_TIPS: Record<string, string> = {
 /** Clé sentinelle « Autre exercice… » : exercice libre saisi à la main (pas de clé catalogue). */
 const CUSTOM_EXERCISE_KEY = '__custom__';
 
+/** Clés d'exercices Muscu du catalogue (hors sentinelle « Autre… »). */
+const MUSCU_EXERCISE_KEYS = Object.keys(EXERCISE_LABELS);
+
 /** Options d'exercices Muscu (clés `ONE_RM_REFERENCE`/`EXERCISE_LABELS`) + entrée libre. */
 const EXERCISE_OPTIONS = [
-  ...Object.keys(EXERCISE_LABELS).map((key) => ({ value: key, label: EXERCISE_LABELS[key] })),
+  ...MUSCU_EXERCISE_KEYS.map((key) => ({ value: key, label: EXERCISE_LABELS[key] })),
   { value: CUSTOM_EXERCISE_KEY, label: 'Autre exercice…' },
 ];
 
@@ -344,7 +347,8 @@ export function StrengthEffortCanvas({
     } else if (mode === 'muscu' && cur.kind === 'ppg') {
       const blocks = cur.group.items.map((b, idx) =>
         makeMuscuBlock({
-          exerciseKey: EXERCISE_OPTIONS[idx % EXERCISE_OPTIONS.length].value,
+          // Cycle sur les vraies clés du catalogue — jamais la sentinelle « Autre… » (TLX-172 #5).
+          exerciseKey: MUSCU_EXERCISE_KEYS[idx % MUSCU_EXERCISE_KEYS.length],
           sets: 4,
           reps: 8,
           loadMode: 'percent_1rm',

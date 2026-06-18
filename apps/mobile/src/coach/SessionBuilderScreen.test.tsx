@@ -113,6 +113,18 @@ describe('SessionBuilderScreen (TLX-052 — C-05)', () => {
     expect(mockCreateSession).not.toHaveBeenCalled();
   });
 
+  it('refuse la sauvegarde d’une séance sans aucun exercice (TLX-172 #6)', () => {
+    render(<SessionBuilderScreen />, { wrapper: Wrapper });
+    fireEvent.changeText(screen.getByTestId('session-field-title'), 'Vide');
+    // Supprime l'unique bloc → séance sans exercice.
+    fireEvent.press(screen.getByTestId('composite-bloc-0-delete'));
+    fireEvent.press(screen.getByTestId('session-save'));
+    expect(screen.getByTestId('session-builder-validation')).toHaveTextContent(
+      /au moins un exercice/i,
+    );
+    expect(mockCreateSession).not.toHaveBeenCalled();
+  });
+
   it('refuse un bloc chronométré sans le param de suivi (distance) (TLX-91)', () => {
     // La garde de suivi vit dans l'écran (validation de `nodes` à la sauvegarde) ; on amorce
     // directement un bloc sprint sans distance via `seed` (le choix de type lui-même est couvert

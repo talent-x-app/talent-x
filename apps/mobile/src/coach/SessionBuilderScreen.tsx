@@ -33,7 +33,7 @@ import {
   type BriefDraft,
 } from './brief-editor';
 import { assignSessionHref, coachTemplatesHref } from './navigation';
-import { EXERCISES_SCHEMA_VERSION } from '../sessions/exercises-doc';
+import { countLeaves, EXERCISES_SCHEMA_VERSION } from '../sessions/exercises-doc';
 import { isValidCalendarDate } from '../dates/calendar-date';
 import { inferDiscipline } from './discipline-inference';
 import { DISCIPLINE_CANVAS } from './discipline-canvas';
@@ -229,6 +229,12 @@ export function SessionBuilderScreen({
     const issue = findFirstNodeIssue(nodes);
     if (issue !== null) {
       setError(issue.message);
+      return;
+    }
+    // Une séance doit contenir au moins un exercice (l'échauffement / RAC ne comptent pas,
+    // ce sont des phases — TLX-171/172 #6). Bloque le cas « tous les blocs supprimés ».
+    if (countLeaves(nodesToItems(nodes)) === 0) {
+      setError('Ajoute au moins un exercice à la séance.');
       return;
     }
     mutation.mutate();

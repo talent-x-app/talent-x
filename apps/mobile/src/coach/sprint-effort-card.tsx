@@ -79,11 +79,15 @@ function serieProps(group: EditableGroup) {
 function serieSummary(group: EditableGroup): string {
   const { intensityMode, startType, rounds, restR } = serieProps(group);
   const dists = group.items.map((b) => b.params.distanceMeters ?? '?').join('·');
-  const vals = group.items.map((b) => Number(b.params.intensityValue) || 0);
-  const mn = Math.min(...vals);
-  const mx = Math.max(...vals);
+  // Intensités réellement saisies (> 0) : sans filtre, des champs vides donnaient « 0 % » (TLX-172 #7).
+  const vals = group.items.map((b) => Number(b.params.intensityValue) || 0).filter((v) => v > 0);
   const unit = intensityMode === 'percent_record' ? '%' : intensityMode === 'speed' ? ' m/s' : ' s';
-  const intStr = mn === mx ? `${mn}${unit}` : `${mn}→${mx}${unit}`;
+  const intStr =
+    vals.length === 0
+      ? '—'
+      : Math.min(...vals) === Math.max(...vals)
+        ? `${Math.min(...vals)}${unit}`
+        : `${Math.min(...vals)}→${Math.max(...vals)}${unit}`;
   const startLabel =
     START_TYPES.find((s) => s.value === startType)?.label.toLowerCase() ?? startType;
   return `${rounds} × (${dists} m) · ${startLabel} · ${intStr} · R ${formatMinutes(restR)}`;

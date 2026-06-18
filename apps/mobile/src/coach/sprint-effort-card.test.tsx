@@ -84,6 +84,33 @@ describe('SprintEffortCanvas', () => {
     expect(screen.getByTestId('series-card-0-summary')).toBeTruthy();
   });
 
+  it('résumé : intensités non saisies → « — » au lieu de « 0 % » (TLX-172 #7)', () => {
+    const serie = makeSeriesGroup({
+      name: 'Série de sprint',
+      rounds: '2',
+      restBetweenRoundsSeconds: '300',
+      items: [
+        makeBlock({
+          type: BlockType.sprint,
+          name: '60 m',
+          // Pas d'`intensityValue` saisie.
+          params: {
+            reps: '1',
+            distanceMeters: '60',
+            intensityMode: 'percent_record',
+            startType: 'blocks',
+            flyingZone: 'false',
+          },
+        }),
+      ],
+    });
+    render(<SprintEffortCanvas nodes={[serie]} onChange={jest.fn()} />);
+    const summary = screen.getByTestId('series-card-0-summary');
+    // Cœur du correctif : aucune intensité fantôme « 0 % » dans le résumé.
+    expect(summary).not.toHaveTextContent('0%');
+    expect(summary).not.toHaveTextContent('0 %');
+  });
+
   it('ajoute une série via le bouton', () => {
     const onChange = jest.fn();
     render(<SprintEffortCanvas nodes={defaultNodes()} onChange={onChange} />);
