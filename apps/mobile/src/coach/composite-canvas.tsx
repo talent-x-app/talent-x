@@ -114,6 +114,7 @@ export function CompositeCanvas({
         icon="activity"
         title={warmup.name}
         subtitle={warmup.notes}
+        placeholder="Appuyer pour ajouter"
         onEditNotes={(notes) =>
           commitWith(series, { ...warmup, notes }, hasCooldown ? cooldown : null)
         }
@@ -151,6 +152,7 @@ export function CompositeCanvas({
         icon="wind"
         title={cooldown.name}
         subtitle={cooldown.notes}
+        placeholder="Appuyer pour ajouter"
         onEditNotes={(notes) =>
           commitWith(series, hasWarmup ? warmup : null, { ...cooldown, notes })
         }
@@ -158,6 +160,15 @@ export function CompositeCanvas({
     </View>
   );
 }
+
+/**
+ * Défauts **vides** (titre seul, sans notes) pour le composite : tant qu'aucun échauffement /
+ * retour au calme n'est réellement ajouté, la barre ne doit afficher AUCUN contenu fantôme — sinon
+ * le coach croit qu'un échauffement est inclus alors qu'il n'est pas persisté (TLX-169). Le
+ * contenu par défaut « Footing 12′… » reste réservé aux assistants standalone (ADR-39).
+ */
+const makeEmptyWarmup = (): EditableBlock => ({ ...makeWarmupBlock(), notes: '' });
+const makeEmptyCooldown = (): EditableBlock => ({ ...makeCooldownBlock(), notes: '' });
 
 /** Sépare warmup / cooldown / séries (un seul warmup/cooldown au niveau séance). */
 function splitSeries(nodes: EditableNode[]): {
@@ -171,8 +182,8 @@ function splitSeries(nodes: EditableNode[]): {
     nodes,
     BlockType.warmup,
     BlockType.cooldown,
-    makeWarmupBlock,
-    makeCooldownBlock,
+    makeEmptyWarmup,
+    makeEmptyCooldown,
   );
   const hasWarmup = nodes.some((n) => !isEditableGroup(n) && n.type === BlockType.warmup);
   const hasCooldown = nodes.some((n) => !isEditableGroup(n) && n.type === BlockType.cooldown);

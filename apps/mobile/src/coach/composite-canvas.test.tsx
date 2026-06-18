@@ -134,6 +134,33 @@ describe('CompositeCanvas (ADR-42)', () => {
     expect(types).not.toContain(BlockType.cooldown);
   });
 
+  it('aucun échauffement persisté : barre en invite « Appuyer pour ajouter », pas le défaut (TLX-169)', () => {
+    setup([customBlock()]);
+    // Le contenu par défaut « Footing 12′… » ne doit PAS s'afficher (affichage non trompeur).
+    expect(screen.queryByText(/Footing 12/)).toBeNull();
+    // Les deux barres (échauffement + retour au calme) affichent l'invite d'ajout.
+    expect(screen.getAllByText('Appuyer pour ajouter')).toHaveLength(2);
+  });
+
+  it('saisir une note d’échauffement le persiste réellement (TLX-169)', () => {
+    const h = setup([customBlock()]);
+    // Au départ : aucun warmup persisté.
+    expect(
+      h.nodes().some((n) => !isEditableGroup(n) && (n as EditableBlock).type === BlockType.warmup),
+    ).toBe(false);
+
+    fireEvent.press(screen.getByTestId('warmup-bar-toggle'));
+    fireEvent.changeText(screen.getByPlaceholderText('Description du bloc…'), 'Footing 10 min');
+
+    // Le warmup est maintenant présent dans la séance, avec les notes saisies.
+    const warmup = h
+      .nodes()
+      .find((n) => !isEditableGroup(n) && (n as EditableBlock).type === BlockType.warmup) as
+      | EditableBlock
+      | undefined;
+    expect(warmup?.notes).toBe('Footing 10 min');
+  });
+
   it('éditer le segment Personnalisé via session-add-block remonte au parent', () => {
     const h = setup([customBlock()]);
     const before = h.nodes().length;

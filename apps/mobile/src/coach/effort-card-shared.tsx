@@ -408,12 +408,15 @@ export function WarmupCooldownBar({
   icon,
   title,
   subtitle,
+  placeholder,
   onEditNotes,
   testID,
 }: {
   icon: keyof typeof Feather.glyphMap;
   title: string;
   subtitle: string;
+  /** Invite affichée (repliée) quand `subtitle` est vide — ex. « Appuyer pour ajouter » (TLX-169). */
+  placeholder?: string;
   onEditNotes: (notes: string) => void;
   testID?: string;
 }) {
@@ -454,18 +457,31 @@ export function WarmupCooldownBar({
           >
             {title}
           </Text>
-          {!expanded && (
-            <Text
-              style={{
-                color: colors.textMuted,
-                fontFamily: typography.fontFamily.regular,
-                fontSize: typography.caption.fontSize,
-              }}
-              numberOfLines={1}
-            >
-              {subtitle}
-            </Text>
-          )}
+          {!expanded &&
+            (subtitle ? (
+              <Text
+                style={{
+                  color: colors.textMuted,
+                  fontFamily: typography.fontFamily.regular,
+                  fontSize: typography.caption.fontSize,
+                }}
+                numberOfLines={1}
+              >
+                {subtitle}
+              </Text>
+            ) : placeholder ? (
+              <Text
+                style={{
+                  color: colors.textMuted,
+                  fontFamily: typography.fontFamily.regular,
+                  fontSize: typography.caption.fontSize,
+                  fontStyle: 'italic',
+                }}
+                numberOfLines={1}
+              >
+                {placeholder}
+              </Text>
+            ) : null)}
         </View>
         <Feather
           name={expanded ? 'chevron-up' : 'chevron-right'}
