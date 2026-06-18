@@ -10,7 +10,7 @@ import { Feather } from '@expo/vector-icons';
  */
 
 /** Clé d'une discipline guidée (cartes de l'écran « Nouvelle séance »). */
-export type DisciplineKey = 'sprint' | 'hurdles' | 'endurance' | 'jumps' | 'throws';
+export type DisciplineKey = 'sprint' | 'hurdles' | 'endurance' | 'jumps' | 'throws' | 'strength';
 
 /** Configuration d'une carte/assistant de discipline. */
 export interface DisciplineConfig {
@@ -27,7 +27,7 @@ export interface DisciplineConfig {
   effortLabel: string;
 }
 
-/** Les 5 disciplines de la maquette « Nouvelle séance » (ADR-38 §1). */
+/** Les 6 disciplines de la maquette « Nouvelle séance » (ADR-38 §1, ADR-41). */
 export const DISCIPLINES: DisciplineConfig[] = [
   {
     key: 'sprint',
@@ -68,6 +68,14 @@ export const DISCIPLINES: DisciplineConfig[] = [
     icon: 'target',
     blockType: BlockType.throws,
     effortLabel: 'Lancer',
+  },
+  {
+    key: 'strength',
+    label: 'Renforcement / PPG',
+    tagline: 'Musculation et préparation physique générale',
+    icon: 'box',
+    blockType: BlockType.strength,
+    effortLabel: 'Exercice',
   },
 ];
 

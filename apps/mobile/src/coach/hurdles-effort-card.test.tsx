@@ -14,12 +14,12 @@ import {
 } from './session-builder-ui';
 
 /** Monte le canvas dans un parent contrôlé (les éditions s'accumulent comme en vrai). */
-function setup(initial: EditableNode[]) {
+function setup(initial: EditableNode[], embedded = false) {
   const ref: { nodes: EditableNode[] } = { nodes: initial };
   function Harness() {
     const [nodes, setNodes] = useState(initial);
     ref.nodes = nodes;
-    return <HurdlesEffortCanvas nodes={nodes} onChange={setNodes} />;
+    return <HurdlesEffortCanvas nodes={nodes} onChange={setNodes} embedded={embedded} />;
   }
   render(<Harness />);
   return {
@@ -129,5 +129,29 @@ describe('HurdlesEffortCanvas', () => {
     const h = setup(defaultNodes());
     act(() => fireEvent.press(screen.getByTestId('hurdles-add-series')));
     expect(h.groups()).toHaveLength(2);
+  });
+
+  it('sélectionne la jambe d’attaque alternée', () => {
+    const h = setup(defaultNodes());
+    act(() => fireEvent.press(screen.getByTestId('series-card-0-lead-alt')));
+    expect(h.groups()[0].items[0].params.leadLeg).toBe('alt');
+  });
+
+  it('affiche la cible calculée (≈) quand le référentiel est % du record', () => {
+    const h = setup(defaultNodes());
+    act(() => fireEvent.press(screen.getByTestId('series-card-0-sex-H')));
+    act(() => fireEvent.changeText(screen.getByTestId('series-card-0-event'), '110mH'));
+    act(() => fireEvent.changeText(screen.getByTestId('series-card-0-intensityValue'), '95'));
+    expect(h.groups()[0].items[0].params.intensityValue).toBe('95');
+    expect(screen.getByText(/≈ .* s sur la référence du module/)).toBeTruthy();
+  });
+
+  it('mode encart : séries + ajout rendus, en-tête KPI et barres écha/RAC masqués', () => {
+    setup([makeSerie()], true);
+    expect(screen.getByTestId('series-card-0')).toBeTruthy();
+    expect(screen.getByTestId('hurdles-add-series')).toBeTruthy();
+    expect(screen.queryByTestId('hurdles-canvas-summary')).toBeNull();
+    expect(screen.queryByTestId('warmup-bar')).toBeNull();
+    expect(screen.queryByTestId('cooldown-bar')).toBeNull();
   });
 });

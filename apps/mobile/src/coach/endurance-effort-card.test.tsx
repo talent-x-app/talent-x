@@ -10,12 +10,12 @@ import {
   type EditableNode,
 } from './session-builder-ui';
 
-function setup(initial: EditableNode[]) {
+function setup(initial: EditableNode[], embedded = false) {
   const ref: { nodes: EditableNode[] } = { nodes: initial };
   function Harness() {
     const [nodes, setNodes] = useState(initial);
     ref.nodes = nodes;
-    return <EnduranceEffortCanvas nodes={nodes} onChange={setNodes} />;
+    return <EnduranceEffortCanvas nodes={nodes} onChange={setNodes} embedded={embedded} />;
   }
   render(<Harness />);
   return { groups: () => ref.nodes.filter((n) => isEditableGroup(n)) as EditableGroup[] };
@@ -79,6 +79,22 @@ describe('EnduranceEffortCanvas', () => {
     expect(h.groups()[0].items[0].params.paceSecondsPerKm).toBe('300');
   });
 
+  it('change le référentiel d’intensité (allure spécifique) et écrit la distance + l’allure', () => {
+    const h = setup([makeSerie('distance')]);
+    act(() => fireEvent.press(screen.getByTestId('series-card-0-imode-spec_pace')));
+    act(() => fireEvent.press(screen.getByTestId('series-card-0-specdist-800')));
+    expect(h.groups()[0].items[0].params.specDistance).toBe('800');
+    act(() => fireEvent.changeText(screen.getByTestId('series-card-0-effort-0-int'), '180'));
+    expect(h.groups()[0].items[0].params.paceSecondsPerKm).toBe('180');
+  });
+
+  it('change le référentiel d’intensité (zone cardio) et écrit la zone nommée (Z2–Z5)', () => {
+    const h = setup([makeSerie('distance')]);
+    act(() => fireEvent.press(screen.getByTestId('series-card-0-imode-zone')));
+    act(() => fireEvent.press(screen.getByTestId('series-card-0-hrzone-z3')));
+    expect(h.groups()[0].items[0].params.hrZone).toBe('z3');
+  });
+
   it('change le type de récupération (passive)', () => {
     const h = setup([makeSerie()]);
     act(() => fireEvent.press(screen.getByTestId('series-card-0-rec-passive')));
@@ -100,5 +116,14 @@ describe('EnduranceEffortCanvas', () => {
     expect(h.groups()[0].items).toHaveLength(2);
     act(() => fireEvent.press(screen.getByTestId('endurance-add-series')));
     expect(h.groups()).toHaveLength(2);
+  });
+
+  it('mode encart : séries + ajout rendus, en-tête KPI et barres écha/RAC masqués', () => {
+    setup([makeSerie()], true);
+    expect(screen.getByTestId('series-card-0')).toBeTruthy();
+    expect(screen.getByTestId('endurance-add-series')).toBeTruthy();
+    expect(screen.queryByTestId('endurance-canvas-summary')).toBeNull();
+    expect(screen.queryByTestId('warmup-bar')).toBeNull();
+    expect(screen.queryByTestId('cooldown-bar')).toBeNull();
   });
 });

@@ -21,7 +21,20 @@ jest.mock('@talent-x/api-client', () => ({
     completed: 'completed',
     skipped: 'skipped',
   },
-  BlockType: { strength: 'strength', sprint: 'sprint', warmup: 'warmup', custom: 'custom' },
+  BlockType: {
+    strength: 'strength',
+    interval: 'interval',
+    sprint: 'sprint',
+    endurance: 'endurance',
+    hurdles: 'hurdles',
+    jumps: 'jumps',
+    vertical_jumps: 'vertical_jumps',
+    throws: 'throws',
+    core: 'core',
+    warmup: 'warmup',
+    cooldown: 'cooldown',
+    custom: 'custom',
+  },
   LoadUnit: { kg: 'kg', lb: 'lb', percent_1rm: 'percent_1rm', bodyweight: 'bodyweight' },
   AthleteStatus: { up_to_date: 'up_to_date', late: 'late', pending_review: 'pending_review' },
 }));
@@ -116,6 +129,71 @@ describe('CoachSessionDetailScreen (C-05 — détail lecture seule)', () => {
     mockGetSession.mockResolvedValue({ status: 500, data: { error: 'INTERNAL_ERROR' } });
     render(<CoachSessionDetailScreen />, { wrapper: Wrapper });
     await waitFor(() => expect(screen.getByTestId('coach-session-error')).toBeOnTheScreen());
+  });
+
+  it('ADR-40 §3 : discipline reconnue (haies) → résumé compatible carte dédiée', async () => {
+    mockGetSession.mockResolvedValue({
+      status: 200,
+      data: {
+        ...SESSION,
+        exercises: {
+          schemaVersion: 3,
+          items: [
+            {
+              kind: 'group',
+              name: 'Série haies',
+              order: 0,
+              groupType: 'series',
+              rounds: 2,
+              items: [
+                { name: '10 haies', order: 0, type: 'hurdles', params: { distanceMeters: 110 } },
+                { name: '10 haies', order: 1, type: 'hurdles', params: { distanceMeters: 110 } },
+              ],
+            },
+          ],
+        },
+      },
+    });
+    render(<CoachSessionDetailScreen />, { wrapper: Wrapper });
+
+    await waitFor(() =>
+      expect(screen.getByTestId('coach-session-discipline-summary')).toBeOnTheScreen(),
+    );
+    expect(screen.getByTestId('coach-session-discipline-summary')).toHaveTextContent(/Haies/);
+  });
+
+  it('ADR-41 §6 : séance renforcement (strength) → résumé discipline « Renforcement / PPG »', async () => {
+    mockGetSession.mockResolvedValue({
+      status: 200,
+      data: {
+        ...SESSION,
+        exercises: {
+          schemaVersion: 3,
+          items: [
+            { name: 'Squat', order: 0, type: 'strength', sets: 4, reps: 5, params: {} },
+            { name: 'Développé couché', order: 1, type: 'strength', sets: 4, reps: 10, params: {} },
+          ],
+        },
+      },
+    });
+    render(<CoachSessionDetailScreen />, { wrapper: Wrapper });
+
+    await waitFor(() =>
+      expect(screen.getByTestId('coach-session-discipline-summary')).toBeOnTheScreen(),
+    );
+    expect(screen.getByTestId('coach-session-discipline-summary')).toHaveTextContent(
+      /Renforcement \/ PPG/,
+    );
+  });
+
+  it('ADR-40 §3 : structure non inférable (groupes hétérogènes) → pas de résumé, rendu inchangé', async () => {
+    mockGetSession.mockResolvedValue({ status: 200, data: SESSION });
+    render(<CoachSessionDetailScreen />, { wrapper: Wrapper });
+
+    await waitFor(() =>
+      expect(screen.getByTestId('coach-session-title')).toHaveTextContent('Contraste & vitesse'),
+    );
+    expect(screen.queryByTestId('coach-session-discipline-summary')).toBeNull();
   });
 
   it('expose la discussion de séance (TLX-118) : poste sur la séance', async () => {

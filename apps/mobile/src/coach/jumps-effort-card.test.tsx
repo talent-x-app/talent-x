@@ -10,12 +10,12 @@ import {
   type EditableNode,
 } from './session-builder-ui';
 
-function setup(initial: EditableNode[]) {
+function setup(initial: EditableNode[], embedded = false) {
   const ref: { nodes: EditableNode[] } = { nodes: initial };
   function Harness() {
     const [nodes, setNodes] = useState(initial);
     ref.nodes = nodes;
-    return <JumpsEffortCanvas nodes={nodes} onChange={setNodes} />;
+    return <JumpsEffortCanvas nodes={nodes} onChange={setNodes} embedded={embedded} />;
   }
   render(<Harness />);
   return { groups: () => ref.nodes.filter((n) => isEditableGroup(n)) as EditableGroup[] };
@@ -41,7 +41,7 @@ function makeHorizontal(): EditableGroup {
           approach: '18',
           approachUnit: 'steps',
           attempts: '1',
-          takeoff: 'left',
+          takeoff: 'board',
           targetMode: 'percent_record',
         },
       }),
@@ -121,5 +121,14 @@ describe('JumpsEffortCanvas', () => {
     const h = setup([makeHorizontal()]);
     act(() => fireEvent.press(screen.getByTestId('jumps-add-series')));
     expect(h.groups()).toHaveLength(2);
+  });
+
+  it('mode encart : séries + ajout rendus, en-tête KPI et barres écha/RAC masqués', () => {
+    setup([makeHorizontal()], true);
+    expect(screen.getByTestId('series-card-0')).toBeTruthy();
+    expect(screen.getByTestId('jumps-add-series')).toBeTruthy();
+    expect(screen.queryByTestId('jumps-canvas-summary')).toBeNull();
+    expect(screen.queryByTestId('warmup-bar')).toBeNull();
+    expect(screen.queryByTestId('cooldown-bar')).toBeNull();
   });
 });

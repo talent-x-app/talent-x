@@ -1,4 +1,4 @@
-import { BlockType } from '@talent-x/api-client';
+import { BlockType, LoadUnit } from '@talent-x/api-client';
 import {
   makeBlock,
   makeCooldownBlock,
@@ -101,6 +101,65 @@ export const SPRINT_PRESETS: SessionBuilderPreset[] = [
   },
 ];
 
+// --- Tables de records (fictifs, ADR-40) -----------------------------------------------------
+
+/**
+ * Records fictifs (mêmes esprit/usage que les `PRESETS` des prototypes : permettent de calculer
+ * une **valeur cible réelle** — temps pour haies/sprint, distance pour sauts/lancers — à partir
+ * d'un % du record. Valeurs plausibles mais non officielles, à affiner si besoin (TLX-168).
+ */
+export const HURDLE_RECORDS: Record<string, number> = {
+  '110mH-H': 13.8,
+  '100mH-F': 13.0,
+  '60mH-H': 7.7,
+  '60mH-F': 8.1,
+  '400mH-H': 50.0,
+  '400mH-F': 56.0,
+};
+
+/** Records fictifs de sauts horizontaux/verticaux (mètres), référence unique par discipline. */
+export const JUMP_RECORDS: Record<string, number> = {
+  long: 8.95,
+  triple: 18.29,
+  high: 2.45,
+  pole: 6.23,
+};
+
+/** Records fictifs de lancers (mètres), référence unique par discipline. */
+export const THROW_RECORDS: Record<string, number> = {
+  shot: 23.12,
+  discus: 74.08,
+  javelin: 98.48,
+  hammer: 86.74,
+};
+
+/** Clé de référentiel haies : `${event}-${sex}` (ex. `110mH-H`). */
+export function hurdleRecordKey(event: string, sex: 'H' | 'F'): string {
+  return `${event}-${sex}`;
+}
+
+/** Valeur cible (temps, s) = record × 100 ⁄ %record. `undefined` si référentiel inconnu. */
+export function targetTimeFromRecord(
+  event: string,
+  sex: 'H' | 'F',
+  percent: number,
+): number | undefined {
+  const ref = HURDLE_RECORDS[hurdleRecordKey(event, sex)];
+  if (ref == null || percent <= 0) return undefined;
+  return Math.round((ref * 100) / percent / 0.01) * 0.01;
+}
+
+/** Valeur cible (distance, m) = record × %record ⁄ 100. `undefined` si discipline inconnue. */
+export function targetDistanceFromRecord(
+  records: Record<string, number>,
+  discipline: string,
+  percent: number,
+): number | undefined {
+  const ref = records[discipline];
+  if (ref == null) return undefined;
+  return Math.round(ref * (percent / 100) * 100) / 100;
+}
+
 // --- Haies (TLX-156) -------------------------------------------------------------------------
 
 /**
@@ -128,6 +187,8 @@ function hurdleEffort(opts: {
   runInMeters: number;
   rhythmSteps: number;
   recoverySeconds: number;
+  leadLeg?: string;
+  sex?: 'H' | 'F';
 }): EditableBlock {
   return makeBlock({
     type: BlockType.hurdles,
@@ -148,8 +209,9 @@ function hurdleEffort(opts: {
       hurdleCount: String(opts.hurdleCount),
       approachMeters: String(opts.approachMeters),
       rhythmSteps: String(opts.rhythmSteps),
-      leadLeg: 'left',
+      leadLeg: opts.leadLeg ?? 'left',
       startType: 'blocks',
+      sex: opts.sex ?? 'H',
       recoverySeconds: String(opts.recoverySeconds),
     },
   });
@@ -197,6 +259,7 @@ export const HURDLES_PRESETS: SessionBuilderPreset[] = [
             runInMeters: 10.5,
             rhythmSteps: 3,
             recoverySeconds: 300,
+            sex: 'F',
           }),
         ],
       }),
@@ -220,6 +283,7 @@ export const HURDLES_PRESETS: SessionBuilderPreset[] = [
             runInMeters: 40,
             rhythmSteps: 15,
             recoverySeconds: 420,
+            leadLeg: 'alt',
           }),
         ],
       }),
@@ -386,7 +450,7 @@ function horizontalJump(opts: {
       approach: String(opts.approach),
       approachUnit: opts.approachUnit,
       attempts: String(opts.attempts),
-      takeoff: 'left',
+      takeoff: 'board',
       recoverySeconds: String(opts.recoverySeconds),
     },
   });
@@ -544,20 +608,24 @@ function throwEffort(opts: {
   fullThrows?: number;
   implementState?: string;
   style?: string;
+  targetPercent?: number;
 }): EditableBlock {
   const params: Record<string, string> = {
     discipline: opts.discipline,
     sex: opts.sex,
     implementState: opts.implementState ?? 'regulation',
+    targetMode: 'percent_record',
   };
   const kg = regulationImplementKg(opts.discipline, opts.sex);
   if (kg != null) params.implementKg = String(kg);
   if (opts.techniqueThrows != null) params.techniqueThrows = String(opts.techniqueThrows);
   if (opts.fullThrows != null) params.fullThrows = String(opts.fullThrows);
   if (opts.style) params.style = opts.style;
+  if (opts.targetPercent != null) params.targetPercent = String(opts.targetPercent);
   return makeBlock({ type: BlockType.throws, name: opts.name, params });
 }
 
+/** Presets Lancers réalignés sur les prototypes (ADR-40, TLX-168). */
 export const THROWS_PRESETS: SessionBuilderPreset[] = [
   {
     key: 'shot_technique',
@@ -571,9 +639,10 @@ export const THROWS_PRESETS: SessionBuilderPreset[] = [
             discipline: 'shot',
             sex: 'M',
             name: 'Poids technique',
-            techniqueThrows: 10,
-            fullThrows: 0,
+            techniqueThrows: 12,
+            fullThrows: 4,
             style: 'spin',
+            targetPercent: 90,
           }),
         ],
       }),
@@ -591,9 +660,10 @@ export const THROWS_PRESETS: SessionBuilderPreset[] = [
             discipline: 'shot',
             sex: 'M',
             name: 'Poids jets pleins',
-            techniqueThrows: 2,
-            fullThrows: 6,
+            techniqueThrows: 4,
+            fullThrows: 10,
             style: 'spin',
+            targetPercent: 95,
           }),
         ],
       }),
@@ -613,6 +683,7 @@ export const THROWS_PRESETS: SessionBuilderPreset[] = [
             name: 'Disque compétition',
             techniqueThrows: 2,
             fullThrows: 6,
+            targetPercent: 100,
           }),
         ],
       }),
@@ -631,8 +702,32 @@ export const THROWS_PRESETS: SessionBuilderPreset[] = [
             sex: 'M',
             name: 'Poids lourd',
             implementState: 'heavy',
+            techniqueThrows: 6,
             fullThrows: 8,
             style: 'glide',
+            targetPercent: 85,
+          }),
+        ],
+      }),
+    ],
+  },
+  {
+    key: 'shot_light',
+    label: 'Poids — engin léger',
+    build: () => [
+      makeSeriesGroup({
+        name: 'Poids — engin léger',
+        rounds: '1',
+        items: [
+          throwEffort({
+            discipline: 'shot',
+            sex: 'M',
+            name: 'Poids léger',
+            implementState: 'light',
+            techniqueThrows: 4,
+            fullThrows: 10,
+            style: 'spin',
+            targetPercent: 100,
           }),
         ],
       }),
@@ -640,13 +735,285 @@ export const THROWS_PRESETS: SessionBuilderPreset[] = [
   },
 ];
 
-/** Presets par discipline (ADR-38, TLX-155→159). */
+// --- Renforcement / PPG (TLX-172, ADR-41) ----------------------------------------------------
+
+/**
+ * 1RM de référence (kg, **fictifs** — même esprit que `HURDLE_RECORDS`/`JUMP_RECORDS`, ADR-41 §4).
+ * Sert à dériver une **charge cible** (`≈ <kg>`) en mode `% 1RM`, côté carte. Référence générique
+ * tant que l'individualisation par athlète n'est pas livrée (différée, cohérent ADR-20).
+ */
+export const ONE_RM_REFERENCE: Record<string, number> = {
+  // Haltérophilie / mouvements rapides
+  clean: 90,
+  power_clean: 85,
+  snatch: 70,
+  high_pull: 75,
+  push_press: 80,
+  // Bas du corps / squats
+  squat: 140,
+  front_squat: 110,
+  split_squat: 70,
+  lunge: 80,
+  step_up: 60,
+  // Chaîne postérieure
+  deadlift: 160,
+  romanian_deadlift: 130,
+  good_morning: 70,
+  hipthrust: 150,
+  // Haut du corps
+  bench: 100,
+  incline_bench: 85,
+  ohp: 60,
+  row: 80,
+  pullup: 90,
+};
+
+/**
+ * Libellés FR des exercices de musculation (clé `params.exerciseKey` ↔ libellé `name`).
+ * Set « starter » (~28). Les mouvements barre/compound ont un 1RM dans `ONE_RM_REFERENCE` ;
+ * les exercices au poids de corps / pliométrie / gainage / medecine-ball n'ont **qu'un libellé**
+ * (pas d'entrée 1RM → `targetLoadFromOneRm` renvoie `undefined`, la cible %1RM ne s'affiche pas).
+ */
+export const EXERCISE_LABELS: Record<string, string> = {
+  // Haltérophilie
+  clean: 'Épaulé',
+  power_clean: 'Épaulé puissance',
+  snatch: 'Arraché',
+  high_pull: 'Tirage haltéro',
+  push_press: 'Développé jeté',
+  // Bas du corps
+  squat: 'Squat',
+  front_squat: 'Squat avant',
+  split_squat: 'Fentes bulgares',
+  lunge: 'Fentes',
+  step_up: 'Montée sur banc',
+  // Chaîne postérieure
+  deadlift: 'Soulevé de terre',
+  romanian_deadlift: 'Soulevé de terre roumain',
+  good_morning: 'Good morning',
+  hipthrust: 'Hip thrust',
+  nordic_curl: 'Nordic (ischios)',
+  glute_bridge: 'Pont fessier',
+  calf_raise: 'Mollets',
+  // Haut du corps
+  bench: 'Développé couché',
+  incline_bench: 'Développé incliné',
+  ohp: 'Développé militaire',
+  row: 'Tirage',
+  pullup: 'Tractions lestées',
+  // Gainage / core
+  plank: 'Gainage',
+  side_plank: 'Gainage latéral',
+  hollow_hold: 'Hollow hold',
+  leg_raise: 'Relevé de jambes',
+  pallof_press: 'Pallof press',
+  // Pliométrie / medecine-ball
+  box_jump: 'Saut sur banc',
+  squat_jump: 'Squat sauté',
+  drop_jump: 'Saut en contrebas',
+  bounds: 'Foulées bondissantes',
+  medball_chest: 'Lancer medecine-ball (poitrine)',
+  medball_overhead: 'Lancer medecine-ball (au-dessus)',
+  mountain_climbers: 'Mountain climbers',
+};
+
+/**
+ * Regroupement ordonné des exercices pour un sélecteur catégorisé (optionnel, additif).
+ * Couvre toutes les clés de `EXERCISE_LABELS`. Le picker plat actuel n'est pas obligé de
+ * l'utiliser ; exporté pour un rendu par sections ultérieur.
+ */
+export const EXERCISE_GROUPS: { label: string; keys: string[] }[] = [
+  { label: 'Haltérophilie', keys: ['clean', 'power_clean', 'snatch', 'high_pull', 'push_press'] },
+  { label: 'Bas du corps', keys: ['squat', 'front_squat', 'split_squat', 'lunge', 'step_up'] },
+  {
+    label: 'Chaîne postérieure',
+    keys: [
+      'deadlift',
+      'romanian_deadlift',
+      'good_morning',
+      'hipthrust',
+      'nordic_curl',
+      'glute_bridge',
+      'calf_raise',
+    ],
+  },
+  { label: 'Haut du corps', keys: ['bench', 'incline_bench', 'ohp', 'row', 'pullup'] },
+  { label: 'Gainage', keys: ['plank', 'side_plank', 'hollow_hold', 'leg_raise', 'pallof_press'] },
+  {
+    label: 'Pliométrie / Medball',
+    keys: [
+      'box_jump',
+      'squat_jump',
+      'drop_jump',
+      'bounds',
+      'medball_chest',
+      'medball_overhead',
+      'mountain_climbers',
+    ],
+  },
+];
+
+/** Charge cible (kg) = 1RM × % ⁄ 100, arrondie. `undefined` si l'exercice n'a pas de 1RM connu. */
+export function targetLoadFromOneRm(exerciseKey: string, percent: number): number | undefined {
+  const oneRm = ONE_RM_REFERENCE[exerciseKey];
+  if (oneRm == null) return undefined;
+  return Math.round((oneRm * percent) / 100);
+}
+
+/**
+ * Exercice de musculation typé (`strength`) : `name` (libellé), base `sets`/`reps`/`load`, et
+ * params additifs `tempo`/`rpe`/`exerciseKey` (ADR-41 §2/§3). `exerciseKey` est stocké pour que
+ * la carte puisse recalculer la charge cible %1RM. `loadUnit` retombe sur `% 1RM` quand une
+ * `loadValue` est fournie sans unité explicite.
+ */
+function strengthExercise(opts: {
+  exerciseKey: string;
+  sets: number;
+  reps: number;
+  loadValue?: number;
+  loadUnit?: LoadUnit | null;
+  rpe?: number;
+  tempo?: string;
+}): EditableBlock {
+  const params: Record<string, string> = { exerciseKey: opts.exerciseKey };
+  if (opts.tempo) params.tempo = opts.tempo;
+  if (opts.rpe != null) params.rpe = String(opts.rpe);
+  const block = makeBlock({
+    type: BlockType.strength,
+    name: EXERCISE_LABELS[opts.exerciseKey] ?? opts.exerciseKey,
+    sets: String(opts.sets),
+    reps: String(opts.reps),
+    params,
+  });
+  if (opts.loadValue != null) {
+    block.loadValue = String(opts.loadValue);
+    block.loadUnit = opts.loadUnit ?? LoadUnit.percent_1rm;
+  } else if (opts.loadUnit != null) {
+    block.loadUnit = opts.loadUnit;
+  }
+  return block;
+}
+
+/**
+ * Station PPG typée (`core`) : travail en durée (`durationSeconds`) **ou** répétitions (`reps`),
+ * récup `restSeconds`. Les tours sont portés par le `rounds` du groupe circuit (ADR-41 §2).
+ */
+function ppgStation(opts: {
+  name: string;
+  workSeconds?: number;
+  reps?: number;
+  recoverySeconds?: number;
+}): EditableBlock {
+  const block = makeBlock({ type: BlockType.core, name: opts.name });
+  if (opts.workSeconds != null) block.durationSeconds = String(opts.workSeconds);
+  if (opts.reps != null) block.reps = String(opts.reps);
+  if (opts.recoverySeconds != null) block.restSeconds = String(opts.recoverySeconds);
+  return block;
+}
+
+/**
+ * Presets Renforcement / PPG (ADR-41 §7).
+ *
+ * Modèle de données — décision ADR-41 :
+ * - **Muscu** : chaque exercice = un bloc `strength` **de premier niveau** (non groupé). Motif :
+ *   `sets` est **masqué dans un groupe** (`isBaseFieldVisible`, ADR-27 règle 6), or les séries
+ *   varient d'un exercice à l'autre ; un bloc top-level conserve donc son propre `sets` visible.
+ *   Le « bloc de travail / carte série » est un regroupement **visuel** géré par la carte (phase B),
+ *   pas un `EditableGroup`.
+ * - **PPG** : les stations partagent les tours → `makeSeriesGroup(groupType:'circuit')`,
+ *   `rounds` = nb de tours ; `sets` masqué (correct, porté par `rounds`).
+ */
+export const STRENGTH_PRESETS: SessionBuilderPreset[] = [
+  {
+    key: 'force_max',
+    label: 'Force max',
+    build: () => [
+      strengthExercise({ exerciseKey: 'squat', sets: 4, reps: 5, loadValue: 85, tempo: '31X1' }),
+      strengthExercise({
+        exerciseKey: 'deadlift',
+        sets: 3,
+        reps: 4,
+        loadValue: 80,
+        tempo: '20X0',
+      }),
+    ],
+  },
+  {
+    key: 'hypertrophy',
+    label: 'Hypertrophie',
+    build: () => [
+      strengthExercise({ exerciseKey: 'squat', sets: 4, reps: 10, loadValue: 70, tempo: '2010' }),
+      strengthExercise({ exerciseKey: 'bench', sets: 4, reps: 10, loadValue: 70, tempo: '2010' }),
+    ],
+  },
+  {
+    key: 'power',
+    label: 'Force-vitesse / Puissance',
+    build: () => [
+      strengthExercise({ exerciseKey: 'squat', sets: 5, reps: 3, loadValue: 50, tempo: 'X0X0' }),
+    ],
+  },
+  {
+    key: 'plyo',
+    label: 'Pliométrie',
+    build: () => [
+      strengthExercise({
+        exerciseKey: 'squat',
+        sets: 5,
+        reps: 5,
+        loadUnit: LoadUnit.bodyweight,
+        tempo: 'X0X0',
+      }),
+    ],
+  },
+  {
+    key: 'circuit_ppg',
+    label: 'Circuit PPG',
+    build: () => [
+      makeSeriesGroup({
+        name: 'Circuit PPG',
+        groupType: 'circuit',
+        rounds: '3',
+        restBetweenRoundsSeconds: '60',
+        items: [
+          ppgStation({ name: 'Squats sautés', workSeconds: 40, recoverySeconds: 20 }),
+          ppgStation({ name: 'Pompes', workSeconds: 40, recoverySeconds: 20 }),
+          ppgStation({ name: 'Fentes', workSeconds: 40, recoverySeconds: 20 }),
+          ppgStation({ name: 'Burpees', workSeconds: 40, recoverySeconds: 20 }),
+          ppgStation({ name: 'Gainage', workSeconds: 40, recoverySeconds: 20 }),
+          ppgStation({ name: 'Squats', workSeconds: 40, recoverySeconds: 20 }),
+        ],
+      }),
+    ],
+  },
+  {
+    key: 'core_ppg',
+    label: 'Gainage',
+    build: () => [
+      makeSeriesGroup({
+        name: 'Gainage',
+        groupType: 'circuit',
+        rounds: '3',
+        restBetweenRoundsSeconds: '60',
+        items: [
+          ppgStation({ name: 'Planche', workSeconds: 45, recoverySeconds: 15 }),
+          ppgStation({ name: 'Gainage latéral', workSeconds: 30, recoverySeconds: 15 }),
+          ppgStation({ name: 'Mountain climbers', reps: 20, recoverySeconds: 15 }),
+          ppgStation({ name: 'Superman', workSeconds: 30, recoverySeconds: 15 }),
+        ],
+      }),
+    ],
+  },
+];
+
+/** Presets par discipline (ADR-38, TLX-155→159 ; ADR-41 TLX-172). */
 const ASSISTANT_PRESETS: Record<DisciplineKey, SessionBuilderPreset[]> = {
   sprint: SPRINT_PRESETS,
   hurdles: HURDLES_PRESETS,
   endurance: ENDURANCE_PRESETS,
   jumps: JUMPS_PRESETS,
   throws: THROWS_PRESETS,
+  strength: STRENGTH_PRESETS,
 };
 
 /** Presets de la discipline (ou liste vide si inconnue/non encore fournis). */
@@ -690,6 +1057,12 @@ export function assistantSeed(discipline: string | undefined): EditableNode[] {
       ],
     });
     return [makeWarmupBlock(), sprintSeries, makeCooldownBlock()];
+  }
+  // Renforcement / PPG : amorce avec le preset Force max (blocs `strength` top-level), encadré
+  // d'un échauffement et d'un retour au calme (même esprit que Sprint, ADR-41).
+  if (cfg.key === 'strength') {
+    const forceMax = STRENGTH_PRESETS.find((p) => p.key === 'force_max');
+    return [makeWarmupBlock(), ...(forceMax ? forceMax.build() : []), makeCooldownBlock()];
   }
   return [series];
 }

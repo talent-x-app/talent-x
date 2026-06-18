@@ -57,6 +57,8 @@ jest.mock('expo-router', () => {
 jest.mock('../feedback', () => ({ useToast: () => ({ show: mockShow, dismiss: jest.fn() }) }));
 
 import { SessionBuilderScreen } from './SessionBuilderScreen';
+import { BlockType } from '@talent-x/api-client';
+import { makeBlock, makeSeriesGroup } from './session-builder-ui';
 
 function Wrapper({ children }: { children: ReactNode }) {
   const [client] = useState(
@@ -112,20 +114,20 @@ describe('SessionBuilderScreen (TLX-052 — C-05)', () => {
   });
 
   it('refuse un bloc chronométré sans le param de suivi (distance) (TLX-91)', () => {
-    render(<SessionBuilderScreen />, { wrapper: Wrapper });
+    // La garde de suivi vit dans l'écran (validation de `nodes` à la sauvegarde) ; on amorce
+    // directement un bloc sprint sans distance via `seed` (le choix de type lui-même est couvert
+    // au niveau `GenericBlocksEditor`).
+    render(
+      <SessionBuilderScreen
+        seed={() => [makeBlock({ type: BlockType.sprint, name: '8 × 60m' })]}
+      />,
+      { wrapper: Wrapper },
+    );
     fireEvent.changeText(screen.getByTestId('session-field-title'), 'Vitesse');
-    fireEvent.changeText(screen.getByTestId('block-0-name'), '8 × 60m');
-    fireEvent.press(screen.getByTestId('block-0-type-sprint'));
-    // Distance laissée vide → la perf serait invisible en progression : on bloque.
+    // Distance absente → la perf serait invisible en progression : on bloque.
     fireEvent.press(screen.getByTestId('session-save'));
     expect(screen.getByTestId('session-builder-validation')).toHaveTextContent(/distance/i);
     expect(mockCreateSession).not.toHaveBeenCalled();
-
-    // Une fois la distance renseignée, l'enregistrement passe.
-    mockCreateSession.mockResolvedValue({ status: 201, data: { id: 's-ok' } });
-    fireEvent.changeText(screen.getByTestId('block-0-param-distanceMeters'), '60');
-    fireEvent.press(screen.getByTestId('session-save'));
-    return waitFor(() => expect(mockCreateSession).toHaveBeenCalled());
   });
 
   it('refuse la sauvegarde si la date prévue est malformée (TLX-167)', async () => {
@@ -154,39 +156,11 @@ describe('SessionBuilderScreen (TLX-052 — C-05)', () => {
     expect(screen.queryByTestId('block-1')).toBeNull();
   });
 
-  it('masque le champ de base redondant sur un bloc typé (TLX-94)', () => {
-    render(<SessionBuilderScreen />, { wrapper: Wrapper });
-    // Bloc custom : la base « Répétitions » est présente.
-    expect(screen.getByTestId('block-0-reps')).toBeOnTheScreen();
-    expect(screen.getByTestId('block-0-sets')).toBeOnTheScreen();
-
-    // Sprints : la base « Répétitions » disparaît (le param « nombre de sprints » la couvre),
-    // mais « Séries » (non dupliquée) et le param restent.
-    fireEvent.press(screen.getByTestId('block-0-type-sprint'));
-    expect(screen.queryByTestId('block-0-reps')).toBeNull();
-    expect(screen.getByTestId('block-0-sets')).toBeOnTheScreen();
-    expect(screen.getByTestId('block-0-param-reps')).toBeOnTheScreen();
-  });
-
-  it('ne sérialise pas un champ de base masqué — pas de fuite (TLX-94)', async () => {
-    mockCreateSession.mockResolvedValue({ status: 201, data: { id: 's-leak' } });
-    render(<SessionBuilderScreen />, { wrapper: Wrapper });
-
-    fireEvent.changeText(screen.getByTestId('session-field-title'), 'Vitesse');
-    fireEvent.changeText(screen.getByTestId('block-0-name'), '8 × 60m');
-    // Saisie d'une valeur sur la base v1 (bloc custom) PUIS bascule en Sprints : la base
-    // « Répétitions » devient masquée — sa valeur résiduelle ne doit pas être sérialisée.
-    fireEvent.changeText(screen.getByTestId('block-0-reps'), '99');
-    fireEvent.press(screen.getByTestId('block-0-type-sprint'));
-    fireEvent.changeText(screen.getByTestId('block-0-param-reps'), '8');
-    fireEvent.changeText(screen.getByTestId('block-0-param-distanceMeters'), '60');
-    fireEvent.press(screen.getByTestId('session-save'));
-
-    await waitFor(() => expect(mockCreateSession).toHaveBeenCalled());
-    const item = mockCreateSession.mock.calls[0][0].exercises.items[0];
-    expect(item).not.toHaveProperty('reps');
-    expect(item.params).toMatchObject({ reps: 8, distanceMeters: 60 });
-  });
+  // Le masquage de champ de base et la non-fuite des champs masqués (TLX-94), ainsi que toute la
+  // sérialisation par type de bloc (TLX-053→061), sont désormais couverts au niveau du composant
+  // `GenericBlocksEditor` (generic-blocks-editor.test.tsx) : dès qu'un bloc reçoit un type de
+  // discipline reconnue, il quitte l'éditeur générique pour sa carte dédiée dans le composite
+  // (ADR-42). On garde ici les parcours écran (sauvegarde, validation, routage, brief).
 
   it('crée une séance avec le document exercises v1 (order, nombres, charge)', async () => {
     mockCreateSession.mockResolvedValue({ status: 201, data: { id: 's-new' } });
@@ -246,300 +220,7 @@ describe('SessionBuilderScreen (TLX-052 — C-05)', () => {
     expect(body.exercises.items[0]).not.toHaveProperty('load');
   });
 
-  it('bloc custom par défaut : pas de section params', () => {
-    render(<SessionBuilderScreen />, { wrapper: Wrapper });
-    expect(screen.queryByTestId('block-0-params')).toBeNull();
-  });
-
-  it('sélectionne Intervalles → affiche les params et sérialise type + params (TLX-053/054)', async () => {
-    mockCreateSession.mockResolvedValue({ status: 201, data: { id: 's-int' } });
-    render(<SessionBuilderScreen />, { wrapper: Wrapper });
-
-    fireEvent.changeText(screen.getByTestId('session-field-title'), 'Fractionné');
-    fireEvent.changeText(screen.getByTestId('block-0-name'), '6 × 400m');
-    fireEvent.press(screen.getByTestId('block-0-type-interval'));
-
-    // L'éditeur de params propre à « Intervalles » apparaît.
-    expect(screen.getByTestId('block-0-params')).toBeOnTheScreen();
-    fireEvent.changeText(screen.getByTestId('block-0-param-reps'), '6');
-    fireEvent.changeText(screen.getByTestId('block-0-param-distanceMeters'), '400');
-    fireEvent.changeText(screen.getByTestId('block-0-param-workSeconds'), '90');
-    fireEvent.changeText(screen.getByTestId('block-0-param-recoverySeconds'), '120');
-    fireEvent.press(screen.getByTestId('session-save'));
-
-    await waitFor(() => expect(mockCreateSession).toHaveBeenCalled());
-    const item = mockCreateSession.mock.calls[0][0].exercises.items[0];
-    expect(item).toMatchObject({
-      name: '6 × 400m',
-      order: 1,
-      type: 'interval',
-      params: { reps: 6, distanceMeters: 400, workSeconds: 90, recoverySeconds: 120 },
-    });
-  });
-
-  it('sélectionne Hauteur/Perche → sélecteur discipline + params, sérialise (TLX-075/ADR-25)', async () => {
-    mockCreateSession.mockResolvedValue({ status: 201, data: { id: 's-vj' } });
-    render(<SessionBuilderScreen />, { wrapper: Wrapper });
-
-    fireEvent.changeText(screen.getByTestId('session-field-title'), 'Sauts');
-    fireEvent.changeText(screen.getByTestId('block-0-name'), 'Hauteur');
-    fireEvent.press(screen.getByTestId('block-0-type-vertical_jumps'));
-
-    expect(screen.getByTestId('block-0-params')).toBeOnTheScreen();
-    // Le champ discipline est un sélecteur (chips), pas une saisie numérique.
-    fireEvent.press(screen.getByTestId('block-0-param-discipline-pole'));
-    fireEvent.changeText(screen.getByTestId('block-0-param-startHeightCm'), '420');
-    fireEvent.changeText(screen.getByTestId('block-0-param-incrementCm'), '15');
-    fireEvent.press(screen.getByTestId('session-save'));
-
-    await waitFor(() => expect(mockCreateSession).toHaveBeenCalled());
-    const item = mockCreateSession.mock.calls[0][0].exercises.items[0];
-    expect(item).toMatchObject({
-      name: 'Hauteur',
-      order: 1,
-      type: 'vertical_jumps',
-      params: { discipline: 'pole', startHeightCm: 420, incrementCm: 15 },
-    });
-  });
-
-  it('sélectionne Sprints → sérialise type + params (distance, reps, récup) (TLX-055)', async () => {
-    mockCreateSession.mockResolvedValue({ status: 201, data: { id: 's-spr' } });
-    render(<SessionBuilderScreen />, { wrapper: Wrapper });
-
-    fireEvent.changeText(screen.getByTestId('session-field-title'), 'Vitesse');
-    fireEvent.changeText(screen.getByTestId('block-0-name'), '8 × 60m départ');
-    fireEvent.press(screen.getByTestId('block-0-type-sprint'));
-
-    expect(screen.getByTestId('block-0-params')).toBeOnTheScreen();
-    fireEvent.changeText(screen.getByTestId('block-0-param-reps'), '8');
-    fireEvent.changeText(screen.getByTestId('block-0-param-distanceMeters'), '60');
-    fireEvent.changeText(screen.getByTestId('block-0-param-recoverySeconds'), '180');
-    fireEvent.press(screen.getByTestId('session-save'));
-
-    await waitFor(() => expect(mockCreateSession).toHaveBeenCalled());
-    const item = mockCreateSession.mock.calls[0][0].exercises.items[0];
-    expect(item).toMatchObject({
-      name: '8 × 60m départ',
-      order: 1,
-      type: 'sprint',
-      params: { reps: 8, distanceMeters: 60, recoverySeconds: 180 },
-    });
-  });
-
-  it('sélectionne Course → sérialise type + params (distance, allure, dénivelé) (TLX-056)', async () => {
-    mockCreateSession.mockResolvedValue({ status: 201, data: { id: 's-end' } });
-    render(<SessionBuilderScreen />, { wrapper: Wrapper });
-
-    fireEvent.changeText(screen.getByTestId('session-field-title'), 'Tempo');
-    fireEvent.changeText(screen.getByTestId('block-0-name'), 'Tempo 5 km');
-    fireEvent.press(screen.getByTestId('block-0-type-endurance'));
-
-    expect(screen.getByTestId('block-0-params')).toBeOnTheScreen();
-    fireEvent.changeText(screen.getByTestId('block-0-param-distanceMeters'), '5000');
-    fireEvent.changeText(screen.getByTestId('block-0-param-paceSecondsPerKm'), '300');
-    fireEvent.changeText(screen.getByTestId('block-0-param-elevationMeters'), '120');
-    fireEvent.press(screen.getByTestId('session-save'));
-
-    await waitFor(() => expect(mockCreateSession).toHaveBeenCalled());
-    const item = mockCreateSession.mock.calls[0][0].exercises.items[0];
-    expect(item).toMatchObject({
-      name: 'Tempo 5 km',
-      order: 1,
-      type: 'endurance',
-      params: { distanceMeters: 5000, paceSecondsPerKm: 300, elevationMeters: 120 },
-    });
-  });
-
-  it('sélectionne Haies → sérialise type + params (hauteur décimale, espacement, rythme) (TLX-057)', async () => {
-    mockCreateSession.mockResolvedValue({ status: 201, data: { id: 's-hur' } });
-    render(<SessionBuilderScreen />, { wrapper: Wrapper });
-
-    fireEvent.changeText(screen.getByTestId('session-field-title'), 'Haies');
-    fireEvent.changeText(screen.getByTestId('block-0-name'), '5 haies rythme 3');
-    fireEvent.press(screen.getByTestId('block-0-type-hurdles'));
-
-    expect(screen.getByTestId('block-0-params')).toBeOnTheScreen();
-    fireEvent.changeText(screen.getByTestId('block-0-param-distanceMeters'), '110');
-    fireEvent.changeText(screen.getByTestId('block-0-param-heightCm'), '84');
-    fireEvent.changeText(screen.getByTestId('block-0-param-spacingMeters'), '8.5');
-    fireEvent.changeText(screen.getByTestId('block-0-param-rhythmSteps'), '3');
-    fireEvent.press(screen.getByTestId('session-save'));
-
-    await waitFor(() => expect(mockCreateSession).toHaveBeenCalled());
-    const item = mockCreateSession.mock.calls[0][0].exercises.items[0];
-    expect(item).toMatchObject({
-      name: '5 haies rythme 3',
-      order: 1,
-      type: 'hurdles',
-      params: { distanceMeters: 110, heightCm: 84, spacingMeters: 8.5, rhythmSteps: 3 },
-    });
-  });
-
-  it('sélectionne Sauts → sérialise type + params (discipline, élan+unité, cible, ADR-38) (TLX-058)', async () => {
-    mockCreateSession.mockResolvedValue({ status: 201, data: { id: 's-jmp' } });
-    render(<SessionBuilderScreen />, { wrapper: Wrapper });
-
-    fireEvent.changeText(screen.getByTestId('session-field-title'), 'Sauts');
-    fireEvent.changeText(screen.getByTestId('block-0-name'), 'Longueur — élan complet');
-    fireEvent.press(screen.getByTestId('block-0-type-jumps'));
-
-    expect(screen.getByTestId('block-0-params')).toBeOnTheScreen();
-    // Nouveaux champs ADR-38 éditables via le constructeur générique : discipline + unité
-    // d'élan (chips select), élan/cible (saisie), sauts complets.
-    fireEvent.press(screen.getByTestId('block-0-param-discipline-long'));
-    fireEvent.changeText(screen.getByTestId('block-0-param-approach'), '18');
-    fireEvent.press(screen.getByTestId('block-0-param-approachUnit-steps'));
-    fireEvent.changeText(screen.getByTestId('block-0-param-targetMeters'), '7.2');
-    fireEvent.changeText(screen.getByTestId('block-0-param-fullJumps'), '6');
-    fireEvent.press(screen.getByTestId('session-save'));
-
-    await waitFor(() => expect(mockCreateSession).toHaveBeenCalled());
-    const item = mockCreateSession.mock.calls[0][0].exercises.items[0];
-    expect(item).toMatchObject({
-      name: 'Longueur — élan complet',
-      order: 1,
-      type: 'jumps',
-      params: {
-        discipline: 'long',
-        approach: 18,
-        approachUnit: 'steps',
-        targetMeters: 7.2,
-        fullJumps: 6,
-      },
-    });
-  });
-
-  it('sélectionne Sprints → sérialise les params additifs (type de départ, zone lancée bool, ADR-38)', async () => {
-    mockCreateSession.mockResolvedValue({ status: 201, data: { id: 's-spr' } });
-    render(<SessionBuilderScreen />, { wrapper: Wrapper });
-
-    fireEvent.changeText(screen.getByTestId('session-field-title'), 'Vitesse');
-    fireEvent.changeText(screen.getByTestId('block-0-name'), '30 m lancé');
-    fireEvent.press(screen.getByTestId('block-0-type-sprint'));
-
-    expect(screen.getByTestId('block-0-params')).toBeOnTheScreen();
-    fireEvent.changeText(screen.getByTestId('block-0-param-distanceMeters'), '30');
-    fireEvent.press(screen.getByTestId('block-0-param-startType-flying'));
-    fireEvent.press(screen.getByTestId('block-0-param-flyingZone-true'));
-    fireEvent.press(screen.getByTestId('block-0-param-intensityMode-percent_record'));
-    fireEvent.changeText(screen.getByTestId('block-0-param-intensityValue'), '95');
-    fireEvent.press(screen.getByTestId('session-save'));
-
-    await waitFor(() => expect(mockCreateSession).toHaveBeenCalled());
-    const item = mockCreateSession.mock.calls[0][0].exercises.items[0];
-    expect(item.type).toBe('sprint');
-    expect(item.params).toMatchObject({
-      distanceMeters: 30,
-      startType: 'flying',
-      flyingZone: true,
-      intensityMode: 'percent_record',
-      intensityValue: 95,
-    });
-  });
-
-  it('sélectionne Lancers → sérialise type + params (engin kg, technique/complets) (TLX-059)', async () => {
-    mockCreateSession.mockResolvedValue({ status: 201, data: { id: 's-thr' } });
-    render(<SessionBuilderScreen />, { wrapper: Wrapper });
-
-    fireEvent.changeText(screen.getByTestId('session-field-title'), 'Poids');
-    fireEvent.changeText(screen.getByTestId('block-0-name'), 'Poids 7.26 kg');
-    fireEvent.press(screen.getByTestId('block-0-type-throws'));
-
-    expect(screen.getByTestId('block-0-params')).toBeOnTheScreen();
-    fireEvent.changeText(screen.getByTestId('block-0-param-implementKg'), '7.26');
-    fireEvent.changeText(screen.getByTestId('block-0-param-techniqueThrows'), '10');
-    fireEvent.changeText(screen.getByTestId('block-0-param-fullThrows'), '6');
-    fireEvent.press(screen.getByTestId('session-save'));
-
-    await waitFor(() => expect(mockCreateSession).toHaveBeenCalled());
-    const item = mockCreateSession.mock.calls[0][0].exercises.items[0];
-    expect(item).toMatchObject({
-      name: 'Poids 7.26 kg',
-      order: 1,
-      type: 'throws',
-      params: { implementKg: 7.26, techniqueThrows: 10, fullThrows: 6 },
-    });
-  });
-
-  it('sélectionne Musculation → base v1 + tempo optionnel ; vide → aucun params (TLX-060/ADR-28)', async () => {
-    mockCreateSession.mockResolvedValue({ status: 201, data: { id: 's-str' } });
-    render(<SessionBuilderScreen />, { wrapper: Wrapper });
-
-    fireEvent.changeText(screen.getByTestId('session-field-title'), 'Force');
-    fireEvent.changeText(screen.getByTestId('block-0-name'), 'Développé couché');
-    fireEvent.press(screen.getByTestId('block-0-type-strength'));
-    fireEvent.changeText(screen.getByTestId('block-0-sets'), '4');
-    fireEvent.changeText(screen.getByTestId('block-0-reps'), '6');
-    fireEvent.changeText(screen.getByTestId('block-0-load'), '90');
-    fireEvent.press(screen.getByTestId('block-0-unit-kg'));
-
-    // Musculation = base v1 + tempo (ADR-28 règle 6) ; laissé vide → bloc byte-identique v1.
-    expect(screen.getByTestId('block-0-param-tempo')).toBeOnTheScreen();
-    fireEvent.press(screen.getByTestId('session-save'));
-
-    await waitFor(() => expect(mockCreateSession).toHaveBeenCalled());
-    const item = mockCreateSession.mock.calls[0][0].exercises.items[0];
-    expect(item).toMatchObject({
-      name: 'Développé couché',
-      order: 1,
-      type: 'strength',
-      sets: 4,
-      reps: 6,
-      load: { value: 90, unit: 'kg' },
-    });
-    expect(item).not.toHaveProperty('params');
-  });
-
-  it("params d'intensité : % VMA (intervalles) et tempo (musculation) sérialisés (ADR-28 règle 6)", async () => {
-    mockCreateSession.mockResolvedValue({ status: 201, data: { id: 's-intensity' } });
-    render(<SessionBuilderScreen />, { wrapper: Wrapper });
-
-    fireEvent.changeText(screen.getByTestId('session-field-title'), 'VMA + force');
-    // Bloc 1 : intervalles à 105 % VMA.
-    fireEvent.changeText(screen.getByTestId('block-0-name'), '6 × 400m');
-    fireEvent.press(screen.getByTestId('block-0-type-interval'));
-    fireEvent.changeText(screen.getByTestId('block-0-param-distanceMeters'), '400');
-    fireEvent.changeText(screen.getByTestId('block-0-param-percentVma'), '105');
-    // Bloc 2 : musculation au tempo 3-1-1-0 (chaîne libre, espaces épurés).
-    fireEvent.press(screen.getByTestId('session-add-block'));
-    fireEvent.changeText(screen.getByTestId('block-1-name'), 'Squat arrière');
-    fireEvent.press(screen.getByTestId('block-1-type-strength'));
-    fireEvent.changeText(screen.getByTestId('block-1-param-tempo'), ' 3-1-1-0 ');
-    fireEvent.press(screen.getByTestId('session-save'));
-
-    await waitFor(() => expect(mockCreateSession).toHaveBeenCalled());
-    const items = mockCreateSession.mock.calls[0][0].exercises.items;
-    expect(items[0]).toMatchObject({
-      type: 'interval',
-      params: { distanceMeters: 400, percentVma: 105 },
-    });
-    expect(items[1]).toMatchObject({ type: 'strength', params: { tempo: '3-1-1-0' } });
-  });
-
-  it('sélectionne Gainage / Circuit → sérialise type + params partagés (tours, station) (TLX-061)', async () => {
-    mockCreateSession.mockResolvedValue({ status: 201, data: { id: 's-core' } });
-    render(<SessionBuilderScreen />, { wrapper: Wrapper });
-
-    fireEvent.changeText(screen.getByTestId('session-field-title'), 'Renfo');
-    fireEvent.changeText(screen.getByTestId('block-0-name'), 'Circuit gainage');
-    fireEvent.press(screen.getByTestId('block-0-type-core'));
-
-    expect(screen.getByTestId('block-0-params')).toBeOnTheScreen();
-    fireEvent.changeText(screen.getByTestId('block-0-param-rounds'), '3');
-    fireEvent.changeText(screen.getByTestId('block-0-param-stationSeconds'), '45');
-    fireEvent.press(screen.getByTestId('session-save'));
-
-    await waitFor(() => expect(mockCreateSession).toHaveBeenCalled());
-    const item = mockCreateSession.mock.calls[0][0].exercises.items[0];
-    expect(item).toMatchObject({
-      name: 'Circuit gainage',
-      order: 1,
-      type: 'core',
-      params: { rounds: 3, stationSeconds: 45 },
-    });
-  });
-
-  it('édition : hydrate type et params d’un bloc intervalle', async () => {
+  it('édition : séance mixte (intervalle + bloc custom) → canvas composite par bloc (ADR-42)', async () => {
     mockGetSession.mockResolvedValue({
       status: 200,
       data: {
@@ -551,15 +232,120 @@ describe('SessionBuilderScreen (TLX-052 — C-05)', () => {
           schemaVersion: 2,
           items: [
             { name: '5 × 200m', order: 1, type: 'interval', params: { reps: 5, workSeconds: 30 } },
+            // Structure hétérogène (endurance reconnue + bloc custom) → composite (ADR-42 §4) :
+            // segment Endurance (carte dédiée encart) + segment Personnalisé (éditeur générique).
+            { name: 'Gainage libre', order: 2, type: 'custom' },
           ],
         },
       },
     });
     render(<SessionBuilderScreen sessionId="s-2" />, { wrapper: Wrapper });
 
-    await waitFor(() => expect(screen.getByTestId('block-0-params')).toBeOnTheScreen());
-    expect(screen.getByTestId('block-0-param-reps').props.value).toBe('5');
-    expect(screen.getByTestId('block-0-param-workSeconds').props.value).toBe('30');
+    // Deux blocs : le 1er rendu par la carte Endurance en encart, le 2nd par l'éditeur générique.
+    await waitFor(() => expect(screen.getByTestId('composite-bloc-0')).toBeOnTheScreen());
+    expect(screen.getByTestId('composite-bloc-1')).toBeOnTheScreen();
+    expect(screen.getByTestId('endurance-effort-canvas')).toBeOnTheScreen();
+    expect(screen.getByTestId('session-add-block')).toBeOnTheScreen(); // segment Personnalisé
+    expect(screen.queryByTestId('session-builder-mixed-banner')).toBeNull();
+  });
+
+  it('édition (ADR-40 §2) : séance pure haies → carte dédiée au lieu de l’éditeur générique', async () => {
+    mockGetSession.mockResolvedValue({
+      status: 200,
+      data: {
+        id: 's-hurdles',
+        title: 'Haies',
+        status: 'draft',
+        coachId: 'c-1',
+        exercises: {
+          schemaVersion: 3,
+          items: [
+            {
+              kind: 'group',
+              name: 'Série haies',
+              order: 1,
+              groupType: 'series',
+              rounds: 3,
+              items: [
+                { name: '10 haies', order: 1, type: 'hurdles', params: { distanceMeters: 110 } },
+              ],
+            },
+          ],
+        },
+      },
+    });
+    render(<SessionBuilderScreen sessionId="s-hurdles" />, { wrapper: Wrapper });
+
+    await waitFor(() => expect(screen.getByTestId('hurdles-effort-canvas')).toBeOnTheScreen());
+    expect(screen.queryByText(/Blocs et groupes/)).toBeNull();
+    expect(screen.queryByTestId('session-builder-mixed-banner')).toBeNull();
+  });
+
+  it('édition (ADR-42 §4) : séance mixte (sprint + haies) → canvas composite, deux blocs', async () => {
+    mockGetSession.mockResolvedValue({
+      status: 200,
+      data: {
+        id: 's-mixed',
+        title: 'Mixte',
+        status: 'draft',
+        coachId: 'c-1',
+        exercises: {
+          schemaVersion: 3,
+          items: [
+            {
+              kind: 'group',
+              name: 'Série sprint',
+              order: 1,
+              groupType: 'series',
+              rounds: 2,
+              items: [{ name: '60m', order: 1, type: 'sprint', params: { distanceMeters: 60 } }],
+            },
+            {
+              kind: 'group',
+              name: 'Série haies',
+              order: 2,
+              groupType: 'series',
+              rounds: 2,
+              items: [
+                { name: '10 haies', order: 2, type: 'hurdles', params: { distanceMeters: 110 } },
+              ],
+            },
+          ],
+        },
+      },
+    });
+    render(<SessionBuilderScreen sessionId="s-mixed" />, { wrapper: Wrapper });
+
+    // Mélange reconnu → composite bloc par bloc (ADR-42 §4) : un bloc Sprint, un bloc Haies, en
+    // cartes encart — plus de bandeau « édition avancée ».
+    await waitFor(() => expect(screen.getByTestId('composite-bloc-0')).toBeOnTheScreen());
+    expect(screen.getByTestId('composite-bloc-1')).toBeOnTheScreen();
+    expect(screen.getByTestId('sprint-effort-canvas')).toBeOnTheScreen();
+    expect(screen.getByTestId('hurdles-effort-canvas')).toBeOnTheScreen();
+    expect(screen.queryByTestId('session-builder-mixed-banner')).toBeNull();
+  });
+
+  it('édition (ADR-42 §4) : séance sans bloc reconnu (custom seul) → composite, segment Personnalisé', async () => {
+    mockGetSession.mockResolvedValue({
+      status: 200,
+      data: {
+        id: 's-custom',
+        title: 'Libre',
+        status: 'draft',
+        coachId: 'c-1',
+        exercises: {
+          schemaVersion: 2,
+          items: [{ name: 'Gainage', order: 1, type: 'custom' }],
+        },
+      },
+    });
+    render(<SessionBuilderScreen sessionId="s-custom" />, { wrapper: Wrapper });
+
+    // Bloc non reconnu → segment Personnalisé (éditeur générique embarqué) dans un cadre de bloc.
+    await waitFor(() => expect(screen.getByTestId('composite-bloc-0')).toBeOnTheScreen());
+    expect(screen.getByText(/Blocs et groupes/)).toBeOnTheScreen();
+    expect(screen.getByTestId('composite-add-bloc')).toBeOnTheScreen();
+    expect(screen.queryByTestId('session-builder-mixed-banner')).toBeNull();
   });
 
   it('charge une séance existante puis la met à jour (PUT)', async () => {
@@ -670,56 +456,24 @@ describe('SessionBuilderScreen (TLX-052 — C-05)', () => {
     expect(screen.getByTestId('brief-field-intent').props.value).toBe('Interne.');
   });
 
-  it('crée une séance à GROUPE (ADR-27) : order global, rounds/R, membre sans sets (v3)', async () => {
-    mockCreateSession.mockResolvedValue({ status: 201, data: { id: 's-grp' } });
-    render(<SessionBuilderScreen />, { wrapper: Wrapper });
-
-    fireEvent.changeText(screen.getByTestId('session-field-title'), 'Contraste');
-    // Bloc 0 (premier niveau) : échauffement.
-    fireEvent.changeText(screen.getByTestId('block-0-name'), 'Échauffement');
-    // Ajoute un groupe (→ group-1) avec un membre initial group-1-block-0.
-    fireEvent.press(screen.getByTestId('session-add-group'));
-    fireEvent.changeText(screen.getByTestId('group-1-name'), 'Force-vitesse');
-    fireEvent.press(screen.getByTestId('group-1-type-superset'));
-    fireEvent.changeText(screen.getByTestId('group-1-rounds'), '3');
-    fireEvent.changeText(screen.getByTestId('group-1-rest-rounds'), '180');
-    fireEvent.changeText(screen.getByTestId('group-1-block-0-name'), 'Squat lourd');
-    fireEvent.press(screen.getByTestId('group-1-block-0-type-strength'));
-    // Le membre porte sa charge mais PAS de champ « Séries » (masqué en groupe, ADR-27).
-    expect(screen.queryByTestId('group-1-block-0-sets')).toBeNull();
-    expect(screen.getByTestId('block-0-sets')).toBeOnTheScreen(); // bloc hors groupe : sets présent
-    fireEvent.changeText(screen.getByTestId('group-1-block-0-reps'), '3');
-    fireEvent.press(screen.getByTestId('session-save'));
-
-    await waitFor(() => expect(mockCreateSession).toHaveBeenCalled());
-    const doc = mockCreateSession.mock.calls[0][0].exercises;
-    expect(doc.schemaVersion).toBe(3);
-    expect(doc.items[0]).toMatchObject({ name: 'Échauffement', order: 1 });
-    expect(doc.items[1]).toMatchObject({
-      kind: 'group',
-      name: 'Force-vitesse',
-      order: 2,
-      groupType: 'superset',
-      rounds: 3,
-      restBetweenRoundsSeconds: 180,
-    });
-    expect(doc.items[1].items[0]).toMatchObject({
-      name: 'Squat lourd',
-      order: 3,
-      type: 'strength',
-      reps: 3,
-    });
-    expect(doc.items[1].items[0]).not.toHaveProperty('sets'); // dimension portée par rounds
-  });
+  // La création/sérialisation des GROUPES (ADR-27) et le déplacement de blocs dans/hors d'un
+  // groupe sont couverts au niveau du composant `GenericBlocksEditor` (generic-blocks-editor.test).
 
   it('refuse un membre de groupe sans param de suivi (TLX-91 traversant)', () => {
-    render(<SessionBuilderScreen />, { wrapper: Wrapper });
+    // Garde de suivi traversant les groupes (validation écran de `nodes`) : on amorce une série
+    // de sprint sans distance via `seed` (le choix de type est couvert côté GenericBlocksEditor).
+    render(
+      <SessionBuilderScreen
+        seed={() => [
+          makeSeriesGroup({
+            name: 'Série',
+            items: [makeBlock({ type: BlockType.sprint, name: '8 × 60m' })],
+          }),
+        ]}
+      />,
+      { wrapper: Wrapper },
+    );
     fireEvent.changeText(screen.getByTestId('session-field-title'), 'Vitesse');
-    fireEvent.changeText(screen.getByTestId('block-0-name'), 'Footing');
-    fireEvent.press(screen.getByTestId('session-add-group'));
-    fireEvent.changeText(screen.getByTestId('group-1-name'), 'Série');
-    fireEvent.changeText(screen.getByTestId('group-1-block-0-name'), '8 × 60m');
-    fireEvent.press(screen.getByTestId('group-1-block-0-type-sprint')); // distance requise, absente
     fireEvent.press(screen.getByTestId('session-save'));
 
     expect(screen.getByTestId('session-builder-validation')).toHaveTextContent(/distance/i);
@@ -741,12 +495,20 @@ describe('SessionBuilderScreen (TLX-052 — C-05)', () => {
 
   it('crée un modèle (status template) puis revient à la bibliothèque, pas à l’assignation', async () => {
     mockCreateSession.mockResolvedValue({ status: 201, data: { id: 't-new', status: 'template' } });
-    render(<SessionBuilderScreen />, { wrapper: Wrapper });
+    render(
+      <SessionBuilderScreen
+        seed={() => [
+          makeBlock({
+            type: BlockType.sprint,
+            name: 'Sprint',
+            params: { distanceMeters: '60' },
+          }),
+        ]}
+      />,
+      { wrapper: Wrapper },
+    );
 
     fireEvent.changeText(screen.getByTestId('session-field-title'), 'Séance type sprint');
-    fireEvent.changeText(screen.getByTestId('block-0-name'), 'Sprint');
-    fireEvent.press(screen.getByTestId('block-0-type-sprint'));
-    fireEvent.changeText(screen.getByTestId('block-0-param-distanceMeters'), '60');
     fireEvent.press(screen.getByTestId('session-status-template'));
     fireEvent.press(screen.getByTestId('session-save'));
 
@@ -786,22 +548,6 @@ describe('SessionBuilderScreen (TLX-052 — C-05)', () => {
     expect(screen.queryByTestId('session-field-date')).toBeNull();
   });
 
-  it('déplace un bloc dans le groupe voisin puis l’en sort (dans/hors)', () => {
-    render(<SessionBuilderScreen />, { wrapper: Wrapper });
-    // block-0 (Échauffement) suivi d'un groupe (group-1) → block-0 peut rejoindre le groupe.
-    fireEvent.changeText(screen.getByTestId('block-0-name'), 'Échauffement');
-    fireEvent.press(screen.getByTestId('session-add-group'));
-    fireEvent.press(screen.getByTestId('block-0-group')); // → dans le groupe voisin
-
-    // Le bloc de premier niveau a disparu ; le groupe (maintenant en index 0) a 2 membres.
-    // Le bloc précédait le groupe → il est **préfixé** (ordre de lecture) : group-0-block-0.
-    expect(screen.queryByTestId('block-0')).toBeNull();
-    expect(screen.getByTestId('group-0')).toBeOnTheScreen();
-    expect(screen.getByTestId('group-0-block-0-name').props.value).toBe('Échauffement');
-
-    // Le ressort : on sort ce membre → il redevient un bloc de premier niveau (après le groupe).
-    fireEvent.press(screen.getByTestId('group-0-block-0-ungroup'));
-    expect(screen.getByTestId('block-1')).toBeOnTheScreen();
-    expect(screen.getByTestId('block-1-name').props.value).toBe('Échauffement');
-  });
+  // Le déplacement d'un bloc dans/hors d'un groupe voisin est couvert au niveau du composant
+  // `GenericBlocksEditor` (generic-blocks-editor.test.tsx).
 });

@@ -155,6 +155,7 @@ describe('DisciplineAssistantScreen — Sprint (ADR-38, TLX-155)', () => {
     ['endurance', 'Assistant Demi-fond / Endurance', 'endurance-effort-canvas'],
     ['jumps', 'Assistant Sauts', 'jumps-effort-canvas'],
     ['throws', 'Assistant Lancers', 'throws-effort-canvas'],
+    ['strength', 'Assistant Renforcement / PPG', 'strength-effort-canvas'],
   ])("rend l'assistant %s avec sa carte d'effort dédiée", (discipline, title, canvasTestID) => {
     render(<DisciplineAssistantScreen discipline={discipline} />, { wrapper: Wrapper });
     expect(screen.getByTestId('session-builder-title')).toHaveTextContent(title);

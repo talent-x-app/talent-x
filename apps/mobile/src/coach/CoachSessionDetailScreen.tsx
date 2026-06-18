@@ -1,16 +1,21 @@
-import { getSession, type Session } from '@talent-x/api-client';
+import { BlockType, getSession, type Session } from '@talent-x/api-client';
 import { useTheme } from '@talent-x/design-tokens';
 import { useQuery } from '@tanstack/react-query';
 import { Feather } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useMemo } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { Button, Card } from '../components/ui';
 import { SESSION_STATUS_META } from '../calendar/calendar-model';
 import { formatSessionDate } from '../athlete/athlete-session-ui';
 import { SessionContent } from '../sessions/session-content-ui';
+import { countLeaves } from '../sessions/exercises-doc';
 import { FeedbackThread } from '../comments/FeedbackThread';
 import { CoachBriefReview } from './brief-editor';
 import { assignSessionHref, editSessionHref } from './navigation';
+import { inferDiscipline, segmentSession, type Segment } from './discipline-inference';
+import { disciplineConfig } from './discipline-assistants';
+import { isEditableGroup, nodesFromExercises, nodesToItems } from './session-builder-ui';
 
 /**
  * Détail d'une séance côté coach (C-05) en **lecture seule** — mode par défaut, découplé du
@@ -35,6 +40,35 @@ export function CoachSessionDetailScreen() {
 
   const statusMeta = session.data ? SESSION_STATUS_META[session.data.status] : undefined;
   const exercises = session.data?.exercises?.items ?? [];
+
+  // ADR-40 §3 : même inférence que le constructeur (édition), en lecture seule — un résumé
+  // compatible avec la carte dédiée s'affiche si la discipline est reconnue, sans rendre le
+  // canvas éditable (ce résumé ne fait que compléter `SessionContent`, repli identique sinon).
+  const inferredDiscipline = useMemo(
+    () => inferDiscipline(nodesFromExercises(exercises)),
+    [exercises],
+  );
+  const disciplineSummary = useMemo(() => {
+    if (inferredDiscipline == null) return null;
+    const cfg = disciplineConfig(inferredDiscipline);
+    if (!cfg) return null;
+    const count = countLeaves(exercises);
+    return `${cfg.label} — ${count} ${cfg.effortLabel.toLowerCase()}${count > 1 ? 's' : ''}`;
+  }, [inferredDiscipline, exercises]);
+
+  // ADR-42 §4 : une séance « Personnalisé » composite (mélange de disciplines / blocs libres)
+  // n'a pas de discipline unique inférable — `disciplineSummary` est alors `null`. On affiche à
+  // la place un récap **par bloc** (même segmentation que `CompositeCanvas`), pour ne pas
+  // retomber sur la liste plate brute (repli jugé peu lisible).
+  const blocks: Segment[] = useMemo(() => {
+    if (inferredDiscipline != null) return [];
+    const nodes = nodesFromExercises(exercises);
+    const series = nodes.filter(
+      (n) => isEditableGroup(n) || (n.type !== BlockType.warmup && n.type !== BlockType.cooldown),
+    );
+    const segments = segmentSession(series);
+    return segments.length > 1 ? segments : [];
+  }, [inferredDiscipline, exercises]);
 
   return (
     <ScrollView
@@ -143,7 +177,21 @@ export function CoachSessionDetailScreen() {
                 {session.data.description}
               </Text>
             ) : null}
+            {disciplineSummary != null ? (
+              <Text
+                testID="coach-session-discipline-summary"
+                style={{
+                  color: colors.accentText,
+                  fontFamily: typography.fontFamily.medium,
+                  fontSize: typography.bodySm.fontSize,
+                }}
+              >
+                {disciplineSummary}
+              </Text>
+            ) : null}
           </View>
+
+          {blocks.length > 0 ? <SessionBlocksSummary blocks={blocks} /> : null}
 
           {/* Lecture coach du brief (ADR-28) : intention + notes internes (régression/progression/prudence). */}
           <CoachBriefReview brief={session.data.brief} />
@@ -180,5 +228,92 @@ export function CoachSessionDetailScreen() {
         </>
       )}
     </ScrollView>
+  );
+}
+
+/** Titre/icône d'un segment : config discipline, ou repli « Personnalisé ». */
+function blockMeta(segment: Segment): { label: string; icon: keyof typeof Feather.glyphMap } {
+  if (segment.kind === 'discipline') {
+    const cfg = disciplineConfig(segment.discipline);
+    return { label: cfg?.label ?? segment.discipline, icon: cfg?.icon ?? 'box' };
+  }
+  return { label: 'Personnalisé', icon: 'edit-3' };
+}
+
+/**
+ * Récap **par bloc** d'une séance composite (ADR-42 §4) : une rangée par segment, icône +
+ * libellé de discipline + nombre d'exercices — pour donner d'un coup d'œil la structure de la
+ * séance (échauffement/blocs/retour au calme) au lieu d'une liste plate indifférenciée.
+ */
+function SessionBlocksSummary({ blocks }: { blocks: Segment[] }) {
+  const { colors, typography, spacing, radius, borderWidth } = useTheme();
+  return (
+    <View style={{ gap: spacing[2] }}>
+      <Text
+        style={{
+          color: colors.textSecondary,
+          fontFamily: typography.fontFamily.medium,
+          fontSize: typography.bodySm.fontSize,
+          textTransform: 'uppercase',
+          letterSpacing: 0.6,
+        }}
+      >
+        {blocks.length} blocs
+      </Text>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] }}>
+        {blocks.map((seg, i) => {
+          const { label, icon } = blockMeta(seg);
+          const count = countLeaves(nodesToItems(seg.nodes));
+          return (
+            <View
+              key={`${seg.kind}-${seg.start}`}
+              testID={`coach-session-bloc-${i}`}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: spacing[2],
+                paddingVertical: spacing[2],
+                paddingHorizontal: spacing[3],
+                borderRadius: radius.pill,
+                borderWidth: borderWidth.hairline,
+                borderColor: colors.borderStrong,
+                backgroundColor: colors.surfaceSunken,
+              }}
+            >
+              <View
+                style={{
+                  width: 26,
+                  height: 26,
+                  borderRadius: 13,
+                  backgroundColor: colors.accentSubtle,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Feather name={icon} size={13} color={colors.accentText} />
+              </View>
+              <Text
+                style={{
+                  color: colors.textPrimary,
+                  fontFamily: typography.fontFamily.medium,
+                  fontSize: typography.bodySm.fontSize,
+                }}
+              >
+                {label}
+              </Text>
+              <Text
+                style={{
+                  color: colors.textMuted,
+                  fontFamily: typography.fontFamily.regular,
+                  fontSize: typography.caption.fontSize,
+                }}
+              >
+                · {count}
+              </Text>
+            </View>
+          );
+        })}
+      </View>
+    </View>
   );
 }

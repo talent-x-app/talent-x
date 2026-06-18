@@ -48,6 +48,7 @@ const UNITS = [
 const INTENSITY_MODES = [
   { value: 'vma', label: '% VMA' },
   { value: 'pace', label: 'Allure s/km' },
+  { value: 'spec_pace', label: 'Allure spécifique' },
   { value: 'zone', label: 'Zone cardio' },
 ];
 
@@ -56,10 +57,29 @@ const RECOVERY_TYPES = [
   { value: 'passive', label: 'Passive' },
 ];
 
+/** Distances de référence pour le mode « allure spécifique » (sélecteur de chips). */
+const SPEC_DISTANCES = [
+  { value: '800', label: '800 m' },
+  { value: '1500', label: '1500 m' },
+  { value: '3000', label: '3000 m' },
+  { value: '5000', label: '5000 m' },
+  { value: '10000', label: '10000 m' },
+];
+
+/** Zones cardio nommées (Z2–Z5, Z1 récupération pure exclue des zones d'entraînement). */
+const HR_ZONES = [
+  { value: 'z2', label: 'Z2', note: 'Endurance fondamentale' },
+  { value: 'z3', label: 'Z3', note: 'Tempo' },
+  { value: 'z4', label: 'Z4', note: 'Seuil' },
+  { value: 'z5', label: 'Z5', note: 'VO2max' },
+];
+
 /** Param d'intensité actif selon le mode (clé + unité affichée). */
 function intensityField(mode: string): { key: string; unit: string; decimal: boolean } {
-  if (mode === 'pace') return { key: 'paceSecondsPerKm', unit: 's/km', decimal: false };
-  if (mode === 'zone') return { key: 'hrZone', unit: 'z', decimal: false };
+  if (mode === 'pace' || mode === 'spec_pace') {
+    return { key: 'paceSecondsPerKm', unit: 's/km', decimal: false };
+  }
+  if (mode === 'zone') return { key: 'hrZone', unit: 'zone', decimal: false };
   return { key: 'percentVma', unit: '%', decimal: false };
 }
 
@@ -75,6 +95,7 @@ function serieProps(group: EditableGroup) {
     unit: unitOf(group),
     intensityMode: first?.params.intensityMode ?? 'vma',
     recoveryType: first?.params.recoveryType ?? 'active',
+    specDistance: first?.params.specDistance ?? '',
     rounds: Math.max(1, Number(group.rounds) || 1),
     restR: Math.max(0, Number(group.restBetweenRoundsSeconds) || 0),
   };
@@ -165,9 +186,11 @@ function defaultEnduranceSeries(): EditableGroup {
 export function EnduranceEffortCanvas({
   nodes,
   onChange,
+  embedded = false,
 }: {
   nodes: EditableNode[];
   onChange: (next: EditableNode[]) => void;
+  embedded?: boolean;
 }) {
   const series = nodes.filter((n) => isEditableGroup(n)) as EditableGroup[];
 
@@ -292,11 +315,13 @@ export function EnduranceEffortCanvas({
     <EffortCanvasShell
       testID="endurance-effort-canvas"
       header={
-        <CanvasKpiHeader
-          testID="endurance-canvas-summary"
-          title={`Volume : ${volStr}`}
-          subtitle={`· ${kpis.efforts} efforts · ~${estMinutes(series)} min`}
-        />
+        embedded ? undefined : (
+          <CanvasKpiHeader
+            testID="endurance-canvas-summary"
+            title={`Volume : ${volStr}`}
+            subtitle={`· ${kpis.efforts} efforts · ~${estMinutes(series)} min`}
+          />
+        )
       }
       onAddSeries={addSerie}
       addSeriesTestID="endurance-add-series"
@@ -357,7 +382,7 @@ function EnduranceSeriesCard({
   const [selectedPresetKey, setSelectedPresetKey] = useState('');
   const { spacing } = useTheme();
   const tid = `series-card-${index}`;
-  const { unit, intensityMode, recoveryType, rounds, restR } = serieProps(group);
+  const { unit, intensityMode, recoveryType, specDistance, rounds, restR } = serieProps(group);
   const field = intensityField(intensityMode);
 
   return (
@@ -432,7 +457,9 @@ function EnduranceSeriesCard({
         addRowTestID={`${tid}-add-effort`}
         columns={[
           { label: unit === 'duration' ? 'Effort' : 'Distance' },
-          { label: field.unit === '%' ? '% VMA' : field.unit === 'z' ? 'Zone' : 'Allure' },
+          {
+            label: field.unit === '%' ? '% VMA' : field.unit === 'zone' ? 'Zone' : 'Allure',
+          },
           { label: 'Récup r' },
         ]}
       >
@@ -460,12 +487,44 @@ function EnduranceSeriesCard({
           selected={intensityMode}
           onSelect={(v) => onPatchSerieParam({ intensityMode: v })}
         />
+        {intensityMode === 'spec_pace' && (
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] }}>
+            {SPEC_DISTANCES.map((d) => (
+              <Chip
+                key={d.value}
+                testID={`${tid}-specdist-${d.value}`}
+                selected={specDistance === d.value}
+                onPress={() => onPatchSerieParam({ specDistance: d.value })}
+              >
+                {d.label}
+              </Chip>
+            ))}
+          </View>
+        )}
+        {intensityMode === 'zone' && (
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] }}>
+            {HR_ZONES.map((z) => (
+              <Chip
+                key={z.value}
+                testID={`${tid}-hrzone-${z.value}`}
+                selected={group.items[0]?.params.hrZone === z.value}
+                onPress={() => onPatchSerieParam({ hrZone: z.value })}
+              >
+                {`${z.label} · ${z.note}`}
+              </Chip>
+            ))}
+          </View>
+        )}
         <InfoNote>
           {intensityMode === 'pace'
             ? 'Allure cible en s/km, commune à tous les athlètes.'
-            : intensityMode === 'zone'
-              ? 'Zone cardio 1–5 selon la fréquence cardiaque max de chaque athlète.'
-              : 'Intensité en % de la VMA individuelle de chaque athlète.'}
+            : intensityMode === 'spec_pace'
+              ? specDistance
+                ? `Allure spécifique ${specDistance} m, commune à tous les athlètes.`
+                : 'Allure spécifique : choisir une distance de référence ci-dessus.'
+              : intensityMode === 'zone'
+                ? 'Zone cardio (Z2–Z5) selon la fréquence cardiaque max de chaque athlète.'
+                : 'Intensité en % de la VMA individuelle de chaque athlète.'}
         </InfoNote>
       </View>
 

@@ -18,18 +18,13 @@ import { Button, Card, Chip } from '../components/ui';
 import { ResponsiveContent } from '../responsive/ResponsiveContent';
 import { useToast } from '../feedback';
 import {
-  BlockCard,
-  GroupCard,
   findFirstNodeIssue,
-  isEditableGroup,
   makeEmptyBlock,
-  makeEmptyGroup,
   nodesFromExercises,
   nodesToItems,
-  type EditableBlock,
-  type EditableGroup,
   type EditableNode,
 } from './session-builder-ui';
+import { CompositeCanvas } from './composite-canvas';
 import {
   BriefEditor,
   briefDraftFromSession,
@@ -40,6 +35,8 @@ import {
 import { assignSessionHref, coachTemplatesHref } from './navigation';
 import { EXERCISES_SCHEMA_VERSION } from '../sessions/exercises-doc';
 import { isValidCalendarDate } from '../dates/calendar-date';
+import { inferDiscipline } from './discipline-inference';
+import { DISCIPLINE_CANVAS } from './discipline-canvas';
 
 /**
  * Constructeur de séance (C-05 — TLX-052). En-tête (titre, description, date, statut) +
@@ -104,6 +101,12 @@ export function SessionBuilderScreen({
 
   // Mode modèle (C-10, ADR-29) : un modèle est non daté et non assignable.
   const isTemplate = status === SessionStatus.template;
+
+  // Inférence de discipline (ADR-40 §2) : en édition, route vers la carte dédiée plein écran dès
+  // que le contenu existant est homogène et reconnu — sans champ `discipline` persisté. Sinon
+  // (mélange reconnu ou bloc custom), on rend le canvas composite (ADR-42 §4), qui explicite la
+  // structure bloc par bloc — l'ancien repli générique + bandeau « édition avancée » disparaît.
+  const inferredDiscipline = isEdit ? inferDiscipline(nodes) : null;
 
   // Mode édition : charge la séance existante puis hydrate le formulaire.
   const existing = useQuery({
@@ -207,125 +210,6 @@ export function SessionBuilderScreen({
       toast.show({ title: "Échec de l'enregistrement", variant: 'danger' });
     },
   });
-
-  // --- Nœuds de premier niveau (blocs ou groupes) ---
-  function updateTopNode(index: number, patch: Partial<EditableNode>) {
-    setNodes((prev) =>
-      prev.map((n, i) => (i === index ? ({ ...n, ...patch } as EditableNode) : n)),
-    );
-  }
-
-  function moveTopNode(index: number, delta: -1 | 1) {
-    setNodes((prev) => {
-      const target = index + delta;
-      if (target < 0 || target >= prev.length) return prev;
-      const next = [...prev];
-      [next[index], next[target]] = [next[target], next[index]];
-      return next;
-    });
-  }
-
-  function removeTopNode(index: number) {
-    setNodes((prev) => (prev.length <= 1 ? prev : prev.filter((_, i) => i !== index)));
-  }
-
-  function addBlock() {
-    setNodes((prev) => [...prev, makeEmptyBlock()]);
-  }
-
-  function addGroup() {
-    setNodes((prev) => [...prev, makeEmptyGroup()]);
-  }
-
-  // --- Membres d'un groupe (chemin : index de groupe + index de membre) ---
-  function withGroup(index: number, fn: (group: EditableGroup) => EditableNode | null) {
-    setNodes((prev) => {
-      const node = prev[index];
-      if (!node || !isEditableGroup(node)) return prev;
-      const replacement = fn(node);
-      if (replacement === null) return prev.filter((_, i) => i !== index);
-      return prev.map((n, i) => (i === index ? replacement : n));
-    });
-  }
-
-  function updateMember(gi: number, mi: number, patch: Partial<EditableBlock>) {
-    withGroup(gi, (g) => ({
-      ...g,
-      items: g.items.map((b, j) => (j === mi ? { ...b, ...patch } : b)),
-    }));
-  }
-
-  function moveMember(gi: number, mi: number, delta: -1 | 1) {
-    withGroup(gi, (g) => {
-      const target = mi + delta;
-      if (target < 0 || target >= g.items.length) return g;
-      const items = [...g.items];
-      [items[mi], items[target]] = [items[target], items[mi]];
-      return { ...g, items };
-    });
-  }
-
-  function removeMember(gi: number, mi: number) {
-    // Supprimer le dernier membre supprime le groupe (jamais de groupe vide).
-    withGroup(gi, (g) => {
-      const items = g.items.filter((_, j) => j !== mi);
-      return items.length === 0 ? null : { ...g, items };
-    });
-  }
-
-  function addMember(gi: number) {
-    withGroup(gi, (g) => ({ ...g, items: [...g.items, makeEmptyBlock()] }));
-  }
-
-  /** Déplace un bloc de premier niveau dans le groupe voisin (précédent en priorité, sinon suivant). */
-  function groupTopBlock(index: number) {
-    setNodes((prev) => {
-      const node = prev[index];
-      if (!node || isEditableGroup(node)) return prev;
-      const before = prev[index - 1];
-      const after = prev[index + 1];
-      if (before && isEditableGroup(before)) {
-        const rest = prev.filter((_, i) => i !== index);
-        return rest.map((n, i) =>
-          i === index - 1 && isEditableGroup(n) ? { ...n, items: [...n.items, node] } : n,
-        );
-      }
-      if (after && isEditableGroup(after)) {
-        const rest = prev.filter((_, i) => i !== index);
-        return rest.map((n, i) =>
-          i === index && isEditableGroup(n) ? { ...n, items: [node, ...n.items] } : n,
-        );
-      }
-      return prev;
-    });
-  }
-
-  /** Sort un membre de son groupe vers le premier niveau, juste après le groupe. */
-  function ungroupMember(gi: number, mi: number) {
-    setNodes((prev) => {
-      const node = prev[gi];
-      if (!node || !isEditableGroup(node)) return prev;
-      const member = node.items[mi];
-      if (!member) return prev;
-      const remaining = node.items.filter((_, j) => j !== mi);
-      const next = [...prev];
-      if (remaining.length === 0) {
-        next.splice(gi, 1, member); // le groupe se vide → remplacé par le membre
-      } else {
-        next[gi] = { ...node, items: remaining };
-        next.splice(gi + 1, 0, member);
-      }
-      return next;
-    });
-  }
-
-  /** Un bloc de premier niveau peut-il rejoindre un groupe voisin ? */
-  function hasAdjacentGroup(index: number): boolean {
-    return (
-      (nodes[index - 1] != null && isEditableGroup(nodes[index - 1])) ||
-      (nodes[index + 1] != null && isEditableGroup(nodes[index + 1]))
-    );
-  }
 
   function onSave() {
     setError(null);
@@ -541,77 +425,17 @@ export function SessionBuilderScreen({
           </View>
         ) : null}
 
-        {/* Canvas : carte d'effort dédiée (assistant, ADR-39) ou blocs génériques (C-05). La
-            carte partage le même état `nodes` → séance éditable en C-05 sans perte. */}
+        {/* Canvas : carte d'effort dédiée (assistant à la création, ADR-39 ; ou inférée en
+            édition, ADR-40 §2) ou **canvas composite** « Personnalisé » (ADR-42). Tous partagent
+            le même état `nodes` → séance éditable/round-trippable sans perte. */}
         {renderCanvas != null && !isEdit ? (
           renderCanvas({ nodes, setNodes })
+        ) : isEdit &&
+          inferredDiscipline != null &&
+          DISCIPLINE_CANVAS[inferredDiscipline] != null ? (
+          DISCIPLINE_CANVAS[inferredDiscipline]!({ nodes, setNodes })
         ) : (
-          <View style={{ gap: spacing[3] }}>
-            <Text
-              style={{
-                color: colors.textSecondary,
-                fontFamily: typography.fontFamily.medium,
-                fontSize: typography.bodySm.fontSize,
-                textTransform: 'uppercase',
-                letterSpacing: 0.6,
-              }}
-            >
-              Blocs et groupes ({nodes.length})
-            </Text>
-            {nodes.map((node, index) =>
-              isEditableGroup(node) ? (
-                <GroupCard
-                  key={node.key}
-                  group={node}
-                  index={index}
-                  total={nodes.length}
-                  onChange={(patch) => updateTopNode(index, patch)}
-                  onMoveUp={() => moveTopNode(index, -1)}
-                  onMoveDown={() => moveTopNode(index, 1)}
-                  onRemove={() => removeTopNode(index)}
-                  onMemberChange={(mi, patch) => updateMember(index, mi, patch)}
-                  onMemberMoveUp={(mi) => moveMember(index, mi, -1)}
-                  onMemberMoveDown={(mi) => moveMember(index, mi, 1)}
-                  onMemberRemove={(mi) => removeMember(index, mi)}
-                  onMemberUngroup={(mi) => ungroupMember(index, mi)}
-                  onAddMember={() => addMember(index)}
-                />
-              ) : (
-                <BlockCard
-                  key={node.key}
-                  block={node}
-                  index={index}
-                  total={nodes.length}
-                  onChange={(patch) => updateTopNode(index, patch)}
-                  onMoveUp={() => moveTopNode(index, -1)}
-                  onMoveDown={() => moveTopNode(index, 1)}
-                  onRemove={() => removeTopNode(index)}
-                  onGroup={() => groupTopBlock(index)}
-                  groupDisabled={!hasAdjacentGroup(index)}
-                />
-              ),
-            )}
-            <View style={{ flexDirection: 'row', gap: spacing[3] }}>
-              <Button
-                testID="session-add-block"
-                variant="secondary"
-                style={{ flex: 1 }}
-                leftIcon={<Feather name="plus" size={18} color={colors.textPrimary} />}
-                onPress={addBlock}
-              >
-                Ajouter un bloc
-              </Button>
-              <Button
-                testID="session-add-group"
-                variant="secondary"
-                style={{ flex: 1 }}
-                leftIcon={<Feather name="repeat" size={18} color={colors.textPrimary} />}
-                onPress={addGroup}
-              >
-                Ajouter un groupe
-              </Button>
-            </View>
-          </View>
+          <CompositeCanvas nodes={nodes} onChange={setNodes} />
         )}
 
         {error != null && (

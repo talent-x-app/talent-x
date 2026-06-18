@@ -130,9 +130,20 @@ const INTENSITY_MODE_OPTIONS = [
   { value: 'target_time', label: 'Temps cible' },
   { value: 'speed', label: 'Vitesse' },
 ];
-const LEG_OPTIONS = [
+const TAKEOFF_OPTIONS = [
+  { value: 'board', label: 'Planche' },
+  { value: 'zone', label: 'Zone' },
+];
+// ADR-40 — Haies : la jambe d'attaque peut être alternée (ex. 400 m haies), contrairement au
+// type d'appel des sauts (`TAKEOFF_OPTIONS`, Planche/Zone) qui reste binaire.
+const HURDLES_LEAD_LEG_OPTIONS = [
   { value: 'left', label: 'Gauche' },
   { value: 'right', label: 'Droite' },
+  { value: 'alt', label: 'Alternée' },
+];
+const SEX_OPTIONS = [
+  { value: 'H', label: 'Hommes' },
+  { value: 'F', label: 'Femmes' },
 ];
 const TARGET_MODE_OPTIONS = [
   { value: 'percent', label: '% du record' },
@@ -170,6 +181,16 @@ export const BLOCK_TYPE_SPECS: BlockTypeSpec[] = [
         placeholder: 'Ex. 3-1-1-0',
         kind: 'text',
       },
+      // ADR-41 §2/§3 — params additifs (non requis) : clé d'exercice (réf. pour dériver la cible
+      // %1RM côté carte) et RPE (mode d'intensité quand `load.unit` est null). Aucun bump de
+      // contrat (`additionalProperties: true`, ADR-38 §2).
+      {
+        key: 'exerciseKey',
+        label: 'Exercice (réf.)',
+        placeholder: 'Ex. squat',
+        kind: 'text',
+      },
+      { key: 'rpe', label: 'RPE (0–10)', placeholder: 'Ex. 8', kind: 'int' },
     ],
   },
   {
@@ -290,8 +311,15 @@ export const BLOCK_TYPE_SPECS: BlockTypeSpec[] = [
         placeholder: 'Ex. 13.72',
         kind: 'number',
       },
-      { key: 'leadLeg', label: 'Jambe d’attaque', kind: 'select', options: LEG_OPTIONS },
+      {
+        key: 'leadLeg',
+        label: 'Jambe d’attaque',
+        kind: 'select',
+        options: HURDLES_LEAD_LEG_OPTIONS,
+      },
       { key: 'startType', label: 'Type de départ', kind: 'select', options: START_TYPE_OPTIONS },
+      // ADR-40 — catégorie (sexe) pour le référentiel de record fictif (TLX-168).
+      { key: 'sex', label: 'Catégorie', kind: 'select', options: SEX_OPTIONS },
       ...INTENSITY_PARAM_FIELDS,
     ],
   },
@@ -322,7 +350,7 @@ export const BLOCK_TYPE_SPECS: BlockTypeSpec[] = [
         ],
       },
       { key: 'attempts', label: 'Essais (nombre)', placeholder: 'Ex. 6' },
-      { key: 'takeoff', label: 'Pied d’appel', kind: 'select', options: LEG_OPTIONS },
+      { key: 'takeoff', label: 'Planche / Zone', kind: 'select', options: TAKEOFF_OPTIONS },
       { key: 'targetMeters', label: 'Cible (m)', placeholder: 'Ex. 7.20', kind: 'number' },
       { key: 'targetMode', label: 'Mode de cible', kind: 'select', options: TARGET_MODE_OPTIONS },
       { key: 'targetPercent', label: 'Cible (% du record)', placeholder: 'Ex. 95', kind: 'number' },

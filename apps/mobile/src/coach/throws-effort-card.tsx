@@ -11,7 +11,12 @@ import {
   type EditableGroup,
   type EditableNode,
 } from './session-builder-ui';
-import { THROWS_PRESETS, regulationImplementKg } from './assistant-presets';
+import {
+  THROWS_PRESETS,
+  THROW_RECORDS,
+  regulationImplementKg,
+  targetDistanceFromRecord,
+} from './assistant-presets';
 import {
   CanvasKpiHeader,
   CellInput,
@@ -169,9 +174,11 @@ function defaultThrowSeries(): EditableGroup {
 export function ThrowsEffortCanvas({
   nodes,
   onChange,
+  embedded = false,
 }: {
   nodes: EditableNode[];
   onChange: (next: EditableNode[]) => void;
+  embedded?: boolean;
 }) {
   const series = nodes.filter((n) => isEditableGroup(n)) as EditableGroup[];
 
@@ -287,11 +294,13 @@ export function ThrowsEffortCanvas({
     <EffortCanvasShell
       testID="throws-effort-canvas"
       header={
-        <CanvasKpiHeader
-          testID="throws-canvas-summary"
-          title={`${tech} lancers technique · ${full} complets`}
-          subtitle={`· ~${estMinutes(series)} min`}
-        />
+        embedded ? undefined : (
+          <CanvasKpiHeader
+            testID="throws-canvas-summary"
+            title={`${tech} lancers technique · ${full} complets`}
+            subtitle={`· ~${estMinutes(series)} min`}
+          />
+        )
       }
       onAddSeries={addSerie}
       addSeriesTestID="throws-add-series"
@@ -354,6 +363,10 @@ function ThrowsSeriesCard({
     targetMode === 'absolute'
       ? (group.items[0]?.params.targetMeters ?? '')
       : (group.items[0]?.params.targetPercent ?? '');
+  const targetDistance =
+    targetMode === 'percent_record'
+      ? targetDistanceFromRecord(THROW_RECORDS, discipline, Number(targetValue) || 0)
+      : undefined;
 
   return (
     <SeriesCardFrame
@@ -507,7 +520,9 @@ function ThrowsSeriesCard({
         <InfoNote>
           {targetMode === 'absolute'
             ? 'Distance cible absolue, commune à tous les athlètes.'
-            : 'Cible individualisée · % du record de chaque athlète sur la discipline.'}
+            : `Cible individualisée · % du record de chaque athlète sur la discipline${
+                targetDistance != null ? ` (≈ ${targetDistance} m sur la référence du module)` : ''
+              }.`}
         </InfoNote>
       </View>
     </SeriesCardFrame>

@@ -59,7 +59,8 @@ export function EffortCanvasShell({
   children,
 }: {
   testID: string;
-  header: ReactNode;
+  /** En-tête KPI de la carte. Omis en mode encart (`embedded`) — le composite porte le chrome. */
+  header?: ReactNode;
   warmup?: ReactNode;
   cooldown?: ReactNode;
   onAddSeries: () => void;
@@ -157,6 +158,7 @@ export function SeriesCardFrame({
   return (
     <Card testID={testID}>
       <Pressable
+        testID={`${testID}-toggle`}
         onPress={() => setCollapsed((v) => !v)}
         style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[3] }}
         accessibilityRole="button"

@@ -1,4 +1,4 @@
-import { type Exercise } from '@talent-x/api-client';
+import { LoadUnit, type Exercise } from '@talent-x/api-client';
 import { isExerciseGroup, type ExerciseNode } from './exercises-doc';
 
 /**
@@ -108,4 +108,61 @@ export function formatDistanceVolume(meters: number): string | undefined {
     return `${Number.isInteger(km) ? km : km.toFixed(1).replace('.', ',')} km`;
   }
   return `${meters} m`;
+}
+
+/** Badge de volume musculation/PPG (ADR-41 §5). */
+export interface SessionTonnage {
+  /**
+   * Tonnage cumulé (kg) = Σ `effectif × reps × chargeKg`, **uniquement** quand la charge est en
+   * `kg` (mode chiffrable sans référentiel). Les modes `% 1RM` / poids de corps / RPE / PPG en
+   * durée ne sont pas convertis ici (la couche carte enrichit le %1RM via `ONE_RM_REFERENCE`).
+   */
+  tonnageKg: number;
+  /** Repli : volume de répétitions = Σ `effectif × reps` sur les feuilles `strength`/`core`. */
+  repVolume: number;
+}
+
+/** Une feuille porte-t-elle une charge explicite en kg ? → `value` (kg) sinon `undefined`. */
+function loadKg(ex: Exercise): number | undefined {
+  if (ex.load?.unit === LoadUnit.kg && typeof ex.load.value === 'number') return ex.load.value;
+  return undefined;
+}
+
+/**
+ * Agrège tonnage (kg) et volume de répétitions des feuilles `strength`/`core` (ADR-41 §5).
+ * L'effectif d'une feuille est son `sets` (bloc top-level) ou, à défaut, le nombre de tours du
+ * groupe parent (`rounds`) — cohérent avec le modèle Muscu (top-level) / PPG (groupe circuit).
+ * Helper **additif** : ne touche pas `sessionKpis` ni la sérialisation.
+ */
+export function sessionTonnage(items: readonly ExerciseNode[] | undefined): SessionTonnage {
+  let tonnageKg = 0;
+  let repVolume = 0;
+  const accumulate = (leaf: Exercise, rounds: number) => {
+    if (leaf.type !== 'strength' && leaf.type !== 'core') return;
+    const effectiveSets = leaf.sets ?? rounds;
+    const reps = leaf.reps ?? 0;
+    const volume = effectiveSets * reps;
+    repVolume += volume;
+    const kg = loadKg(leaf);
+    if (kg != null) tonnageKg += volume * kg;
+  };
+  for (const node of items ?? []) {
+    if (isExerciseGroup(node)) {
+      const rounds = groupRounds(node.rounds);
+      for (const leaf of node.items ?? []) accumulate(leaf, rounds);
+    } else if (node != null) {
+      accumulate(node, 1);
+    }
+  }
+  return { tonnageKg: Math.round(tonnageKg), repVolume };
+}
+
+/** Tonnage lisible (« 4,2 t » au-delà de 1000 kg, sinon « 850 kg »), ou `undefined` si nul. */
+export function formatTonnage(kg: number): string | undefined {
+  if (kg <= 0) return undefined;
+  if (kg >= 1000) {
+    const t = kg / 1000;
+    return `${Number.isInteger(t) ? t : t.toFixed(1).replace('.', ',')} t`;
+  }
+  return `${kg} kg`;
 }
