@@ -118,6 +118,12 @@ export function CompositeCanvas({
         onEditNotes={(notes) =>
           commitWith(series, { ...warmup, notes }, hasCooldown ? cooldown : null)
         }
+        onEditTitle={(name) =>
+          commitWith(series, { ...warmup, name }, hasCooldown ? cooldown : null)
+        }
+        onRemove={
+          hasWarmup ? () => commitWith(series, null, hasCooldown ? cooldown : null) : undefined
+        }
       />
 
       <AddBlocPicker onAdd={addBloc} />
@@ -155,6 +161,10 @@ export function CompositeCanvas({
         placeholder="Appuyer pour ajouter"
         onEditNotes={(notes) =>
           commitWith(series, hasWarmup ? warmup : null, { ...cooldown, notes })
+        }
+        onEditTitle={(name) => commitWith(series, hasWarmup ? warmup : null, { ...cooldown, name })}
+        onRemove={
+          hasCooldown ? () => commitWith(series, hasWarmup ? warmup : null, null) : undefined
         }
       />
     </View>

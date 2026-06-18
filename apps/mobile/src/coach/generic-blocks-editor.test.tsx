@@ -65,6 +65,16 @@ describe('GenericBlocksEditor — rendu de base (C-05)', () => {
     expect(screen.queryByTestId('block-0-params')).toBeNull();
   });
 
+  it('le sélecteur de type n’expose pas échauffement / retour au calme (phases — TLX-172 N6)', () => {
+    render(<Harness />);
+    // Types d'exercice réels présents…
+    expect(screen.getByTestId('block-0-type-sprint')).toBeOnTheScreen();
+    expect(screen.getByTestId('block-0-type-core')).toBeOnTheScreen();
+    // …mais pas les phases (gérées comme chrome de séance, pas comme exercices).
+    expect(screen.queryByTestId('block-0-type-warmup')).toBeNull();
+    expect(screen.queryByTestId('block-0-type-cooldown')).toBeNull();
+  });
+
   it('ajoute et supprime des blocs', () => {
     render(<Harness />);
     fireEvent.press(screen.getByTestId('session-add-block'));

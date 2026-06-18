@@ -116,7 +116,9 @@ function toSeries(nodes: EditableNode[]): Series[] {
     if (isEditableGroup(node)) {
       flush();
       out.push({ kind: 'ppg', key: node.key, group: node });
-    } else if (node.type === BlockType.strength || node.type === BlockType.core) {
+    } else {
+      // Tout bloc top-level (typiquement `strength`/`core`) rejoint la série Muscu courante —
+      // y compris un bloc d'un autre type : on ne le jette pas (N4), il reste round-trippé.
       run.push(node);
     }
   }

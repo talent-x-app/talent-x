@@ -1212,6 +1212,12 @@ function BlockTypeSelector({
   onChange: (type: BlockType) => void;
 }) {
   const { colors, typography, spacing } = useTheme();
+  // L'échauffement et le retour au calme sont des **phases** (TLX-171), pas des types d'exercice :
+  // on les retire du sélecteur (sinon on peut créer un 2e échauffement perdu au round-trip, N6).
+  // On garde le type courant s'il s'agit (cas legacy) déjà d'une phase, pour ne pas figer la chip.
+  const selectable = BLOCK_TYPE_SPECS.filter(
+    (s) => (s.type !== BlockType.warmup && s.type !== BlockType.cooldown) || s.type === value,
+  );
   return (
     <View style={{ gap: spacing[2] }}>
       <Text
@@ -1224,7 +1230,7 @@ function BlockTypeSelector({
         Type de bloc
       </Text>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] }}>
-        {BLOCK_TYPE_SPECS.map((spec) => (
+        {selectable.map((spec) => (
           <Chip
             key={spec.type}
             testID={`${tid}-type-${spec.type}`}

@@ -161,6 +161,28 @@ describe('CompositeCanvas (ADR-42)', () => {
     expect(warmup?.notes).toBe('Footing 10 min');
   });
 
+  it('éditer le titre de l’échauffement le persiste (TLX-172 #5)', () => {
+    const h = setup([customBlock()]);
+    fireEvent.press(screen.getByTestId('warmup-bar-toggle'));
+    fireEvent.changeText(screen.getByTestId('warmup-bar-title'), 'Echauffement specifique');
+    const warmup = h
+      .nodes()
+      .find((n) => !isEditableGroup(n) && (n as EditableBlock).type === BlockType.warmup) as
+      | EditableBlock
+      | undefined;
+    expect(warmup?.name).toBe('Echauffement specifique');
+  });
+
+  it('retirer un échauffement persisté le supprime (TLX-172 #5)', () => {
+    const warmup = makeBlock({ type: BlockType.warmup, name: 'Echauffement', notes: 'Footing' });
+    const h = setup([warmup, sprintSegment()]);
+    fireEvent.press(screen.getByTestId('warmup-bar-toggle'));
+    fireEvent.press(screen.getByTestId('warmup-bar-remove'));
+    expect(
+      h.nodes().some((n) => !isEditableGroup(n) && (n as EditableBlock).type === BlockType.warmup),
+    ).toBe(false);
+  });
+
   it('éditer le segment Personnalisé via session-add-block remonte au parent', () => {
     const h = setup([customBlock()]);
     const before = h.nodes().length;

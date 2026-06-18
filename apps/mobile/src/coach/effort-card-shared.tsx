@@ -410,6 +410,8 @@ export function WarmupCooldownBar({
   subtitle,
   placeholder,
   onEditNotes,
+  onEditTitle,
+  onRemove,
   testID,
 }: {
   icon: keyof typeof Feather.glyphMap;
@@ -418,6 +420,10 @@ export function WarmupCooldownBar({
   /** Invite affichée (repliée) quand `subtitle` est vide — ex. « Appuyer pour ajouter » (TLX-169). */
   placeholder?: string;
   onEditNotes: (notes: string) => void;
+  /** Édition du titre (composite, TLX-172 #5). Absent → titre figé (cartes standalone). */
+  onEditTitle?: (title: string) => void;
+  /** Suppression de la phase une fois ajoutée (composite, TLX-172 #5). */
+  onRemove?: () => void;
   testID?: string;
 }) {
   const [expanded, setExpanded] = useState(false);
@@ -491,7 +497,27 @@ export function WarmupCooldownBar({
       </Pressable>
 
       {expanded && (
-        <View style={{ paddingHorizontal: spacing[3], paddingBottom: spacing[3] }}>
+        <View style={{ paddingHorizontal: spacing[3], paddingBottom: spacing[3], gap: spacing[2] }}>
+          {onEditTitle ? (
+            <TextInput
+              testID={testID ? `${testID}-title` : undefined}
+              value={title}
+              onChangeText={onEditTitle}
+              placeholder="Titre de la phase…"
+              placeholderTextColor={colors.textMuted}
+              style={{
+                height: 40,
+                paddingHorizontal: spacing[3],
+                borderRadius: radius.sm,
+                borderWidth: borderWidth.hairline,
+                borderColor: colors.borderStrong,
+                backgroundColor: colors.surface,
+                color: colors.textPrimary,
+                fontFamily: typography.fontFamily.medium,
+                fontSize: typography.bodySm.fontSize,
+              }}
+            />
+          ) : null}
           <TextInput
             value={subtitle}
             onChangeText={onEditNotes}
@@ -512,6 +538,31 @@ export function WarmupCooldownBar({
               textAlignVertical: 'top',
             }}
           />
+          {onRemove ? (
+            <Pressable
+              testID={testID ? `${testID}-remove` : undefined}
+              onPress={onRemove}
+              accessibilityRole="button"
+              accessibilityLabel="Retirer cette phase"
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: spacing[1],
+                paddingVertical: 4,
+              }}
+            >
+              <Feather name="trash-2" size={14} color={colors.danger} />
+              <Text
+                style={{
+                  color: colors.danger,
+                  fontFamily: typography.fontFamily.medium,
+                  fontSize: typography.bodySm.fontSize,
+                }}
+              >
+                Retirer
+              </Text>
+            </Pressable>
+          ) : null}
         </View>
       )}
     </View>
