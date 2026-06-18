@@ -5,6 +5,7 @@ import { useTheme } from '@talent-x/design-tokens';
 import { Button, Card } from '../components/ui';
 import {
   isEditableGroup,
+  makeSeriesGroup,
   type EditableBlock,
   type EditableGroup,
   type EditableNode,
@@ -28,15 +29,28 @@ export function splitEffortNodes(
   makeWarmup: () => EditableBlock,
   makeCooldown: () => EditableBlock,
 ) {
-  const warmup =
-    (nodes.find((n) => !isEditableGroup(n) && (n as EditableBlock).type === warmupType) as
-      | EditableBlock
-      | undefined) ?? makeWarmup();
-  const cooldown =
-    (nodes.find((n) => !isEditableGroup(n) && (n as EditableBlock).type === cooldownType) as
-      | EditableBlock
-      | undefined) ?? makeCooldown();
-  const series = nodes.filter((n) => isEditableGroup(n)) as EditableGroup[];
+  const warmupNode = nodes.find(
+    (n) => !isEditableGroup(n) && (n as EditableBlock).type === warmupType,
+  ) as EditableBlock | undefined;
+  const cooldownNode = nodes.find(
+    (n) => !isEditableGroup(n) && (n as EditableBlock).type === cooldownType,
+  ) as EditableBlock | undefined;
+  const warmup = warmupNode ?? makeWarmup();
+  const cooldown = cooldownNode ?? makeCooldown();
+  // Séries = tous les autres nœuds, dans l'ordre. Un bloc significatif top-level (ni
+  // warmup/cooldown, ni groupe) est **enveloppé** dans une série mono-item au lieu d'être
+  // jeté : sans quoi il disparaissait de la carte puis était perdu au prochain commit
+  // (TLX-168 — perte de données à l'édition d'une séance dont la discipline est inférée d'un
+  // bloc top-level). La clé dérive de celle du bloc → pas de remontage de carte à chaque rendu.
+  const series: EditableGroup[] = [];
+  for (const n of nodes) {
+    if (n === warmupNode || n === cooldownNode) continue;
+    if (isEditableGroup(n)) {
+      series.push(n);
+    } else if (n.type !== warmupType && n.type !== cooldownType) {
+      series.push(makeSeriesGroup({ key: `wrap-${n.key}`, name: n.name || 'Série', items: [n] }));
+    }
+  }
   return { warmup, cooldown, series };
 }
 

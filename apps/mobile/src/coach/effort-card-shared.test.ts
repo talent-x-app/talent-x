@@ -1,0 +1,84 @@
+import { BlockType } from '@talent-x/api-client';
+import { splitEffortNodes } from './effort-card-shared';
+import {
+  isEditableGroup,
+  makeBlock,
+  makeCooldownBlock,
+  makeSeriesGroup,
+  makeWarmupBlock,
+  nodesToItems,
+  type EditableGroup,
+  type EditableNode,
+} from './session-builder-ui';
+
+/** Découpe avec les types/fabriques par défaut (échauffement/RAC standard). */
+function split(nodes: EditableNode[]) {
+  return splitEffortNodes(
+    nodes,
+    BlockType.warmup,
+    BlockType.cooldown,
+    makeWarmupBlock,
+    makeCooldownBlock,
+  );
+}
+
+describe('splitEffortNodes — pas de perte de bloc top-level (TLX-168)', () => {
+  it('enveloppe un bloc discipline top-level dans une série mono-item au lieu de le jeter', () => {
+    const sprint = makeBlock({
+      type: BlockType.sprint,
+      name: '60 m',
+      params: { distanceMeters: '60' },
+    });
+    const { series } = split([sprint]);
+
+    expect(series).toHaveLength(1);
+    expect(isEditableGroup(series[0])).toBe(true);
+    expect(series[0].items).toHaveLength(1);
+    expect(series[0].items[0].type).toBe(BlockType.sprint);
+
+    // Round-trip : la donnée du bloc survit à la sérialisation (plus de perte au commit).
+    const items = nodesToItems(series);
+    const leaf = (items[0] as { items: { params?: Record<string, unknown> }[] }).items[0];
+    expect(leaf.params?.distanceMeters).toBe(60);
+  });
+
+  it('préserve les groupes existants tels quels et extrait warmup/cooldown', () => {
+    const warmup = makeWarmupBlock();
+    const group = makeSeriesGroup({
+      name: 'Série',
+      items: [makeBlock({ type: BlockType.sprint, name: '100 m' })],
+    });
+    const cooldown = makeCooldownBlock();
+
+    const res = split([warmup, group, cooldown]);
+    expect(res.series).toHaveLength(1);
+    expect(res.series[0]).toBe(group); // référence inchangée
+    expect(res.warmup.type).toBe(BlockType.warmup);
+    expect(res.cooldown.type).toBe(BlockType.cooldown);
+  });
+
+  it('mélange groupe + bloc top-level : conserve les deux (aucune perte)', () => {
+    const group = makeSeriesGroup({
+      name: 'Série',
+      items: [makeBlock({ type: BlockType.sprint, name: '100 m' })],
+    });
+    const stray = makeBlock({
+      type: BlockType.sprint,
+      name: '60 m',
+      params: { distanceMeters: '60' },
+    });
+
+    const { series } = split([group, stray]);
+    expect(series).toHaveLength(2);
+    const types = series.map((s: EditableGroup) => s.items[0].type);
+    expect(types).toEqual([BlockType.sprint, BlockType.sprint]);
+  });
+
+  it('clé du groupe enveloppant dérivée de celle du bloc (pas de remontage de carte)', () => {
+    const sprint = makeBlock({ type: BlockType.sprint, name: '60 m' });
+    const a = split([sprint]).series[0].key;
+    const b = split([sprint]).series[0].key;
+    expect(a).toBe(b); // stable d'un rendu à l'autre
+    expect(a).toContain(sprint.key);
+  });
+});
