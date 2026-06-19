@@ -1,0 +1,435 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Talent-X — Maquette « Hub de groupe »</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --bg:#0B0F17; --surface:#11151F; --raised:#161B27; --sunken:#0E121B;
+    --border:rgba(255,255,255,.08); --borderStrong:rgba(255,255,255,.16);
+    --text:#E7ECF3; --text2:#8A94A6; --muted:#5C6678; --onAccent:#fff;
+    --accent:#2E7CF6; --accentHover:#5BAEFF; --accentText:#5BAEFF; --accentSubtle:rgba(46,124,246,.16);
+    --success:#34D17F; --warning:#FFC24B; --danger:#FF6B7A;
+    --successBg:rgba(52,209,127,.14); --warningBg:rgba(255,194,75,.14); --dangerBg:rgba(255,107,122,.14);
+    --grad:linear-gradient(135deg,#5BAEFF 0%,#2E7CF6 55%,#1B5BE0 100%);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#06080D;color:var(--text);font-family:'Poppins',sans-serif;-webkit-font-smoothing:antialiased;padding:48px 24px 96px}
+  .head{max-width:1180px;margin:0 auto 40px}
+  .head h1{font-size:30px;font-weight:700;letter-spacing:-.5px}
+  .head p{color:var(--text2);margin-top:10px;max-width:760px;line-height:1.6;font-size:15px}
+  .head .legend{display:flex;gap:18px;flex-wrap:wrap;margin-top:20px;font-size:12.5px;color:var(--text2)}
+  .head .legend b{color:var(--text);font-weight:600}
+  .grid{max-width:1180px;margin:0 auto;display:flex;gap:40px;flex-wrap:wrap;align-items:flex-start;justify-content:center}
+  .col{flex:1 1 360px;max-width:390px}
+  .col > h2{font-size:13px;letter-spacing:1px;text-transform:uppercase;color:var(--accentText);font-weight:600;margin:0 0 4px}
+  .col > .sub{color:var(--text2);font-size:13px;margin-bottom:16px;line-height:1.5}
+
+  /* iPhone frame */
+  .phone{background:var(--bg);border:1px solid var(--borderStrong);border-radius:44px;padding:14px;box-shadow:0 30px 80px rgba(0,0,0,.55);position:relative}
+  .notch{position:absolute;top:14px;left:50%;transform:translateX(-50%);width:130px;height:26px;background:#000;border-radius:0 0 16px 16px;z-index:5}
+  .screen{background:var(--bg);border-radius:32px;overflow:hidden;height:760px;display:flex;flex-direction:column;position:relative}
+  .status{height:40px;display:flex;align-items:flex-end;justify-content:space-between;padding:0 26px 6px;font-size:12px;color:var(--text2);font-weight:600}
+  .body{flex:1;overflow-y:auto;padding:8px 18px 110px}
+  .body::-webkit-scrollbar{width:0}
+
+  /* App bar */
+  .appbar{display:flex;align-items:center;gap:10px;padding:6px 2px 14px}
+  .appbar .back{color:var(--text2);font-size:13px;display:flex;align-items:center;gap:4px;font-weight:500}
+  .appbar .spacer{flex:1}
+  .icnbtn{width:34px;height:34px;border-radius:10px;background:var(--raised);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--text2)}
+
+  /* Group header */
+  .ghead{display:flex;align-items:center;gap:14px;margin-bottom:14px}
+  .gavatar{width:54px;height:54px;border-radius:16px;background:var(--grad);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:20px;color:#fff;flex:none}
+  .ghead h3{font-size:21px;font-weight:700;letter-spacing:-.4px}
+  .ghead .meta{color:var(--text2);font-size:12.5px;margin-top:3px}
+
+  /* Segmented tabs */
+  .seg{display:flex;background:var(--sunken);border:1px solid var(--border);border-radius:12px;padding:4px;margin:4px 0 18px}
+  .seg button{flex:1;border:0;background:transparent;color:var(--text2);font-family:inherit;font-weight:600;font-size:13px;padding:8px 0;border-radius:9px;cursor:pointer}
+  .seg button.on{background:var(--raised);color:var(--text);box-shadow:0 1px 0 rgba(0,0,0,.3)}
+
+  .seclabel{font-size:11px;letter-spacing:.8px;text-transform:uppercase;color:var(--text2);font-weight:600;margin:22px 2px 10px;display:flex;align-items:center;gap:8px}
+  .seclabel .count{color:var(--muted)}
+
+  /* Card */
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:16px;margin-bottom:12px}
+  .card.tap{position:relative;cursor:pointer;transition:border-color .15s}
+  .card.tap:hover{border-color:var(--borderStrong)}
+
+  /* Pinned announcement */
+  .pin{background:linear-gradient(135deg,rgba(255,194,75,.10),rgba(255,194,75,.04));border:1px solid rgba(255,194,75,.28)}
+  .pin .pinhead{display:flex;align-items:center;gap:7px;color:var(--warning);font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;margin-bottom:7px}
+  .pin p{font-size:13.5px;line-height:1.55;color:var(--text)}
+
+  /* Session card */
+  .when{display:flex;align-items:center;gap:9px;margin-bottom:10px}
+  .daypill{background:var(--accentSubtle);color:var(--accentText);border-radius:10px;padding:7px 11px;text-align:center;line-height:1.1;flex:none}
+  .daypill .d{font-size:18px;font-weight:700}
+  .daypill .m{font-size:10px;text-transform:uppercase;letter-spacing:.5px}
+  .when .info .t{font-size:12px;color:var(--text2);font-weight:500}
+  .when .info .h{font-size:15px;font-weight:600;margin-top:2px}
+  .when .right{margin-left:auto;text-align:right}
+
+  .tag{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;padding:4px 9px;border-radius:999px;border:1px solid var(--border)}
+  .tag.disc{background:var(--accentSubtle);color:var(--accentText);border-color:transparent}
+  .tag.perf{background:var(--warningBg);color:var(--warning);border-color:transparent}
+  .tag.done{background:var(--successBg);color:var(--success);border-color:transparent}
+  .tag.muted{color:var(--text2)}
+
+  .tags{display:flex;gap:6px;flex-wrap:wrap;margin:2px 0 12px}
+  .summary{font-size:13px;color:var(--text2);line-height:1.55;margin-bottom:14px}
+  .summary b{color:var(--text);font-weight:600}
+
+  .divline{height:1px;background:var(--border);margin:14px -16px}
+
+  /* Attendance control */
+  .attlabel{font-size:11px;color:var(--text2);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;display:flex;align-items:center;gap:6px}
+  .att{display:flex;gap:8px}
+  .att button{flex:1;border:1px solid var(--border);background:var(--raised);color:var(--text);font-family:inherit;font-weight:600;font-size:13px;padding:11px 0;border-radius:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px}
+  .att button.yes.on{background:var(--successBg);border-color:transparent;color:var(--success)}
+  .att button.no.on{background:var(--dangerBg);border-color:transparent;color:var(--danger)}
+  .att button.maybe.on{background:var(--warningBg);border-color:transparent;color:var(--warning)}
+
+  .deadline{font-size:11.5px;color:var(--warning);margin-top:9px;display:flex;align-items:center;gap:6px}
+
+  /* attendee avatars */
+  .att-summary{display:flex;align-items:center;gap:10px;margin-top:12px}
+  .avstack{display:flex}
+  .avstack .av{width:26px;height:26px;border-radius:50%;border:2px solid var(--surface);margin-left:-8px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff}
+  .avstack .av:first-child{margin-left:0}
+  .att-summary .txt{font-size:12px;color:var(--text2)}
+  .att-summary .txt b{color:var(--text)}
+
+  /* big buttons */
+  .btn{display:block;width:100%;text-align:center;border:0;border-radius:14px;font-family:inherit;font-weight:600;font-size:14.5px;padding:13px 0;cursor:pointer}
+  .btn.primary{background:var(--accent);color:#fff}
+  .btn.grad{background:var(--grad);color:#fff}
+  .btn.secondary{background:var(--raised);color:var(--text);border:1px solid var(--border)}
+  .btn.ghost{background:transparent;color:var(--text2);border:1px solid var(--border)}
+  .btn.success{background:var(--successBg);color:var(--success)}
+  .btn.sm{font-size:13px;padding:10px 0;border-radius:12px}
+  .btn .ic{display:inline-block;vertical-align:-2px;margin-right:7px}
+
+  /* progress / coach participation */
+  .partrow{display:flex;gap:10px;margin:12px 0 4px}
+  .stat{flex:1;background:var(--sunken);border:1px solid var(--border);border-radius:12px;padding:9px 10px;text-align:center}
+  .stat .n{font-size:18px;font-weight:700}
+  .stat .l{font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;margin-top:2px}
+  .stat.green .n{color:var(--success)} .stat.red .n{color:var(--danger)} .stat.amber .n{color:var(--warning)}
+  .bar{height:7px;background:var(--sunken);border-radius:999px;overflow:hidden;margin:10px 0 6px}
+  .bar > span{display:block;height:100%;background:var(--grad);border-radius:999px}
+  .barlbl{display:flex;justify-content:space-between;font-size:11.5px;color:var(--text2)}
+
+  /* member row */
+  .mrow{display:flex;align-items:center;gap:11px;padding:9px 0}
+  .mrow .av{width:34px;height:34px;border-radius:10px;background:var(--accentSubtle);color:var(--accentText);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex:none}
+  .mrow .nm{font-size:13.5px;font-weight:500}
+  .mrow .ds{font-size:11.5px;color:var(--muted)}
+  .mrow .badge{margin-left:auto;font-size:11px;font-weight:600;padding:4px 9px;border-radius:999px}
+  .badge.yes{background:var(--successBg);color:var(--success)}
+  .badge.no{background:var(--dangerBg);color:var(--danger)}
+  .badge.wait{background:var(--raised);color:var(--text2);border:1px solid var(--border)}
+
+  /* tab bar */
+  .tabbar{position:absolute;bottom:0;left:0;right:0;height:74px;background:rgba(11,15,23,.92);backdrop-filter:blur(12px);border-top:1px solid var(--border);display:flex;align-items:flex-start;padding-top:12px}
+  .tabbar .tab{flex:1;text-align:center;color:var(--muted);font-size:10px;font-weight:500}
+  .tabbar .tab.on{color:var(--accentText)}
+  .tabbar .dot{width:22px;height:22px;margin:0 auto 4px;border-radius:7px;background:currentColor;opacity:.85}
+
+  /* FAB */
+  .fab{position:absolute;right:20px;bottom:92px;height:50px;border-radius:16px;background:var(--grad);color:#fff;border:0;font-family:inherit;font-weight:600;font-size:14px;padding:0 18px;display:flex;align-items:center;gap:8px;box-shadow:0 12px 30px rgba(46,124,246,.45);cursor:pointer}
+
+  /* detail screen specifics */
+  .block{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:14px 16px;margin-bottom:12px}
+  .block h4{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--text2);font-weight:600;margin-bottom:10px}
+  .ex{display:flex;align-items:flex-start;gap:11px;padding:9px 0;border-bottom:1px solid var(--border)}
+  .ex:last-child{border-bottom:0}
+  .ex .no{width:24px;height:24px;border-radius:8px;background:var(--sunken);color:var(--text2);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex:none}
+  .ex .nm{font-size:13.5px;font-weight:600}
+  .ex .de{font-size:12px;color:var(--text2);margin-top:2px}
+  .sticky{position:absolute;left:14px;right:14px;bottom:14px;background:rgba(11,15,23,.94);backdrop-filter:blur(10px);border:1px solid var(--border);border-radius:18px;padding:12px;display:flex;gap:10px}
+
+  .note{font-size:12.5px;color:var(--muted);margin-top:14px;line-height:1.5;padding:0 2px}
+  .footer{max-width:1180px;margin:64px auto 0}
+  .footer h2{font-size:18px;font-weight:700;margin-bottom:18px}
+  .sugg{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:16px}
+  .sugg .s{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:18px}
+  .sugg .s .k{display:inline-block;font-size:11px;font-weight:700;color:var(--accentText);background:var(--accentSubtle);padding:3px 9px;border-radius:999px;margin-bottom:10px}
+  .sugg .s h3{font-size:15px;font-weight:600;margin-bottom:7px}
+  .sugg .s p{font-size:13px;color:var(--text2);line-height:1.55}
+</style>
+</head>
+<body>
+
+<div class="head">
+  <h1>Talent-X — « Hub de groupe »</h1>
+  <p>Refonte de l'écran de gestion des groupes : on passe d'un écran administratif (membres + code) à un <b style="color:var(--text)">fil d'entraînement vivant</b>. Le coach publie des séances dans le groupe ; l'athlète les consulte, confirme sa présence et saisit ses performances. Maquette — aucun code de production.</p>
+  <div class="legend">
+    <span>🟦 <b>Accent</b> = action principale</span>
+    <span>🟩 <b>Présent / perf saisie</b></span>
+    <span>🟥 <b>Absent</b></span>
+    <span>🟨 <b>En attente / perf à saisir / épinglé</b></span>
+  </div>
+</div>
+
+<div class="grid">
+
+  <!-- ===================== COL 1 : ATHLÈTE — FIL ===================== -->
+  <div class="col">
+    <h2>① Athlète — Fil du groupe</h2>
+    <div class="sub">Onglet « Séances » : chaque carte = un résumé tapable. Présence en 1 geste, badge « perf à saisir » quand la séance l'exige.</div>
+    <div class="phone"><div class="notch"></div><div class="screen">
+      <div class="status"><span>9:41</span><span>5G &nbsp; 87%</span></div>
+      <div class="body">
+        <div class="appbar">
+          <span class="back">‹ Profil</span><span class="spacer"></span>
+          <div class="icnbtn">🔔</div>
+        </div>
+        <div class="ghead">
+          <div class="gavatar">SR</div>
+          <div>
+            <h3>Sprint Élite</h3>
+            <div class="meta">Coach M. Diallo · 12 athlètes</div>
+          </div>
+        </div>
+        <div class="seg">
+          <button class="on">Séances</button>
+          <button>Coéquipiers</button>
+          <button>Infos</button>
+        </div>
+
+        <!-- Pinned announcement -->
+        <div class="card pin">
+          <div class="pinhead">📌 Épinglé par le coach</div>
+          <p>Compétition départementale samedi à Lyon. RDV 12h30 au stade, échauffement collectif. Pensez aux pointes !</p>
+        </div>
+
+        <div class="seclabel">À venir <span class="count">· 3</span></div>
+
+        <!-- Session 1 : perf required, needs attendance -->
+        <div class="card tap">
+          <div class="when">
+            <div class="daypill"><div class="d">21</div><div class="m">juin</div></div>
+            <div class="info"><div class="t">Demain · Mardi</div><div class="h">18h00 · Stade Boutonnet</div></div>
+          </div>
+          <div class="tags">
+            <span class="tag disc">⚡ Sprint</span>
+            <span class="tag perf">⏱ Perf à saisir</span>
+          </div>
+          <div class="summary"><b>Test 150 m chrono</b> — 2 passages, récup complète 8'. Objectif : valider la vitesse max avant la compèt.</div>
+
+          <div class="attlabel">Seras-tu présent ?</div>
+          <div class="att">
+            <button class="yes on">✓ Présent</button>
+            <button class="no">✕ Absent</button>
+            <button class="maybe">? Peut-être</button>
+          </div>
+          <div class="att-summary">
+            <div class="avstack">
+              <div class="av" style="background:#2E7CF6">AM</div>
+              <div class="av" style="background:#34D17F">KT</div>
+              <div class="av" style="background:#FFC24B;color:#0B0F17">LB</div>
+              <div class="av" style="background:var(--raised);color:var(--text2)">+6</div>
+            </div>
+            <div class="txt"><b>9</b> présents · 1 absent</div>
+          </div>
+        </div>
+
+        <!-- Session 2 : no answer yet, deadline -->
+        <div class="card tap">
+          <div class="when">
+            <div class="daypill"><div class="d">23</div><div class="m">juin</div></div>
+            <div class="info"><div class="t">Jeudi</div><div class="h">18h00 · Stade Boutonnet</div></div>
+          </div>
+          <div class="tags">
+            <span class="tag disc">🏃 Endurance</span>
+            <span class="tag muted">Pas de perf</span>
+          </div>
+          <div class="summary"><b>Footing + gammes</b> — 40' en aisance respiratoire, éducatifs technique, étirements.</div>
+          <div class="attlabel">Seras-tu présent ?</div>
+          <div class="att">
+            <button class="yes">✓ Présent</button>
+            <button class="no">✕ Absent</button>
+            <button class="maybe">? Peut-être</button>
+          </div>
+          <div class="deadline">⚠ Réponds avant mer. 12h pour aider le coach à préparer</div>
+        </div>
+
+        <div class="seclabel">Passées</div>
+        <!-- Session past : perf saved -->
+        <div class="card tap" style="opacity:.92">
+          <div class="when">
+            <div class="daypill" style="background:var(--sunken)"><div class="d" style="color:var(--text2)">17</div><div class="m" style="color:var(--muted)">juin</div></div>
+            <div class="info"><div class="t">Mer. dernier</div><div class="h">VMA 30/30</div></div>
+            <div class="right"><span class="tag done">✓ Perf saisie</span></div>
+          </div>
+          <div class="summary"><b>Ta perf :</b> 12 répétitions · VMA estimée 18,5 km/h · <span style="color:var(--success)">+0,3 vs précédent</span>. <span style="color:var(--accentText)">Feedback coach (1) ›</span></div>
+        </div>
+      </div>
+      <button class="fab">＋ Rejoindre un groupe</button>
+      <div class="tabbar">
+        <div class="tab"><div class="dot"></div>Accueil</div>
+        <div class="tab"><div class="dot"></div>Séances</div>
+        <div class="tab on"><div class="dot"></div>Groupes</div>
+        <div class="tab"><div class="dot"></div>Progrès</div>
+        <div class="tab"><div class="dot"></div>Profil</div>
+      </div>
+    </div></div>
+    <div class="note">Présence = <b>segmenté 3 états</b> (Présent / Absent / Peut-être) plutôt qu'un simple bouton : les deux réponses sont explicites, « sans réponse » ≠ « absent ». Échéance affichée tant que l'athlète n'a pas répondu.</div>
+  </div>
+
+  <!-- ===================== COL 2 : ATHLÈTE — DÉTAIL SÉANCE ===================== -->
+  <div class="col">
+    <h2>② Athlète — Détail de séance</h2>
+    <div class="sub">Au tap d'une carte : programme complet, présence, et CTA « Saisir ma perf » épinglé en bas pour les séances qui le requièrent.</div>
+    <div class="phone"><div class="notch"></div><div class="screen">
+      <div class="status"><span>9:41</span><span>5G &nbsp; 87%</span></div>
+      <div class="body" style="padding-bottom:96px">
+        <div class="appbar"><span class="back">‹ Sprint Élite</span><span class="spacer"></span><div class="icnbtn">⋯</div></div>
+
+        <div class="tags" style="margin-top:4px">
+          <span class="tag disc">⚡ Sprint</span>
+          <span class="tag perf">⏱ Perf requise</span>
+        </div>
+        <h3 style="font-size:22px;font-weight:700;letter-spacing:-.4px">Test 150 m chrono</h3>
+        <div style="color:var(--text2);font-size:13px;margin-top:6px;line-height:1.6">
+          📅 Mardi 21 juin · 18h00 – 19h30<br>📍 Stade Boutonnet, Montpellier<br>👤 Coach M. Diallo
+        </div>
+
+        <div class="block" style="margin-top:16px">
+          <h4>Objectif</h4>
+          <p style="font-size:13.5px;color:var(--text);line-height:1.55">Valider la vitesse maximale avant la compétition de samedi. Deux passages chronométrés, récupération complète.</p>
+        </div>
+
+        <div class="block">
+          <h4>Déroulé</h4>
+          <div class="ex"><div class="no">1</div><div><div class="nm">Échauffement</div><div class="de">20' footing + gammes + 3 lignes droites progressives</div></div></div>
+          <div class="ex"><div class="no">2</div><div><div class="nm">2 × 150 m chrono</div><div class="de">Récup 8' complète entre les deux · départ debout</div></div></div>
+          <div class="ex"><div class="no">3</div><div><div class="nm">Retour au calme</div><div class="de">15' footing souple + étirements</div></div></div>
+        </div>
+
+        <div class="block">
+          <h4>Présence</h4>
+          <div class="att">
+            <button class="yes on">✓ Présent</button>
+            <button class="no">✕ Absent</button>
+            <button class="maybe">? Peut-être</button>
+          </div>
+          <div class="att-summary">
+            <div class="avstack">
+              <div class="av" style="background:#2E7CF6">AM</div>
+              <div class="av" style="background:#34D17F">KT</div>
+              <div class="av" style="background:#FF6B7A">LB</div>
+              <div class="av" style="background:var(--raised);color:var(--text2)">+6</div>
+            </div>
+            <div class="txt"><b>9</b> présents · 1 absent · 2 sans réponse</div>
+          </div>
+        </div>
+      </div>
+      <!-- sticky perf CTA -->
+      <div class="sticky">
+        <button class="btn grad" style="flex:1"><span class="ic">⏱</span>Saisir ma performance</button>
+      </div>
+    </div></div>
+    <div class="note">Le bouton <b>« Saisir ma perf »</b> n'apparaît que si le coach a marqué la séance « perf requise ». Hors de ces séances, le bas reste libre (juste la présence). Après saisie, le CTA devient <span style="color:var(--success)">« ✓ Perf enregistrée — modifier »</span>.</div>
+  </div>
+
+  <!-- ===================== COL 3 : COACH — GESTION ===================== -->
+  <div class="col">
+    <h2>③ Coach — Pilotage du groupe</h2>
+    <div class="sub">Le coach programme une séance et suit la participation en un coup d'œil : présents, absents, sans-réponse, et avancement des perfs.</div>
+    <div class="phone"><div class="notch"></div><div class="screen">
+      <div class="status"><span>9:41</span><span>5G &nbsp; 87%</span></div>
+      <div class="body">
+        <div class="appbar"><span class="back">‹ Mes groupes</span><span class="spacer"></span><div class="icnbtn">⚙</div></div>
+        <div class="ghead">
+          <div class="gavatar">SE</div>
+          <div><h3>Sprint Élite</h3><div class="meta">12 membres · Code <b style="color:var(--accentText)">7K2P9</b></div></div>
+        </div>
+        <div class="seg">
+          <button class="on">Séances</button>
+          <button>Membres</button>
+          <button>Réglages</button>
+        </div>
+
+        <div class="seclabel">À venir <span class="count">· 2</span></div>
+
+        <!-- Coach session card with participation -->
+        <div class="card tap">
+          <div class="when">
+            <div class="daypill"><div class="d">21</div><div class="m">juin</div></div>
+            <div class="info"><div class="t">Demain · 18h00</div><div class="h">Test 150 m chrono</div></div>
+          </div>
+          <div class="tags"><span class="tag disc">⚡ Sprint</span><span class="tag perf">⏱ Perf requise</span></div>
+          <div class="partrow">
+            <div class="stat green"><div class="n">9</div><div class="l">Présents</div></div>
+            <div class="stat red"><div class="n">1</div><div class="l">Absents</div></div>
+            <div class="stat amber"><div class="n">2</div><div class="l">Sans rép.</div></div>
+          </div>
+          <button class="btn ghost sm" style="margin-top:6px">Relancer les 2 sans-réponse</button>
+        </div>
+
+        <!-- Coach session card 2 -->
+        <div class="card tap">
+          <div class="when">
+            <div class="daypill"><div class="d">23</div><div class="m">juin</div></div>
+            <div class="info"><div class="t">Jeudi · 18h00</div><div class="h">Footing + gammes</div></div>
+          </div>
+          <div class="tags"><span class="tag disc">🏃 Endurance</span><span class="tag muted">Pas de perf</span></div>
+          <div class="partrow">
+            <div class="stat green"><div class="n">5</div><div class="l">Présents</div></div>
+            <div class="stat red"><div class="n">0</div><div class="l">Absents</div></div>
+            <div class="stat amber"><div class="n">7</div><div class="l">Sans rép.</div></div>
+          </div>
+        </div>
+
+        <div class="seclabel">Passées</div>
+        <div class="card tap" style="opacity:.92">
+          <div class="when">
+            <div class="daypill" style="background:var(--sunken)"><div class="d" style="color:var(--text2)">17</div><div class="m" style="color:var(--muted)">juin</div></div>
+            <div class="info"><div class="t">Mer. dernier</div><div class="h">VMA 30/30</div></div>
+          </div>
+          <div class="bar"><span style="width:67%"></span></div>
+          <div class="barlbl"><span>Perfs saisies</span><span><b style="color:var(--text)">8 / 12</b> athlètes</span></div>
+          <button class="btn ghost sm" style="margin-top:10px">Voir les résultats & donner un feedback</button>
+        </div>
+      </div>
+      <button class="fab">＋ Programmer une séance</button>
+      <div class="tabbar">
+        <div class="tab"><div class="dot"></div>Accueil</div>
+        <div class="tab"><div class="dot"></div>Athlètes</div>
+        <div class="tab on"><div class="dot"></div>Groupes</div>
+        <div class="tab"><div class="dot"></div>Agenda</div>
+        <div class="tab"><div class="dot"></div>Profil</div>
+      </div>
+    </div></div>
+    <div class="note">Le coach <b>réutilise le builder de séance existant</b> (TLX C-0x) puis l'affecte au groupe en 1 tap via le FAB. Chaque carte agrège la présence (3 compteurs cliquables → liste détaillée) et l'avancement des perfs.</div>
+  </div>
+
+</div>
+
+<!-- ===================== SUGGESTIONS ===================== -->
+<div class="footer">
+  <h2>Suggestions complémentaires (au-delà de tes 4 points)</h2>
+  <div class="sugg">
+    <div class="s"><span class="k">Présence</span><h3>3 états, pas 2</h3><p>« Présent / Absent / Peut-être » + motif d'absence optionnel. Un athlète « sans réponse » est distinct d'un absent — le coach sait qui relancer. Échéance de réponse paramétrable.</p></div>
+    <div class="s"><span class="k">Perf</span><h3>Le coach décide quand</h3><p>Flag « perf requise » sur la séance (test, chrono, charge). Sinon, pas de bouton parasite. Pré-remplissage selon la discipline (temps, distance, répétitions, RPE).</p></div>
+    <div class="s"><span class="k">Feedback</span><h3>Boucle coach → athlète</h3><p>Après une séance, le coach commente la perf de chacun. L'athlète voit une pastille « Feedback (1) » sur la carte passée. Renforce l'engagement, cœur de l'app.</p></div>
+    <div class="s"><span class="k">Épinglé</span><h3>Annonces du coach</h3><p>Message épinglé en haut du fil (compèt, changement de lieu, météo). Léger, non bloquant, dismissable côté athlète.</p></div>
+    <div class="s"><span class="k">Relances</span><h3>Notifications utiles</h3><p>Rappel automatique J-1 aux sans-réponse ; alerte au coach si le taux de réponse est bas ; rappel « perf à saisir » le soir de la séance.</p></div>
+    <div class="s"><span class="k">Plein air</span><h3>Météo & lieu</h3><p>L'athlé est outdoor : afficher météo prévue + lien carte sur le détail. Permet au coach d'anticiper un repli (piste couverte, report).</p></div>
+    <div class="s"><span class="k">Filtre</span><h3>À venir / Passées</h3><p>Séparation claire dans le fil. Les passées montrent le résultat (ta perf, feedback) ; les à venir, l'action (présence, détail).</p></div>
+    <div class="s"><span class="k">À cadrer</span><h3>Points à valider (ADR ?)</h3><p>Le modèle « séance affectée à un groupe » + « réponse de présence » + « perf liée à une séance » touche le contrat API. À vérifier dans <code>openapi.yaml</code> / modèle de données avant d'implémenter → proposer un ADR si divergence.</p></div>
+  </div>
+  <div class="note" style="margin-top:24px;font-size:13px">
+    <b style="color:var(--text)">Note specs :</b> les écrans actuels (<code>AthleteGroupDetailScreen</code> / <code>CoachGroupDetailScreen</code>) restent réutilisés — la maquette ajoute l'onglet « Séances » par-dessus l'existant (coéquipiers, code d'invitation, membres conservés sous les onglets « Coéquipiers / Membres / Infos »). Aucune régression du périmètre RGPD (vue pair minimisée ADR-37).
+  </div>
+</div>
+
+</body>
+</html>
