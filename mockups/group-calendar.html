@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Talent-X — Calendrier du groupe (Athlète) · affiné</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --bg:#0B0F17; --surface:#11151F; --raised:#161B27; --sunken:#0E121B;
+    --border:rgba(255,255,255,.08); --borderStrong:rgba(255,255,255,.16);
+    --text:#E7ECF3; --text2:#8A94A6; --muted:#5C6678;
+    --accent:#2E7CF6; --accentText:#5BAEFF; --accentSubtle:rgba(46,124,246,.16);
+    --success:#34D17F; --warning:#FFC24B; --danger:#FF6B7A;
+    --successBg:rgba(52,209,127,.14); --warningBg:rgba(255,194,75,.14);
+    --grad:linear-gradient(135deg,#5BAEFF 0%,#2E7CF6 55%,#1B5BE0 100%);
+    --sprint:#2E7CF6; --endur:#34D17F; --muscu:#FFC24B; --saut:#FF6B7A; --haie:#A78BFA;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#06080D;color:var(--text);font-family:'Poppins',sans-serif;-webkit-font-smoothing:antialiased;padding:48px 24px 96px}
+  .head{max-width:1180px;margin:0 auto 36px}
+  .head h1{font-size:28px;font-weight:700;letter-spacing:-.5px}
+  .head p{color:var(--text2);margin-top:10px;max-width:760px;line-height:1.6;font-size:14.5px}
+  .grid{max-width:1180px;margin:0 auto;display:flex;gap:40px;flex-wrap:wrap;align-items:flex-start;justify-content:center}
+  .col{display:flex;flex-direction:column;align-items:center;gap:14px}
+  .col .ttl{font-size:13px;letter-spacing:.8px;text-transform:uppercase;color:var(--accentText);font-weight:600}
+  .col .cap{font-size:12.5px;color:var(--text2);text-align:center;max-width:300px;line-height:1.5}
+  .col .cap b{color:var(--text)}
+
+  .phone{background:var(--bg);border:1px solid var(--borderStrong);border-radius:46px;padding:13px;box-shadow:0 30px 80px rgba(0,0,0,.55);position:relative}
+  .notch{position:absolute;top:13px;left:50%;transform:translateX(-50%);width:128px;height:26px;background:#000;border-radius:0 0 16px 16px;z-index:6}
+  .screen{width:344px;height:752px;background:var(--bg);border-radius:34px;overflow:hidden;display:flex;flex-direction:column;position:relative}
+  .status{height:38px;display:flex;align-items:flex-end;justify-content:space-between;padding:0 24px 5px;font-size:12px;color:var(--text2);font-weight:600;flex:none}
+
+  /* header */
+  .topbar{background:rgba(11,15,23,.9);backdrop-filter:blur(14px);border-bottom:1px solid var(--border);padding:8px 16px 12px;flex:none;z-index:8}
+  .topbar .row1{display:flex;align-items:center;gap:10px}
+  .topbar .back{color:var(--text2);font-size:20px;line-height:1}
+  .topbar .h{font-size:17px;font-weight:700;letter-spacing:-.3px}
+  .topbar .sub{font-size:11.5px;color:var(--text2);margin-top:1px}
+  .topbar .ic{width:34px;height:34px;border-radius:10px;background:var(--raised);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--text2);font-size:15px}
+  .topbar .ic.on{background:var(--accentSubtle);color:var(--accentText);border-color:transparent}
+
+  /* view-mode toggle */
+  .modeseg{display:flex;background:var(--sunken);border:1px solid var(--border);border-radius:11px;padding:3px;margin-top:11px}
+  .modeseg button{flex:1;border:0;background:transparent;color:var(--text2);font-family:inherit;font-weight:600;font-size:12.5px;padding:7px 0;border-radius:8px;cursor:pointer}
+  .modeseg button.on{background:var(--raised);color:var(--text)}
+
+  .body{flex:1;overflow-y:auto;padding:0 16px 28px}
+  .body::-webkit-scrollbar{width:0}
+
+  /* search */
+  .search{display:flex;align-items:center;gap:9px;background:var(--sunken);border:1px solid var(--border);border-radius:13px;padding:10px 13px;margin:13px 0 11px}
+  .search.active{border-color:var(--accent)}
+  .search .mag{color:var(--muted);font-size:15px}
+  .search .ph{color:var(--muted);font-size:13.5px;flex:1}
+  .search .typed{color:var(--text);font-size:13.5px;flex:1}
+  .search .clr{color:var(--text2);font-size:14px}
+  .caret{display:inline-block;width:1.5px;height:15px;background:var(--accentText);vertical-align:-3px;animation:bk 1s steps(1) infinite}
+  @keyframes bk{50%{opacity:0}}
+
+  /* filter chips */
+  .chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;margin-bottom:6px;scrollbar-width:none}
+  .chips::-webkit-scrollbar{display:none}
+  .chip{flex:none;font-size:12.5px;font-weight:600;padding:7px 12px;border-radius:999px;border:1px solid var(--border);background:var(--surface);color:var(--text2);display:flex;align-items:center;gap:5px}
+  .chip.on{background:var(--accent);border-color:transparent;color:#fff}
+  .chip.gold.on{background:var(--warning);color:#0B0F17}
+  .chip .x{opacity:.8}
+
+  /* month nav */
+  .calnav{display:flex;align-items:center;justify-content:space-between;padding:12px 2px 12px}
+  .calnav .mo{font-size:16px;font-weight:700}
+  .calnav .grp{display:flex;gap:7px;align-items:center}
+  .calnav .arw{width:32px;height:32px;border-radius:10px;background:var(--raised);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--text2);font-size:15px}
+  .calnav .today{font-size:12px;font-weight:600;color:var(--accentText);background:var(--accentSubtle);padding:7px 11px;border-radius:999px}
+
+  /* month grid */
+  .dow{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:6px}
+  .dow span{text-align:center;font-size:10.5px;color:var(--muted);font-weight:600;text-transform:uppercase}
+  .cal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+  .cell{aspect-ratio:1;border-radius:11px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:var(--text);position:relative;cursor:pointer}
+  .cell.out{color:var(--muted);opacity:.4}
+  .cell.has{background:var(--surface);border:1px solid var(--border)}
+  .cell.sel{background:var(--accent);color:#fff;border-color:transparent}
+  .cell.dim{opacity:.28}
+  .cell .pips{display:flex;gap:2.5px;position:absolute;bottom:6px}
+  .cell .pip{width:5px;height:5px;border-radius:50%}
+  .pip.sprint{background:var(--sprint)} .pip.endur{background:var(--endur)} .pip.muscu{background:var(--muscu)} .pip.saut{background:var(--saut)} .pip.haie{background:var(--haie)}
+  .cell.sel .pip{background:rgba(255,255,255,.92)}
+  .cell.today{box-shadow:inset 0 0 0 1.5px var(--accentText)}
+  .cell.fut{color:var(--accentText)}
+
+  /* week strip */
+  .weekstrip{display:flex;gap:6px;padding:4px 0 6px}
+  .wday{flex:1;background:var(--surface);border:1px solid var(--border);border-radius:13px;padding:9px 0 8px;text-align:center;cursor:pointer;position:relative}
+  .wday .wd{font-size:10px;color:var(--muted);text-transform:uppercase;font-weight:600}
+  .wday .wn{font-size:15px;font-weight:700;margin-top:3px}
+  .wday.sel{background:var(--accent);border-color:transparent}
+  .wday.sel .wd{color:rgba(255,255,255,.8)}
+  .wday .pips{display:flex;gap:2px;justify-content:center;margin-top:5px;height:5px}
+  .wday .pip{width:4.5px;height:4.5px;border-radius:50%}
+  .wday.sel .pip{background:rgba(255,255,255,.92)}
+  .wday.empty .pip{display:none}
+  .wsummary{font-size:11.5px;color:var(--text2);text-align:center;padding:8px 0 2px}
+  .wsummary b{color:var(--text)}
+
+  /* legend */
+  .leg{display:flex;gap:12px;flex-wrap:wrap;padding:13px 2px 6px;font-size:11px;color:var(--text2)}
+  .leg i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px}
+
+  .divline{height:1px;background:var(--border);margin:6px 0 4px}
+
+  /* day section */
+  .dayhdr{font-size:12.5px;font-weight:700;color:var(--text);padding:13px 2px 9px;display:flex;align-items:center;gap:8px;position:sticky;top:0;background:linear-gradient(var(--bg) 72%,transparent);z-index:2}
+  .dayhdr .ct{color:var(--muted);font-weight:500;font-size:11.5px}
+
+  /* compact session row */
+  .hrow{display:flex;align-items:center;gap:11px;padding:11px 12px;background:var(--surface);border:1px solid var(--border);border-radius:14px;margin-bottom:8px;position:relative;cursor:pointer}
+  .hrow:hover{border-color:var(--borderStrong)}
+  .hbar{width:3px;align-self:stretch;border-radius:3px;flex:none}
+  .hbar.sprint{background:var(--sprint)} .hbar.endur{background:var(--endur)} .hbar.muscu{background:var(--muscu)} .hbar.saut{background:var(--saut)} .hbar.haie{background:var(--haie)}
+  .htime{width:42px;flex:none;text-align:center}
+  .htime .t{font-size:13px;font-weight:700;line-height:1}
+  .htime .s{font-size:10px;color:var(--muted);margin-top:2px}
+  .hmain{flex:1;min-width:0}
+  .hmain .t{font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .hmain .d{font-size:11.5px;color:var(--text2);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .hmain .d .up{color:var(--success);font-weight:600}
+  .mini{font-size:10px;font-weight:700;padding:2px 7px;border-radius:999px;flex:none}
+  .mini.gold{background:var(--warningBg);color:var(--warning)}
+  .mini.perf{background:var(--successBg);color:var(--success)}
+  .mini.wait{background:var(--warningBg);color:var(--warning)}
+  .chev{color:var(--muted);font-size:16px;flex:none}
+
+  .empty{display:flex;flex-direction:column;align-items:center;text-align:center;padding:30px 24px;gap:11px}
+  .empty .ic{font-size:30px;opacity:.8}
+  .empty .t{font-size:13.5px;font-weight:600}
+  .empty .p{font-size:12px;color:var(--text2);line-height:1.5;max-width:210px}
+  .reslbl{font-size:11px;letter-spacing:.6px;text-transform:uppercase;color:var(--text2);font-weight:600;padding:8px 2px 6px}
+</style>
+</head>
+<body>
+
+<div class="head">
+  <h1>Calendrier du groupe — affiné</h1>
+  <p>Variante B retenue. Ajout de la <b style="color:var(--text)">recherche</b>, des <b style="color:var(--text)">filtres par discipline</b>, de la bascule <b style="color:var(--text)">Mois / Semaine</b>, et des états (filtre appliqué, recherche active, jour vide). Au tap d'un jour → ses séances s'affichent dessous.</p>
+</div>
+
+<div class="grid">
+
+  <!-- ============ MOIS (nominal) ============ -->
+  <div class="col">
+    <div class="ttl">Vue Mois</div>
+    <div class="phone"><div class="notch"></div><div class="screen">
+      <div class="status"><span>9:41</span><span>5G&nbsp;&nbsp;87%</span></div>
+      <div class="topbar">
+        <div class="row1"><span class="back">‹</span>
+          <div><div class="h">Calendrier</div><div class="sub">Sprint Élite · 38 séances</div></div>
+          <div class="ic on" style="margin-left:auto">🔍</div>
+        </div>
+        <div class="modeseg"><button class="on">Mois</button><button>Semaine</button></div>
+      </div>
+      <div class="body">
+        <div class="chips">
+          <div class="chip on">Tout</div>
+          <div class="chip gold">🏅 Records</div>
+          <div class="chip">⏱ Avec perf</div>
+          <div class="chip">⚡ Sprint</div>
+          <div class="chip">🏃 Endurance</div>
+        </div>
+
+        <div class="calnav">
+          <div class="mo">Juin 2026</div>
+          <div class="grp"><div class="today">Aujourd'hui</div><div class="arw">‹</div><div class="arw">›</div></div>
+        </div>
+        <div class="dow"><span>L</span><span>M</span><span>M</span><span>J</span><span>V</span><span>S</span><span>D</span></div>
+        <div class="cal">
+          <div class="cell out">26</div><div class="cell out">27</div><div class="cell out">28</div><div class="cell out">29</div><div class="cell out">30</div><div class="cell out">31</div><div class="cell">1</div>
+          <div class="cell">2</div><div class="cell has">3<div class="pips"><span class="pip sprint"></span></div></div><div class="cell">4</div><div class="cell has">5<div class="pips"><span class="pip muscu"></span></div></div><div class="cell">6</div><div class="cell has">7<div class="pips"><span class="pip saut"></span></div></div><div class="cell">8</div>
+          <div class="cell">9</div><div class="cell">10</div><div class="cell has">11<div class="pips"><span class="pip sprint"></span><span class="pip haie"></span></div></div><div class="cell">12</div><div class="cell">13</div><div class="cell has">14<div class="pips"><span class="pip muscu"></span></div></div><div class="cell">15</div>
+          <div class="cell">16</div><div class="cell sel has">17<div class="pips"><span class="pip"></span></div></div><div class="cell">18</div><div class="cell">19</div><div class="cell">20</div><div class="cell has today fut">21<div class="pips"><span class="pip sprint"></span></div></div><div class="cell">22</div>
+          <div class="cell fut">23</div><div class="cell fut">24</div><div class="cell has fut">25<div class="pips"><span class="pip sprint"></span></div></div><div class="cell fut">26</div><div class="cell fut">27</div><div class="cell fut">28</div><div class="cell fut">29</div>
+          <div class="cell fut">30</div>
+        </div>
+        <div class="leg">
+          <span><i style="background:var(--sprint)"></i>Sprint</span>
+          <span><i style="background:var(--endur)"></i>Endurance</span>
+          <span><i style="background:var(--muscu)"></i>Muscu</span>
+          <span><i style="background:var(--saut)"></i>Sauts</span>
+          <span><i style="background:var(--haie)"></i>Haies</span>
+        </div>
+        <div class="divline"></div>
+        <div class="dayhdr">Mercredi 17 juin<span class="ct">· 1 séance</span></div>
+        <div class="hrow"><div class="hbar endur"></div><div class="htime"><div class="t">18h</div><div class="s">90'</div></div>
+          <div class="hmain"><div class="t">VMA 30/30</div><div class="d">VMA 18,5 km/h <span class="up">+0,3</span> · feedback coach</div></div>
+          <span class="mini gold">🏅 PR</span><span class="chev">›</span></div>
+      </div>
+    </div></div>
+    <div class="cap"><b>Pastilles par discipline</b> · jours futurs en bleu · aujourd'hui (21) entouré · jour sélectionné (17) plein. Tap → séances dessous.</div>
+  </div>
+
+  <!-- ============ SEMAINE ============ -->
+  <div class="col">
+    <div class="ttl">Vue Semaine</div>
+    <div class="phone"><div class="notch"></div><div class="screen">
+      <div class="status"><span>9:41</span><span>5G&nbsp;&nbsp;87%</span></div>
+      <div class="topbar">
+        <div class="row1"><span class="back">‹</span>
+          <div><div class="h">Calendrier</div><div class="sub">Sprint Élite</div></div>
+          <div class="ic" style="margin-left:auto">🔍</div>
+        </div>
+        <div class="modeseg"><button>Mois</button><button class="on">Semaine</button></div>
+      </div>
+      <div class="body">
+        <div class="chips">
+          <div class="chip on">Tout</div>
+          <div class="chip gold">🏅 Records</div>
+          <div class="chip">⏱ Avec perf</div>
+          <div class="chip">⚡ Sprint</div>
+        </div>
+        <div class="calnav">
+          <div class="mo" style="font-size:14px">15 – 21 juin</div>
+          <div class="grp"><div class="today">Cette sem.</div><div class="arw">‹</div><div class="arw">›</div></div>
+        </div>
+        <div class="weekstrip">
+          <div class="wday empty"><div class="wd">L</div><div class="wn">15</div><div class="pips"><span class="pip"></span></div></div>
+          <div class="wday empty"><div class="wd">M</div><div class="wn">16</div><div class="pips"></div></div>
+          <div class="wday sel"><div class="wd">M</div><div class="wn">17</div><div class="pips"><span class="pip"></span></div></div>
+          <div class="wday empty"><div class="wd">J</div><div class="wn">18</div><div class="pips"></div></div>
+          <div class="wday empty"><div class="wd">V</div><div class="wn">19</div><div class="pips"></div></div>
+          <div class="wday"><div class="wd">S</div><div class="wn">20</div><div class="pips"><span class="pip" style="background:var(--muscu)"></span></div></div>
+          <div class="wday"><div class="wd" style="color:var(--accentText)">D</div><div class="wn" style="color:var(--accentText)">21</div><div class="pips"><span class="pip" style="background:var(--sprint)"></span></div></div>
+        </div>
+        <div class="wsummary"><b>3 séances</b> cette semaine · 1 perf saisie · 1 à venir</div>
+        <div class="divline"></div>
+
+        <!-- agenda grouped by day -->
+        <div class="dayhdr">Mer. 17 juin<span class="ct">· 1 séance</span></div>
+        <div class="hrow"><div class="hbar endur"></div><div class="htime"><div class="t">18h</div><div class="s">90'</div></div>
+          <div class="hmain"><div class="t">VMA 30/30</div><div class="d">VMA 18,5 km/h <span class="up">+0,3</span></div></div>
+          <span class="mini gold">🏅 PR</span><span class="chev">›</span></div>
+
+        <div class="dayhdr">Sam. 20 juin<span class="ct">· 1 séance</span></div>
+        <div class="hrow"><div class="hbar muscu"></div><div class="htime"><div class="t">10h</div><div class="s">60'</div></div>
+          <div class="hmain"><div class="t">Renforcement + gainage</div><div class="d">Présent · pas de perf</div></div>
+          <span class="chev">›</span></div>
+
+        <div class="dayhdr">Dim. 21 juin<span class="ct">· à venir</span></div>
+        <div class="hrow" style="border-color:rgba(46,124,246,.3)"><div class="hbar sprint"></div><div class="htime"><div class="t">18h</div><div class="s">90'</div></div>
+          <div class="hmain"><div class="t">Test 150 m chrono</div><div class="d">⚡ Sprint · 2×150m récup 8'</div></div>
+          <span class="mini wait">À répondre</span><span class="chev">›</span></div>
+      </div>
+    </div></div>
+    <div class="cap"><b>Bande de 7 jours</b> en haut (pips de discipline), agenda détaillé dessous regroupé par jour. Idéal pour préparer sa semaine.</div>
+  </div>
+
+  <!-- ============ FILTRE APPLIQUÉ ============ -->
+  <div class="col">
+    <div class="ttl">Filtre appliqué : ⚡ Sprint</div>
+    <div class="phone"><div class="notch"></div><div class="screen">
+      <div class="status"><span>9:41</span><span>5G&nbsp;&nbsp;87%</span></div>
+      <div class="topbar">
+        <div class="row1"><span class="back">‹</span>
+          <div><div class="h">Calendrier</div><div class="sub">Sprint Élite · filtre actif</div></div>
+          <div class="ic" style="margin-left:auto">🔍</div>
+        </div>
+        <div class="modeseg"><button class="on">Mois</button><button>Semaine</button></div>
+      </div>
+      <div class="body">
+        <div class="chips">
+          <div class="chip on">⚡ Sprint <span class="x">✕</span></div>
+          <div class="chip">Tout</div>
+          <div class="chip gold">🏅 Records</div>
+          <div class="chip">⏱ Avec perf</div>
+        </div>
+        <div class="calnav">
+          <div class="mo">Juin 2026</div>
+          <div class="grp"><div class="today">Aujourd'hui</div><div class="arw">‹</div><div class="arw">›</div></div>
+        </div>
+        <div class="dow"><span>L</span><span>M</span><span>M</span><span>J</span><span>V</span><span>S</span><span>D</span></div>
+        <div class="cal">
+          <div class="cell out">26</div><div class="cell out">27</div><div class="cell out">28</div><div class="cell out">29</div><div class="cell out">30</div><div class="cell out">31</div><div class="cell">1</div>
+          <div class="cell">2</div><div class="cell has">3<div class="pips"><span class="pip sprint"></span></div></div><div class="cell">4</div><div class="cell dim">5</div><div class="cell">6</div><div class="cell dim">7</div><div class="cell">8</div>
+          <div class="cell">9</div><div class="cell">10</div><div class="cell has">11<div class="pips"><span class="pip sprint"></span></div></div><div class="cell">12</div><div class="cell">13</div><div class="cell dim">14</div><div class="cell">15</div>
+          <div class="cell">16</div><div class="cell dim">17</div><div class="cell">18</div><div class="cell">19</div><div class="cell">20</div><div class="cell sel has today fut">21<div class="pips"><span class="pip"></span></div></div><div class="cell">22</div>
+          <div class="cell fut">23</div><div class="cell fut">24</div><div class="cell has fut">25<div class="pips"><span class="pip sprint"></span></div></div><div class="cell fut">26</div><div class="cell fut">27</div><div class="cell fut">28</div><div class="cell fut">29</div>
+          <div class="cell fut">30</div>
+        </div>
+        <div class="wsummary" style="padding-top:11px"><b>4 séances de sprint</b> en juin · les autres disciplines sont estompées</div>
+        <div class="divline"></div>
+        <div class="dayhdr">Dimanche 21 juin<span class="ct">· à venir</span></div>
+        <div class="hrow" style="border-color:rgba(46,124,246,.3)"><div class="hbar sprint"></div><div class="htime"><div class="t">18h</div><div class="s">90'</div></div>
+          <div class="hmain"><div class="t">Test 150 m chrono</div><div class="d">2×150m récup 8' · perf requise</div></div>
+          <span class="mini wait">À répondre</span><span class="chev">›</span></div>
+      </div>
+    </div></div>
+    <div class="cap">Le filtre <b>estompe les jours hors discipline</b> (pas de disparition brutale) et le compteur s'adapte. Chip actif avec ✕ pour retirer.</div>
+  </div>
+
+  <!-- ============ RECHERCHE ACTIVE ============ -->
+  <div class="col">
+    <div class="ttl">Recherche active</div>
+    <div class="phone"><div class="notch"></div><div class="screen">
+      <div class="status"><span>9:41</span><span>5G&nbsp;&nbsp;87%</span></div>
+      <div class="topbar">
+        <div class="row1"><span class="back">‹</span>
+          <div><div class="h">Calendrier</div><div class="sub">Sprint Élite</div></div>
+          <div class="ic on" style="margin-left:auto">🔍</div>
+        </div>
+        <div class="modeseg"><button class="on">Mois</button><button>Semaine</button></div>
+      </div>
+      <div class="body">
+        <!-- when searching, the grid collapses to a result list -->
+        <div class="search active">
+          <span class="mag">🔍</span><span class="typed">150 m<span class="caret"></span></span><span class="clr">✕</span>
+        </div>
+        <div class="reslbl">3 résultats</div>
+
+        <div class="hrow"><div class="hbar sprint"></div><div class="htime"><div class="t">21</div><div class="s">juin</div></div>
+          <div class="hmain"><div class="t">Test 150 m chrono</div><div class="d">À venir · dim. 18h · perf requise</div></div>
+          <span class="mini wait">À répondre</span><span class="chev">›</span></div>
+
+        <div class="hrow"><div class="hbar sprint"></div><div class="htime"><div class="t">27</div><div class="s">mai</div></div>
+          <div class="hmain"><div class="t">Test 150 m</div><div class="d">17,9 s · perf saisie</div></div>
+          <span class="mini perf">⏱</span><span class="chev">›</span></div>
+
+        <div class="hrow"><div class="hbar sprint"></div><div class="htime"><div class="t">2</div><div class="s">mai</div></div>
+          <div class="hmain"><div class="t">150 m lancé</div><div class="d">16,4 s <span class="up">record perso</span></div></div>
+          <span class="mini gold">🏅 PR</span><span class="chev">›</span></div>
+
+        <div class="empty" style="margin-top:20px">
+          <div class="ic">💡</div>
+          <div class="p" style="max-width:230px">La recherche bascule du calendrier vers une <b style="color:var(--text)">liste de résultats</b> triée par date. Efface (✕) pour revenir au calendrier.</div>
+        </div>
+      </div>
+    </div></div>
+    <div class="cap">Pendant la frappe, le calendrier laisse place à une <b>liste de résultats</b> (titre, discipline). Plus rapide que chercher visuellement dans la grille.</div>
+  </div>
+
+</div>
+
+<div class="head" style="margin-top:50px">
+  <p style="font-size:13.5px"><b style="color:var(--text)">Comportements clés :</b> la recherche (🔍) <b>remplace</b> la grille par une liste de résultats ; les filtres disciplines <b>estompent</b> plutôt que masquer ; <b>Mois ↔ Semaine</b> partagent les mêmes chips/recherche et la même ligne de séance compacte (composant réutilisé). Un tap sur un jour, en Mois comme en Semaine, déroule ses séances en dessous. <b style="color:var(--text)">À cadrer côté API :</b> récupération des séances d'un groupe par plage de dates (mois/semaine) + filtre discipline/perf.</p>
+</div>
+
+</body>
+</html>

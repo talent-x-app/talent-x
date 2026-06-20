@@ -1,0 +1,355 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Talent-X — Fil du groupe (Athlète) · V1</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --bg:#0B0F17; --surface:#11151F; --raised:#161B27; --sunken:#0E121B;
+    --border:rgba(255,255,255,.08); --borderStrong:rgba(255,255,255,.16);
+    --text:#E7ECF3; --text2:#8A94A6; --muted:#5C6678; --onAccent:#fff;
+    --accent:#2E7CF6; --accentHover:#5BAEFF; --accentText:#5BAEFF; --accentSubtle:rgba(46,124,246,.16);
+    --success:#34D17F; --warning:#FFC24B; --danger:#FF6B7A;
+    --successBg:rgba(52,209,127,.14); --warningBg:rgba(255,194,75,.14); --dangerBg:rgba(255,107,122,.14);
+    --grad:linear-gradient(135deg,#5BAEFF 0%,#2E7CF6 55%,#1B5BE0 100%);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#06080D;color:var(--text);font-family:'Poppins',sans-serif;-webkit-font-smoothing:antialiased;padding:48px 24px 96px}
+  .head{max-width:1080px;margin:0 auto 38px}
+  .head h1{font-size:28px;font-weight:700;letter-spacing:-.5px}
+  .head p{color:var(--text2);margin-top:10px;max-width:720px;line-height:1.6;font-size:14.5px}
+  .head .chips{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+  .head .chips span{font-size:12px;color:var(--text2);background:var(--surface);border:1px solid var(--border);padding:5px 11px;border-radius:999px}
+  .head .chips b{color:var(--text)}
+  .grid{max-width:1080px;margin:0 auto;display:flex;gap:44px;flex-wrap:wrap;align-items:flex-start;justify-content:center}
+  .col{display:flex;flex-direction:column;align-items:center;gap:14px}
+  .col .cap{font-size:12.5px;color:var(--text2);text-align:center;max-width:300px;line-height:1.5}
+  .col .cap b{color:var(--accentText)}
+
+  /* phone */
+  .phone{background:var(--bg);border:1px solid var(--borderStrong);border-radius:46px;padding:13px;box-shadow:0 30px 80px rgba(0,0,0,.55);position:relative}
+  .notch{position:absolute;top:13px;left:50%;transform:translateX(-50%);width:128px;height:26px;background:#000;border-radius:0 0 16px 16px;z-index:6}
+  .screen{width:344px;height:746px;background:var(--bg);border-radius:34px;overflow:hidden;display:flex;flex-direction:column;position:relative}
+  .status{height:38px;display:flex;align-items:flex-end;justify-content:space-between;padding:0 24px 5px;font-size:12px;color:var(--text2);font-weight:600;flex:none}
+
+  /* sticky compact header */
+  .topbar{position:sticky;top:0;z-index:5;background:rgba(11,15,23,.86);backdrop-filter:blur(14px);border-bottom:1px solid var(--border);padding:8px 16px 10px;flex:none}
+  .topbar .row1{display:flex;align-items:center;gap:11px}
+  .topbar .back{color:var(--text2);font-size:20px;line-height:1;width:24px}
+  .gav{width:38px;height:38px;border-radius:12px;background:var(--grad);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;color:#fff;flex:none}
+  .topbar .nm{font-size:16px;font-weight:700;letter-spacing:-.3px;line-height:1.1}
+  .topbar .mt{font-size:11.5px;color:var(--text2);margin-top:1px}
+  .topbar .bell{margin-left:auto;width:34px;height:34px;border-radius:10px;background:var(--raised);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;position:relative}
+  .topbar .bell .dot{position:absolute;top:7px;right:8px;width:7px;height:7px;border-radius:50%;background:var(--danger);border:1.5px solid var(--raised)}
+  /* tabs */
+  .seg{display:flex;background:var(--sunken);border:1px solid var(--border);border-radius:12px;padding:4px;margin-top:11px}
+  .seg button{flex:1;border:0;background:transparent;color:var(--text2);font-family:inherit;font-weight:600;font-size:13px;padding:8px 0;border-radius:9px;cursor:pointer;position:relative}
+  .seg button.on{background:var(--raised);color:var(--text)}
+  .seg button .pip{position:absolute;top:6px;right:14px;width:6px;height:6px;border-radius:50%;background:var(--accent)}
+
+  .body{flex:1;overflow-y:auto;padding:14px 16px 120px}
+  .body::-webkit-scrollbar{width:0}
+
+  /* eyebrow row */
+  .eyebrow{display:flex;align-items:center;gap:7px;font-size:11px;font-weight:700;letter-spacing:.7px;text-transform:uppercase;color:var(--accentText);margin-bottom:9px}
+  .eyebrow .live{width:7px;height:7px;border-radius:50%;background:var(--accentText);box-shadow:0 0 0 0 rgba(91,174,255,.6);animation:pulse 2s infinite}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(91,174,255,.5)}70%{box-shadow:0 0 0 7px rgba(91,174,255,0)}100%{box-shadow:0 0 0 0 rgba(91,174,255,0)}}
+
+  /* HERO next-up card */
+  .hero{position:relative;background:
+      radial-gradient(120% 90% at 100% 0%, rgba(46,124,246,.16), transparent 60%),
+      var(--surface);
+    border:1px solid rgba(46,124,246,.35);border-radius:22px;padding:18px;margin-bottom:24px;
+    box-shadow:0 14px 40px rgba(46,124,246,.12)}
+  .hero .when{display:flex;align-items:center;gap:12px;margin-bottom:13px}
+  .daypill{background:var(--accentSubtle);color:var(--accentText);border-radius:13px;padding:9px 12px;text-align:center;line-height:1.05;flex:none}
+  .daypill .d{font-size:21px;font-weight:700}
+  .daypill .m{font-size:10px;text-transform:uppercase;letter-spacing:.6px;margin-top:1px}
+  .when .info .t{font-size:12px;color:var(--text2);font-weight:500}
+  .when .info .h{font-size:15px;font-weight:600;margin-top:2px}
+  .countdown{margin-left:auto;background:var(--raised);border:1px solid var(--border);border-radius:999px;padding:5px 11px;font-size:11.5px;font-weight:600;color:var(--text)}
+  .hero h3{font-size:19px;font-weight:700;letter-spacing:-.3px;margin-bottom:8px}
+  .tags{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+  .tag{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;padding:5px 10px;border-radius:999px;border:1px solid var(--border);color:var(--text2)}
+  .tag.disc{background:var(--accentSubtle);color:var(--accentText);border-color:transparent}
+  .tag.perf{background:var(--warningBg);color:var(--warning);border-color:transparent}
+  .tag.done{background:var(--successBg);color:var(--success);border-color:transparent}
+  .summary{font-size:13px;color:var(--text2);line-height:1.55}
+  .summary b{color:var(--text);font-weight:600}
+  .meta-line{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);margin-top:9px}
+
+  .hr{height:1px;background:var(--border);margin:15px -18px}
+  .hr.tight{margin:14px 0}
+
+  /* présence */
+  .qlabel{font-size:11px;color:var(--text2);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:9px;display:flex;align-items:center;gap:7px}
+  .att{display:flex;gap:8px}
+  .att button{flex:1;border:1px solid var(--border);background:var(--raised);color:var(--text);font-family:inherit;font-weight:600;font-size:13px;padding:12px 0;border-radius:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;transition:.12s}
+  .att button.yes.on{background:var(--successBg);border-color:transparent;color:var(--success)}
+  .att button.no.on{background:var(--dangerBg);border-color:transparent;color:var(--danger)}
+  .att button.maybe.on{background:var(--warningBg);border-color:transparent;color:var(--warning)}
+  .deadline{font-size:11.5px;color:var(--warning);margin-top:10px;display:flex;align-items:center;gap:6px}
+
+  /* perf row in hero */
+  .perfcta{display:flex;align-items:center;gap:11px;background:var(--warningBg);border:1px solid rgba(255,194,75,.25);border-radius:14px;padding:11px 13px;margin-top:13px}
+  .perfcta .ic{font-size:17px}
+  .perfcta .tx{flex:1;font-size:12.5px;color:var(--text)}
+  .perfcta .tx b{font-weight:600}
+  .perfcta .go{font-size:12.5px;font-weight:700;color:var(--warning)}
+
+  /* section header (sticky) */
+  .sec{position:sticky;top:0;background:linear-gradient(var(--bg) 70%,transparent);padding:8px 2px 8px;font-size:11px;letter-spacing:.8px;text-transform:uppercase;color:var(--text2);font-weight:600;display:flex;align-items:center;gap:8px;z-index:2}
+  .sec .ct{color:var(--muted)}
+  .sec .ln{flex:1;height:1px;background:var(--border)}
+
+  /* standard session card */
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:15px;margin-bottom:11px;position:relative;cursor:pointer;transition:border-color .15s}
+  .card:hover{border-color:var(--borderStrong)}
+  .card .when{margin-bottom:11px}
+  .card .daypill{padding:7px 10px;border-radius:11px}
+  .card .daypill .d{font-size:17px}
+  .card.past .daypill{background:var(--sunken)} .card.past .daypill .d{color:var(--text2)} .card.past .daypill .m{color:var(--muted)}
+  .statusdot{margin-left:auto;font-size:11px;font-weight:600;padding:5px 10px;border-radius:999px}
+  .statusdot.ok{background:var(--successBg);color:var(--success)}
+  .statusdot.wait{background:var(--raised);color:var(--text2);border:1px solid var(--border)}
+  .chev{position:absolute;right:14px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:18px}
+
+  /* attendee avatars */
+  .avrow{display:flex;align-items:center;gap:9px;margin-top:11px}
+  .avstack{display:flex}
+  .avstack .av{width:24px;height:24px;border-radius:50%;border:2px solid var(--surface);margin-left:-7px;display:flex;align-items:center;justify-content:center;font-size:9.5px;font-weight:700;color:#fff}
+  .avstack .av:first-child{margin-left:0}
+  .avrow .tx{font-size:11.5px;color:var(--text2)}
+  .avrow .tx b{color:var(--text)}
+
+  /* feedback pill */
+  .fb{display:flex;align-items:center;gap:9px;background:var(--sunken);border:1px solid var(--border);border-radius:12px;padding:10px 12px;margin-top:11px}
+  .fb .qc{width:26px;height:26px;border-radius:8px;background:var(--accentSubtle);color:var(--accentText);display:flex;align-items:center;justify-content:center;font-size:13px;flex:none}
+  .fb .tx{font-size:12px;color:var(--text2);line-height:1.4}
+  .fb .tx b{color:var(--text);font-weight:600}
+  .fb .go{margin-left:auto;color:var(--muted);font-size:18px}
+  .perf-result{font-size:12.5px;color:var(--text2);margin-top:9px}
+  .perf-result b{color:var(--text)} .perf-result .up{color:var(--success);font-weight:600}
+  .prbadge{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;color:var(--warning);background:var(--warningBg);padding:3px 8px;border-radius:999px;margin-left:6px}
+
+  /* tab bar */
+  .tabbar{position:absolute;bottom:0;left:0;right:0;height:72px;background:rgba(11,15,23,.92);backdrop-filter:blur(12px);border-top:1px solid var(--border);display:flex;align-items:flex-start;padding-top:11px;z-index:4}
+  .tabbar .tab{flex:1;text-align:center;color:var(--muted);font-size:10px;font-weight:500}
+  .tabbar .tab.on{color:var(--accentText)}
+  .tabbar .dot{width:21px;height:21px;margin:0 auto 4px;border-radius:7px;background:currentColor;opacity:.85}
+
+  /* skeleton + empty mini frames */
+  .mini .screen{height:520px}
+  .sk{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:16px;margin-bottom:12px}
+  .skl{height:12px;border-radius:6px;background:linear-gradient(90deg,var(--raised) 25%,#1d2433 37%,var(--raised) 63%);background-size:400% 100%;animation:sh 1.4s ease infinite}
+  @keyframes sh{0%{background-position:100% 0}100%{background-position:-100% 0}}
+  .skpill{width:46px;height:46px;border-radius:12px;background:var(--raised)}
+  .empty{display:flex;flex-direction:column;align-items:center;text-align:center;padding:48px 24px;gap:14px}
+  .empty .ill{width:84px;height:84px;border-radius:24px;background:radial-gradient(120% 120% at 30% 20%,rgba(46,124,246,.22),transparent 60%),var(--surface);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:34px}
+  .empty h4{font-size:16px;font-weight:700}
+  .empty p{font-size:13px;color:var(--text2);line-height:1.55;max-width:230px}
+</style>
+</head>
+<body>
+
+<div class="head">
+  <h1>Fil du groupe — Athlète · <span style="color:var(--accentText)">V1</span></h1>
+  <p>Écran priorisé : la prochaine séance qui demande une action est mise en avant (carte « héros »), puis le fil groupé par période. Présence en 1 geste, perf seulement quand requise, feedback du coach sur les séances passées.</p>
+  <div class="chips">
+    <span>✅ Header compact collant</span>
+    <span>✅ Carte <b>Next-up</b></span>
+    <span>✅ Fil groupé (sticky)</span>
+    <span>✅ Présence segmentée</span>
+    <span>✅ Badge + CTA perf</span>
+    <span>✅ Feedback coach</span>
+    <span>✅ Skeleton & vide</span>
+  </div>
+</div>
+
+<div class="grid">
+
+  <!-- ============ ÉCRAN PRINCIPAL ============ -->
+  <div class="col">
+    <div class="phone"><div class="notch"></div><div class="screen">
+      <div class="status"><span>9:41</span><span>5G&nbsp;&nbsp;87%</span></div>
+
+      <!-- sticky header -->
+      <div class="topbar">
+        <div class="row1">
+          <span class="back">‹</span>
+          <div class="gav">SE</div>
+          <div>
+            <div class="nm">Sprint Élite</div>
+            <div class="mt">Coach M. Diallo · 12 athlètes</div>
+          </div>
+          <div class="bell">🔔<span class="dot"></span></div>
+        </div>
+        <div class="seg">
+          <button class="on">Séances<span class="pip"></span></button>
+          <button>Coéquipiers</button>
+          <button>Infos</button>
+        </div>
+      </div>
+
+      <div class="body">
+        <div class="eyebrow"><span class="live"></span>À faire — ta prochaine séance</div>
+
+        <!-- HERO -->
+        <div class="hero">
+          <div class="when">
+            <div class="daypill"><div class="d">21</div><div class="m">juin</div></div>
+            <div class="info"><div class="t">Demain · Mardi</div><div class="h">18h00 · Stade Boutonnet</div></div>
+            <div class="countdown">dans 18 h</div>
+          </div>
+          <h3>Test 150 m chrono</h3>
+          <div class="tags">
+            <span class="tag disc">⚡ Sprint</span>
+            <span class="tag perf">⏱ Perf requise</span>
+          </div>
+          <div class="summary"><b>2 × 150 m</b> chronométrés, récup complète 8'. Objectif : valider la vitesse max avant la compèt de samedi.</div>
+
+          <div class="hr"></div>
+
+          <div class="qlabel">Seras-tu présent ?</div>
+          <div class="att">
+            <button class="yes">✓ Présent</button>
+            <button class="no">✕ Absent</button>
+            <button class="maybe">? Peut-être</button>
+          </div>
+          <div class="deadline">⚠ Réponds avant ce soir 20h pour aider ton coach à préparer</div>
+        </div>
+
+        <!-- À VENIR -->
+        <div class="sec">À venir <span class="ct">· 2</span><span class="ln"></span></div>
+
+        <div class="card">
+          <div class="when">
+            <div class="daypill"><div class="d">23</div><div class="m">juin</div></div>
+            <div class="info"><div class="t">Jeudi · 18h00</div><div class="h">Footing + gammes</div></div>
+            <span class="statusdot ok">✓ Présent</span>
+          </div>
+          <div class="tags"><span class="tag disc">🏃 Endurance</span></div>
+          <div class="summary"><b>40'</b> en aisance + éducatifs technique. Pas de perf à saisir.</div>
+          <div class="avrow">
+            <div class="avstack">
+              <div class="av" style="background:#2E7CF6">AM</div>
+              <div class="av" style="background:#34D17F">KT</div>
+              <div class="av" style="background:var(--raised);color:var(--text2)">+5</div>
+            </div>
+            <div class="tx"><b>7</b> présents</div>
+          </div>
+          <span class="chev">›</span>
+        </div>
+
+        <div class="card">
+          <div class="when">
+            <div class="daypill"><div class="d">25</div><div class="m">juin</div></div>
+            <div class="info"><div class="t">Samedi · 10h00</div><div class="h">Départs &amp; accélérations</div></div>
+            <span class="statusdot wait">À répondre</span>
+          </div>
+          <div class="tags"><span class="tag disc">⚡ Sprint</span><span class="tag perf">⏱ Perf requise</span></div>
+          <div class="summary"><b>Travail de blocs</b> — 6 départs sur 30 m. Chrono à saisir après la séance.</div>
+          <span class="chev">›</span>
+        </div>
+
+        <!-- PASSÉES -->
+        <div class="sec">Passées<span class="ln"></span></div>
+
+        <div class="card past">
+          <div class="when">
+            <div class="daypill"><div class="d">17</div><div class="m">juin</div></div>
+            <div class="info"><div class="t">Mer. dernier</div><div class="h">VMA 30/30</div></div>
+            <span class="statusdot ok">✓ Perf saisie</span>
+          </div>
+          <div class="tags"><span class="tag disc">🏃 Endurance</span></div>
+          <div class="perf-result"><b>Ta perf :</b> 12 répétitions · VMA 18,5 km/h <span class="up">+0,3 vs précédent</span><span class="prbadge">🏅 Record perso</span></div>
+          <div class="fb">
+            <div class="qc">“</div>
+            <div class="tx"><b>Coach Diallo —</b> Très bonne régularité sur les 8 premières, garde la même foulée…</div>
+            <span class="go">›</span>
+          </div>
+        </div>
+
+        <div class="card past">
+          <div class="when">
+            <div class="daypill"><div class="d">14</div><div class="m">juin</div></div>
+            <div class="info"><div class="t">Sam. dernier</div><div class="h">Renforcement + gainage</div></div>
+            <span class="statusdot ok">✓ Présent</span>
+          </div>
+          <div class="tags"><span class="tag disc">💪 Muscu</span></div>
+          <span class="chev">›</span>
+        </div>
+      </div>
+
+      <div class="tabbar">
+        <div class="tab"><div class="dot"></div>Accueil</div>
+        <div class="tab"><div class="dot"></div>Séances</div>
+        <div class="tab on"><div class="dot"></div>Groupes</div>
+        <div class="tab"><div class="dot"></div>Progrès</div>
+        <div class="tab"><div class="dot"></div>Profil</div>
+      </div>
+    </div></div>
+    <div class="cap">Écran principal — état nominal. La <b>carte héros</b> capte l'œil (lueur d'accent + « à faire »), le reste descend en priorité.</div>
+  </div>
+
+  <!-- ============ ÉTATS FINITION ============ -->
+  <div class="col">
+    <!-- skeleton -->
+    <div class="phone mini"><div class="notch"></div><div class="screen">
+      <div class="status"><span>9:41</span><span>5G&nbsp;&nbsp;87%</span></div>
+      <div class="topbar">
+        <div class="row1">
+          <span class="back">‹</span><div class="gav">SE</div>
+          <div><div class="nm">Sprint Élite</div><div class="mt">Chargement…</div></div>
+        </div>
+        <div class="seg"><button class="on">Séances</button><button>Coéquipiers</button><button>Infos</button></div>
+      </div>
+      <div class="body" style="padding-top:18px">
+        <div class="sk">
+          <div style="display:flex;gap:12px;align-items:center">
+            <div class="skpill"></div>
+            <div style="flex:1"><div class="skl" style="width:55%"></div><div class="skl" style="width:80%;margin-top:8px"></div></div>
+          </div>
+          <div class="skl" style="width:100%;margin-top:14px"></div>
+          <div class="skl" style="width:70%;margin-top:8px"></div>
+          <div class="skl" style="height:42px;border-radius:12px;margin-top:16px"></div>
+        </div>
+        <div class="sk">
+          <div style="display:flex;gap:12px;align-items:center">
+            <div class="skpill"></div>
+            <div style="flex:1"><div class="skl" style="width:45%"></div><div class="skl" style="width:65%;margin-top:8px"></div></div>
+          </div>
+          <div class="skl" style="width:85%;margin-top:14px"></div>
+        </div>
+      </div>
+    </div></div>
+    <div class="cap"><b>Chargement</b> — skeleton, jamais un spinner brut.</div>
+
+    <!-- empty -->
+    <div class="phone mini"><div class="notch"></div><div class="screen">
+      <div class="status"><span>9:41</span><span>5G&nbsp;&nbsp;87%</span></div>
+      <div class="topbar">
+        <div class="row1">
+          <span class="back">‹</span><div class="gav">SE</div>
+          <div><div class="nm">Sprint Élite</div><div class="mt">Coach M. Diallo · 12 athlètes</div></div>
+        </div>
+        <div class="seg"><button class="on">Séances</button><button>Coéquipiers</button><button>Infos</button></div>
+      </div>
+      <div class="body">
+        <div class="empty">
+          <div class="ill">🌱</div>
+          <h4>Aucune séance pour l'instant</h4>
+          <p>Ton coach n'a encore rien programmé dans ce groupe. Tu seras notifié dès qu'une séance arrive.</p>
+        </div>
+      </div>
+    </div></div>
+    <div class="cap"><b>État vide</b> — accueillant, pas un écran sec.</div>
+  </div>
+
+</div>
+
+</body>
+</html>
