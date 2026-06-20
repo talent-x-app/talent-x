@@ -45,7 +45,8 @@ test('athlète : groupe → Séances → ouvre une séance → retour → Calend
   await expect(page.getByTestId('athlete-group-tabs')).toBeVisible({ timeout: 15_000 });
 
   // --- Onglet Calendrier → sélection du jour de la séance ---
-  await page.getByRole('tab', { name: 'Calendrier' }).click();
+  // testID du hub (le nom « Calendrier » existe aussi sur la tab bar de bas d'écran).
+  await page.getByTestId('athlete-group-tabs-calendar').click();
   await expect(page.getByTestId('group-calendar-period')).toBeVisible({ timeout: 15_000 });
   await page.getByTestId(`group-calendar-cell-${DUE}`).click();
   await expect(page.getByTestId(`group-session-${assignment.id}`)).toBeVisible({ timeout: 15_000 });
