@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Talent-X — Séances passées : Historique & Calendrier</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --bg:#0B0F17; --surface:#11151F; --raised:#161B27; --sunken:#0E121B;
+    --border:rgba(255,255,255,.08); --borderStrong:rgba(255,255,255,.16);
+    --text:#E7ECF3; --text2:#8A94A6; --muted:#5C6678;
+    --accent:#2E7CF6; --accentHover:#5BAEFF; --accentText:#5BAEFF; --accentSubtle:rgba(46,124,246,.16);
+    --success:#34D17F; --warning:#FFC24B; --danger:#FF6B7A;
+    --successBg:rgba(52,209,127,.14); --warningBg:rgba(255,194,75,.14); --dangerBg:rgba(255,107,122,.14);
+    --grad:linear-gradient(135deg,#5BAEFF 0%,#2E7CF6 55%,#1B5BE0 100%);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#06080D;color:var(--text);font-family:'Poppins',sans-serif;-webkit-font-smoothing:antialiased;padding:48px 24px 96px}
+  .head{max-width:1180px;margin:0 auto 38px}
+  .head h1{font-size:28px;font-weight:700;letter-spacing:-.5px}
+  .head p{color:var(--text2);margin-top:10px;max-width:740px;line-height:1.6;font-size:14.5px}
+  .grid{max-width:1180px;margin:0 auto;display:flex;gap:42px;flex-wrap:wrap;align-items:flex-start;justify-content:center}
+  .col{display:flex;flex-direction:column;align-items:center;gap:14px}
+  .col .ttl{font-size:13px;letter-spacing:1px;text-transform:uppercase;color:var(--accentText);font-weight:600}
+  .col .cap{font-size:12.5px;color:var(--text2);text-align:center;max-width:300px;line-height:1.5}
+  .col .cap b{color:var(--text)}
+
+  .phone{background:var(--bg);border:1px solid var(--borderStrong);border-radius:46px;padding:13px;box-shadow:0 30px 80px rgba(0,0,0,.55);position:relative}
+  .notch{position:absolute;top:13px;left:50%;transform:translateX(-50%);width:128px;height:26px;background:#000;border-radius:0 0 16px 16px;z-index:6}
+  .screen{width:344px;height:746px;background:var(--bg);border-radius:34px;overflow:hidden;display:flex;flex-direction:column;position:relative}
+  .status{height:38px;display:flex;align-items:flex-end;justify-content:space-between;padding:0 24px 5px;font-size:12px;color:var(--text2);font-weight:600;flex:none}
+
+  .topbar{background:rgba(11,15,23,.86);backdrop-filter:blur(14px);border-bottom:1px solid var(--border);padding:8px 16px 12px;flex:none;z-index:5}
+  .topbar .row1{display:flex;align-items:center;gap:10px}
+  .topbar .back{color:var(--text2);font-size:20px;line-height:1}
+  .topbar .h{font-size:17px;font-weight:700;letter-spacing:-.3px}
+  .topbar .sub{font-size:11.5px;color:var(--text2);margin-top:1px}
+  .topbar .ic{margin-left:auto;width:34px;height:34px;border-radius:10px;background:var(--raised);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--text2)}
+
+  .body{flex:1;overflow-y:auto;padding:0 16px 28px}
+  .body::-webkit-scrollbar{width:0}
+
+  /* search */
+  .search{display:flex;align-items:center;gap:9px;background:var(--sunken);border:1px solid var(--border);border-radius:13px;padding:11px 13px;margin:14px 0 12px}
+  .search .mag{color:var(--muted);font-size:15px}
+  .search .ph{color:var(--muted);font-size:13.5px}
+
+  /* filter chips */
+  .chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;margin-bottom:6px;scrollbar-width:none}
+  .chips::-webkit-scrollbar{display:none}
+  .chip{flex:none;font-size:12.5px;font-weight:600;padding:7px 13px;border-radius:999px;border:1px solid var(--border);background:var(--surface);color:var(--text2);display:flex;align-items:center;gap:5px}
+  .chip.on{background:var(--accent);border-color:transparent;color:#fff}
+  .chip.gold.on{background:var(--warning);color:#0B0F17}
+
+  /* sticky month header */
+  .month{position:sticky;top:0;background:linear-gradient(var(--bg) 72%,transparent);padding:14px 2px 9px;display:flex;align-items:center;gap:9px;z-index:2}
+  .month .m{font-size:13px;font-weight:700}
+  .month .c{font-size:11.5px;color:var(--muted)}
+  .month .ln{flex:1;height:1px;background:var(--border)}
+
+  /* compact history row */
+  .hrow{display:flex;align-items:center;gap:12px;padding:11px 12px;background:var(--surface);border:1px solid var(--border);border-radius:14px;margin-bottom:8px;position:relative;cursor:pointer}
+  .hrow:hover{border-color:var(--borderStrong)}
+  .hdate{width:42px;text-align:center;flex:none}
+  .hdate .d{font-size:16px;font-weight:700;line-height:1}
+  .hdate .w{font-size:10px;color:var(--muted);text-transform:uppercase;margin-top:2px}
+  .hbar{width:3px;align-self:stretch;border-radius:3px;background:var(--accent);flex:none}
+  .hbar.endur{background:#34D17F} .hbar.sprint{background:#2E7CF6} .hbar.muscu{background:#FFC24B} .hbar.saut{background:#FF6B7A}
+  .hmain{flex:1;min-width:0}
+  .hmain .t{font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .hmain .d{font-size:11.5px;color:var(--text2);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .hmain .d .up{color:var(--success);font-weight:600}
+  .htag{flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:4px}
+  .mini{font-size:10px;font-weight:700;padding:2px 7px;border-radius:999px}
+  .mini.gold{background:var(--warningBg);color:var(--warning)}
+  .mini.perf{background:var(--successBg);color:var(--success)}
+  .chev{color:var(--muted);font-size:16px}
+
+  .loadmore{text-align:center;color:var(--text2);font-size:12.5px;padding:14px 0 4px}
+  .spin{display:inline-block;width:14px;height:14px;border:2px solid var(--border);border-top-color:var(--accentText);border-radius:50%;vertical-align:-3px;margin-right:7px;animation:sp 1s linear infinite}
+  @keyframes sp{to{transform:rotate(360deg)}}
+
+  /* ===== FEED snippet (passées avec voir tout) ===== */
+  .eyebrow{font-size:11px;font-weight:700;letter-spacing:.7px;text-transform:uppercase;color:var(--text2);margin:16px 0 10px;display:flex;align-items:center;gap:8px}
+  .eyebrow .ln{flex:1;height:1px;background:var(--border)}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:14px;margin-bottom:10px;position:relative;cursor:pointer}
+  .card .when{display:flex;align-items:center;gap:11px;margin-bottom:10px}
+  .daypill{background:var(--sunken);border-radius:11px;padding:7px 10px;text-align:center;line-height:1.05;flex:none}
+  .daypill .d{font-size:16px;font-weight:700;color:var(--text2)} .daypill .m{font-size:10px;color:var(--muted);text-transform:uppercase}
+  .when .info .t{font-size:11.5px;color:var(--text2)} .when .info .h{font-size:14.5px;font-weight:600;margin-top:2px}
+  .statusdot{margin-left:auto;font-size:11px;font-weight:600;padding:5px 10px;border-radius:999px;background:var(--successBg);color:var(--success)}
+  .perf-result{font-size:12.5px;color:var(--text2)} .perf-result b{color:var(--text)} .perf-result .up{color:var(--success);font-weight:600}
+  .prbadge{display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:700;color:var(--warning);background:var(--warningBg);padding:3px 8px;border-radius:999px;margin-left:6px}
+  .seeall{display:flex;align-items:center;justify-content:center;gap:8px;background:var(--raised);border:1px solid var(--border);border-radius:14px;padding:13px;font-size:13.5px;font-weight:600;color:var(--text);margin-top:4px;cursor:pointer}
+  .seeall .n{color:var(--muted);font-weight:500}
+  .ghost-old{opacity:.5;font-size:12px;color:var(--muted);text-align:center;padding:6px 0 0}
+
+  /* ===== CALENDAR ===== */
+  .calnav{display:flex;align-items:center;justify-content:space-between;padding:14px 4px 12px}
+  .calnav .mo{font-size:16px;font-weight:700}
+  .calnav .arw{width:32px;height:32px;border-radius:10px;background:var(--raised);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--text2);font-size:15px}
+  .dow{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:6px}
+  .dow span{text-align:center;font-size:10.5px;color:var(--muted);font-weight:600;text-transform:uppercase}
+  .cal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+  .cell{aspect-ratio:1;border-radius:11px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:var(--text);position:relative;cursor:pointer}
+  .cell.out{color:var(--muted);opacity:.45}
+  .cell.has{background:var(--surface);border:1px solid var(--border)}
+  .cell.sel{background:var(--accent);color:#fff}
+  .cell .pips{display:flex;gap:2.5px;position:absolute;bottom:6px}
+  .cell .pip{width:5px;height:5px;border-radius:50%}
+  .pip.sprint{background:#2E7CF6} .pip.endur{background:#34D17F} .pip.muscu{background:#FFC24B} .pip.saut{background:#FF6B7A}
+  .cell.sel .pip{background:rgba(255,255,255,.9)}
+  .cell.today{box-shadow:inset 0 0 0 1.5px var(--accentText)}
+
+  .leg{display:flex;gap:13px;flex-wrap:wrap;padding:14px 4px 8px;font-size:11px;color:var(--text2)}
+  .leg i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;vertical-align:0}
+  .dayhdr{font-size:12px;font-weight:700;color:var(--text);padding:10px 4px 10px;display:flex;align-items:center;gap:8px}
+  .dayhdr .ct{color:var(--muted);font-weight:500;font-size:11.5px}
+</style>
+</head>
+<body>
+
+<div class="head">
+  <h1>Séances passées — 2 variantes</h1>
+  <p>Le problème : un fil chronologique devient ingérable avec beaucoup de passé. La réponse : <b style="color:var(--text)">on sort le passé du fil</b> (juste un aperçu + « Voir tout ») et on lui dédie un écran pensé pour la recherche. Variante A = liste filtrable ; Variante B = calendrier.</p>
+</div>
+
+<div class="grid">
+
+  <!-- ============ FIL : aperçu passées ============ -->
+  <div class="col">
+    <div class="ttl">Fil — section « Passées »</div>
+    <div class="phone"><div class="notch"></div><div class="screen">
+      <div class="status"><span>9:41</span><span>5G&nbsp;&nbsp;87%</span></div>
+      <div class="topbar">
+        <div class="row1"><span class="back">‹</span>
+          <div><div class="h">Sprint Élite</div><div class="sub">Coach M. Diallo · 12 athlètes</div></div>
+        </div>
+      </div>
+      <div class="body">
+        <div class="eyebrow" style="margin-top:18px">À venir · 2<span class="ln"></span></div>
+        <div class="card" style="border-color:rgba(46,124,246,.3)">
+          <div class="when"><div class="daypill" style="background:var(--accentSubtle)"><div class="d" style="color:var(--accentText)">21</div><div class="m" style="color:var(--accentText)">juin</div></div>
+            <div class="info"><div class="t">Demain · Mardi 18h</div><div class="h">Test 150 m chrono</div></div></div>
+          <div class="perf-result" style="color:var(--text2)">⚡ Sprint · <b>2×150m</b> récup 8'</div>
+        </div>
+
+        <div class="eyebrow">Passées · récentes<span class="ln"></span></div>
+
+        <!-- only 2 recent shown, those with something pending -->
+        <div class="card">
+          <div class="when"><div class="daypill"><div class="d">17</div><div class="m">juin</div></div>
+            <div class="info"><div class="t">Mer. dernier</div><div class="h">VMA 30/30</div></div>
+            <span class="statusdot">✓ Perf saisie</span></div>
+          <div class="perf-result"><b>Ta perf :</b> VMA 18,5 km/h <span class="up">+0,3</span><span class="prbadge">🏅 PR</span> · <span style="color:var(--accentText)">Feedback coach (1) ›</span></div>
+        </div>
+        <div class="card">
+          <div class="when"><div class="daypill"><div class="d">14</div><div class="m">juin</div></div>
+            <div class="info"><div class="t">Sam. dernier</div><div class="h">Renforcement</div></div>
+            <span class="statusdot">✓ Présent</span></div>
+        </div>
+
+        <!-- gate to history -->
+        <div class="seeall">📚 Voir tout l'historique <span class="n">· 38 séances</span> ›</div>
+        <div class="ghost-old">Les séances sans action en attente sont rangées dans l'historique</div>
+      </div>
+    </div></div>
+    <div class="cap">Le fil ne montre que <b>2 passées récentes</b> (perf/feedback en attente) puis renvoie vers l'historique. Le présent reste prioritaire.</div>
+  </div>
+
+  <!-- ============ VARIANTE A : HISTORIQUE LISTE ============ -->
+  <div class="col">
+    <div class="ttl">Variante A — Historique (liste)</div>
+    <div class="phone"><div class="notch"></div><div class="screen">
+      <div class="status"><span>9:41</span><span>5G&nbsp;&nbsp;87%</span></div>
+      <div class="topbar">
+        <div class="row1"><span class="back">‹</span>
+          <div><div class="h">Historique</div><div class="sub">Sprint Élite · 38 séances</div></div>
+          <div class="ic">📅</div>
+        </div>
+      </div>
+      <div class="body">
+        <div class="search"><span class="mag">🔍</span><span class="ph">Rechercher une séance…</span></div>
+        <div class="chips">
+          <div class="chip on">Tout</div>
+          <div class="chip gold">🏅 Records</div>
+          <div class="chip">⏱ Avec perf</div>
+          <div class="chip">⚡ Sprint</div>
+          <div class="chip">🏃 Endurance</div>
+          <div class="chip">💪 Muscu</div>
+        </div>
+
+        <div class="month"><span class="m">Juin 2026</span><span class="c">· 6</span><span class="ln"></span></div>
+
+        <div class="hrow"><div class="hdate"><div class="d">17</div><div class="w">Mer</div></div><div class="hbar endur"></div>
+          <div class="hmain"><div class="t">VMA 30/30</div><div class="d">VMA 18,5 km/h <span class="up">+0,3</span> · feedback coach</div></div>
+          <div class="htag"><span class="mini gold">🏅 PR</span></div><span class="chev">›</span></div>
+
+        <div class="hrow"><div class="hdate"><div class="d">14</div><div class="w">Sam</div></div><div class="hbar muscu"></div>
+          <div class="hmain"><div class="t">Renforcement + gainage</div><div class="d">Présent · pas de perf</div></div>
+          <span class="chev">›</span></div>
+
+        <div class="hrow"><div class="hdate"><div class="d">11</div><div class="w">Mer</div></div><div class="hbar sprint"></div>
+          <div class="hmain"><div class="t">Départs &amp; accélérations</div><div class="d">6×30m · 4,12 s (meilleur)</div></div>
+          <div class="htag"><span class="mini perf">⏱</span></div><span class="chev">›</span></div>
+
+        <div class="hrow"><div class="hdate"><div class="d">7</div><div class="w">Sam</div></div><div class="hbar saut"></div>
+          <div class="hmain"><div class="t">Multibonds</div><div class="d">Présent · charge modérée</div></div>
+          <span class="chev">›</span></div>
+
+        <div class="month"><span class="m">Mai 2026</span><span class="c">· 9</span><span class="ln"></span></div>
+
+        <div class="hrow"><div class="hdate"><div class="d">30</div><div class="w">Ven</div></div><div class="hbar endur"></div>
+          <div class="hmain"><div class="t">Seuil 4×1000m</div><div class="d">3'42 moy · régularité +</div></div>
+          <div class="htag"><span class="mini perf">⏱</span></div><span class="chev">›</span></div>
+
+        <div class="hrow"><div class="hdate"><div class="d">27</div><div class="w">Mar</div></div><div class="hbar sprint"></div>
+          <div class="hmain"><div class="t">Test 150 m</div><div class="d">17,9 s</div></div>
+          <span class="chev">›</span></div>
+
+        <div class="loadmore"><span class="spin"></span>Chargement des séances plus anciennes…</div>
+      </div>
+    </div></div>
+    <div class="cap"><b>Recherche</b> + <b>chips de filtre</b> + <b>mois collants</b> + lignes compactes + scroll infini. Idéal pour « retrouver une perf précise ».</div>
+  </div>
+
+  <!-- ============ VARIANTE B : CALENDRIER ============ -->
+  <div class="col">
+    <div class="ttl">Variante B — Calendrier</div>
+    <div class="phone"><div class="notch"></div><div class="screen">
+      <div class="status"><span>9:41</span><span>5G&nbsp;&nbsp;87%</span></div>
+      <div class="topbar">
+        <div class="row1"><span class="back">‹</span>
+          <div><div class="h">Calendrier</div><div class="sub">Sprint Élite</div></div>
+          <div class="ic">☰</div>
+        </div>
+      </div>
+      <div class="body">
+        <div class="calnav"><div class="arw">‹</div><div class="mo">Juin 2026</div><div class="arw">›</div></div>
+        <div class="dow"><span>L</span><span>M</span><span>M</span><span>J</span><span>V</span><span>S</span><span>D</span></div>
+        <div class="cal">
+          <div class="cell out">26</div><div class="cell out">27</div><div class="cell out">28</div><div class="cell out">29</div><div class="cell out">30</div><div class="cell out">31</div>
+          <div class="cell">1</div>
+          <div class="cell">2</div><div class="cell has">3<div class="pips"><span class="pip sprint"></span></div></div><div class="cell">4</div><div class="cell">5</div><div class="cell">6</div>
+          <div class="cell has">7<div class="pips"><span class="pip saut"></span></div></div><div class="cell">8</div>
+          <div class="cell">9</div><div class="cell">10</div><div class="cell has">11<div class="pips"><span class="pip sprint"></span></div></div><div class="cell">12</div><div class="cell">13</div>
+          <div class="cell has">14<div class="pips"><span class="pip muscu"></span></div></div><div class="cell">15</div>
+          <div class="cell">16</div><div class="cell sel has">17<div class="pips"><span class="pip"></span></div></div><div class="cell">18</div><div class="cell">19</div><div class="cell">20</div>
+          <div class="cell has today">21<div class="pips"><span class="pip sprint"></span></div></div><div class="cell">22</div>
+          <div class="cell">23</div><div class="cell">24</div><div class="cell has">25<div class="pips"><span class="pip sprint"></span></div></div><div class="cell">26</div><div class="cell">27</div>
+          <div class="cell">28</div><div class="cell">29</div>
+          <div class="cell">30</div>
+        </div>
+
+        <div class="leg">
+          <span><i style="background:#2E7CF6"></i>Sprint</span>
+          <span><i style="background:#34D17F"></i>Endurance</span>
+          <span><i style="background:#FFC24B"></i>Muscu</span>
+          <span><i style="background:#FF6B7A"></i>Sauts</span>
+        </div>
+
+        <div class="dayhdr">Mercredi 17 juin<span class="ct">· 1 séance</span></div>
+        <div class="hrow"><div class="hdate"><div class="d">17</div><div class="w">Mer</div></div><div class="hbar endur"></div>
+          <div class="hmain"><div class="t">VMA 30/30</div><div class="d">VMA 18,5 km/h <span class="up">+0,3</span></div></div>
+          <div class="htag"><span class="mini gold">🏅 PR</span></div><span class="chev">›</span></div>
+      </div>
+    </div></div>
+    <div class="cap"><b>Pastilles colorées</b> par discipline sur chaque jour ; on tape une date → la/les séance(s) du jour s'affichent dessous. Idéal pour « qu'est-ce que j'ai fait telle semaine ».</div>
+  </div>
+
+</div>
+
+<div class="head" style="margin-top:54px">
+  <p style="font-size:13.5px"><b style="color:var(--text)">Reco :</b> partir sur la <b style="color:var(--accentText)">Variante A (liste filtrable)</b> en V1 — elle répond au vrai besoin (« retrouver une perf/une séance ») avec recherche + filtres + scroll infini, et coûte moins que le calendrier. La <b>Variante B</b> peut venir en V2 comme bascule d'affichage (icône 📅 en haut à droite, déjà présente dans la maquette A). Les deux partagent la même ligne compacte → composant réutilisable.</p>
+</div>
+
+</body>
+</html>
