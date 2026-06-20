@@ -768,4 +768,85 @@ describe('AssignmentsService', () => {
       );
     });
   });
+
+  describe('setAttendance (ADR-43 §1 — présence RSVP)', () => {
+    /** Pose findFirst (affectation + session) et un update « echo » des données. */
+    function withAssignment(prisma: PrismaMock, over: Record<string, unknown> = {}) {
+      const row = { ...assignmentRow(over), session: sessionRow({ coachId: 'c-1' }) };
+      prisma.sessionAssignment.findFirst.mockResolvedValue(row);
+      prisma.sessionAssignment.update = jest.fn(({ data }: { data: Record<string, unknown> }) =>
+        Promise.resolve({ ...row, ...data, session: row.session }),
+      );
+      return row;
+    }
+
+    it('athlète titulaire déclare « présent » (going), sans toucher au statut', async () => {
+      const prisma = prismaMock();
+      withAssignment(prisma, { status: 'assigned' });
+      const res = await service(prisma).setAttendance(ATHLETE, 'asg-1', { attendance: 'going' });
+      expect(prisma.sessionAssignment.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: { attendance: 'going', attendanceReason: null } }),
+      );
+      expect(res.attendance).toBe('going');
+      expect(res.status).toBe('assigned'); // axe orthogonal : statut inchangé
+    });
+
+    it('« absent » (not_going) exige un motif, conservé', async () => {
+      const prisma = prismaMock();
+      withAssignment(prisma);
+      const res = await service(prisma).setAttendance(ATHLETE, 'asg-1', {
+        attendance: 'not_going',
+        reason: 'injury',
+      });
+      expect(prisma.sessionAssignment.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: { attendance: 'not_going', attendanceReason: 'injury' } }),
+      );
+      expect(res.attendanceReason).toBe('injury');
+    });
+
+    it('« absent » sans motif → 422 ATTENDANCE_REASON_REQUIRED', async () => {
+      const prisma = prismaMock();
+      withAssignment(prisma);
+      await expect(
+        service(prisma).setAttendance(ATHLETE, 'asg-1', { attendance: 'not_going' }),
+      ).rejects.toBeInstanceOf(UnprocessableEntityException);
+      expect(prisma.sessionAssignment.update).not.toHaveBeenCalled();
+    });
+
+    it('« peut-être » (maybe) ignore tout motif fourni', async () => {
+      const prisma = prismaMock();
+      withAssignment(prisma);
+      await service(prisma).setAttendance(ATHLETE, 'asg-1', {
+        attendance: 'maybe',
+        reason: 'weather',
+      });
+      expect(prisma.sessionAssignment.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: { attendance: 'maybe', attendanceReason: null } }),
+      );
+    });
+
+    it('non-titulaire (autre athlète) → 403', async () => {
+      const prisma = prismaMock();
+      withAssignment(prisma, { athleteId: 'a-2' });
+      await expect(
+        service(prisma).setAttendance(ATHLETE, 'asg-1', { attendance: 'going' }),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    it('coach ne peut pas déclarer la présence → 403', async () => {
+      const prisma = prismaMock();
+      withAssignment(prisma);
+      await expect(
+        service(prisma).setAttendance(COACH, 'asg-1', { attendance: 'going' }),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    it('affectation introuvable → 404', async () => {
+      const prisma = prismaMock();
+      prisma.sessionAssignment.findFirst.mockResolvedValue(null);
+      await expect(
+        service(prisma).setAttendance(ATHLETE, 'asg-1', { attendance: 'going' }),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+  });
 });

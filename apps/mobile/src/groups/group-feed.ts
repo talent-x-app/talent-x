@@ -162,3 +162,15 @@ export function formatDayLabel(date: Date): string {
   });
   return label.charAt(0).toUpperCase() + label.slice(1);
 }
+
+/**
+ * Échéance de réponse de présence (ADR-43 §1) : `dueDate` − `hours`, **dérivée** (jamais stockée).
+ * `null` si pas d'échéance ou date invalide. Comparer à `now` côté UI pour n'afficher le rappel que
+ * tant qu'elle est à venir et la présence sans réponse.
+ */
+export function attendanceDeadline(dueDate: string | undefined, hours: number): Date | null {
+  if (!dueDate) return null;
+  const due = new Date(dueDate);
+  if (Number.isNaN(due.getTime())) return null;
+  return new Date(due.getTime() - hours * 3600_000);
+}

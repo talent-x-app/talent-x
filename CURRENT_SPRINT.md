@@ -12,6 +12,38 @@ de débloquer les écrans coach C-01/C-02/C-03.
 - _(éditeurs typés terminés — TLX-054→061 livrés ↓)_
 - _(C-01 complet — TLX-081→085 livrés ↓)_
 
+## Terminés — TLX-173 Présence (RSVP) — Phase B (ADR-43 §1), tranche verticale
+
+- **Présence déclarée bout-en-bout** (ADR-43 §1) : un athlète déclare **Présent / Absent / Peut-être**
+  sur sa séance, **axe orthogonal** au cycle d'exécution `status` (ADR-31) — n'écrit jamais le statut
+  ni l'assiduité. Migration + contrat + backend + client + UI optimiste.
+- **(Migration expand-only)** `20260620120000_assignment_attendance` : colonnes nullables `attendance`
+  (`going|not_going|maybe`) + `attendance_reason` (réutilise `SkipReason`), chacune avec un CHECK.
+  Aucune donnée touchée ; `attendance=NULL` = sans réponse (défaut). Schéma Prisma aligné.
+- **(Contrat additif)** `Assignment` gagne `attendance` + `attendanceReason` ; nouveaux schémas
+  `AttendanceStatus` + `AttendanceRequest` ; **verbe dédié `PUT /assignments/{id}/attendance`**
+  (`operationId setAttendance`, `@Roles('athlete')`). Choisi **contre** un champ ajouté à `PATCH`
+  (qui mêlerait intention et exécution). `@talent-x/api-client` régénéré (orval) + rebuild.
+- **(Backend)** `AssignmentsService.setAttendance` : RBAC **athlète titulaire** (403 sinon, coach
+  inclus), invariant **`reason` requis ssi `not_going`** (422 `ATTENDANCE_REASON_REQUIRED`, ignoré/
+  effacé pour going/maybe), 404 si introuvable. `toAssignmentDto` expose les deux champs. **N'écrit
+  jamais `status`** (orthogonalité préservée).
+- **(Frontend)** `PresenceControl` (3 états, sélecteur de motif inline pour « Absent », **optimiste**
+  sur le cache détail + **rollback + toast** à l'échec, succès toasté) câblé dans le détail de séance
+  (remplace l'emplacement réservé de la Phase A), affiché tant que la séance est exécutable
+  (`status ≠ completed`). **Échéance de réponse dérivée** (`attendanceDeadline` = `dueDate` − délai
+  `EXPO_PUBLIC_ATTENDANCE_DEADLINE_HOURS`, défaut 12 h), affichée tant que sans réponse.
+- **(Hors périmètre, conforme ADR-43)** saisie de perf (endpoint existant), filtres serveur et
+  historique paginé restent **Lot 2** ; présence **nominative** entre coéquipiers reste hors MVP
+  (compteur agrégé seulement, §5) — dépend de l'AIPD.
+- **Tests** : **API unit 591/591** (+7 : `setAttendance` going/not_going+motif/422 sans motif/maybe
+  ignore motif/403 non-titulaire/403 coach/404), **mobile 829/829** (+7 : `PresenceControl` optimiste+
+  succès / motif / rollback+danger / échéance affichée·masquée ; `attendanceDeadline` ×2 ; détail rend
+  la présence), typecheck (api + api-client + mobile) + ESLint + Prettier clean.
+- **Non rejoué en réel** (pas de Docker/Postgres ici) : la **migration** + le **round-trip
+  `PUT /attendance`** DB-backed → suivi **TLX-175** (étendu). `prisma generate` : types client OK,
+  seul le rename du moteur (.dll) est bloqué par un verrou Windows (sans effet sur compile/tests).
+
 ## Terminés — TLX-173 Hub de groupe athlète — Phase A (affichage), ADR-43 accepté
 
 - **ADR-43 accepté (2026-06-20)** : présence RSVP orthogonale à ADR-31, discipline & perf attendue

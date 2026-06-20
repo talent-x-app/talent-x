@@ -7,23 +7,13 @@
  * Conventions transverses : préfixe /api/v1 ; jeton d'accès JWT (RS256) via en-tête Authorization ; pagination par enveloppe { data, meta } ; idempotence des écritures sensibles via Idempotency-Key ; opérations longues asynchrones (202 + ressource de statut) ; rate limiting signalé par les en-têtes RateLimit-*. L'autorisation combine rôle, appartenance (lien coach↔athlète), propriété et consentement ; voir TX-SPEC-002 §6.
  * OpenAPI spec version: 1.0.0
  */
-import type { AssignmentStatus } from './assignmentStatus';
 import type { AttendanceStatus } from './attendanceStatus';
-import type { Session } from './session';
 import type { SkipReason } from './skipReason';
 
-export interface Assignment {
-  id: string;
-  sessionId: string;
-  athleteId: string;
-  status: AssignmentStatus;
-  dueDate?: string;
-  skipReason?: SkipReason;
-  /** Présence déclarée (RSVP, ADR-43 §1). Absent du payload = sans réponse. Axe orthogonal au cycle d'exécution 'status' (ADR-31) ; n'entre pas dans l'assiduité. */
-  attendance?: AttendanceStatus;
-  /** Motif d'absence quand attendance='not_going' (ADR-43 §1). */
-  attendanceReason?: SkipReason;
-  session?: Session;
-  createdAt?: string;
-  updatedAt?: string;
+/**
+ * Déclaration de présence (ADR-43 §1). 'reason' requis ssi attendance='not_going' (422 ATTENDANCE_REASON_REQUIRED) ; ignoré sinon.
+ */
+export interface AttendanceRequest {
+  attendance: AttendanceStatus;
+  reason?: SkipReason;
 }

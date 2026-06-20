@@ -19,6 +19,8 @@ export * from './assignRequest';
 export * from './athleteGroup';
 export * from './athleteGroupList';
 export * from './athleteStatus';
+export * from './attendanceRequest';
+export * from './attendanceStatus';
 export * from './authSession';
 export * from './authTokens';
 export * from './avatarConfirmRequest';

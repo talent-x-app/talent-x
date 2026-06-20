@@ -15,11 +15,13 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiHeader, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { CurrentUser, type AuthenticatedUser } from '../common/decorators/current-user.decorator';
+import { Roles } from '../common/decorators/roles.decorator';
 import { AssignmentsService } from './assignments.service';
 import { PerformancesService } from './performances.service';
 import { AssignmentQueryDto } from './dto/assignment-query.dto';
 import { AssignmentDto, AssignmentPageDto } from './dto/assignment.dto';
 import { AssignmentUpdateRequestDto } from './dto/assignment-update.dto';
+import { AttendanceRequestDto } from './dto/attendance.dto';
 import { PerformanceCreateDto, PerformanceDto } from './dto/performance.dto';
 
 /**
@@ -85,6 +87,21 @@ export class AssignmentsController {
     @Param('id', new ParseUUIDPipe()) id: string,
   ): Promise<void> {
     return this.assignments.removeAssignment(user, id);
+  }
+
+  @Put(':id/attendance')
+  @Roles('athlete')
+  @ApiOperation({
+    summary: 'Déclarer sa présence (RSVP)',
+    operationId: 'setAttendance',
+  })
+  @ApiResponse({ status: 200, description: 'Présence déclarée.', type: AssignmentDto })
+  setAttendance(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: AttendanceRequestDto,
+  ): Promise<AssignmentDto> {
+    return this.assignments.setAttendance(user, id, dto);
   }
 
   @Post(':id/performance')

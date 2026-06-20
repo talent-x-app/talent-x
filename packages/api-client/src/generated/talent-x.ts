@@ -14,6 +14,7 @@ import type {
   AssignmentPage,
   AssignmentUpdateRequest,
   AthleteGroupList,
+  AttendanceRequest,
   AuthSession,
   AuthTokens,
   AvatarConfirmRequest,
@@ -3672,6 +3673,76 @@ export const deleteAssignment = async (id: string, options?: RequestInit): Promi
     method: 'DELETE'
 
 
+  }
+);}
+
+
+
+export type setAttendanceResponse200 = {
+  data: Assignment
+  status: 200
+}
+
+export type setAttendanceResponse400 = {
+  data: BadRequestResponse
+  status: 400
+}
+
+export type setAttendanceResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type setAttendanceResponse403 = {
+  data: ForbiddenResponse
+  status: 403
+}
+
+export type setAttendanceResponse404 = {
+  data: NotFoundResponse
+  status: 404
+}
+
+export type setAttendanceResponse422 = {
+  data: ValidationFailedResponse
+  status: 422
+}
+
+export type setAttendanceResponse500 = {
+  data: ServerErrorResponse
+  status: 500
+}
+
+export type setAttendanceResponseSuccess = (setAttendanceResponse200) & {
+  headers: Headers;
+};
+export type setAttendanceResponseError = (setAttendanceResponse400 | setAttendanceResponse401 | setAttendanceResponse403 | setAttendanceResponse404 | setAttendanceResponse422 | setAttendanceResponse500) & {
+  headers: Headers;
+};
+
+export type setAttendanceResponse = (setAttendanceResponseSuccess | setAttendanceResponseError)
+
+export const getSetAttendanceUrl = (id: string,) => {
+
+
+
+
+  return `/assignments/${id}/attendance`
+}
+
+/**
+ * Présence déclarée par l'athlète titulaire avant la séance (ADR-43 §1). Axe orthogonal au cycle d'exécution (status, ADR-31) : n'écrit jamais 'status' ni l'assiduité. 'reason' requis ssi attendance='not_going' (422 sinon).
+ * @summary Déclarer sa présence (RSVP)
+ */
+export const setAttendance = async (id: string,
+    attendanceRequest: AttendanceRequest, options?: RequestInit): Promise<setAttendanceResponse> => {
+
+  return customFetch<setAttendanceResponse>(getSetAttendanceUrl(id),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(attendanceRequest)
   }
 );}
 

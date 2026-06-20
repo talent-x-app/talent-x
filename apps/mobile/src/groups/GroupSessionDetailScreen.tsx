@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
+import { Card } from '../components/ui';
 import {
   AssignmentStatusBadge,
   formatSessionDate,
@@ -15,6 +16,7 @@ import { assignmentQueryKey } from './groups-query';
 import { disciplineVisual } from './discipline-ui';
 import { DisciplineTag, PerfTag } from './group-session-ui';
 import { FeedError } from './group-states-ui';
+import { PresenceControl } from './presence-ui';
 
 /**
  * Détail **lecture seule** d'une séance depuis le hub de groupe (ADR-43, TLX-173 Phase A) :
@@ -109,6 +111,13 @@ export function GroupSessionDetailScreen({ assignmentId }: { assignmentId: strin
               <AssignmentStatusBadge status={assignment.status} />
             </View>
           </View>
+
+          {/* Présence (ADR-43 §1) — déclarable tant que la séance est exécutable. */}
+          {assignment.status !== 'completed' ? (
+            <Card>
+              <PresenceControl assignment={assignment} />
+            </Card>
+          ) : null}
 
           <SessionContent
             exercises={assignment.session?.exercises?.items ?? []}

@@ -1,6 +1,7 @@
 import {
   assignmentDate,
   assignmentDayKey,
+  attendanceDeadline,
   buildMonthGrid,
   buildWeek,
   dayKeyOf,
@@ -101,6 +102,18 @@ describe('grille calendrier', () => {
     expect(week).toHaveLength(7);
     expect(week[0].key).toBe('2026-06-15'); // lundi
     expect(week[6].key).toBe('2026-06-21'); // dimanche
+  });
+});
+
+describe('attendanceDeadline (ADR-43 §1)', () => {
+  it('dérive dueDate − heures', () => {
+    const d = attendanceDeadline('2026-06-21T18:00:00.000Z', 12);
+    expect(d?.toISOString()).toBe('2026-06-21T06:00:00.000Z');
+  });
+
+  it('null sans échéance ou date invalide', () => {
+    expect(attendanceDeadline(undefined, 12)).toBeNull();
+    expect(attendanceDeadline('pas-une-date', 12)).toBeNull();
   });
 });
 

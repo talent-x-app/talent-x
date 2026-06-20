@@ -1546,6 +1546,45 @@ paths:
           $ref: '#/components/responses/TooManyRequests'
         '500':
           $ref: '#/components/responses/ServerError'
+  /assignments/{id}/attendance:
+    put:
+      tags:
+      - Affectations & performances
+      summary: Déclarer sa présence (RSVP)
+      description: >-
+        Présence déclarée par l'athlète titulaire avant la séance (ADR-43 §1). Axe
+        orthogonal au cycle d'exécution (status, ADR-31) : n'écrit jamais 'status' ni
+        l'assiduité. 'reason' requis ssi attendance='not_going' (422 sinon).
+      operationId: setAttendance
+      parameters:
+      - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AttendanceRequest'
+            example:
+              attendance: going
+      responses:
+        '200':
+          description: Présence déclarée.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Assignment'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '500':
+          $ref: '#/components/responses/ServerError'
   /assignments/{id}/performance:
     post:
       tags:
@@ -3274,6 +3313,17 @@ components:
           format: date
         skipReason:
           $ref: '#/components/schemas/SkipReason'
+        attendance:
+          allOf:
+          - $ref: '#/components/schemas/AttendanceStatus'
+          description: >-
+            Présence déclarée (RSVP, ADR-43 §1). Absent du payload = sans réponse.
+            Axe orthogonal au cycle d'exécution 'status' (ADR-31) ; n'entre pas dans
+            l'assiduité.
+        attendanceReason:
+          allOf:
+          - $ref: '#/components/schemas/SkipReason'
+          description: Motif d'absence quand attendance='not_going' (ADR-43 §1).
         session:
           $ref: '#/components/schemas/Session'
         createdAt:
@@ -3287,6 +3337,27 @@ components:
       - sessionId
       - athleteId
       - status
+    AttendanceStatus:
+      type: string
+      description: >-
+        Présence déclarée par l'athlète avant la séance (RSVP, ADR-43 §1). Orthogonal
+        à AssignmentStatus.
+      enum:
+      - going
+      - not_going
+      - maybe
+    AttendanceRequest:
+      type: object
+      description: >-
+        Déclaration de présence (ADR-43 §1). 'reason' requis ssi attendance='not_going'
+        (422 ATTENDANCE_REASON_REQUIRED) ; ignoré sinon.
+      properties:
+        attendance:
+          $ref: '#/components/schemas/AttendanceStatus'
+        reason:
+          $ref: '#/components/schemas/SkipReason'
+      required:
+      - attendance
     SkipReason:
       type: string
       description: Motif d'indisponibilité quand l'affectation est skipped (ADR-31).

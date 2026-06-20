@@ -2,6 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { PageMetaDto } from '../../common/pagination/page-meta';
 import { SessionDto } from '../../sessions/dto/session.dto';
 import { SkipReason } from './assignment-update.dto';
+import { AttendanceStatus } from './attendance.dto';
 
 /** Statut d'une affectation — schéma `AssignmentStatus`. */
 export enum AssignmentStatus {
@@ -33,6 +34,18 @@ export class AssignmentDto {
     description: 'Motif quand status=skipped (ADR-31).',
   })
   skipReason?: SkipReason;
+
+  @ApiPropertyOptional({
+    enum: AttendanceStatus,
+    description: 'Présence déclarée (RSVP, ADR-43 §1). Absent = sans réponse. Orthogonal à status.',
+  })
+  attendance?: AttendanceStatus;
+
+  @ApiPropertyOptional({
+    enum: SkipReason,
+    description: "Motif d'absence quand attendance=not_going (ADR-43 §1).",
+  })
+  attendanceReason?: SkipReason;
 
   @ApiPropertyOptional({ type: SessionDto, description: 'Séance embarquée (lectures détaillées).' })
   session?: SessionDto;

@@ -11,6 +11,10 @@ jest.mock('@talent-x/api-client', () => {
   return { ...actual, getAssignment: (...a: unknown[]) => mockGetAssignment(...a) };
 });
 jest.mock('expo-router', () => ({ useRouter: () => ({ back: mockBack }) }));
+jest.mock('../feedback', () => ({
+  useToast: () => ({ show: jest.fn() }),
+  toUserMessage: () => ({ title: 'Erreur', description: '' }),
+}));
 
 import { GroupSessionDetailScreen } from './GroupSessionDetailScreen';
 
@@ -65,6 +69,8 @@ describe('GroupSessionDetailScreen (ADR-43, Phase A lecture seule)', () => {
     expect(screen.getByTestId('group-session-disc')).toHaveTextContent(/Sprint/);
     expect(screen.getByTestId('group-session-perf')).toBeOnTheScreen();
     expect(screen.getByText('Sprint 150 m')).toBeOnTheScreen();
+    // Présence (ADR-43 §1, Phase B) : contrôle rendu pour une séance exécutable.
+    expect(screen.getByTestId('presence-control')).toBeOnTheScreen();
   });
 
   it('état erreur + réessai', async () => {

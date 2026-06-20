@@ -28,6 +28,7 @@ import {
   AssignmentUpdateRequestDto,
   SkipReason,
 } from './dto/assignment-update.dto';
+import { AttendanceRequestDto, AttendanceStatus } from './dto/attendance.dto';
 
 /**
  * Affectations (TLX-051). Autorisation (matrice TX-SPEC-002 §6) :
@@ -303,6 +304,48 @@ export class AssignmentsService {
   }
 
   /**
+   * Déclare la **présence** (RSVP) d'un athlète à sa séance (ADR-43 §1) — axe **orthogonal** au
+   * cycle d'exécution `status` (ADR-31) : on écrit `attendance` (+ `attendanceReason`) sans jamais
+   * toucher `status` ni l'assiduité. RBAC : **athlète titulaire** de l'affectation. Invariant :
+   * `reason` requis ssi `attendance='not_going'` (422 `ATTENDANCE_REASON_REQUIRED`) ; ignoré sinon.
+   */
+  async setAttendance(
+    user: AuthenticatedUser,
+    id: string,
+    dto: AttendanceRequestDto,
+  ): Promise<AssignmentDto> {
+    const assignment = await this.prisma.sessionAssignment.findFirst({
+      where: { id, deletedAt: null },
+      include: { session: true },
+    });
+    if (!assignment) throw new NotFoundException('Affectation introuvable.');
+
+    // Présence déclarée par l'athlète titulaire (intention de présence à *sa* séance).
+    if (!(user.role === 'athlete' && assignment.athleteId === user.id)) {
+      throw new ForbiddenException('Seul l’athlète titulaire peut déclarer sa présence.');
+    }
+
+    const notGoing = dto.attendance === AttendanceStatus.NotGoing;
+    if (notGoing && !dto.reason) {
+      throw new UnprocessableEntityException({
+        error: 'ATTENDANCE_REASON_REQUIRED',
+        message: 'Préciser un motif (injury/absence/weather/other) pour signaler une absence.',
+      });
+    }
+
+    const updated = await this.prisma.sessionAssignment.update({
+      where: { id: assignment.id },
+      data: {
+        attendance: dto.attendance,
+        // Motif conservé seulement pour `not_going` (ignoré/effacé pour going/maybe).
+        attendanceReason: notGoing ? (dto.reason as SkipReason) : null,
+      },
+      include: { session: true },
+    });
+    return toAssignmentDto(updated, user.role, updated.session);
+  }
+
+  /**
    * Désassignation soft (ADR-31) : réservée au coach propriétaire. Interdite sur une
    * affectation réalisée (422 `ASSIGNMENT_COMPLETED` — préserve la performance 1:1).
    * Le soft-delete libère l'index unique partiel → réaffectation possible ensuite.
@@ -537,6 +580,9 @@ function toAssignmentDto(
     status: assignment.status as AssignmentStatus,
     dueDate: assignment.dueDate ? assignment.dueDate.toISOString().slice(0, 10) : undefined,
     skipReason: (assignment.skipReason as SkipReason | null) ?? undefined,
+    // Présence déclarée (ADR-43 §1) — orthogonale au statut, exposée à tous les lecteurs autorisés.
+    attendance: (assignment.attendance as AttendanceStatus | null) ?? undefined,
+    attendanceReason: (assignment.attendanceReason as SkipReason | null) ?? undefined,
     // Double lecture (ADR-28) : le brief embarqué est filtré selon le rôle du lecteur.
     session: session ? toSessionDto(session, role) : undefined,
     createdAt: assignment.createdAt.toISOString(),
