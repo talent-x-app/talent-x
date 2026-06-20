@@ -12,6 +12,24 @@ de débloquer les écrans coach C-01/C-02/C-03.
 - _(éditeurs typés terminés — TLX-054→061 livrés ↓)_
 - _(C-01 complet — TLX-081→085 livrés ↓)_
 
+## Terminés — TLX-175 Vérification live du hub de groupe (TLX-173 A+B)
+
+- **Validé en réel (2026-06-20, Postgres :5433 + API `nest start` :3000 + Expo web :8081).**
+- **Phase B (présence) — intégration DB-backed** : migration `20260620120000_assignment_attendance`
+  appliquée (`prisma migrate deploy`) ; nouveau test `test/assignment-attendance.int-spec.ts` (suite
+  `test:int` **42/42**) valide contre la vraie base le round-trip `PUT /assignments/{id}/attendance`
+  (`going` → 200 ; `not_going` sans motif → **422 `ATTENDANCE_REASON_REQUIRED`** ; `not_going`+motif →
+  200 ; `maybe` efface le motif), l'**orthogonalité** (`status` reste `assigned`), la relecture via
+  `GET /assignments`, et le RBAC (**403** athlète non-titulaire **et** coach).
+- **Phase A (affichage) — E2E Playwright** : `e2e/tlx-173-group-hub.spec.ts` **vert** en réel (login
+  athlète → groupe → Séances → ouverture séance → retour → Calendrier → sélection jour). Fix : cibler
+  le `testID` de l'onglet (le libellé « Calendrier » existe aussi sur la tab bar de bas d'écran).
+- **Smoke visuel** (captures `e2e/__screens__/tlx-173-*`) : en-tête collant + onglets, carte next-up
+  avec **discipline « Sprint » dérivée** + badge « Perf à saisir », libellé honnête « Toutes tes
+  séances · toutes disciplines », grille calendrier (aujourd'hui entouré, jour sélectionné plein).
+- **Reste** : `prisma generate` bute toujours sur un verrou Windows du moteur (.dll) — sans effet
+  (types client OK, migrate/tests OK). Suivi mineur design system (6ᵉ couleur de discipline).
+
 ## Terminés — TLX-173 Présence (RSVP) — Phase B (ADR-43 §1), tranche verticale
 
 - **Présence déclarée bout-en-bout** (ADR-43 §1) : un athlète déclare **Présent / Absent / Peut-être**
