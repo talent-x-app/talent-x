@@ -24,3 +24,16 @@ export const MY_GROUPS_QUERY_KEY = ['groups', 'mine'] as const;
 export function groupTeammatesQueryKey(groupId: string) {
   return ['groups', groupId, 'teammates'] as const;
 }
+
+/**
+ * Affectations de l'athlète courant (`GET /assignments`, role-aware). Le hub de groupe (fil
+ * Séances + Calendrier, ADR-43 §4) lit ce **même** cache que l'écran Séances (A-02) et le
+ * regroupe côté client — pas de provenance de groupe avant le Lot 2 (ADR-30), donc le fil
+ * couvre toutes les séances de l'athlète. Source unique → invalidations partagées.
+ */
+export const ASSIGNMENTS_QUERY_KEY = ['assignments'] as const;
+
+/** Détail d'une affectation (`GET /assignments/:id`) — séance embarquée, lecture seule. */
+export function assignmentQueryKey(assignmentId: string) {
+  return ['assignments', assignmentId] as const;
+}

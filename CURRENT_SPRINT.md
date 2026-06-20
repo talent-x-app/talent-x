@@ -12,6 +12,41 @@ de débloquer les écrans coach C-01/C-02/C-03.
 - _(éditeurs typés terminés — TLX-054→061 livrés ↓)_
 - _(C-01 complet — TLX-081→085 livrés ↓)_
 
+## Terminés — TLX-173 Hub de groupe athlète — Phase A (affichage), ADR-43 accepté
+
+- **ADR-43 accepté (2026-06-20)** : présence RSVP orthogonale à ADR-31, discipline & perf attendue
+  **dérivées** des blocs typés, fil/calendrier sur `GET /assignments` existant, RGPD = compteur
+  agrégé. Maquettes déposées sous `mockups/`. Cette livraison = **Phase A (affichage, zéro contrat)** ;
+  la présence 3 états + saisie perf restent **Phase B** (derrière le contrat ADR-43). **Frontend pur.**
+- **(Décision produit, fil de séances)** sans provenance de groupe avant le Lot 2 (ADR-30 ; `Assignment`
+  ne porte pas de `groupId`, `GET /assignments` n'a pas le paramètre), le hub affiche **toutes** les
+  séances de l'athlète avec **libellé honnête** (« Toutes tes séances · toutes disciplines »). Le
+  scope par groupe arrive au Lot 2 (filtres serveur, ADR-43 §4).
+- **(Dérivations pures, ADR-43 §2/§3)** `progress/session-discipline.ts` : `sessionDiscipline` (famille
+  dominante / `mixed` / `none`) + `sessionExpectsPerformance` (≥1 bloc mesurable), **réutilisant** la
+  fabrique canonique `BlockType → DisciplineKey` **mutualisée** avec `inferDiscipline` (ADR-40) — la
+  carte `BLOCK_TYPE_TO_DISCIPLINE`/`disciplineForBlockType` vit désormais dans `discipline-assistants`
+  (source unique). **Zéro champ stocké, zéro flag, zéro migration.**
+- **(Calendrier pur)** `groups/group-feed.ts` : `partitionFeed` (À venir/Passées + next-up),
+  `groupByDay`, `buildMonthGrid`/`buildWeek` (lundi en tête), libellés FR — comparaisons par **clé de
+  jour `YYYY-MM-DD`** (insensible au fuseau).
+- **(UI)** `SegmentedTabs` (DS, **rôle `tab`/`tablist`**, ≥44px, pastille notif) ; hub
+  `AthleteGroupHubScreen` (en-tête collant avatar+nom+« Coach · N athlètes »+cloche réutilisée, 4
+  onglets) ; onglet **Séances** (carte next-up + fil groupé + « Voir tout l'historique (N) »), onglet
+  **Calendrier** (Mois/Semaine + recherche→liste de résultats + sélection jour + pastilles dérivées),
+  **Coéquipiers** (roster ADR-37 extrait tel quel, testIDs préservés), **Infos** (méta + Quitter).
+  Détail séance lecture seule (`GroupSessionDetailScreen`, réutilise `SessionContent`) + routes
+  `group/[id]` (→ hub) et `group/session/[id]`. États skeleton/vide/erreur par onglet.
+- **(Limite assumée)** « feedback coach » de la maquette **non rendu** : aucun champ du contrat ne le
+  porte (hors périmètre Phase A). Couleurs discipline : 5 teintes DS pour 6 disciplines → **Lancers &
+  Muscu partagent `warning`** (icône désambiguïse ; 6ᵉ couleur = suivi design system).
+- **Tests** : **mobile 822/822** (+66 : `session-discipline` ×16, `group-feed` ×17, `SegmentedTabs` ×3,
+  `GroupSessionsTab` ×5, `GroupCalendarTab` ×10, `GroupSessionDetailScreen` ×2, `AthleteGroupHubScreen`
+  ×6 + non-régression `discipline-inference`), typecheck mobile + ESLint + Prettier clean. **+1 spec
+  E2E Playwright** `tlx-173-group-hub` (login athlète → groupe → Séances → ouverture séance → retour →
+  Calendrier → sélection jour) — **à rejouer contre la stack live** (API + Postgres :5433 + Expo web).
+- **Coach (TLX-174)** : ticket Linear créé (Todo), Phase A à suivre (`group-hub.html` colonne ③).
+
 ## Terminés — TLX-146 KPI coach « À revoir » / « Aujourd'hui » actionnables (scroll vers la section, hors V2)
 
 - **Écart UX (audit accueil coach 2026-06-14)** : les deux cartes KPI du tableau de bord (« À revoir »,

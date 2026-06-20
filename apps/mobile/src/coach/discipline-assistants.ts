@@ -83,3 +83,32 @@ export const DISCIPLINES: DisciplineConfig[] = [
 export function disciplineConfig(key: string | undefined): DisciplineConfig | undefined {
   return DISCIPLINES.find((d) => d.key === key);
 }
+
+/**
+ * Fabrique **canonique** `BlockType → DisciplineKey` (ADR-38 §1, ADR-40/41) : source unique
+ * partagée par l'inférence d'édition (`inferDiscipline`, ADR-40) et la dérivation de discipline
+ * de séance côté lecture (`sessionDiscipline`, ADR-43 §2). `interval`/`vertical_jumps`/`core` se
+ * replient sur la carte parente (endurance/jumps/strength) ; `warmup`/`cooldown`/`custom` ne sont
+ * pas porteurs de discipline. Aligné sur la même grammaire que les records (ADR-20/41).
+ */
+export const BLOCK_TYPE_TO_DISCIPLINE: Partial<Record<BlockType, DisciplineKey>> = {
+  [BlockType.sprint]: 'sprint',
+  [BlockType.hurdles]: 'hurdles',
+  [BlockType.endurance]: 'endurance',
+  [BlockType.interval]: 'endurance',
+  [BlockType.jumps]: 'jumps',
+  [BlockType.vertical_jumps]: 'jumps',
+  [BlockType.throws]: 'throws',
+  // ADR-41 §6 — Renforcement / PPG : `strength` (muscu) et `core` (PPG) → même carte `strength`.
+  [BlockType.strength]: 'strength',
+  [BlockType.core]: 'strength',
+};
+
+/**
+ * Discipline d'un `BlockType` (stocké en chaîne dans le contrat `exercises`). Lecture défensive :
+ * un type inconnu / non porteur de discipline (`warmup`/`cooldown`/`custom`) renvoie `null`.
+ */
+export function disciplineForBlockType(type: string | undefined | null): DisciplineKey | null {
+  if (type == null) return null;
+  return BLOCK_TYPE_TO_DISCIPLINE[type as BlockType] ?? null;
+}

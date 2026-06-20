@@ -1,8 +1,11 @@
 import { useLocalSearchParams } from 'expo-router';
-import { AthleteGroupDetailScreen } from '../../../src/groups/AthleteGroupDetailScreen';
+import { AthleteGroupHubScreen } from '../../../src/groups/AthleteGroupHubScreen';
 
-/** Détail d'un groupe (athlète) : coéquipiers + quitter (ADR-37) — route empilée hors tab bar. */
-export default function AthleteGroupDetailRoute() {
+/**
+ * Hub de groupe (athlète) — route empilée hors tab bar (ADR-43, TLX-173). Onglets Séances /
+ * Calendrier / Coéquipiers / Infos.
+ */
+export default function AthleteGroupHubRoute() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  return <AthleteGroupDetailScreen groupId={id} />;
+  return <AthleteGroupHubScreen groupId={id} />;
 }

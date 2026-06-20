@@ -9,3 +9,4 @@ export { Chip, type ChipProps } from './Chip';
 export { Slider, type SliderProps } from './Slider';
 export { Stepper, type StepperProps } from './Stepper';
 export { TabBar, type TabBarItem, type TabBarProps } from './TabBar';
+export { SegmentedTabs, type SegmentedTabItem, type SegmentedTabsProps } from './SegmentedTabs';

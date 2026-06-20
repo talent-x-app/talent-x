@@ -1,6 +1,6 @@
 import { BlockType } from '@talent-x/api-client';
 import { isEditableGroup, type EditableBlock, type EditableNode } from './session-builder-ui';
-import type { DisciplineKey } from './discipline-assistants';
+import { BLOCK_TYPE_TO_DISCIPLINE, type DisciplineKey } from './discipline-assistants';
 
 /**
  * Inférence de discipline (ADR-40 §2) : permet à `SessionBuilderScreen` de router vers la carte
@@ -8,21 +8,9 @@ import type { DisciplineKey } from './discipline-assistants';
  * `exercises` n'en a pas, ADR-38/39). On regarde les `BlockType` des blocs/séries de premier
  * niveau, en ignorant `warmup`/`cooldown` (jamais porteurs de la discipline) et en aplatissant
  * les membres d'un groupe (une série est un `group` dont les membres partagent la discipline).
+ * La fabrique `BlockType → DisciplineKey` est mutualisée avec la dérivation de lecture
+ * (`sessionDiscipline`, ADR-43 §2) via `discipline-assistants` — une seule source de vérité.
  */
-
-/** Discipline reconnue par `BlockType` parmi celles couvertes par les 6 cartes dédiées (ADR-41). */
-const BLOCK_TYPE_TO_DISCIPLINE: Partial<Record<BlockType, DisciplineKey>> = {
-  [BlockType.sprint]: 'sprint',
-  [BlockType.hurdles]: 'hurdles',
-  [BlockType.endurance]: 'endurance',
-  [BlockType.interval]: 'endurance',
-  [BlockType.jumps]: 'jumps',
-  [BlockType.vertical_jumps]: 'jumps',
-  [BlockType.throws]: 'throws',
-  // ADR-41 §6 — Renforcement / PPG : `strength` (muscu) et `core` (PPG) → même carte `strength`.
-  [BlockType.strength]: 'strength',
-  [BlockType.core]: 'strength',
-};
 
 /** Le bloc participe-t-il à l'inférence (hors échauffement/retour au calme) ? */
 function isSignificantBlock(block: EditableBlock): boolean {
