@@ -584,6 +584,16 @@ Décision complète : [`docs/adr/ADR-37-lecture-athlete-coequipiers-groupe.md`](
 
 ---
 
+## ADR-43 — Hub de groupe athlète : présence (RSVP) orthogonale au cycle d'exécution + discipline & perf attendue dérivées
+
+Décision complète : [`docs/adr/ADR-43-hub-de-groupe-athlete-presence-et-derivations.md`](adr/ADR-43-hub-de-groupe-athlete-presence-et-derivations.md).
+
+**Statut : Proposé** (2026-06-20, à valider avant code — CLAUDE.md §7).
+
+**En bref.** Refonte de l'écran de détail de groupe athlète en **hub d'affichage** (onglets Séances / Calendrier / Coéquipiers / Infos, détail de séance, présence, perf, feedback) — cf. maquettes `mockups/group-*`. Trois besoins de la maquette dépassent le contrat et touchent des invariants actés → ADR. **(1) Présence ≠ exécution :** on **n'étend pas** `AssignmentStatus` (ADR-31, qui sert l'assiduité) ; on ajoute un axe **orthogonal** `attendance ∈ {going, not_going, maybe} | null` (`null` = sans réponse) + `attendanceReason` (réutilise `SkipReason`), écrit par `PUT /assignments/{id}/attendance`. « Présent »/« Peut-être » n'ont aucun équivalent dans ADR-31 et la distinction *sans-réponse ≠ absent* est le cœur du besoin coach ; `attendance` n'entre **pas** dans l'assiduité ; `not_going` ne pose `skipped` que sur geste explicite. **(2) Discipline dérivée**, pas stockée : module pur `session-discipline.ts` réutilisant `eventForExercise` (ADR-20) → famille dominante des blocs typés (couleurs/tags/filtre), zéro migration, une seule vérité avec les records. **(3) « Perf attendue » dérivée** (≥1 bloc mesurable), pas un flag ; PR via records existants (ADR-32). **(4)** Fil & calendrier lus sur `GET /assignments` **existant** (regroupement/recherche/filtre **client**, Lot 1) ; filtres serveur `from`/`to`/`discipline` **additifs et différés** (Lot 2). **(5) RGPD :** seul un **compteur agrégé** de présence est exposé en MVP ; la pile d'avatars **nominative** est repoussée sous revue **AIPD** (gabarit ADR-37). Écartés : mapper `not_going=skipped` (perd 2 états + pollue l'assiduité), présence booléenne, champ `discipline`/flag `requiresPerformance` stockés (double vérité), filtres serveur dès le Lot 1, avatars nominatifs en MVP.
+
+---
+
 ## Gabarit pour un nouvel ADR
 
 ```markdown
