@@ -1,11 +1,13 @@
 import {
+  getAttendanceSummary,
   setAttendance,
   type AttendanceStatus,
+  type AttendanceSummary,
   type SkipReason,
   type Assignment,
 } from '@talent-x/api-client';
 import { useTheme } from '@talent-x/design-tokens';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Feather } from '@expo/vector-icons';
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
@@ -250,6 +252,66 @@ export function PresenceControl({
           {deadline.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
         </Text>
       ) : null}
+    </View>
+  );
+}
+
+/**
+ * Ligne d'**agrégat de présence** de la séance (ADR-45) — « X présents · Y absents · Z sans
+ * réponse ». **Compteurs seuls** (RGPD, ADR-43 §5 ; jamais de noms). Masquée si l'agrégat n'a pas
+ * de sens (`total ≤ 1`, séance individuelle) ou en chargement/erreur. La clé de cache
+ * `['assignment', id, 'attendance-summary']` est invalidée par préfixe quand `PresenceControl`
+ * déclare une présence → l'agrégat se rafraîchit tout seul.
+ */
+export function AttendanceSummaryView({ assignmentId }: { assignmentId: string }) {
+  const { colors, typography, spacing } = useTheme();
+  const query = useQuery({
+    queryKey: ['assignment', assignmentId, 'attendance-summary'],
+    queryFn: async (): Promise<AttendanceSummary> => {
+      const response = await getAttendanceSummary(assignmentId);
+      if (response.status === 200) return response.data;
+      throw response;
+    },
+    retry: false,
+  });
+
+  const s = query.data;
+  if (!s || s.total <= 1) return null;
+
+  const parts: { key: string; label: string; color: string }[] = [
+    { key: 'going', label: `${s.going} présent${s.going > 1 ? 's' : ''}`, color: colors.success },
+    {
+      key: 'notGoing',
+      label: `${s.notGoing} absent${s.notGoing > 1 ? 's' : ''}`,
+      color: colors.danger,
+    },
+    { key: 'maybe', label: `${s.maybe} peut-être`, color: colors.warning },
+    {
+      key: 'noResponse',
+      label: `${s.noResponse} sans réponse`,
+      color: colors.textMuted,
+    },
+  ];
+
+  return (
+    <View
+      testID="attendance-summary"
+      style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: spacing[2] }}
+    >
+      {parts.map((p) => (
+        <View key={p.key} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[1] }}>
+          <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: p.color }} />
+          <Text
+            style={{
+              color: colors.textSecondary,
+              fontFamily: typography.fontFamily.regular,
+              fontSize: typography.caption.fontSize,
+            }}
+          >
+            {p.label}
+          </Text>
+        </View>
+      ))}
     </View>
   );
 }

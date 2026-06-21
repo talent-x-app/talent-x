@@ -28,3 +28,15 @@ export class AttendanceRequestDto {
   @IsEnum(SkipReason)
   reason?: SkipReason;
 }
+
+/**
+ * Agrégat de présence d'une séance — schéma `AttendanceSummary` (ADR-45). **Compteurs seuls**,
+ * aucune identité (RGPD, ADR-43 §5). `noResponse` = affectations sans présence déclarée.
+ */
+export class AttendanceSummaryDto {
+  @ApiProperty() going!: number;
+  @ApiProperty() notGoing!: number;
+  @ApiProperty() maybe!: number;
+  @ApiProperty() noResponse!: number;
+  @ApiProperty() total!: number;
+}

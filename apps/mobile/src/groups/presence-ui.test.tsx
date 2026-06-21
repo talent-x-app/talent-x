@@ -5,18 +5,23 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { Assignment } from '@talent-x/api-client';
 
 const mockSetAttendance = jest.fn();
+const mockGetAttendanceSummary = jest.fn();
 const mockShow = jest.fn();
 
 jest.mock('@talent-x/api-client', () => {
   const actual = jest.requireActual('@talent-x/api-client');
-  return { ...actual, setAttendance: (...a: unknown[]) => mockSetAttendance(...a) };
+  return {
+    ...actual,
+    setAttendance: (...a: unknown[]) => mockSetAttendance(...a),
+    getAttendanceSummary: (...a: unknown[]) => mockGetAttendanceSummary(...a),
+  };
 });
 jest.mock('../feedback', () => ({
   useToast: () => ({ show: mockShow }),
   toUserMessage: () => ({ title: 'Échec', description: 'réessaie' }),
 }));
 
-import { PresenceControl } from './presence-ui';
+import { AttendanceSummaryView, PresenceControl } from './presence-ui';
 import { assignmentQueryKey } from './groups-query';
 
 const NOW = new Date(2026, 5, 20);
@@ -54,6 +59,7 @@ function setup(assignment: Assignment) {
 
 beforeEach(() => {
   mockSetAttendance.mockReset();
+  mockGetAttendanceSummary.mockReset();
   mockShow.mockReset();
 });
 
@@ -117,5 +123,46 @@ describe('PresenceControl (ADR-43 §1, Phase B)', () => {
   it('masque l’échéance une fois la présence déclarée', () => {
     setup(asg({ attendance: 'going', dueDate: '2026-06-25' }));
     expect(screen.queryByTestId('presence-deadline')).toBeNull();
+  });
+});
+
+function renderSummary(assignmentId = 'asg-1') {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  function Wrapper({ children }: { children: ReactNode }) {
+    const [c] = useState(() => client);
+    return (
+      <QueryClientProvider client={c}>
+        <ThemeProvider>{children}</ThemeProvider>
+      </QueryClientProvider>
+    );
+  }
+  render(
+    <Wrapper>
+      <AttendanceSummaryView assignmentId={assignmentId} />
+    </Wrapper>,
+  );
+}
+
+describe('AttendanceSummaryView (ADR-45 — agrégat sans noms)', () => {
+  it('affiche les compteurs agrégés quand total > 1', async () => {
+    mockGetAttendanceSummary.mockResolvedValue({
+      status: 200,
+      data: { going: 6, notGoing: 1, maybe: 2, noResponse: 3, total: 12 },
+    });
+    renderSummary();
+    await waitFor(() => expect(screen.getByTestId('attendance-summary')).toBeOnTheScreen());
+    expect(screen.getByText(/6 présents/)).toBeOnTheScreen();
+    expect(screen.getByText(/1 absent/)).toBeOnTheScreen();
+    expect(screen.getByText(/3 sans réponse/)).toBeOnTheScreen();
+  });
+
+  it('ne rend rien quand l’agrégat n’a pas de sens (total ≤ 1)', async () => {
+    mockGetAttendanceSummary.mockResolvedValue({
+      status: 200,
+      data: { going: 0, notGoing: 0, maybe: 1, noResponse: 0, total: 1 },
+    });
+    renderSummary();
+    await waitFor(() => expect(mockGetAttendanceSummary).toHaveBeenCalled());
+    expect(screen.queryByTestId('attendance-summary')).toBeNull();
   });
 });

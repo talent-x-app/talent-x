@@ -80,6 +80,7 @@ function prismaMock(): PrismaMock {
       findMany: jest.fn(),
       count: jest.fn(),
       updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+      groupBy: jest.fn(),
     },
     // Garde-fou ADR-29 : statut de la séance lu avant assignation (défaut = assignable).
     // Récurrence (ADR-35) : duplication serveur des occurrences 2..N.
@@ -847,6 +848,65 @@ describe('AssignmentsService', () => {
       await expect(
         service(prisma).setAttendance(ATHLETE, 'asg-1', { attendance: 'going' }),
       ).rejects.toBeInstanceOf(NotFoundException);
+    });
+  });
+
+  describe('getAttendanceSummary (ADR-45 — agrégat sans noms)', () => {
+    function withAssignment(prisma: PrismaMock, over: Record<string, unknown> = {}) {
+      prisma.sessionAssignment.findFirst.mockResolvedValue({
+        ...assignmentRow(over),
+        session: sessionRow({ coachId: 'c-1' }),
+      });
+    }
+
+    it('agrège les présences de la séance (null → noResponse, total cohérent)', async () => {
+      const prisma = prismaMock();
+      withAssignment(prisma);
+      prisma.sessionAssignment.groupBy.mockResolvedValue([
+        { attendance: 'going', _count: { id: 6 } },
+        { attendance: 'not_going', _count: { id: 1 } },
+        { attendance: 'maybe', _count: { id: 2 } },
+        { attendance: null, _count: { id: 3 } },
+      ]);
+      const res = await service(prisma).getAttendanceSummary(ATHLETE, 'asg-1');
+      expect(res).toEqual({ going: 6, notGoing: 1, maybe: 2, noResponse: 3, total: 12 });
+      // Agrégat calculé sur le sessionId (toutes les affectations de la séance).
+      expect(prisma.sessionAssignment.groupBy).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { sessionId: 's-1', deletedAt: null } }),
+      );
+    });
+
+    it('aucune réponse → tout en noResponse', async () => {
+      const prisma = prismaMock();
+      withAssignment(prisma);
+      prisma.sessionAssignment.groupBy.mockResolvedValue([{ attendance: null, _count: { id: 4 } }]);
+      const res = await service(prisma).getAttendanceSummary(ATHLETE, 'asg-1');
+      expect(res).toEqual({ going: 0, notGoing: 0, maybe: 0, noResponse: 4, total: 4 });
+    });
+
+    it('non-titulaire (autre athlète) → 403, sans agréger', async () => {
+      const prisma = prismaMock();
+      withAssignment(prisma, { athleteId: 'a-2' });
+      await expect(service(prisma).getAttendanceSummary(ATHLETE, 'asg-1')).rejects.toBeInstanceOf(
+        ForbiddenException,
+      );
+      expect(prisma.sessionAssignment.groupBy).not.toHaveBeenCalled();
+    });
+
+    it('coach propriétaire de la séance peut lire l’agrégat', async () => {
+      const prisma = prismaMock();
+      withAssignment(prisma);
+      prisma.sessionAssignment.groupBy.mockResolvedValue([]);
+      const res = await service(prisma).getAttendanceSummary(COACH, 'asg-1');
+      expect(res.total).toBe(0);
+    });
+
+    it('affectation introuvable → 404', async () => {
+      const prisma = prismaMock();
+      prisma.sessionAssignment.findFirst.mockResolvedValue(null);
+      await expect(service(prisma).getAttendanceSummary(ATHLETE, 'asg-1')).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
     });
   });
 });

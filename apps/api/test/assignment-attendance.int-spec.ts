@@ -164,5 +164,19 @@ describe('Présence (RSVP) — DB intégration (ADR-43 §1, TLX-173)', () => {
       .set(bearer(coach.token))
       .send({ attendance: 'going' })
       .expect(403);
+
+    // Agrégat de présence (ADR-45) : compteurs sans noms, reflète l'état courant (maybe).
+    const summary = await http()
+      .get(`/api/v1/assignments/${assignmentId}/attendance-summary`)
+      .set(bearer(athlete.token))
+      .expect(200);
+    expect(summary.body).toEqual({ going: 0, notGoing: 0, maybe: 1, noResponse: 0, total: 1 });
+    expect(summary.body).not.toHaveProperty('athleteId');
+
+    // RBAC : un athlète non-titulaire ne lit pas l'agrégat → 403.
+    await http()
+      .get(`/api/v1/assignments/${assignmentId}/attendance-summary`)
+      .set(bearer(other.token))
+      .expect(403);
   });
 });

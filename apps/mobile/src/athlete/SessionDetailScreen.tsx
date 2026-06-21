@@ -53,7 +53,7 @@ import {
   SessionContent,
 } from '../sessions/session-content-ui';
 import { formatSessionDate, sessionTitle } from './athlete-session-ui';
-import { PresenceControl } from '../groups/presence-ui';
+import { AttendanceSummaryView, PresenceControl } from '../groups/presence-ui';
 import { AthleteIntentBanner, BriefMetrics, SuccessStopCard } from './brief-ui';
 import { perfConfirmationHref } from './navigation';
 import {
@@ -402,7 +402,11 @@ export function SessionDetailScreen() {
               cache passée aligne la mise à jour optimiste sur la requête de ce détail. */}
           {assignment.data.status !== AssignmentStatus.completed ? (
             <Card>
-              <PresenceControl assignment={assignment.data} queryKey={['assignment', id]} />
+              <View style={{ gap: spacing[3] }}>
+                <PresenceControl assignment={assignment.data} queryKey={['assignment', id]} />
+                {/* Agrégat de présence du groupe (ADR-45) — compteur sans noms (RGPD). */}
+                <AttendanceSummaryView assignmentId={id} />
+              </View>
             </Card>
           ) : null}
 

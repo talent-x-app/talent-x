@@ -1585,6 +1585,33 @@ paths:
           $ref: '#/components/responses/ValidationFailed'
         '500':
           $ref: '#/components/responses/ServerError'
+  /assignments/{id}/attendance-summary:
+    get:
+      tags:
+      - Affectations & performances
+      summary: Agrégat de présence de la séance (compteur sans noms)
+      description: >-
+        Compteurs de présence agrégés sur toutes les affectations de la séance (ADR-45,
+        RGPD ADR-43 §5) — aucune identité. RBAC : titulaire de l'affectation ou coach
+        propriétaire de la séance.
+      operationId: getAttendanceSummary
+      parameters:
+      - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: Agrégat de présence.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttendanceSummary'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
   /assignments/{id}/performance:
     post:
       tags:
@@ -3358,6 +3385,29 @@ components:
           $ref: '#/components/schemas/SkipReason'
       required:
       - attendance
+    AttendanceSummary:
+      type: object
+      description: >-
+        Agrégat de présence d'une séance (ADR-45) — compteurs SANS identités (RGPD,
+        ADR-43 §5). Calculé sur toutes les affectations actives partageant le sessionId.
+      properties:
+        going:
+          type: integer
+        notGoing:
+          type: integer
+        maybe:
+          type: integer
+        noResponse:
+          type: integer
+          description: Affectations sans présence déclarée (attendance NULL).
+        total:
+          type: integer
+      required:
+      - going
+      - notGoing
+      - maybe
+      - noResponse
+      - total
     SkipReason:
       type: string
       description: Motif d'indisponibilité quand l'affectation est skipped (ADR-31).

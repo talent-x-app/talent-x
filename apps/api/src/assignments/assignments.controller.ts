@@ -21,7 +21,7 @@ import { PerformancesService } from './performances.service';
 import { AssignmentQueryDto } from './dto/assignment-query.dto';
 import { AssignmentDto, AssignmentPageDto } from './dto/assignment.dto';
 import { AssignmentUpdateRequestDto } from './dto/assignment-update.dto';
-import { AttendanceRequestDto } from './dto/attendance.dto';
+import { AttendanceRequestDto, AttendanceSummaryDto } from './dto/attendance.dto';
 import { PerformanceCreateDto, PerformanceDto } from './dto/performance.dto';
 
 /**
@@ -102,6 +102,19 @@ export class AssignmentsController {
     @Body() dto: AttendanceRequestDto,
   ): Promise<AssignmentDto> {
     return this.assignments.setAttendance(user, id, dto);
+  }
+
+  @Get(':id/attendance-summary')
+  @ApiOperation({
+    summary: 'Agrégat de présence de la séance (compteur sans noms)',
+    operationId: 'getAttendanceSummary',
+  })
+  @ApiResponse({ status: 200, description: 'Agrégat de présence.', type: AttendanceSummaryDto })
+  getAttendanceSummary(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', new ParseUUIDPipe()) id: string,
+  ): Promise<AttendanceSummaryDto> {
+    return this.assignments.getAttendanceSummary(user, id);
   }
 
   @Post(':id/performance')

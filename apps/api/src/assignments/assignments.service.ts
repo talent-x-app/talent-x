@@ -28,7 +28,7 @@ import {
   AssignmentUpdateRequestDto,
   SkipReason,
 } from './dto/assignment-update.dto';
-import { AttendanceRequestDto, AttendanceStatus } from './dto/attendance.dto';
+import { AttendanceRequestDto, AttendanceStatus, AttendanceSummaryDto } from './dto/attendance.dto';
 
 /**
  * Affectations (TLX-051). Autorisation (matrice TX-SPEC-002 §6) :
@@ -343,6 +343,44 @@ export class AssignmentsService {
       include: { session: true },
     });
     return toAssignmentDto(updated, user.role, updated.session);
+  }
+
+  /**
+   * Agrégat de présence de la séance (ADR-45) — compteurs **sans identités** (RGPD, ADR-43 §5).
+   * On résout la séance depuis l'affectation du demandeur (RBAC = titulaire ou coach propriétaire,
+   * même garde que `getAssignment`) puis on compte `attendance` sur **toutes** les affectations
+   * actives partageant le `sessionId` (fan-out ADR-30). Aucune provenance de groupe requise.
+   */
+  async getAttendanceSummary(user: AuthenticatedUser, id: string): Promise<AttendanceSummaryDto> {
+    const assignment = await this.prisma.sessionAssignment.findFirst({
+      where: { id, deletedAt: null },
+      include: { session: true },
+    });
+    if (!assignment) throw new NotFoundException('Affectation introuvable.');
+    this.assertReadable(user, assignment, assignment.session);
+
+    const grouped = await this.prisma.sessionAssignment.groupBy({
+      by: ['attendance'],
+      where: { sessionId: assignment.sessionId, deletedAt: null },
+      _count: { id: true },
+    });
+
+    const summary: AttendanceSummaryDto = {
+      going: 0,
+      notGoing: 0,
+      maybe: 0,
+      noResponse: 0,
+      total: 0,
+    };
+    for (const row of grouped) {
+      const n = row._count.id;
+      if (row.attendance === AttendanceStatus.Going) summary.going = n;
+      else if (row.attendance === AttendanceStatus.NotGoing) summary.notGoing = n;
+      else if (row.attendance === AttendanceStatus.Maybe) summary.maybe = n;
+      else summary.noResponse += n; // attendance NULL (sans réponse)
+    }
+    summary.total = summary.going + summary.notGoing + summary.maybe + summary.noResponse;
+    return summary;
   }
 
   /**

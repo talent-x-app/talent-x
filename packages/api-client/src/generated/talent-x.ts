@@ -15,6 +15,7 @@ import type {
   AssignmentUpdateRequest,
   AthleteGroupList,
   AttendanceRequest,
+  AttendanceSummary,
   AuthSession,
   AuthTokens,
   AvatarConfirmRequest,
@@ -3743,6 +3744,65 @@ export const setAttendance = async (id: string,
     method: 'PUT',
     headers: { 'Content-Type': 'application/json', ...options?.headers },
     body: JSON.stringify(attendanceRequest)
+  }
+);}
+
+
+
+export type getAttendanceSummaryResponse200 = {
+  data: AttendanceSummary
+  status: 200
+}
+
+export type getAttendanceSummaryResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type getAttendanceSummaryResponse403 = {
+  data: ForbiddenResponse
+  status: 403
+}
+
+export type getAttendanceSummaryResponse404 = {
+  data: NotFoundResponse
+  status: 404
+}
+
+export type getAttendanceSummaryResponse500 = {
+  data: ServerErrorResponse
+  status: 500
+}
+
+export type getAttendanceSummaryResponseSuccess = (getAttendanceSummaryResponse200) & {
+  headers: Headers;
+};
+export type getAttendanceSummaryResponseError = (getAttendanceSummaryResponse401 | getAttendanceSummaryResponse403 | getAttendanceSummaryResponse404 | getAttendanceSummaryResponse500) & {
+  headers: Headers;
+};
+
+export type getAttendanceSummaryResponse = (getAttendanceSummaryResponseSuccess | getAttendanceSummaryResponseError)
+
+export const getGetAttendanceSummaryUrl = (id: string,) => {
+
+
+
+
+  return `/assignments/${id}/attendance-summary`
+}
+
+/**
+ * Compteurs de présence agrégés sur toutes les affectations de la séance (ADR-45, RGPD ADR-43 §5) — aucune identité. RBAC : titulaire de l'affectation ou coach propriétaire de la séance.
+ * @summary Agrégat de présence de la séance (compteur sans noms)
+ */
+export const getAttendanceSummary = async (id: string, options?: RequestInit): Promise<getAttendanceSummaryResponse> => {
+
+  return customFetch<getAttendanceSummaryResponse>(getGetAttendanceSummaryUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
   }
 );}
 
