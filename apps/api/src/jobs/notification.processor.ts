@@ -15,6 +15,8 @@ const PREFERENCE_GATE: Record<
   performance_feedback: 'performanceFeedback',
   performance_submitted: 'performanceSubmitted',
   group_update: 'groupUpdates',
+  // ADR-46 : annonces gardées par la même préférence « mises à jour du groupe ».
+  group_announcement: 'groupUpdates',
 };
 
 /**
@@ -37,6 +39,10 @@ const MESSAGES: Record<NotificationType, { title: string; body: string }> = {
   group_update: {
     title: 'Groupe mis à jour',
     body: 'Un athlète a rejoint votre groupe.',
+  },
+  group_announcement: {
+    title: 'Nouvelle annonce',
+    body: 'Ton coach a publié une annonce.',
   },
 };
 

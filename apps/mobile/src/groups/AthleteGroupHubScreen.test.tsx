@@ -8,6 +8,7 @@ const mockGetGroupTeammates = jest.fn();
 const mockGetMe = jest.fn();
 const mockLeaveGroup = jest.fn();
 const mockListNotifications = jest.fn();
+const mockListAnnouncements = jest.fn();
 const mockBack = jest.fn();
 const mockShow = jest.fn();
 
@@ -20,6 +21,7 @@ jest.mock('@talent-x/api-client', () => {
     getMe: (...a: unknown[]) => mockGetMe(...a),
     leaveGroup: (...a: unknown[]) => mockLeaveGroup(...a),
     listNotifications: (...a: unknown[]) => mockListNotifications(...a),
+    listAnnouncements: (...a: unknown[]) => mockListAnnouncements(...a),
   };
 });
 jest.mock('expo-router', () => ({ useRouter: () => ({ push: jest.fn(), back: mockBack }) }));
@@ -68,6 +70,7 @@ beforeEach(() => {
     data: { data: [{ id: 't-1', firstName: 'Awa', lastName: 'Traoré' }] },
   });
   mockGetMe.mockResolvedValue({ status: 200, data: { id: 'self-1', role: 'athlete' } });
+  mockListAnnouncements.mockResolvedValue({ status: 200, data: { data: [] } });
   mockLeaveGroup.mockResolvedValue({ status: 204 });
   mockListNotifications.mockResolvedValue({ status: 200, data: { data: [] } });
   mockBack.mockReset();
@@ -83,12 +86,17 @@ function renderHub(props?: { showBack?: boolean }) {
 }
 
 describe('AthleteGroupHubScreen (ADR-44 — hub mince)', () => {
-  it('en-tête nom + coach · N athlètes, Coéquipiers par défaut (roster ADR-37)', async () => {
+  it('en-tête nom + coach · N athlètes ; Annonces par défaut, puis Coéquipiers (roster ADR-37)', async () => {
     renderHub();
     await waitFor(() =>
       expect(screen.getByTestId('athlete-group-name')).toHaveTextContent('Sprint Élite'),
     );
     expect(screen.getByText(/Coach Mamadou Diallo · 12 athlètes/)).toBeOnTheScreen();
+    // Onglet Annonces par défaut (ADR-46) : état vide visible, pas encore le roster.
+    await waitFor(() => expect(screen.getByTestId('announcements-empty')).toBeOnTheScreen());
+    expect(screen.queryByTestId('athlete-group-teammate-t-1')).toBeNull();
+    // Bascule Coéquipiers → roster.
+    fireEvent.press(screen.getByLabelText('Coéquipiers'));
     await waitFor(() => expect(screen.getByTestId('athlete-group-teammate-t-1')).toBeOnTheScreen());
   });
 
@@ -104,6 +112,8 @@ describe('AthleteGroupHubScreen (ADR-44 — hub mince)', () => {
       },
     });
     renderHub();
+    await waitFor(() => expect(screen.getByTestId('athlete-group-tabs')).toBeOnTheScreen());
+    fireEvent.press(screen.getByLabelText('Coéquipiers'));
     await waitFor(() => expect(screen.getByTestId('athlete-group-coach')).toBeOnTheScreen());
     expect(screen.getByTestId('athlete-group-coach')).toHaveTextContent(/Mamadou Diallo/);
     expect(screen.getByTestId('athlete-group-joined-at')).toBeOnTheScreen();

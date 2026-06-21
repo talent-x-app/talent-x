@@ -12,6 +12,26 @@ de débloquer les écrans coach C-01/C-02/C-03.
 - _(éditeurs typés terminés — TLX-054→061 livrés ↓)_
 - _(C-01 complet — TLX-081→085 livrés ↓)_
 
+## Terminés — ADR-46 Annonces de groupe (coach → membres)
+
+- **ADR-46 accepté (2026-06-21)** — canal de communication descendant qui donne sa valeur d'équipe au
+  hub athlète. Tranche verticale : migration + contrat + backend + notif + UI coach & athlète.
+- **(Modèle)** table dédiée `group_announcements` (corps texte ≤1000, soft-delete) + relation. Type de
+  notif **`group_announcement`** ajouté (CHECK étendu, migration additive) — **réutilise** la préférence
+  `groupUpdates` (pas de nouvelle colonne).
+- **(Contrat)** `GET` (coach proprio **ou** membre actif), `POST`/`DELETE` (coach proprio) sur
+  `/groups/{id}/announcements`. Schémas `AnnouncementCreate`/`GroupAnnouncement(List)`. Client régénéré.
+- **(Backend)** `AnnouncementsService` : create (+ **fan-out notif** `group_announcement` à chaque
+  membre actif sauf l'auteur, `resourceId=groupId`, best-effort ADR-22), list (récentes d'abord),
+  delete soft ; RBAC inline (404 anti-énumération). Processor : gate `groupUpdates` + message générique.
+- **(Front)** composant partagé `AnnouncementsPane` (`canManage`) : **onglet « Annonces »** (par
+  défaut) du hub athlète en lecture seule ; **section « Annonces »** (compose + supprimer) sur l'écran
+  de groupe coach. `notification-ui` : présentation + cible athlète → `/(athlete)/group/[id]`.
+- **Tests** : **API unit 604** (+8 annonces) + **intégration DB-backed** (round-trip create/list/delete
+  - RBAC + 422), **mobile 801** (+ `AnnouncementsPane` ×4, hub onglet Annonces, notif mapping) ;
+    typecheck (api + api-client + mobile) + ESLint + Prettier clean. Migration appliquée (:5433).
+- **MVP (ADR-46)** : pas de titre ni d'édition (supprimer/republier), pas de fil bidirectionnel.
+
 ## Terminés — Refonte Profil : bandeau d'identité + réglages repliables (V1)
 
 - **Frontend pur, zéro contrat.** Profil modernisé façon « carte de membre » + liste de réglages.

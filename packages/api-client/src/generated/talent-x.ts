@@ -8,6 +8,7 @@
  * OpenAPI spec version: 1.0.0
  */
 import type {
+  AnnouncementCreate,
   AssignRequest,
   Assignment,
   AssignmentList,
@@ -43,6 +44,8 @@ import type {
   ForbiddenResponse,
   ForgotPasswordRequest,
   Group,
+  GroupAnnouncement,
+  GroupAnnouncementList,
   GroupCreate,
   GroupMember,
   GroupMemberPage,
@@ -1870,6 +1873,190 @@ export const getGroupTeammates = async (id: string, options?: RequestInit): Prom
   {
     ...options,
     method: 'GET'
+
+
+  }
+);}
+
+
+
+export type listAnnouncementsResponse200 = {
+  data: GroupAnnouncementList
+  status: 200
+}
+
+export type listAnnouncementsResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type listAnnouncementsResponse403 = {
+  data: ForbiddenResponse
+  status: 403
+}
+
+export type listAnnouncementsResponse404 = {
+  data: NotFoundResponse
+  status: 404
+}
+
+export type listAnnouncementsResponse500 = {
+  data: ServerErrorResponse
+  status: 500
+}
+
+export type listAnnouncementsResponseSuccess = (listAnnouncementsResponse200) & {
+  headers: Headers;
+};
+export type listAnnouncementsResponseError = (listAnnouncementsResponse401 | listAnnouncementsResponse403 | listAnnouncementsResponse404 | listAnnouncementsResponse500) & {
+  headers: Headers;
+};
+
+export type listAnnouncementsResponse = (listAnnouncementsResponseSuccess | listAnnouncementsResponseError)
+
+export const getListAnnouncementsUrl = (id: string,) => {
+
+
+
+
+  return `/groups/${id}/announcements`
+}
+
+/**
+ * Annonces du groupe (récentes d'abord, ADR-46). RBAC : coach propriétaire **ou** athlète membre actif (404 anti-énumération sinon).
+ * @summary Lister les annonces du groupe
+ */
+export const listAnnouncements = async (id: string, options?: RequestInit): Promise<listAnnouncementsResponse> => {
+
+  return customFetch<listAnnouncementsResponse>(getListAnnouncementsUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+export type createAnnouncementResponse201 = {
+  data: GroupAnnouncement
+  status: 201
+}
+
+export type createAnnouncementResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type createAnnouncementResponse403 = {
+  data: ForbiddenResponse
+  status: 403
+}
+
+export type createAnnouncementResponse404 = {
+  data: NotFoundResponse
+  status: 404
+}
+
+export type createAnnouncementResponse422 = {
+  data: ValidationFailedResponse
+  status: 422
+}
+
+export type createAnnouncementResponse500 = {
+  data: ServerErrorResponse
+  status: 500
+}
+
+export type createAnnouncementResponseSuccess = (createAnnouncementResponse201) & {
+  headers: Headers;
+};
+export type createAnnouncementResponseError = (createAnnouncementResponse401 | createAnnouncementResponse403 | createAnnouncementResponse404 | createAnnouncementResponse422 | createAnnouncementResponse500) & {
+  headers: Headers;
+};
+
+export type createAnnouncementResponse = (createAnnouncementResponseSuccess | createAnnouncementResponseError)
+
+export const getCreateAnnouncementUrl = (id: string,) => {
+
+
+
+
+  return `/groups/${id}/announcements`
+}
+
+/**
+ * Publie une annonce et notifie les membres actifs (type group_announcement, gardé par la préférence groupUpdates, ADR-46). RBAC : coach propriétaire.
+ * @summary Publier une annonce (coach propriétaire)
+ */
+export const createAnnouncement = async (id: string,
+    announcementCreate: AnnouncementCreate, options?: RequestInit): Promise<createAnnouncementResponse> => {
+
+  return customFetch<createAnnouncementResponse>(getCreateAnnouncementUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(announcementCreate)
+  }
+);}
+
+
+
+export type deleteAnnouncementResponse204 = {
+  data: void
+  status: 204
+}
+
+export type deleteAnnouncementResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type deleteAnnouncementResponse403 = {
+  data: ForbiddenResponse
+  status: 403
+}
+
+export type deleteAnnouncementResponse404 = {
+  data: NotFoundResponse
+  status: 404
+}
+
+export type deleteAnnouncementResponse500 = {
+  data: ServerErrorResponse
+  status: 500
+}
+
+export type deleteAnnouncementResponseSuccess = (deleteAnnouncementResponse204) & {
+  headers: Headers;
+};
+export type deleteAnnouncementResponseError = (deleteAnnouncementResponse401 | deleteAnnouncementResponse403 | deleteAnnouncementResponse404 | deleteAnnouncementResponse500) & {
+  headers: Headers;
+};
+
+export type deleteAnnouncementResponse = (deleteAnnouncementResponseSuccess | deleteAnnouncementResponseError)
+
+export const getDeleteAnnouncementUrl = (id: string,
+    announcementId: string,) => {
+
+
+
+
+  return `/groups/${id}/announcements/${announcementId}`
+}
+
+/**
+ * @summary Supprimer une annonce (coach propriétaire)
+ */
+export const deleteAnnouncement = async (id: string,
+    announcementId: string, options?: RequestInit): Promise<deleteAnnouncementResponse> => {
+
+  return customFetch<deleteAnnouncementResponse>(getDeleteAnnouncementUrl(id,announcementId),
+  {
+    ...options,
+    method: 'DELETE'
 
 
   }

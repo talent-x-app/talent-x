@@ -11,7 +11,7 @@ import {
   Query,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { CurrentUser, type AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 import { PaginationQueryDto } from '../common/pagination/pagination-query.dto';
 import { GroupCreateDto } from './dto/group-create.dto';
@@ -22,7 +22,13 @@ import { AthleteGroupListDto } from './dto/athlete-group.dto';
 import { GroupTeammateListDto } from './dto/group-teammate.dto';
 import { InviteCodeActionDto, InviteCodeDto } from './dto/invite-code.dto';
 import { JoinGroupRequestDto } from './dto/join-group.dto';
+import {
+  AnnouncementCreateDto,
+  GroupAnnouncementDto,
+  GroupAnnouncementListDto,
+} from './dto/announcement.dto';
 import { GroupsService } from './groups.service';
+import { AnnouncementsService } from './announcements.service';
 
 /**
  * Groupes (TLX-041). RBAC par endpoint (matrice TX-SPEC-002 §6) :
@@ -33,7 +39,10 @@ import { GroupsService } from './groups.service';
 @ApiBearerAuth()
 @Controller('groups')
 export class GroupsController {
-  constructor(private readonly groups: GroupsService) {}
+  constructor(
+    private readonly groups: GroupsService,
+    private readonly announcements: AnnouncementsService,
+  ) {}
 
   @Post()
   @Roles('coach')
@@ -186,5 +195,47 @@ export class GroupsController {
     @Param('id', new ParseUUIDPipe()) id: string,
   ): Promise<void> {
     return this.groups.leaveGroup(athleteId, id);
+  }
+
+  // --- Annonces de groupe (ADR-46) ---
+
+  @Get(':id/announcements')
+  @ApiOperation({ summary: 'Lister les annonces du groupe', operationId: 'listAnnouncements' })
+  @ApiResponse({
+    status: 200,
+    description: 'Annonces (récentes d’abord).',
+    type: GroupAnnouncementListDto,
+  })
+  listAnnouncements(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', new ParseUUIDPipe()) id: string,
+  ): Promise<GroupAnnouncementListDto> {
+    return this.announcements.listAnnouncements(user, id);
+  }
+
+  @Post(':id/announcements')
+  @Roles('coach')
+  @HttpCode(201)
+  @ApiOperation({ summary: 'Publier une annonce', operationId: 'createAnnouncement' })
+  @ApiResponse({ status: 201, description: 'Annonce publiée.', type: GroupAnnouncementDto })
+  createAnnouncement(
+    @CurrentUser('id') coachId: string,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: AnnouncementCreateDto,
+  ): Promise<GroupAnnouncementDto> {
+    return this.announcements.createAnnouncement(coachId, id, dto);
+  }
+
+  @Delete(':id/announcements/:announcementId')
+  @Roles('coach')
+  @HttpCode(204)
+  @ApiOperation({ summary: 'Supprimer une annonce', operationId: 'deleteAnnouncement' })
+  @ApiResponse({ status: 204, description: 'Annonce supprimée.' })
+  deleteAnnouncement(
+    @CurrentUser('id') coachId: string,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('announcementId', new ParseUUIDPipe()) announcementId: string,
+  ): Promise<void> {
+    return this.announcements.deleteAnnouncement(coachId, id, announcementId);
   }
 }

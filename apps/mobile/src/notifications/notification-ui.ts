@@ -8,7 +8,7 @@ import type { NotificationType } from '@talent-x/api-client';
 
 export interface NotificationPresentation {
   /** Icône Feather. */
-  icon: 'calendar' | 'message-circle' | 'check-circle' | 'users';
+  icon: 'calendar' | 'message-circle' | 'check-circle' | 'users' | 'volume-2';
   title: string;
   description: string;
 }
@@ -34,6 +34,11 @@ export const NOTIFICATION_PRESENTATIONS: Record<NotificationType, NotificationPr
     title: 'Groupe mis à jour',
     description: 'Un athlète a rejoint votre groupe.',
   },
+  group_announcement: {
+    icon: 'volume-2',
+    title: 'Nouvelle annonce',
+    description: 'Ton coach a publié une annonce.',
+  },
 };
 
 /**
@@ -56,6 +61,10 @@ export function notificationHref(
   }
   if (role === 'coach' && type === 'group_update') {
     return { pathname: '/(coach)/athletes' };
+  }
+  // Annonce (ADR-46) : resourceId = groupe → l'athlète ouvre le hub du groupe.
+  if (role === 'athlete' && type === 'group_announcement') {
+    return { pathname: '/(athlete)/group/[id]', params: { id: resourceId } };
   }
   return null;
 }

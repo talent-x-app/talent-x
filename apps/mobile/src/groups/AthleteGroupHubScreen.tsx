@@ -10,8 +10,9 @@ import { toUserMessage, useToast } from '../feedback';
 import { NotificationsBell } from '../notifications/NotificationsBell';
 import { MY_GROUPS_QUERY_KEY } from './groups-query';
 import { TeammatesPane } from './group-teammates-ui';
+import { AnnouncementsPane } from './announcements-ui';
 
-type HubTab = 'teammates' | 'info';
+type HubTab = 'announcements' | 'teammates' | 'info';
 
 /**
  * Hub de groupe vu par l'athlète (ADR-43, recentré par **ADR-44 §1** : « mince »). En-tête compact
@@ -29,7 +30,7 @@ export function AthleteGroupHubScreen({
 }) {
   const { colors, typography, spacing, borderWidth } = useTheme();
   const router = useRouter();
-  const [tab, setTab] = useState<HubTab>('teammates');
+  const [tab, setTab] = useState<HubTab>('announcements');
 
   const myGroups = useQuery({
     queryKey: MY_GROUPS_QUERY_KEY,
@@ -120,6 +121,7 @@ export function AthleteGroupHubScreen({
         <SegmentedTabs
           testID="athlete-group-tabs"
           items={[
+            { key: 'announcements', label: 'Annonces' },
             { key: 'teammates', label: 'Coéquipiers' },
             { key: 'info', label: 'Infos' },
           ]}
@@ -132,7 +134,9 @@ export function AthleteGroupHubScreen({
         style={{ flex: 1 }}
         contentContainerStyle={{ padding: spacing[5], gap: spacing[5] }}
       >
-        {tab === 'teammates' ? (
+        {tab === 'announcements' ? (
+          <AnnouncementsPane groupId={groupId} />
+        ) : tab === 'teammates' ? (
           <TeammatesPane groupId={groupId} coach={group?.coach} joinedAt={group?.joinedAt} />
         ) : (
           <GroupInfoPane group={group} groupId={groupId} />

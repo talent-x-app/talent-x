@@ -8,6 +8,7 @@
  * OpenAPI spec version: 1.0.0
  */
 
+export * from './announcementCreate';
 export * from './assignment';
 export * from './assignmentList';
 export * from './assignmentPage';
@@ -69,6 +70,8 @@ export * from './exportJob';
 export * from './forbiddenResponse';
 export * from './forgotPasswordRequest';
 export * from './group';
+export * from './groupAnnouncement';
+export * from './groupAnnouncementList';
 export * from './groupCreate';
 export * from './groupMember';
 export * from './groupMemberPage';

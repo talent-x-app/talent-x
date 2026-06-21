@@ -50,6 +50,7 @@ model User {
   exportJobs              ExportJob[]
   coachedGroups           Group[]                  @relation("GroupCoach")
   groupMemberships        GroupMember[]
+  authoredAnnouncements   GroupAnnouncement[]      @relation("AnnouncementAuthor")
   coachLinks              CoachAthleteLink[]       @relation("LinkCoach")
   athleteLinks            CoachAthleteLink[]       @relation("LinkAthlete")
   coachedSessions         Session[]                @relation("SessionCoach")
@@ -210,13 +211,31 @@ model Group {
   updatedAt           DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt           DateTime? @map("deleted_at") @db.Timestamptz(6)
 
-  coach            User               @relation("GroupCoach", fields: [coachId], references: [id], onDelete: Restrict)
+  coach            User                @relation("GroupCoach", fields: [coachId], references: [id], onDelete: Restrict)
   members          GroupMember[]
   links            CoachAthleteLink[]
   groupAssignments GroupAssignment[]
+  announcements    GroupAnnouncement[]
 
   // Index PARTIEL ix_groups_coach WHERE deleted_at IS NULL → migration SQL.
   @@map("groups")
+}
+
+/// Annonce de groupe (ADR-46) — canal descendant coach → membres. Corps texte seul,
+/// suppression soft. Distincte de `comments` (scopé séance).
+model GroupAnnouncement {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  groupId   String    @map("group_id") @db.Uuid
+  authorId  String    @map("author_id") @db.Uuid
+  body      String
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  group  Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  author User  @relation("AnnouncementAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([groupId], map: "ix_group_announcement_group")
+  @@map("group_announcements")
 }
 
 /// Appartenance d'un athlète à un groupe (historisée via left_at).

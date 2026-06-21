@@ -18,6 +18,7 @@ import { ActivityIndicator, Pressable, ScrollView, Share, Text, View } from 'rea
 import { Button, Card, Input } from '../components/ui';
 import { toUserMessage, useToast } from '../feedback';
 import { GROUPS_QUERY_KEY, groupMembersQueryKey, groupQueryKey } from './groups-query';
+import { AnnouncementsPane } from './announcements-ui';
 
 /**
  * Détail & gestion d'un groupe coach (TLX-87). Charge le groupe (`GET /groups/:id`) et ses
@@ -304,6 +305,12 @@ export function CoachGroupDetailScreen({ groupId }: { groupId: string }) {
           </Pressable>
         </View>
       )}
+
+      {/* Annonces (ADR-46) : canal descendant coach → membres (publier / supprimer). */}
+      <View style={{ gap: spacing[3] }}>
+        <SectionLabel>Annonces</SectionLabel>
+        <AnnouncementsPane groupId={groupId} canManage />
+      </View>
 
       {/* Code d'invitation (ADR-16) : actif (partage + régénération) ou révoqué (génération). */}
       <View style={{ gap: spacing[3] }}>

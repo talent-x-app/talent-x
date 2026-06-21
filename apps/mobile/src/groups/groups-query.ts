@@ -25,6 +25,11 @@ export function groupTeammatesQueryKey(groupId: string) {
   return ['groups', groupId, 'teammates'] as const;
 }
 
+/** Annonces d'un groupe (ADR-46 — `GET /groups/:id/announcements`). Partagé coach ↔ athlète. */
+export function groupAnnouncementsQueryKey(groupId: string) {
+  return ['groups', groupId, 'announcements'] as const;
+}
+
 /**
  * Affectations de l'athlète courant (`GET /assignments`, role-aware). Le hub de groupe (fil
  * Séances + Calendrier, ADR-43 §4) lit ce **même** cache que l'écran Séances (A-02) et le

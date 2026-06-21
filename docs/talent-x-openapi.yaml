@@ -789,6 +789,92 @@ paths:
           $ref: '#/components/responses/TooManyRequests'
         '500':
           $ref: '#/components/responses/ServerError'
+  /groups/{id}/announcements:
+    get:
+      tags:
+      - Groupes
+      summary: Lister les annonces du groupe
+      description: >-
+        Annonces du groupe (récentes d'abord, ADR-46). RBAC : coach propriétaire **ou**
+        athlète membre actif (404 anti-énumération sinon).
+      operationId: listAnnouncements
+      parameters:
+      - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: Annonces du groupe.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupAnnouncementList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    post:
+      tags:
+      - Groupes
+      summary: Publier une annonce (coach propriétaire)
+      description: >-
+        Publie une annonce et notifie les membres actifs (type group_announcement, gardé
+        par la préférence groupUpdates, ADR-46). RBAC : coach propriétaire.
+      operationId: createAnnouncement
+      parameters:
+      - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnnouncementCreate'
+            example:
+              body: Séance de samedi déplacée à 10h au stade Boutonnet.
+      responses:
+        '201':
+          description: Annonce publiée.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupAnnouncement'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '500':
+          $ref: '#/components/responses/ServerError'
+  /groups/{id}/announcements/{announcementId}:
+    delete:
+      tags:
+      - Groupes
+      summary: Supprimer une annonce (coach propriétaire)
+      operationId: deleteAnnouncement
+      parameters:
+      - $ref: '#/components/parameters/IdPath'
+      - name: announcementId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '204':
+          description: Annonce supprimée.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
   /groups/{id}/members/{athleteId}:
     delete:
       tags:
@@ -2713,6 +2799,48 @@ components:
           type: string
       required:
       - id
+    AnnouncementCreate:
+      type: object
+      description: Corps d'une annonce de groupe (ADR-46) — texte seul, borné.
+      properties:
+        body:
+          type: string
+          minLength: 1
+          maxLength: 1000
+      required:
+      - body
+    GroupAnnouncement:
+      type: object
+      description: Annonce de groupe (ADR-46). L'auteur est le coach, déjà connu des membres.
+      properties:
+        id:
+          type: string
+          format: uuid
+        groupId:
+          type: string
+          format: uuid
+        body:
+          type: string
+        author:
+          $ref: '#/components/schemas/UserSummary'
+        createdAt:
+          type: string
+          format: date-time
+      required:
+      - id
+      - groupId
+      - body
+      - author
+      - createdAt
+    GroupAnnouncementList:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/GroupAnnouncement'
+      required:
+      - data
     UserUpdate:
       type: object
       description: >-
@@ -4168,6 +4296,7 @@ components:
       - performance_feedback
       - performance_submitted
       - group_update
+      - group_announcement
     Notification:
       type: object
       description: Notification in-app (ADR-23) — signal minimal, libellé côté client.

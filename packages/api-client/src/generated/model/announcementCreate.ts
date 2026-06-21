@@ -9,15 +9,12 @@
  */
 
 /**
- * Taxonomie des événements notifiables (ADR-22).
+ * Corps d'une annonce de groupe (ADR-46) — texte seul, borné.
  */
-export type NotificationType = typeof NotificationType[keyof typeof NotificationType];
-
-
-export const NotificationType = {
-  session_assigned: 'session_assigned',
-  performance_feedback: 'performance_feedback',
-  performance_submitted: 'performance_submitted',
-  group_update: 'group_update',
-  group_announcement: 'group_announcement',
-} as const;
+export interface AnnouncementCreate {
+  /**
+     * @minLength 1
+     * @maxLength 1000
+     */
+  body: string;
+}
