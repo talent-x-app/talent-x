@@ -12,6 +12,25 @@ de débloquer les écrans coach C-01/C-02/C-03.
 - _(éditeurs typés terminés — TLX-054→061 livrés ↓)_
 - _(C-01 complet — TLX-081→085 livrés ↓)_
 
+## Terminés — ADR-45 Agrégat de présence par séance (compteur sans noms)
+
+- **ADR-45 accepté (2026-06-21)** — complète ADR-43 §1/§5. Rend la présence **sociale** : « X présents
+  · Y absents · Z sans réponse » sur le détail de séance, **sans identités** (RGPD ; nominatif différé
+  AIPD). Tranche verticale (contrat + backend + front).
+- **(Agrégat par séance, pas par groupe)** `GET /assignments/{id}/attendance-summary`
+  (`getAttendanceSummary`) compte `attendance` sur **toutes les affectations du même `sessionId`**
+  (fan-out ADR-30) → **aucune dépendance au Lot 2**, **zéro migration**. Réponse = entiers seuls
+  `{going, notGoing, maybe, noResponse, total}`. RBAC = titulaire **ou** coach propriétaire (404 sinon).
+- **(Front)** `AttendanceSummaryView` dans le détail unique (sous `PresenceControl`), **masqué si
+  `total ≤ 1`**, **rafraîchi** à la déclaration de présence (invalidation par préfixe
+  `['assignment', id]` émise par `PresenceControl`).
+- **Tests** : **API unit 59** (+5 : agrégat null→noResponse + total, 403 non-titulaire sans agréger,
+  coach OK, 404), **intégration DB-backed** (agrégat live `total` + 403), **mobile** (`AttendanceSummaryView`
+  +2). typecheck + lint + prettier clean.
+- **Validé en réel (2026-06-21)** : `GET /assignments/{id}/attendance-summary` → `{going:2,total:2}`
+  (séance affectée à 2 coéquipiers, l'un « présent »). Seed démo `seed-hub-demo.mjs` enrichi (coéquipier
+  - présence) pour rendre l'agrégat visible.
+
 ## Terminés — ADR-44 Recentrage IA athlète : Séances unifiée, hub mince, onglet Groupe
 
 - **ADR-44 accepté (2026-06-21, validé d'office)** — amende ADR-43 §4. Constat de test : séances vues
