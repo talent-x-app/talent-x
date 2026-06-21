@@ -1,6 +1,9 @@
-import { AthleteCalendarScreen } from '../../src/calendar/AthleteCalendarScreen';
+import { AthleteSessionsTabsScreen } from '../../src/athlete/AthleteSessionsTabsScreen';
 
-/** Onglet Calendrier athlète → planning des séances affectées (A-08, TLX-100). */
+/**
+ * Route Calendrier athlète (ADR-44) — hors tab bar : ouvre la surface Séances unifiée directement
+ * sur la vue calendrier (atteinte via le raccourci d'accueil ou la bascule de l'onglet Séances).
+ */
 export default function AthleteCalendarRoute() {
-  return <AthleteCalendarScreen />;
+  return <AthleteSessionsTabsScreen initialView="calendar" />;
 }

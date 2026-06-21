@@ -12,6 +12,35 @@ de débloquer les écrans coach C-01/C-02/C-03.
 - _(éditeurs typés terminés — TLX-054→061 livrés ↓)_
 - _(C-01 complet — TLX-081→085 livrés ↓)_
 
+## Terminés — ADR-44 Recentrage IA athlète : Séances unifiée, hub mince, onglet Groupe
+
+- **ADR-44 accepté (2026-06-21, validé d'office)** — amende ADR-43 §4. Constat de test : séances vues
+  à 3 endroits (Séances, Calendrier, hub de groupe qui re-listait une copie non scopable en Lot 1) ;
+  groupe enfoui dans Profil. **Frontend pur.**
+- **(Hub de groupe mince, §1)** retrait des volets Séances/Calendrier + du détail lecture-seule de
+  TLX-173 Phase A ; le hub = **Coéquipiers + Infos**. Composants redondants supprimés
+  (`GroupSessionsTab`, `GroupCalendarTab`, `group-session-ui`, `group-states-ui`, `group-feed`,
+  `GroupSessionDetailScreen` + route `group/session/[id]` + leurs tests).
+- **(Séances unifiée, §2)** un onglet **« Séances »** à bascule **Liste ⇄ Calendrier**
+  (`AthleteSessionsTabsScreen`) réutilisant **A-02** (`AthleteSessionsScreen embedded`) et **A-08**
+  (`AthleteCalendarScreen embedded`, compétitions ADR-24 préservées). Calendrier retiré du tab bar
+  (routable, ouvre la vue calendrier ; raccourci accueil intact).
+- **(Onglet Groupe, §3)** `AthleteGroupsScreen` + route `groups.tsx` : 0 → CTA rejoindre ; 1 → hub
+  direct (`showBack=false`) ; N → liste. Tab bar : **Accueil · Séances · Progression · Groupe ·
+  Profil**. `MyGroupSection` retiré de Profil (+ son test).
+- **(Détail unique, §4)** la **présence** (RSVP) migre du détail lecture-seule supprimé vers
+  `SessionDetailScreen` (`PresenceControl` avec `queryKey` aligné `['assignment', id]`), affichée tant
+  que `status ≠ completed`. Next-up porté par l'Accueil.
+- **(Discipline conservée, §5)** `session-discipline`/`discipline-ui` alimentent un **tag de
+  discipline** sur la ligne de séance partagée (`AssignmentListItem`). Pour éviter une dépendance au
+  chargement à l'objet `BlockType` (qui cassait ~10 suites moquant `@talent-x/api-client` sans lui),
+  `discipline-assistants` et `presence-ui` n'utilisent plus que des **littéraux** (enums en
+  `import type`). Pastilles discipline au calendrier différées.
+- **(§6)** « Quitter le groupe » passe par une **confirmation inline** (robuste web + natif).
+- **Tests** : **mobile 793/793** (suites mises à jour : hub mince, présence, détail) ; typecheck +
+  ESLint + Prettier clean. **E2E Playwright `tlx-173-group-hub` réécrit et vert en réel** (Séances
+  liste/calendrier → détail + présence → onglet Groupe).
+
 ## Terminés — TLX-175 Vérification live du hub de groupe (TLX-173 A+B)
 
 - **Validé en réel (2026-06-20, Postgres :5433 + API `nest start` :3000 + Expo web :8081).**

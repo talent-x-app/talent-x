@@ -1,8 +1,11 @@
 import { AssignmentStatus, type Assignment } from '@talent-x/api-client';
 import { useTheme } from '@talent-x/design-tokens';
+import { Feather } from '@expo/vector-icons';
 import { StyleSheet, Text, View } from 'react-native';
 import { Card } from '../components/ui';
 import { countLeaves } from '../sessions/exercises-doc';
+import { sessionDiscipline } from '../progress/session-discipline';
+import { disciplineVisual } from '../groups/discipline-ui';
 
 /** Libellé + tonalité (token) par statut d'affectation. Partagé liste ↔ détail. */
 export const ASSIGNMENT_STATUS_META: Record<
@@ -90,22 +93,61 @@ export function AssignmentListItem({
           >
             {sessionTitle(assignment)}
           </Text>
-          <Text
-            style={{
-              // Date + nb d'exercices porteurs d'info → textSecondary (AA, TLX-145).
-              color: colors.textSecondary,
-              fontFamily: typography.fontFamily.regular,
-              fontSize: typography.bodySm.fontSize,
-            }}
-          >
-            {date ? formatSessionDate(date) : 'Sans date'}
-            {' · '}
-            {exerciseCount(assignment)} exercice{exerciseCount(assignment) > 1 ? 's' : ''}
-          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+            <Text
+              style={{
+                // Date + nb d'exercices porteurs d'info → textSecondary (AA, TLX-145).
+                color: colors.textSecondary,
+                fontFamily: typography.fontFamily.regular,
+                fontSize: typography.bodySm.fontSize,
+              }}
+            >
+              {date ? formatSessionDate(date) : 'Sans date'}
+              {' · '}
+              {exerciseCount(assignment)} exercice{exerciseCount(assignment) > 1 ? 's' : ''}
+            </Text>
+            <DisciplineInlineTag assignment={assignment} />
+          </View>
         </View>
         <AssignmentStatusBadge status={assignment.status} />
       </View>
     </Card>
+  );
+}
+
+/**
+ * Tag de discipline **dérivé** des blocs typés de la séance (ADR-43 §2, conservé par ADR-44 §5).
+ * Rendu seulement si une discipline se dégage (`none` → rien). Couleur via token (TLX-145).
+ */
+function DisciplineInlineTag({ assignment }: { assignment: Pick<Assignment, 'session'> }) {
+  const { colors, typography, spacing, radius } = useTheme();
+  const visual = disciplineVisual(sessionDiscipline(assignment.session?.exercises?.items));
+  if (!visual) return null;
+  const color = colors[visual.colorKey] as string;
+  return (
+    <View
+      testID={`session-discipline-${visual.key}`}
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        paddingHorizontal: spacing[2],
+        paddingVertical: 2,
+        borderRadius: radius.pill,
+        backgroundColor: colors.accentSubtle,
+      }}
+    >
+      <Feather name={visual.icon} size={10} color={color} />
+      <Text
+        style={{
+          color,
+          fontFamily: typography.fontFamily.medium,
+          fontSize: typography.caption.fontSize,
+        }}
+      >
+        {visual.label}
+      </Text>
+    </View>
   );
 }
 

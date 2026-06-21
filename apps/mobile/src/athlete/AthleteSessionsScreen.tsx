@@ -33,7 +33,7 @@ function sortAssignments(list: Assignment[]): Assignment[] {
  * premier), lignes cliquables vers le détail + saisie de perf (A-03/A-04). États
  * chargement / erreur / vide, pull-to-refresh.
  */
-export function AthleteSessionsScreen() {
+export function AthleteSessionsScreen({ embedded = false }: { embedded?: boolean } = {}) {
   const { colors, typography, spacing } = useTheme();
   const router = useRouter();
   const [search, setSearch] = useState('');
@@ -63,15 +63,17 @@ export function AthleteSessionsScreen() {
       }
     >
       <View style={{ gap: spacing[1] }}>
-        <Text
-          style={{
-            color: colors.textPrimary,
-            fontFamily: typography.fontFamily.bold,
-            fontSize: typography.h2.fontSize,
-          }}
-        >
-          Séances
-        </Text>
+        {!embedded ? (
+          <Text
+            style={{
+              color: colors.textPrimary,
+              fontFamily: typography.fontFamily.bold,
+              fontSize: typography.h2.fontSize,
+            }}
+          >
+            Séances
+          </Text>
+        ) : null}
         {query.data ? (
           <Text
             testID="sessions-count"

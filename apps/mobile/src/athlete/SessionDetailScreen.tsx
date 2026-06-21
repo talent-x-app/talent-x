@@ -3,6 +3,7 @@ import {
   getPerformance,
   submitPerformance,
   updatePerformance,
+  AssignmentStatus,
   type Assignment,
   type Performance,
   type PerformanceCreate,
@@ -52,6 +53,7 @@ import {
   SessionContent,
 } from '../sessions/session-content-ui';
 import { formatSessionDate, sessionTitle } from './athlete-session-ui';
+import { PresenceControl } from '../groups/presence-ui';
 import { AthleteIntentBanner, BriefMetrics, SuccessStopCard } from './brief-ui';
 import { perfConfirmationHref } from './navigation';
 import {
@@ -395,6 +397,14 @@ export function SessionDetailScreen() {
               </Text>
             ) : null}
           </View>
+
+          {/* Présence (RSVP, ADR-43 §1) — déclarable tant que la séance est exécutable. La clé de
+              cache passée aligne la mise à jour optimiste sur la requête de ce détail. */}
+          {assignment.data.status !== AssignmentStatus.completed ? (
+            <Card>
+              <PresenceControl assignment={assignment.data} queryKey={['assignment', id]} />
+            </Card>
+          ) : null}
 
           {mode === 'view' ? (
             <>

@@ -1,4 +1,9 @@
-import { setAttendance, AttendanceStatus, SkipReason, type Assignment } from '@talent-x/api-client';
+import {
+  setAttendance,
+  type AttendanceStatus,
+  type SkipReason,
+  type Assignment,
+} from '@talent-x/api-client';
 import { useTheme } from '@talent-x/design-tokens';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Feather } from '@expo/vector-icons';
@@ -7,7 +12,17 @@ import { Pressable, Text, View } from 'react-native';
 import { attendanceDeadlineHours } from '../config/env';
 import { toUserMessage, useToast } from '../feedback';
 import { ASSIGNMENTS_QUERY_KEY, assignmentQueryKey } from './groups-query';
-import { attendanceDeadline } from './group-feed';
+
+/**
+ * Échéance de réponse de présence (ADR-43 §1) : `dueDate` − `hours`, **dérivée** (jamais stockée).
+ * `null` si pas d'échéance ou date invalide.
+ */
+function attendanceDeadline(dueDate: string | undefined, hours: number): Date | null {
+  if (!dueDate) return null;
+  const due = new Date(dueDate);
+  if (Number.isNaN(due.getTime())) return null;
+  return new Date(due.getTime() - hours * 3600_000);
+}
 
 /**
  * Contrôle de **présence** (RSVP, ADR-43 §1, Phase B) — 3 états déclaratifs Présent / Absent /
@@ -17,36 +32,44 @@ import { attendanceDeadline } from './group-feed';
  * L'échéance de réponse est **dérivée** (`dueDate` − délai `.env`), affichée tant que sans réponse.
  */
 
+const GOING = 'going' as AttendanceStatus;
+const NOT_GOING = 'not_going' as AttendanceStatus;
+const MAYBE = 'maybe' as AttendanceStatus;
+
 const ATT_OPTIONS: {
   value: AttendanceStatus;
   label: string;
   icon: keyof typeof Feather.glyphMap;
 }[] = [
-  { value: AttendanceStatus.going, label: 'Présent', icon: 'check' },
-  { value: AttendanceStatus.not_going, label: 'Absent', icon: 'x' },
-  { value: AttendanceStatus.maybe, label: 'Peut-être', icon: 'help-circle' },
+  { value: GOING, label: 'Présent', icon: 'check' },
+  { value: NOT_GOING, label: 'Absent', icon: 'x' },
+  { value: MAYBE, label: 'Peut-être', icon: 'help-circle' },
 ];
 
 const REASONS: { value: SkipReason; label: string }[] = [
-  { value: SkipReason.injury, label: 'Blessure' },
-  { value: SkipReason.absence, label: 'Indisponible' },
-  { value: SkipReason.weather, label: 'Météo' },
-  { value: SkipReason.other, label: 'Autre' },
+  { value: 'injury' as SkipReason, label: 'Blessure' },
+  { value: 'absence' as SkipReason, label: 'Indisponible' },
+  { value: 'weather' as SkipReason, label: 'Météo' },
+  { value: 'other' as SkipReason, label: 'Autre' },
 ];
 
 export function PresenceControl({
   assignment,
   now = new Date(),
+  queryKey,
 }: {
   assignment: Assignment;
   now?: Date;
+  /** Clé du cache de l'affectation à mettre à jour en optimiste (défaut : `['assignments', id]`).
+   *  Le détail séance (`SessionDetailScreen`) la passe (`['assignment', id]`) pour aligner. */
+  queryKey?: readonly unknown[];
 }) {
   const { colors, typography, spacing, radius, borderWidth } = useTheme();
   const toast = useToast();
   const queryClient = useQueryClient();
   const [reasonOpen, setReasonOpen] = useState(false);
 
-  const key = assignmentQueryKey(assignment.id);
+  const key = queryKey ?? assignmentQueryKey(assignment.id);
 
   const mutation = useMutation({
     mutationFn: async (input: { attendance: AttendanceStatus; reason?: SkipReason }) => {
@@ -65,8 +88,7 @@ export function PresenceControl({
           ? {
               ...old,
               attendance: input.attendance,
-              attendanceReason:
-                input.attendance === AttendanceStatus.not_going ? input.reason : undefined,
+              attendanceReason: input.attendance === NOT_GOING ? input.reason : undefined,
             }
           : old,
       );
@@ -91,7 +113,7 @@ export function PresenceControl({
   const showDeadline = current == null && deadline != null && deadline.getTime() > now.getTime();
 
   const onPick = (value: AttendanceStatus) => {
-    if (value === AttendanceStatus.not_going) {
+    if (value === NOT_GOING) {
       setReasonOpen(true);
       return;
     }
@@ -117,15 +139,15 @@ export function PresenceControl({
         {ATT_OPTIONS.map((opt) => {
           const selected = current === opt.value;
           const tone =
-            opt.value === AttendanceStatus.going
+            opt.value === GOING
               ? colors.success
-              : opt.value === AttendanceStatus.not_going
+              : opt.value === NOT_GOING
                 ? colors.danger
                 : colors.warning;
           const bg =
-            opt.value === AttendanceStatus.going
+            opt.value === GOING
               ? colors.successBg
-              : opt.value === AttendanceStatus.not_going
+              : opt.value === NOT_GOING
                 ? colors.dangerBg
                 : colors.warningBg;
           return (
@@ -166,7 +188,7 @@ export function PresenceControl({
       </View>
 
       {/* Sélecteur de motif (invariant serveur : requis pour « Absent »). */}
-      {reasonOpen || current === AttendanceStatus.not_going ? (
+      {reasonOpen || current === NOT_GOING ? (
         <View style={{ gap: spacing[2] }} testID="presence-reasons">
           <Text
             style={{
@@ -179,15 +201,12 @@ export function PresenceControl({
           </Text>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] }}>
             {REASONS.map((r) => {
-              const selected =
-                current === AttendanceStatus.not_going && assignment.attendanceReason === r.value;
+              const selected = current === NOT_GOING && assignment.attendanceReason === r.value;
               return (
                 <Pressable
                   key={r.value}
                   testID={`presence-reason-${r.value}`}
-                  onPress={() =>
-                    mutation.mutate({ attendance: AttendanceStatus.not_going, reason: r.value })
-                  }
+                  onPress={() => mutation.mutate({ attendance: NOT_GOING, reason: r.value })}
                   disabled={mutation.isPending}
                   accessibilityRole="button"
                   accessibilityState={{ selected }}

@@ -1,11 +1,4 @@
-import {
-  getMyGroups,
-  leaveGroup,
-  listAssignments,
-  type Assignment,
-  type AthleteGroup,
-  type UserSummary,
-} from '@talent-x/api-client';
+import { getMyGroups, leaveGroup, type AthleteGroup, type UserSummary } from '@talent-x/api-client';
 import { useTheme } from '@talent-x/design-tokens';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Feather } from '@expo/vector-icons';
@@ -15,31 +8,28 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 import { Button, Card, SegmentedTabs } from '../components/ui';
 import { toUserMessage, useToast } from '../feedback';
 import { NotificationsBell } from '../notifications/NotificationsBell';
-import { ASSIGNMENTS_QUERY_KEY, MY_GROUPS_QUERY_KEY } from './groups-query';
-import { GroupSessionsTab } from './group-sessions-tab';
-import { GroupCalendarTab } from './group-calendar-tab';
+import { MY_GROUPS_QUERY_KEY } from './groups-query';
 import { TeammatesPane } from './group-teammates-ui';
 
-type HubTab = 'sessions' | 'calendar' | 'teammates' | 'info';
+type HubTab = 'teammates' | 'info';
 
 /**
- * Hub de groupe vu par l'athlète (ADR-43, TLX-173 — Phase A, affichage). En-tête compact collant
- * (avatar + nom + « Coach · N athlètes » + cloche) puis onglets segmentés :
- * **Séances** (carte next-up + fil groupé), **Calendrier** (Mois/Semaine + recherche),
- * **Coéquipiers** (roster ADR-37) et **Infos** (méta + quitter). Le méta vient du cache
- * `GET /groups/mine` (ADR-26) ; le fil lit `GET /assignments` (ADR-43 §4). Lecture seule : la
- * présence (3 états) et la saisie de perf sont en Phase B (derrière le contrat ADR-43).
+ * Hub de groupe vu par l'athlète (ADR-43, recentré par **ADR-44 §1** : « mince »). En-tête compact
+ * (avatar + nom + « Coach · N athlètes » + cloche) puis onglets segmentés **Coéquipiers** (roster
+ * ADR-37) et **Infos** (méta + quitter). Le fil de séances / le calendrier ne sont **plus** ici :
+ * ils vivent dans l'onglet Séances unique (ADR-44 §2). Le méta vient du cache `GET /groups/mine`
+ * (ADR-26). `showBack=false` quand le hub est la racine de l'onglet Groupe (un seul groupe).
  */
 export function AthleteGroupHubScreen({
   groupId,
-  now = new Date(),
+  showBack = true,
 }: {
   groupId: string;
-  now?: Date;
+  showBack?: boolean;
 }) {
   const { colors, typography, spacing, borderWidth } = useTheme();
   const router = useRouter();
-  const [tab, setTab] = useState<HubTab>('sessions');
+  const [tab, setTab] = useState<HubTab>('teammates');
 
   const myGroups = useQuery({
     queryKey: MY_GROUPS_QUERY_KEY,
@@ -51,22 +41,6 @@ export function AthleteGroupHubScreen({
     retry: false,
   });
   const group = (myGroups.data ?? []).find((g) => g.id === groupId);
-
-  const assignments = useQuery({
-    queryKey: ASSIGNMENTS_QUERY_KEY,
-    queryFn: async (): Promise<Assignment[]> => {
-      const response = await listAssignments();
-      if (response.status === 200) return response.data.data;
-      throw response;
-    },
-    retry: false,
-  });
-
-  const openSession = (assignment: Assignment) =>
-    router.push({
-      pathname: '/(athlete)/group/session/[id]' as const,
-      params: { id: assignment.id },
-    });
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -83,15 +57,17 @@ export function AthleteGroupHubScreen({
         }}
       >
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[3] }}>
-          <Pressable
-            testID="athlete-group-back"
-            onPress={() => router.back()}
-            accessibilityRole="button"
-            accessibilityLabel="Retour"
-            hitSlop={8}
-          >
-            <Feather name="chevron-left" size={24} color={colors.textSecondary} />
-          </Pressable>
+          {showBack ? (
+            <Pressable
+              testID="athlete-group-back"
+              onPress={() => router.back()}
+              accessibilityRole="button"
+              accessibilityLabel="Retour"
+              hitSlop={8}
+            >
+              <Feather name="chevron-left" size={24} color={colors.textSecondary} />
+            </Pressable>
+          ) : null}
           <View
             style={{
               width: 40,
@@ -144,8 +120,6 @@ export function AthleteGroupHubScreen({
         <SegmentedTabs
           testID="athlete-group-tabs"
           items={[
-            { key: 'sessions', label: 'Séances' },
-            { key: 'calendar', label: 'Calendrier' },
             { key: 'teammates', label: 'Coéquipiers' },
             { key: 'info', label: 'Infos' },
           ]}
@@ -158,25 +132,7 @@ export function AthleteGroupHubScreen({
         style={{ flex: 1 }}
         contentContainerStyle={{ padding: spacing[5], gap: spacing[5] }}
       >
-        {tab === 'sessions' ? (
-          <GroupSessionsTab
-            assignments={assignments.data}
-            isLoading={assignments.isLoading}
-            isError={assignments.isError}
-            onRetry={() => void assignments.refetch()}
-            onOpen={openSession}
-            now={now}
-          />
-        ) : tab === 'calendar' ? (
-          <GroupCalendarTab
-            assignments={assignments.data}
-            isLoading={assignments.isLoading}
-            isError={assignments.isError}
-            onRetry={() => void assignments.refetch()}
-            onOpen={openSession}
-            now={now}
-          />
-        ) : tab === 'teammates' ? (
+        {tab === 'teammates' ? (
           <TeammatesPane groupId={groupId} />
         ) : (
           <GroupInfoPane group={group} groupId={groupId} />
@@ -186,12 +142,13 @@ export function AthleteGroupHubScreen({
   );
 }
 
-/** Onglet **Infos** : méta du groupe (nom, description, coach) + action « Quitter le groupe ». */
+/** Onglet **Infos** : méta du groupe + « Quitter le groupe » avec confirmation inline (ADR-44 §6). */
 function GroupInfoPane({ group, groupId }: { group?: AthleteGroup; groupId: string }) {
   const { colors, typography, spacing } = useTheme();
   const router = useRouter();
   const toast = useToast();
   const queryClient = useQueryClient();
+  const [confirming, setConfirming] = useState(false);
 
   const leave = useMutation({
     mutationFn: async (): Promise<void> => {
@@ -237,16 +194,55 @@ function GroupInfoPane({ group, groupId }: { group?: AthleteGroup; groupId: stri
         ) : null}
       </View>
 
+      {/* Action destructive : confirmation inline (ADR-44 §6) — robuste web + natif. */}
       <Card>
-        <Button
-          testID="athlete-group-leave"
-          variant="ghost"
-          fullWidth
-          loading={leave.isPending}
-          onPress={() => leave.mutate()}
-        >
-          Quitter le groupe
-        </Button>
+        {confirming ? (
+          <View style={{ gap: spacing[3] }}>
+            <Text
+              style={{
+                color: colors.textPrimary,
+                fontFamily: typography.fontFamily.medium,
+                fontSize: typography.body.fontSize,
+                textAlign: 'center',
+              }}
+            >
+              Quitter « {group?.name ?? 'ce groupe'} » ? Tu ne verras plus ses séances ni ses
+              coéquipiers.
+            </Text>
+            <View style={{ flexDirection: 'row', gap: spacing[2] }}>
+              <View style={{ flex: 1 }}>
+                <Button
+                  testID="athlete-group-leave-cancel"
+                  variant="secondary"
+                  fullWidth
+                  onPress={() => setConfirming(false)}
+                >
+                  Annuler
+                </Button>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Button
+                  testID="athlete-group-leave-confirm"
+                  variant="danger"
+                  fullWidth
+                  loading={leave.isPending}
+                  onPress={() => leave.mutate()}
+                >
+                  Quitter
+                </Button>
+              </View>
+            </View>
+          </View>
+        ) : (
+          <Button
+            testID="athlete-group-leave"
+            variant="ghost"
+            fullWidth
+            onPress={() => setConfirming(true)}
+          >
+            Quitter le groupe
+          </Button>
+        )}
       </Card>
     </View>
   );

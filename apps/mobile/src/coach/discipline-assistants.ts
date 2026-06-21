@@ -1,4 +1,4 @@
-import { BlockType } from '@talent-x/api-client';
+import type { BlockType } from '@talent-x/api-client';
 import { Feather } from '@expo/vector-icons';
 
 /**
@@ -34,7 +34,7 @@ export const DISCIPLINES: DisciplineConfig[] = [
     label: 'Sprint',
     tagline: 'Séries de sprints — distances, intensité, récupération',
     icon: 'zap',
-    blockType: BlockType.sprint,
+    blockType: 'sprint' as BlockType,
     effortLabel: 'Sprint',
   },
   {
@@ -42,7 +42,7 @@ export const DISCIPLINES: DisciplineConfig[] = [
     label: 'Haies',
     tagline: 'Épreuve, hauteur, espacement, rythme d’appuis',
     icon: 'bar-chart-2',
-    blockType: BlockType.hurdles,
+    blockType: 'hurdles' as BlockType,
     effortLabel: 'Passage de haies',
   },
   {
@@ -50,7 +50,7 @@ export const DISCIPLINES: DisciplineConfig[] = [
     label: 'Demi-fond / Endurance',
     tagline: 'Distances ou durées, % VMA, allure cible',
     icon: 'activity',
-    blockType: BlockType.endurance,
+    blockType: 'endurance' as BlockType,
     effortLabel: 'Course',
   },
   {
@@ -58,7 +58,7 @@ export const DISCIPLINES: DisciplineConfig[] = [
     label: 'Sauts',
     tagline: 'Longueur, triple, hauteur, perche',
     icon: 'trending-up',
-    blockType: BlockType.jumps,
+    blockType: 'jumps' as BlockType,
     effortLabel: 'Saut',
   },
   {
@@ -66,7 +66,7 @@ export const DISCIPLINES: DisciplineConfig[] = [
     label: 'Lancers',
     tagline: 'Poids, disque, javelot, marteau',
     icon: 'target',
-    blockType: BlockType.throws,
+    blockType: 'throws' as BlockType,
     effortLabel: 'Lancer',
   },
   {
@@ -74,7 +74,7 @@ export const DISCIPLINES: DisciplineConfig[] = [
     label: 'Renforcement / PPG',
     tagline: 'Musculation et préparation physique générale',
     icon: 'box',
-    blockType: BlockType.strength,
+    blockType: 'strength' as BlockType,
     effortLabel: 'Exercice',
   },
 ];
@@ -91,17 +91,21 @@ export function disciplineConfig(key: string | undefined): DisciplineConfig | un
  * replient sur la carte parente (endurance/jumps/strength) ; `warmup`/`cooldown`/`custom` ne sont
  * pas porteurs de discipline. Aligné sur la même grammaire que les records (ADR-20/41).
  */
-export const BLOCK_TYPE_TO_DISCIPLINE: Partial<Record<BlockType, DisciplineKey>> = {
-  [BlockType.sprint]: 'sprint',
-  [BlockType.hurdles]: 'hurdles',
-  [BlockType.endurance]: 'endurance',
-  [BlockType.interval]: 'endurance',
-  [BlockType.jumps]: 'jumps',
-  [BlockType.vertical_jumps]: 'jumps',
-  [BlockType.throws]: 'throws',
+// Clés en littéraux (valeurs de l'enum `BlockType`, string enum) → aucune référence à l'OBJET
+// `BlockType` au chargement du module : ce module est tiré transitivement par la ligne de séance
+// partagée (athlete-session-ui), y compris dans des tests qui moquent `@talent-x/api-client` sans
+// exposer `BlockType`. Le typage `Record<string, …>` garde la lecture défensive.
+export const BLOCK_TYPE_TO_DISCIPLINE: Partial<Record<string, DisciplineKey>> = {
+  sprint: 'sprint',
+  hurdles: 'hurdles',
+  endurance: 'endurance',
+  interval: 'endurance',
+  jumps: 'jumps',
+  vertical_jumps: 'jumps',
+  throws: 'throws',
   // ADR-41 §6 — Renforcement / PPG : `strength` (muscu) et `core` (PPG) → même carte `strength`.
-  [BlockType.strength]: 'strength',
-  [BlockType.core]: 'strength',
+  strength: 'strength',
+  core: 'strength',
 };
 
 /**

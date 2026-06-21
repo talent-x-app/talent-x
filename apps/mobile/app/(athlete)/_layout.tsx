@@ -38,19 +38,20 @@ export default function AthleteLayout() {
           }}
         />
         <Tabs.Screen
-          name="calendar"
-          options={{
-            title: 'Calendrier',
-            tabBarIcon: ({ color, size }) => <Feather name="calendar" color={color} size={size} />,
-          }}
-        />
-        <Tabs.Screen
           name="progress"
           options={{
             title: 'Progression',
             tabBarIcon: ({ color, size }) => (
               <Feather name="trending-up" color={color} size={size} />
             ),
+          }}
+        />
+        {/* Onglet Groupe (ADR-44 §3) — accès direct au(x) groupe(s), sort de Profil. */}
+        <Tabs.Screen
+          name="groups"
+          options={{
+            title: 'Groupe',
+            tabBarIcon: ({ color, size }) => <Feather name="users" color={color} size={size} />,
           }}
         />
         <Tabs.Screen
@@ -60,6 +61,8 @@ export default function AthleteLayout() {
             tabBarIcon: ({ color, size }) => <Feather name="user" color={color} size={size} />,
           }}
         />
+        {/* Calendrier (ADR-44) : fusionné dans l'onglet Séances → routable mais masqué du tab bar. */}
+        <Tabs.Screen name="calendar" options={{ href: null }} />
         {/* Détail séance + saisie de perf (A-03/A-04) : routable mais masqué du tab bar. */}
         <Tabs.Screen name="session/[id]" options={{ href: null }} />
         {/* Confirmation de perf (A-05) : routable mais masquée du tab bar. */}
@@ -71,10 +74,8 @@ export default function AthleteLayout() {
         <Tabs.Screen name="competition/[id]" options={{ href: null }} />
         {/* Rejoindre un groupe via code (TLX-88) : routable mais masqué du tab bar. */}
         <Tabs.Screen name="group/join" options={{ href: null }} />
-        {/* Hub de groupe (ADR-43, TLX-173) : routable mais masqué du tab bar. */}
+        {/* Hub de groupe (ADR-43/44) : routable mais masqué du tab bar (atteint via l'onglet Groupe). */}
         <Tabs.Screen name="group/[id]" options={{ href: null }} />
-        {/* Détail séance depuis le hub de groupe (TLX-173) : routable mais masqué du tab bar. */}
-        <Tabs.Screen name="group/session/[id]" options={{ href: null }} />
       </Tabs>
     </RoleGuard>
   );

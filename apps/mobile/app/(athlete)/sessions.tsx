@@ -1,6 +1,6 @@
-import { AthleteSessionsScreen } from '../../src/athlete/AthleteSessionsScreen';
+import { AthleteSessionsTabsScreen } from '../../src/athlete/AthleteSessionsTabsScreen';
 
-/** Onglet Séances athlète → liste des séances affectées (A-02, TLX-065). */
+/** Onglet Séances athlète (ADR-44) — surface unique liste/calendrier. */
 export default function AthleteSessionsRoute() {
-  return <AthleteSessionsScreen />;
+  return <AthleteSessionsTabsScreen initialView="list" />;
 }

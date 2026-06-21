@@ -23,7 +23,7 @@ import { assignmentToCalendarEntry, competitionToCalendarEntry } from './calenda
  * Partage la clé de cache `['assignments']` avec l'onglet Séances (A-02) : naviguer entre les
  * deux ne déclenche pas de re-fetch.
  */
-export function AthleteCalendarScreen() {
+export function AthleteCalendarScreen({ embedded = false }: { embedded?: boolean } = {}) {
   const { colors, typography, spacing } = useTheme();
   const router = useRouter();
 
@@ -65,15 +65,17 @@ export function AthleteCalendarScreen() {
         />
       }
     >
-      <Text
-        style={{
-          color: colors.textPrimary,
-          fontFamily: typography.fontFamily.bold,
-          fontSize: typography.h2.fontSize,
-        }}
-      >
-        Calendrier
-      </Text>
+      {!embedded ? (
+        <Text
+          style={{
+            color: colors.textPrimary,
+            fontFamily: typography.fontFamily.bold,
+            fontSize: typography.h2.fontSize,
+          }}
+        >
+          Calendrier
+        </Text>
+      ) : null}
 
       <Button
         testID="calendar-competitions-link"
