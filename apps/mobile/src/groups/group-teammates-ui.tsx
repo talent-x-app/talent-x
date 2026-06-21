@@ -1,17 +1,47 @@
-import { getGroupTeammates, type GroupTeammate } from '@talent-x/api-client';
+import {
+  getGroupTeammates,
+  getMe,
+  type GroupTeammate,
+  type User,
+  type UserSummary,
+} from '@talent-x/api-client';
 import { useTheme } from '@talent-x/design-tokens';
 import { useQuery } from '@tanstack/react-query';
+import { Feather } from '@expo/vector-icons';
 import { ActivityIndicator, Image, Text, View } from 'react-native';
 import { Button, Card } from '../components/ui';
+import { formatSessionDate } from '../athlete/athlete-session-ui';
 import { groupTeammatesQueryKey } from './groups-query';
 
+/** Clé du profil courant — partagée avec Accueil/Profil (cache `['me']`), sans tirer leur graphe UI. */
+const ME_QUERY_KEY = ['me'] as const;
+
 /**
- * Onglet **Coéquipiers** du hub de groupe (ADR-37) : roster pair-à-pair minimisé
- * (`GET /groups/:id/teammates`, nom + avatar, sans e-mail/perf/santé). Extrait de l'ancien écran
- * de détail pour réutilisation telle quelle dans le hub — comportement et testIDs préservés.
+ * Onglet **Coéquipiers** du hub de groupe (ADR-37, enrichi ADR-44 §5/§6 suivi UX) : carte **« Ton
+ * coach »** en tête, date d'adhésion du membre, puis le roster pair-à-pair minimisé
+ * (`GET /groups/:id/teammates`, nom + avatar). L'athlète courant est **exclu** de la liste des
+ * coéquipiers (il n'est pas son propre coéquipier) — identité lue via le cache `['me']`.
  */
-export function TeammatesPane({ groupId }: { groupId: string }) {
+export function TeammatesPane({
+  groupId,
+  coach,
+  joinedAt,
+}: {
+  groupId: string;
+  coach?: UserSummary;
+  joinedAt?: string;
+}) {
   const { colors, typography, spacing } = useTheme();
+
+  const me = useQuery({
+    queryKey: ME_QUERY_KEY,
+    queryFn: async (): Promise<User> => {
+      const response = await getMe();
+      if (response.status === 200) return response.data;
+      throw response;
+    },
+    retry: false,
+  });
 
   const teammates = useQuery({
     queryKey: groupTeammatesQueryKey(groupId),
@@ -23,65 +53,145 @@ export function TeammatesPane({ groupId }: { groupId: string }) {
     retry: false,
   });
 
-  const roster = teammates.data ?? [];
+  // Le roster inclut l'appelant (ADR-37) : on le retire pour ne montrer que les *coéquipiers*.
+  const others = (teammates.data ?? []).filter((t) => t.id !== me.data?.id);
 
   return (
-    <View style={{ gap: spacing[3] }}>
-      <Text
-        style={{
-          color: colors.textSecondary,
-          fontFamily: typography.fontFamily.medium,
-          fontSize: typography.bodySm.fontSize,
-          textTransform: 'uppercase',
-          letterSpacing: 0.6,
-        }}
-      >
-        Coéquipiers{teammates.data ? ` (${roster.length})` : ''}
-      </Text>
+    <View style={{ gap: spacing[5] }}>
+      {coach ? <CoachCard coach={coach} /> : null}
 
-      {teammates.isLoading ? (
-        <View testID="athlete-group-teammates-loading" style={{ paddingVertical: spacing[4] }}>
-          <ActivityIndicator color={colors.accent} />
+      {joinedAt ? (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[2] }}>
+          <Feather name="calendar" size={13} color={colors.textMuted} />
+          <Text
+            testID="athlete-group-joined-at"
+            style={{
+              color: colors.textSecondary,
+              fontFamily: typography.fontFamily.regular,
+              fontSize: typography.bodySm.fontSize,
+            }}
+          >
+            Membre depuis le {formatSessionDate(joinedAt)}
+          </Text>
         </View>
-      ) : teammates.isError ? (
-        <Card testID="athlete-group-teammates-error">
-          <View style={{ gap: spacing[3] }}>
+      ) : null}
+
+      <View style={{ gap: spacing[3] }}>
+        <Text
+          style={{
+            color: colors.textSecondary,
+            fontFamily: typography.fontFamily.medium,
+            fontSize: typography.bodySm.fontSize,
+            textTransform: 'uppercase',
+            letterSpacing: 0.6,
+          }}
+        >
+          Coéquipiers{teammates.data ? ` (${others.length})` : ''}
+        </Text>
+
+        {teammates.isLoading ? (
+          <View testID="athlete-group-teammates-loading" style={{ paddingVertical: spacing[4] }}>
+            <ActivityIndicator color={colors.accent} />
+          </View>
+        ) : teammates.isError ? (
+          <Card testID="athlete-group-teammates-error">
+            <View style={{ gap: spacing[3] }}>
+              <Text
+                style={{
+                  color: colors.textSecondary,
+                  fontFamily: typography.fontFamily.regular,
+                  fontSize: typography.body.fontSize,
+                  textAlign: 'center',
+                }}
+              >
+                Impossible de charger les coéquipiers.
+              </Text>
+              <Button
+                testID="athlete-group-teammates-retry"
+                onPress={() => void teammates.refetch()}
+              >
+                Réessayer
+              </Button>
+            </View>
+          </Card>
+        ) : others.length === 0 ? (
+          <Card testID="athlete-group-teammates-empty">
             <Text
               style={{
-                color: colors.textSecondary,
+                color: colors.textMuted,
                 fontFamily: typography.fontFamily.regular,
                 fontSize: typography.body.fontSize,
                 textAlign: 'center',
               }}
             >
-              Impossible de charger les coéquipiers.
+              Tu es seul·e avec ton coach pour l'instant. Les coéquipiers apparaîtront ici dès
+              qu'ils rejoindront le groupe.
             </Text>
-            <Button testID="athlete-group-teammates-retry" onPress={() => void teammates.refetch()}>
-              Réessayer
-            </Button>
+          </Card>
+        ) : (
+          <View style={{ gap: spacing[2] }}>
+            {others.map((teammate) => (
+              <TeammateRow key={teammate.id} teammate={teammate} />
+            ))}
           </View>
-        </Card>
-      ) : roster.length === 0 ? (
-        <Card testID="athlete-group-teammates-empty">
+        )}
+      </View>
+    </View>
+  );
+}
+
+/** Carte « Ton coach » (ADR-44 suivi UX) : avatar initiales + nom + libellé de rôle. */
+function CoachCard({ coach }: { coach: UserSummary }) {
+  const { colors, typography, spacing } = useTheme();
+  return (
+    <Card testID="athlete-group-coach">
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[3] }}>
+        <View
+          style={{
+            width: 44,
+            height: 44,
+            borderRadius: 13,
+            backgroundColor: colors.accent,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
           <Text
             style={{
-              color: colors.textMuted,
-              fontFamily: typography.fontFamily.regular,
+              color: colors.textOnAccent,
+              fontFamily: typography.fontFamily.bold,
               fontSize: typography.body.fontSize,
-              textAlign: 'center',
             }}
           >
-            Tu es seul·e dans ce groupe pour l'instant.
+            {personInitials(coach.firstName, coach.lastName)}
           </Text>
-        </Card>
-      ) : (
-        <View style={{ gap: spacing[2] }}>
-          {roster.map((teammate) => (
-            <TeammateRow key={teammate.id} teammate={teammate} />
-          ))}
         </View>
-      )}
-    </View>
+        <View style={{ flex: 1 }}>
+          <Text
+            style={{
+              color: colors.accentText,
+              fontFamily: typography.fontFamily.medium,
+              fontSize: typography.caption.fontSize,
+              textTransform: 'uppercase',
+              letterSpacing: 0.6,
+            }}
+          >
+            Ton coach
+          </Text>
+          <Text
+            numberOfLines={1}
+            style={{
+              color: colors.textPrimary,
+              fontFamily: typography.fontFamily.medium,
+              fontSize: typography.body.fontSize,
+            }}
+          >
+            {personName(coach.firstName, coach.lastName, 'ton coach')}
+          </Text>
+        </View>
+        <Feather name="award" size={18} color={colors.textMuted} />
+      </View>
+    </Card>
   );
 }
 
@@ -115,7 +225,7 @@ function TeammateRow({ teammate }: { teammate: GroupTeammate }) {
                 fontSize: typography.bodySm.fontSize,
               }}
             >
-              {teammateInitials(teammate)}
+              {personInitials(teammate.firstName, teammate.lastName)}
             </Text>
           </View>
         )}
@@ -128,7 +238,7 @@ function TeammateRow({ teammate }: { teammate: GroupTeammate }) {
             fontSize: typography.body.fontSize,
           }}
         >
-          {teammateName(teammate)}
+          {personName(teammate.firstName, teammate.lastName, 'Athlète')}
         </Text>
       </View>
     </Card>
@@ -136,11 +246,15 @@ function TeammateRow({ teammate }: { teammate: GroupTeammate }) {
 }
 
 export function teammateName(teammate: GroupTeammate): string {
-  const name = [teammate.firstName, teammate.lastName].filter(Boolean).join(' ').trim();
-  return name.length > 0 ? name : 'Athlète';
+  return personName(teammate.firstName, teammate.lastName, 'Athlète');
 }
 
-function teammateInitials(teammate: GroupTeammate): string {
-  const letters = [teammate.firstName?.[0], teammate.lastName?.[0]].filter(Boolean).join('');
+function personName(first: string | undefined, last: string | undefined, fallback: string): string {
+  const name = [first, last].filter(Boolean).join(' ').trim();
+  return name.length > 0 ? name : fallback;
+}
+
+function personInitials(first: string | undefined, last: string | undefined): string {
+  const letters = [first?.[0], last?.[0]].filter(Boolean).join('');
   return (letters || '?').toUpperCase();
 }

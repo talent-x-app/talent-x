@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 const mockGetMyGroups = jest.fn();
 const mockGetGroupTeammates = jest.fn();
+const mockGetMe = jest.fn();
 const mockLeaveGroup = jest.fn();
 const mockListNotifications = jest.fn();
 const mockBack = jest.fn();
@@ -16,6 +17,7 @@ jest.mock('@talent-x/api-client', () => {
     ...actual,
     getMyGroups: (...a: unknown[]) => mockGetMyGroups(...a),
     getGroupTeammates: (...a: unknown[]) => mockGetGroupTeammates(...a),
+    getMe: (...a: unknown[]) => mockGetMe(...a),
     leaveGroup: (...a: unknown[]) => mockLeaveGroup(...a),
     listNotifications: (...a: unknown[]) => mockListNotifications(...a),
   };
@@ -65,6 +67,7 @@ beforeEach(() => {
     status: 200,
     data: { data: [{ id: 't-1', firstName: 'Awa', lastName: 'Traoré' }] },
   });
+  mockGetMe.mockResolvedValue({ status: 200, data: { id: 'self-1', role: 'athlete' } });
   mockLeaveGroup.mockResolvedValue({ status: 204 });
   mockListNotifications.mockResolvedValue({ status: 200, data: { data: [] } });
   mockBack.mockReset();
@@ -87,6 +90,26 @@ describe('AthleteGroupHubScreen (ADR-44 — hub mince)', () => {
     );
     expect(screen.getByText(/Coach Mamadou Diallo · 12 athlètes/)).toBeOnTheScreen();
     await waitFor(() => expect(screen.getByTestId('athlete-group-teammate-t-1')).toBeOnTheScreen());
+  });
+
+  it('Coéquipiers : carte « Ton coach » + date d’adhésion + exclusion de soi (#2/#3)', async () => {
+    // Le roster inclut l'appelant (ADR-37) : self-1 + un coéquipier t-1.
+    mockGetGroupTeammates.mockResolvedValue({
+      status: 200,
+      data: {
+        data: [
+          { id: 'self-1', firstName: 'Moi', lastName: 'Même' },
+          { id: 't-1', firstName: 'Awa', lastName: 'Traoré' },
+        ],
+      },
+    });
+    renderHub();
+    await waitFor(() => expect(screen.getByTestId('athlete-group-coach')).toBeOnTheScreen());
+    expect(screen.getByTestId('athlete-group-coach')).toHaveTextContent(/Mamadou Diallo/);
+    expect(screen.getByTestId('athlete-group-joined-at')).toBeOnTheScreen();
+    // L'appelant (self-1) est exclu de la liste des coéquipiers ; t-1 reste.
+    await waitFor(() => expect(screen.getByTestId('athlete-group-teammate-t-1')).toBeOnTheScreen());
+    expect(screen.queryByTestId('athlete-group-teammate-self-1')).toBeNull();
   });
 
   it('ne montre pas de fil/calendrier de séances (recentrage ADR-44 §1)', async () => {

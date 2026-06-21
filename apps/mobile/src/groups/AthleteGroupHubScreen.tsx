@@ -133,7 +133,7 @@ export function AthleteGroupHubScreen({
         contentContainerStyle={{ padding: spacing[5], gap: spacing[5] }}
       >
         {tab === 'teammates' ? (
-          <TeammatesPane groupId={groupId} />
+          <TeammatesPane groupId={groupId} coach={group?.coach} joinedAt={group?.joinedAt} />
         ) : (
           <GroupInfoPane group={group} groupId={groupId} />
         )}

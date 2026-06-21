@@ -12,6 +12,19 @@ de débloquer les écrans coach C-01/C-02/C-03.
 - _(éditeurs typés terminés — TLX-054→061 livrés ↓)_
 - _(C-01 complet — TLX-081→085 livrés ↓)_
 
+## Terminés — Hub athlète : carte « Ton coach » + polish Coéquipiers (V1 #2/#3)
+
+- **Frontend pur** (dans le cadre d'ADR-44, onglet Coéquipiers du hub mince). Donne au groupe une
+  raison d'exister propre côté athlète (les gens), sans toucher au contrat ni au RGPD (ADR-37).
+- **#2 Carte « Ton coach »** en tête de l'onglet Coéquipiers : avatar initiales (UserSummary n'a pas
+  d'`avatarUrl`) + nom + libellé de rôle. Données déjà en cache (`group.coach`, ADR-26).
+- **#3 Polish Coéquipiers** : compteur des **autres** membres (l'appelant est exclu — il n'est pas
+  son propre coéquipier ; identité lue via le cache `['me']`), ligne **« Membre depuis le … »**
+  (`group.joinedAt`), état vide accueillant (« seul·e avec ton coach pour l'instant »). Roster
+  toujours minimisé (ADR-37 : nom + avatar).
+- **Tests** : `AthleteGroupHubScreen` + carte coach / date d'adhésion / exclusion de soi ; **mobile
+  796/796**, typecheck + ESLint + Prettier clean.
+
 ## Terminés — ADR-45 Agrégat de présence par séance (compteur sans noms)
 
 - **ADR-45 accepté (2026-06-21)** — complète ADR-43 §1/§5. Rend la présence **sociale** : « X présents
