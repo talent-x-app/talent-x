@@ -188,7 +188,7 @@ describe('ProfileScreen (TLX-042)', () => {
     expect(mockCreateAvatarUpload).not.toHaveBeenCalled();
   });
 
-  it('supprimer la photo : appelle deleteAvatar et rafraîchit', async () => {
+  it('supprimer la photo (depuis l’édition) : appelle deleteAvatar et rafraîchit', async () => {
     mockGetMe.mockResolvedValue({
       status: 200,
       data: { ...USER, photoUrl: 'https://signed.example/avatars/u1/abc' },
@@ -196,6 +196,9 @@ describe('ProfileScreen (TLX-042)', () => {
     mockDeleteAvatar.mockResolvedValue({ status: 204 });
     render(<ProfileScreen />, { wrapper: Wrapper });
 
+    // La suppression vit désormais dans le mode édition (bandeau désencombré).
+    await waitFor(() => expect(screen.getByTestId('profile-edit')).toBeOnTheScreen());
+    fireEvent.press(screen.getByTestId('profile-edit'));
     await waitFor(() => expect(screen.getByTestId('profile-avatar-remove')).toBeOnTheScreen());
     fireEvent.press(screen.getByTestId('profile-avatar-remove'));
 
@@ -214,21 +217,29 @@ describe('ProfileScreen (TLX-042)', () => {
     expect(screen.getByText('Coach')).toBeOnTheScreen();
   });
 
-  it('entrée Notifications (badge non-lus) + section préférences (TLX-111)', async () => {
+  it('réglage Notifications repliable : révèle les préférences au tap (TLX-111)', async () => {
     mockGetMe.mockResolvedValue({ status: 200, data: USER });
     render(<ProfileScreen />, { wrapper: Wrapper });
 
-    await waitFor(() => expect(screen.getByTestId('profile-notifications-link')).toBeOnTheScreen());
-    await waitFor(() =>
-      expect(screen.getByTestId('profile-notifications-badge')).toBeOnTheScreen(),
-    );
-    expect(screen.getByTestId('profile-notifications-badge')).toHaveTextContent('2');
+    await waitFor(() => expect(screen.getByTestId('profile-notifications-row')).toBeOnTheScreen());
+    // Replié par défaut : les toggles ne sont pas montés.
+    expect(screen.queryByTestId('notification-pref-sessionAssigned')).toBeNull();
+
+    fireEvent.press(screen.getByTestId('profile-notifications-row'));
     await waitFor(() =>
       expect(screen.getByTestId('notification-pref-sessionAssigned')).toBeOnTheScreen(),
     );
+  });
 
-    fireEvent.press(screen.getByTestId('profile-notifications-link'));
-    expect(mockPush).toHaveBeenCalledWith('/(athlete)/notifications');
+  it('réglage Confidentialité repliable : révèle les consentements au tap (RGPD)', async () => {
+    mockGetMe.mockResolvedValue({ status: 200, data: USER });
+    render(<ProfileScreen />, { wrapper: Wrapper });
+
+    await waitFor(() => expect(screen.getByTestId('profile-privacy-row')).toBeOnTheScreen());
+    expect(screen.queryByTestId('privacy-consents')).toBeNull();
+
+    fireEvent.press(screen.getByTestId('profile-privacy-row'));
+    await waitFor(() => expect(screen.getByTestId('privacy-consents')).toBeOnTheScreen());
   });
 
   it('état erreur : message + réessai relance la requête', async () => {

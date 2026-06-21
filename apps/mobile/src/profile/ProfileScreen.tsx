@@ -1,6 +1,7 @@
 import { deleteAvatar, getMe, updateMe, type User, type UserUpdate } from '@talent-x/api-client';
 import { useTheme } from '@talent-x/design-tokens';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import * as ImagePicker from 'expo-image-picker';
@@ -18,7 +19,6 @@ import { Button, Card, Input } from '../components/ui';
 import { toUserMessage, useToast } from '../feedback';
 import { uploadAvatar } from './avatar-upload';
 import { NotificationPreferencesSection } from '../notifications/NotificationPreferencesSection';
-import { NotificationsLink } from '../notifications/NotificationsLink';
 import { PrivacySection } from './PrivacySection';
 
 /** Clé de cache du profil courant (partagée avec d'éventuels invalidations). */
@@ -27,16 +27,13 @@ export const ME_QUERY_KEY = ['me'] as const;
 const ROLE_LABEL: Record<string, string> = { coach: 'Coach', athlete: 'Athlète' };
 
 /**
- * Écran Profil (A-10 athlète / C-11 coach — TLX-042/043). Lit le profil courant
- * via `GET /users/me` et permet de l'éditer (`PUT /users/me` : prénom, nom, sport,
- * bio). Le rendu dérive du rôle renvoyé par l'API. Réutilisé tel quel par les deux
- * onglets « Profil » ; aucune logique propre à un rôle au-delà du libellé affiché.
- *
- * États gérés : chargement, erreur (avec réessai), édition (chargement à
- * l'enregistrement, erreur via toast). Tous les visuels dérivent des tokens.
+ * Écran Profil (A-10 athlète / C-11 coach) — refonte « bandeau + sections » (V1). En-tête
+ * d'identité sur aplat accent (avatar + nom + rôle), section Infos, puis réglages **repliables**
+ * (Notifications, Confidentialité & données — composants existants réutilisés). Le centre de
+ * notifications a migré sur la cloche (Accueil/hub). Lit `GET /users/me`, édite via `PUT /users/me`.
  */
 export function ProfileScreen() {
-  const { colors, typography, spacing } = useTheme();
+  const { colors, typography, spacing, radius } = useTheme();
   const router = useRouter();
   const toast = useToast();
   const queryClient = useQueryClient();
@@ -44,6 +41,8 @@ export function ProfileScreen() {
 
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState<UserUpdate>({});
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [privacyOpen, setPrivacyOpen] = useState(false);
 
   const profile = useQuery({
     queryKey: ME_QUERY_KEY,
@@ -124,10 +123,7 @@ export function ProfileScreen() {
 
   const onLogout = async () => {
     await signOut();
-    // Navigation explicite vers le login : passer par '/' re-dériverait le rôle
-    // depuis le contexte pas encore flushé (role toujours athlete/coach) et nous
-    // garderait visuellement connectés (TLX-90). Le garde de rôle des layouts
-    // (athlete)/(coach) sert de filet de sécurité.
+    // Navigation explicite vers le login (cf. TLX-90 : '/' re-dériverait un rôle pas encore flushé).
     router.replace('/(auth)/login');
   };
 
@@ -167,26 +163,22 @@ export function ProfileScreen() {
   }
 
   const user = profile.data;
+  const roleLine = [ROLE_LABEL[user.role] ?? user.role, user.sport].filter(Boolean).join(' · ');
 
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: colors.background }}
-      contentContainerStyle={{ padding: spacing[6], gap: spacing[5] }}
+      contentContainerStyle={{ padding: spacing[5], gap: spacing[5] }}
     >
-      <Text
+      {/* Bandeau d'identité (aplat accent — pas de lib gradient). */}
+      <View
         style={{
-          color: colors.textPrimary,
-          fontFamily: typography.fontFamily.bold,
-          fontSize: typography.h1.fontSize,
-          letterSpacing: -0.5,
+          backgroundColor: colors.accent,
+          borderRadius: radius.lg,
+          padding: spacing[5],
         }}
       >
-        Profil
-      </Text>
-
-      {/* En-tête : avatar (photo ou initiales) + identité + rôle. */}
-      <Card>
-        <View style={styles.header}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[4] }}>
           <Pressable
             testID="profile-avatar-change"
             onPress={() => avatar.mutate()}
@@ -198,14 +190,14 @@ export function ProfileScreen() {
               <Image
                 testID="profile-photo"
                 source={{ uri: user.photoUrl }}
-                style={[styles.avatar, { backgroundColor: colors.accentSubtle }]}
+                style={[styles.avatar, { backgroundColor: colors.surface }]}
               />
             ) : (
-              <View style={[styles.avatar, { backgroundColor: colors.accentSubtle }]}>
+              <View style={[styles.avatar, { backgroundColor: colors.surface }]}>
                 <Text
                   testID="profile-initials"
                   style={{
-                    color: colors.accentText,
+                    color: colors.accent,
                     fontFamily: typography.fontFamily.bold,
                     fontSize: typography.h3.fontSize,
                   }}
@@ -214,72 +206,82 @@ export function ProfileScreen() {
                 </Text>
               </View>
             )}
+            {/* Pastille appareil photo. */}
+            <View style={[styles.cameraBadge, { backgroundColor: colors.surface }]}>
+              <Feather name="camera" size={12} color={colors.accent} />
+            </View>
             {avatarBusy ? (
               <View style={[styles.avatar, styles.avatarOverlay]}>
-                <ActivityIndicator color={colors.accentText} />
+                <ActivityIndicator color={colors.textOnAccent} />
               </View>
             ) : null}
           </Pressable>
+
           <View style={{ flex: 1, gap: spacing[1] }}>
             <Text
               testID="profile-name"
+              numberOfLines={1}
               style={{
-                color: colors.textPrimary,
+                color: colors.textOnAccent,
                 fontFamily: typography.fontFamily.bold,
-                fontSize: typography.h3.fontSize,
+                fontSize: typography.h2.fontSize,
+                letterSpacing: -0.3,
               }}
             >
               {fullName(user)}
             </Text>
-            <Text
-              style={{
-                color: colors.textMuted,
-                fontFamily: typography.fontFamily.regular,
-                fontSize: typography.bodySm.fontSize,
-              }}
-            >
-              {[ROLE_LABEL[user.role] ?? user.role, user.sport].filter(Boolean).join(' · ')}
-            </Text>
-            <View style={{ flexDirection: 'row', gap: spacing[3], marginTop: spacing[1] }}>
-              <Pressable
-                testID="profile-avatar-change-link"
-                onPress={() => avatar.mutate()}
-                disabled={avatarBusy}
+            {roleLine ? (
+              <Text
+                style={{
+                  color: colors.textOnAccent,
+                  opacity: 0.9,
+                  fontFamily: typography.fontFamily.medium,
+                  fontSize: typography.bodySm.fontSize,
+                }}
               >
-                <Text
-                  style={{
-                    color: colors.accent,
-                    fontFamily: typography.fontFamily.medium,
-                    fontSize: typography.bodySm.fontSize,
-                  }}
-                >
-                  {user.photoUrl ? 'Changer la photo' : 'Ajouter une photo'}
-                </Text>
-              </Pressable>
-              {user.photoUrl ? (
-                <Pressable
-                  testID="profile-avatar-remove"
-                  onPress={() => removeAvatar.mutate()}
-                  disabled={avatarBusy}
-                >
-                  <Text
-                    style={{
-                      color: colors.textMuted,
-                      fontFamily: typography.fontFamily.medium,
-                      fontSize: typography.bodySm.fontSize,
-                    }}
-                  >
-                    Supprimer
-                  </Text>
-                </Pressable>
-              ) : null}
-            </View>
+                {roleLine}
+              </Text>
+            ) : null}
           </View>
+
+          {!editing ? (
+            <Pressable
+              testID="profile-edit"
+              onPress={() => startEditing(user)}
+              accessibilityRole="button"
+              accessibilityLabel="Modifier mon profil"
+              hitSlop={8}
+              style={[styles.editBtn, { borderColor: colors.textOnAccent }]}
+            >
+              <Feather name="edit-2" size={16} color={colors.textOnAccent} />
+            </Pressable>
+          ) : null}
         </View>
-      </Card>
+      </View>
 
       {editing ? (
         <View style={{ gap: spacing[4] }}>
+          {/* Gestion de la photo en mode édition. */}
+          <View style={{ flexDirection: 'row', gap: spacing[3] }}>
+            <Button
+              testID="profile-avatar-change-edit"
+              variant="secondary"
+              onPress={() => avatar.mutate()}
+              loading={avatar.isPending}
+            >
+              {user.photoUrl ? 'Changer la photo' : 'Ajouter une photo'}
+            </Button>
+            {user.photoUrl ? (
+              <Button
+                testID="profile-avatar-remove"
+                variant="ghost"
+                onPress={() => removeAvatar.mutate()}
+                loading={removeAvatar.isPending}
+              >
+                Supprimer la photo
+              </Button>
+            ) : null}
+          </View>
           <Input
             label="Prénom"
             testID="profile-firstName"
@@ -334,28 +336,40 @@ export function ProfileScreen() {
         </View>
       ) : (
         <View style={{ gap: spacing[5] }}>
-          <Card>
-            <View style={{ gap: spacing[4] }}>
-              <Field label="E-mail" value={user.email} muted />
-              <Field label="Discipline" value={user.sport} />
-              <Field label="Bio" value={user.bio} />
-            </View>
-          </Card>
-          {/* « Mon groupe » a migré vers l'onglet **Groupe** de premier niveau (ADR-44 §3). */}
-          {/* Centre de notifications + préférences (TLX-111, ADR-23). */}
-          <NotificationsLink />
-          <NotificationPreferencesSection />
-          {/* Confidentialité & droits RGPD : consentements, export, suppression (TLX-106). */}
-          <PrivacySection role={user.role} />
-          <Button testID="profile-edit" size="lg" fullWidth onPress={() => startEditing(user)}>
-            Modifier mon profil
-          </Button>
-          <Button
-            testID="profile-logout"
-            variant="secondary"
-            fullWidth
-            onPress={() => void onLogout()}
-          >
+          {/* Section INFOS. */}
+          <View style={{ gap: spacing[3] }}>
+            <SectionLabel>Infos</SectionLabel>
+            <Card>
+              <View style={{ gap: spacing[4] }}>
+                <InfoRow icon="mail" label="E-mail" value={user.email} muted />
+                <InfoRow icon="activity" label="Discipline" value={user.sport} />
+                <InfoRow icon="file-text" label="Bio" value={user.bio} />
+              </View>
+            </Card>
+          </View>
+
+          {/* Réglages repliables. */}
+          <View style={{ gap: spacing[3] }}>
+            <SectionLabel>Réglages</SectionLabel>
+            <SettingsRow
+              testID="profile-notifications-row"
+              icon="bell"
+              label="Notifications"
+              open={notifOpen}
+              onToggle={() => setNotifOpen((o) => !o)}
+            />
+            {notifOpen ? <NotificationPreferencesSection /> : null}
+            <SettingsRow
+              testID="profile-privacy-row"
+              icon="lock"
+              label="Confidentialité & données"
+              open={privacyOpen}
+              onToggle={() => setPrivacyOpen((o) => !o)}
+            />
+            {privacyOpen ? <PrivacySection role={user.role} /> : null}
+          </View>
+
+          <Button testID="profile-logout" variant="ghost" fullWidth onPress={() => void onLogout()}>
             Se déconnecter
           </Button>
         </View>
@@ -364,11 +378,40 @@ export function ProfileScreen() {
   );
 }
 
-/** Ligne label/valeur en mode lecture ; affiche un tiret si la valeur est absente. */
-function Field({ label, value, muted }: { label: string; value?: string; muted?: boolean }) {
+/** Intitulé de section (uppercase, espacé). */
+function SectionLabel({ children }: { children: string }) {
+  const { colors, typography } = useTheme();
+  return (
+    <Text
+      style={{
+        color: colors.textSecondary,
+        fontFamily: typography.fontFamily.medium,
+        fontSize: typography.bodySm.fontSize,
+        textTransform: 'uppercase',
+        letterSpacing: 0.6,
+      }}
+    >
+      {children}
+    </Text>
+  );
+}
+
+/** Ligne d'info : icône + label (gauche) + valeur (droite). Tiret si absente. */
+function InfoRow({
+  icon,
+  label,
+  value,
+  muted,
+}: {
+  icon: keyof typeof Feather.glyphMap;
+  label: string;
+  value?: string;
+  muted?: boolean;
+}) {
   const { colors, typography, spacing } = useTheme();
   return (
-    <View style={{ gap: spacing[1] }}>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[3] }}>
+      <Feather name={icon} size={16} color={colors.textMuted} />
       <Text
         style={{
           color: colors.textSecondary,
@@ -379,7 +422,10 @@ function Field({ label, value, muted }: { label: string; value?: string; muted?:
         {label}
       </Text>
       <Text
+        numberOfLines={1}
         style={{
+          flex: 1,
+          textAlign: 'right',
           color: muted ? colors.textMuted : colors.textPrimary,
           fontFamily: typography.fontFamily.regular,
           fontSize: typography.body.fontSize,
@@ -388,6 +434,56 @@ function Field({ label, value, muted }: { label: string; value?: string; muted?:
         {value && value.length > 0 ? value : '—'}
       </Text>
     </View>
+  );
+}
+
+/** Ligne de réglage repliable : icône + label + chevron. */
+function SettingsRow({
+  icon,
+  label,
+  open,
+  onToggle,
+  testID,
+}: {
+  icon: keyof typeof Feather.glyphMap;
+  label: string;
+  open: boolean;
+  onToggle: () => void;
+  testID: string;
+}) {
+  const { colors, typography, spacing } = useTheme();
+  return (
+    <Card testID={testID} onPress={onToggle} accessibilityLabel={label}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[3] }}>
+        <View
+          style={{
+            width: 36,
+            height: 36,
+            borderRadius: 10,
+            backgroundColor: colors.accentSubtle,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Feather name={icon} size={18} color={colors.accentText} />
+        </View>
+        <Text
+          style={{
+            flex: 1,
+            color: colors.textPrimary,
+            fontFamily: typography.fontFamily.medium,
+            fontSize: typography.body.fontSize,
+          }}
+        >
+          {label}
+        </Text>
+        <Feather
+          name={open ? 'chevron-down' : 'chevron-right'}
+          size={20}
+          color={colors.textMuted}
+        />
+      </View>
+    </Card>
   );
 }
 
@@ -413,11 +509,10 @@ function trimmed(form: UserUpdate): UserUpdate {
 
 const styles = StyleSheet.create({
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  header: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   avatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 16,
+    width: 64,
+    height: 64,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -426,5 +521,23 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     backgroundColor: 'rgba(0,0,0,0.35)',
+  },
+  cameraBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  editBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

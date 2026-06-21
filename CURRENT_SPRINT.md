@@ -12,6 +12,21 @@ de débloquer les écrans coach C-01/C-02/C-03.
 - _(éditeurs typés terminés — TLX-054→061 livrés ↓)_
 - _(C-01 complet — TLX-081→085 livrés ↓)_
 
+## Terminés — Refonte Profil : bandeau d'identité + réglages repliables (V1)
+
+- **Frontend pur, zéro contrat.** Profil modernisé façon « carte de membre » + liste de réglages.
+- **Bandeau d'identité** sur aplat accent (pas de lib gradient ajoutée) : avatar (pastille 📷 →
+  changer la photo) + nom + ligne « Rôle · discipline » + crayon ✎ (édition).
+- **Section Infos** (lignes icône + valeur : e-mail, discipline, bio).
+- **Réglages repliables** (lignes icône + chevron) réutilisant les composants existants :
+  **Notifications** (préférences) et **Confidentialité & données** (consentements/export/suppression
+  RGPD) — dépliés à la demande, profil épuré par défaut.
+- **Retiré** : le « Centre de notifications » du Profil (déjà couvert par la cloche 🔔). La
+  suppression de photo migre dans le **mode édition** (bandeau désencombré).
+- **Tests** : `ProfileScreen` 11/11 (lignes repliables Notifications/Confidentialité, suppression
+  photo depuis l'édition, non-régression nom/photo/rôle/édition/déconnexion) ; **mobile 797/797**,
+  typecheck + ESLint + Prettier clean.
+
 ## Terminés — Hub athlète : carte « Ton coach » + polish Coéquipiers (V1 #2/#3)
 
 - **Frontend pur** (dans le cadre d'ADR-44, onglet Coéquipiers du hub mince). Donne au groupe une
