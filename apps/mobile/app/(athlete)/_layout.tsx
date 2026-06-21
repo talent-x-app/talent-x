@@ -71,8 +71,10 @@ export default function AthleteLayout() {
         <Tabs.Screen name="competition/[id]" options={{ href: null }} />
         {/* Rejoindre un groupe via code (TLX-88) : routable mais masqué du tab bar. */}
         <Tabs.Screen name="group/join" options={{ href: null }} />
-        {/* Détail groupe + coéquipiers (ADR-37) : routable mais masqué du tab bar. */}
+        {/* Hub de groupe (ADR-43, TLX-173) : routable mais masqué du tab bar. */}
         <Tabs.Screen name="group/[id]" options={{ href: null }} />
+        {/* Détail séance depuis le hub de groupe (TLX-173) : routable mais masqué du tab bar. */}
+        <Tabs.Screen name="group/session/[id]" options={{ href: null }} />
       </Tabs>
     </RoleGuard>
   );
