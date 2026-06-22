@@ -1,0 +1,377 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Talent-X — Mur d'équipe (Athlète) · ADR-48</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --bg:#0B0F17; --surface:#11151F; --raised:#161B27; --sunken:#0E121B;
+    --border:rgba(255,255,255,.08); --borderStrong:rgba(255,255,255,.16);
+    --text:#E7ECF3; --text2:#8A94A6; --muted:#5C6678; --onAccent:#fff;
+    --accent:#2E7CF6; --accentHover:#5BAEFF; --accentText:#5BAEFF; --accentSubtle:rgba(46,124,246,.16);
+    --success:#34D17F; --warning:#FFC24B; --danger:#FF6B7A;
+    --successBg:rgba(52,209,127,.14); --warningBg:rgba(255,194,75,.14); --dangerBg:rgba(255,107,122,.14);
+    --grad:linear-gradient(135deg,#5BAEFF 0%,#2E7CF6 55%,#1B5BE0 100%);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#06080D;color:var(--text);font-family:'Poppins',sans-serif;-webkit-font-smoothing:antialiased;padding:48px 24px 96px}
+  .head{max-width:1080px;margin:0 auto 38px}
+  .head h1{font-size:28px;font-weight:700;letter-spacing:-.5px}
+  .head p{color:var(--text2);margin-top:10px;max-width:760px;line-height:1.6;font-size:14.5px}
+  .head .chips{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+  .head .chips span{font-size:12px;color:var(--text2);background:var(--surface);border:1px solid var(--border);padding:5px 11px;border-radius:999px}
+  .head .chips b{color:var(--text)}
+  .grid{max-width:1080px;margin:0 auto;display:flex;gap:44px;flex-wrap:wrap;align-items:flex-start;justify-content:center}
+  .col{display:flex;flex-direction:column;align-items:center;gap:14px}
+  .col .cap{font-size:12.5px;color:var(--text2);text-align:center;max-width:300px;line-height:1.5}
+  .col .cap b{color:var(--accentText)}
+
+  /* phone */
+  .phone{background:var(--bg);border:1px solid var(--borderStrong);border-radius:46px;padding:13px;box-shadow:0 30px 80px rgba(0,0,0,.55);position:relative}
+  .notch{position:absolute;top:13px;left:50%;transform:translateX(-50%);width:128px;height:26px;background:#000;border-radius:0 0 16px 16px;z-index:6}
+  .screen{width:344px;height:746px;background:var(--bg);border-radius:34px;overflow:hidden;display:flex;flex-direction:column;position:relative}
+  .status{height:38px;display:flex;align-items:flex-end;justify-content:space-between;padding:0 24px 5px;font-size:12px;color:var(--text2);font-weight:600;flex:none}
+
+  .topbar{position:sticky;top:0;z-index:5;background:rgba(11,15,23,.86);backdrop-filter:blur(14px);border-bottom:1px solid var(--border);padding:8px 16px 10px;flex:none}
+  .topbar .row1{display:flex;align-items:center;gap:11px}
+  .topbar .back{color:var(--text2);font-size:20px;line-height:1;width:24px}
+  .gav{width:38px;height:38px;border-radius:12px;background:var(--grad);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;color:#fff;flex:none}
+  .topbar .nm{font-size:16px;font-weight:700;letter-spacing:-.3px;line-height:1.1}
+  .topbar .mt{font-size:11.5px;color:var(--text2);margin-top:1px}
+  .topbar .bell{margin-left:auto;width:34px;height:34px;border-radius:10px;background:var(--raised);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;position:relative}
+  .topbar .bell .dot{position:absolute;top:7px;right:8px;width:7px;height:7px;border-radius:50%;background:var(--danger);border:1.5px solid var(--raised)}
+  .seg{display:flex;background:var(--sunken);border:1px solid var(--border);border-radius:12px;padding:4px;margin-top:11px}
+  .seg button{flex:1;border:0;background:transparent;color:var(--text2);font-family:inherit;font-weight:600;font-size:13px;padding:8px 0;border-radius:9px;cursor:pointer;position:relative}
+  .seg button.on{background:var(--raised);color:var(--text)}
+  .seg button .pip{position:absolute;top:6px;right:14px;width:6px;height:6px;border-radius:50%;background:var(--accent)}
+
+  .body{flex:1;overflow-y:auto;padding:14px 16px 120px}
+  .body::-webkit-scrollbar{width:0}
+
+  .eyebrow{display:flex;align-items:center;gap:7px;font-size:11px;font-weight:700;letter-spacing:.7px;text-transform:uppercase;color:var(--accentText);margin-bottom:9px}
+  .eyebrow .live{width:7px;height:7px;border-radius:50%;background:var(--accentText);box-shadow:0 0 0 0 rgba(91,174,255,.6);animation:pulse 2s infinite}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(91,174,255,.5)}70%{box-shadow:0 0 0 7px rgba(91,174,255,0)}100%{box-shadow:0 0 0 0 rgba(91,174,255,0)}}
+
+  .hr{height:1px;background:var(--border);margin:15px -18px}
+
+  /* pouls d'équipe — hero card, dérivée */
+  .pulse{position:relative;background:
+      radial-gradient(120% 90% at 100% 0%, rgba(46,124,246,.18), transparent 60%),
+      var(--surface);
+    border:1px solid rgba(46,124,246,.35);border-radius:22px;padding:18px;margin-bottom:22px;
+    box-shadow:0 14px 40px rgba(46,124,246,.12)}
+  .pulse .ttl{font-size:11px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--accentText);display:flex;align-items:center;gap:7px;margin-bottom:12px}
+  .pulse .big{font-size:18px;font-weight:700;letter-spacing:-.3px;line-height:1.4;margin-bottom:14px}
+  .pulse .big b{color:var(--accentText)}
+  .stats{display:flex;gap:8px}
+  .stat{flex:1;background:var(--raised);border:1px solid var(--border);border-radius:14px;padding:10px 8px;text-align:center}
+  .stat .v{font-size:17px;font-weight:700}
+  .stat .l{font-size:10px;color:var(--text2);margin-top:2px;letter-spacing:.2px}
+  .stat.fire .v{color:var(--warning)}
+  .stat.pr .v{color:var(--success)}
+
+  /* présence narrative */
+  .narrative{display:flex;align-items:center;gap:10px;background:var(--sunken);border:1px solid var(--border);border-radius:14px;padding:11px 13px;margin-bottom:18px}
+  .narrative .ic{font-size:18px}
+  .narrative .tx{font-size:12.5px;color:var(--text);line-height:1.4}
+  .narrative .tx b{color:var(--accentText)}
+
+  .sec{position:sticky;top:0;background:linear-gradient(var(--bg) 70%,transparent);padding:8px 2px 8px;font-size:11px;letter-spacing:.8px;text-transform:uppercase;color:var(--text2);font-weight:600;display:flex;align-items:center;gap:8px;z-index:2}
+  .sec .ct{color:var(--muted)}
+  .sec .ln{flex:1;height:1px;background:var(--border)}
+
+  /* announcement card with reactions */
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:15px;margin-bottom:13px}
+  .card .who{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+  .card .av{width:30px;height:30px;border-radius:10px;background:var(--grad);display:flex;align-items:center;justify-content:center;font-size:11.5px;font-weight:700;color:#fff;flex:none}
+  .card .who .nm{font-size:13px;font-weight:600}
+  .card .who .ts{font-size:11px;color:var(--text2);margin-top:1px}
+  .card .pin{margin-left:auto;font-size:10.5px;font-weight:700;color:var(--warning);background:var(--warningBg);padding:4px 9px;border-radius:999px}
+  .card .msg{font-size:13.5px;color:var(--text);line-height:1.55;margin-bottom:12px}
+
+  .footer-row{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+  .react{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--border);background:var(--raised);color:var(--text2);font-family:inherit;font-size:12.5px;font-weight:600;padding:6px 10px;border-radius:999px;cursor:pointer;transition:.12s}
+  .react.mine{background:var(--accentSubtle);border-color:transparent;color:var(--accentText)}
+  .react .n{color:var(--text2)}
+  .react.mine .n{color:var(--accentText)}
+  .addreact{width:30px;height:30px;border-radius:999px;border:1px dashed var(--border);background:transparent;color:var(--muted);display:flex;align-items:center;justify-content:center;font-size:14px;cursor:pointer}
+  .readline{margin-left:auto;font-size:11px;color:var(--text2);display:flex;align-items:center;gap:5px}
+  .readline .bar{width:38px;height:4px;border-radius:999px;background:var(--border);overflow:hidden;position:relative}
+  .readline .bar i{position:absolute;inset:0;background:var(--accent);border-radius:999px}
+
+  /* emoji picker popover (état) */
+  .picker{display:flex;gap:6px;background:var(--raised);border:1px solid var(--borderStrong);border-radius:999px;padding:6px 8px;margin-top:9px;width:fit-content;box-shadow:0 10px 28px rgba(0,0,0,.4)}
+  .picker .e{font-size:17px;cursor:pointer;width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:50%;transition:.12s}
+  .picker .e:hover{background:var(--sunken)}
+  .picker .e.sel{background:var(--accentSubtle)}
+
+  /* teaser palier 2/3 (locked) */
+  .teaser{background:var(--sunken);border:1px dashed var(--borderStrong);border-radius:16px;padding:14px;margin-top:6px;display:flex;gap:11px;align-items:flex-start}
+  .teaser .ic{font-size:18px;flex:none;margin-top:1px}
+  .teaser .tx{font-size:12px;color:var(--text2);line-height:1.55}
+  .teaser .tx b{color:var(--text)}
+  .teaser .badge{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;color:var(--warning);background:var(--warningBg);padding:3px 8px;border-radius:999px;margin-top:6px}
+
+  .tabbar{position:absolute;bottom:0;left:0;right:0;height:72px;background:rgba(11,15,23,.92);backdrop-filter:blur(12px);border-top:1px solid var(--border);display:flex;align-items:flex-start;padding-top:11px;z-index:4}
+  .tabbar .tab{flex:1;text-align:center;color:var(--muted);font-size:10px;font-weight:500}
+  .tabbar .tab.on{color:var(--accentText)}
+  .tabbar .dot{width:21px;height:21px;margin:0 auto 4px;border-radius:7px;background:currentColor;opacity:.85}
+
+  /* avatar stack — palier 2 preview (grisé) */
+  .avstack{display:flex}
+  .avstack .av2{width:22px;height:22px;border-radius:50%;border:2px solid var(--surface);margin-left:-7px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#fff;filter:grayscale(1) brightness(.7)}
+  .avstack .av2:first-child{margin-left:0}
+
+  .kudos{display:flex;align-items:center;gap:9px;background:var(--sunken);border:1px solid var(--border);border-radius:13px;padding:10px 12px;margin-top:10px;opacity:.55}
+  .kudos .av{width:26px;height:26px;border-radius:8px;font-size:10px}
+  .kudos .tx{font-size:11.5px;color:var(--text2);flex:1}
+  .kudos .tx b{color:var(--text)}
+  .kudos button{border:1px solid var(--border);background:var(--raised);color:var(--text2);font-family:inherit;font-size:11px;font-weight:600;padding:6px 10px;border-radius:999px}
+
+  .lockpill{position:absolute;top:11px;right:11px;background:rgba(0,0,0,.55);backdrop-filter:blur(6px);border:1px solid var(--borderStrong);border-radius:999px;padding:4px 9px;font-size:10px;font-weight:700;color:var(--text2);display:flex;align-items:center;gap:4px}
+</style>
+</head>
+<body>
+
+<div class="head">
+  <h1>Mur d'équipe — Athlète · <span style="color:var(--accentText)">ADR-48, Palier 1</span></h1>
+  <p>Le hub passif (annonces ADR-46) devient une surface vivante : réactions <b style="color:var(--text)">agrégées</b> sur chaque annonce, accusé de lecture agrégé, carte « pouls d'équipe » 100&nbsp;% dérivée, présence sociale narrative. Aucune identité de tiers exposée — l'API ne ressort que des compteurs. Les Paliers 2 (nominatif) et 3 (fil) sont esquissés en teaser, gatés respectivement par l'AIPD (TLX-150) et une couche de modération à cadrer.</p>
+  <div class="chips">
+    <span>✅ Onglet <b>Mur</b> (remplace Annonces)</span>
+    <span>✅ Réactions emoji agrégées</span>
+    <span>✅ Accusé de lecture agrégé</span>
+    <span>✅ Pouls d'équipe dérivé</span>
+    <span>✅ Présence narrative</span>
+    <span>🔒 Palier 2 — nominatif (AIPD)</span>
+    <span>🔒 Palier 3 — fil (modération)</span>
+  </div>
+</div>
+
+<div class="grid">
+
+  <!-- ============ ÉCRAN PRINCIPAL — MUR ============ -->
+  <div class="col">
+    <div class="phone"><div class="notch"></div><div class="screen">
+      <div class="status"><span>9:41</span><span>5G&nbsp;&nbsp;87%</span></div>
+
+      <div class="topbar">
+        <div class="row1">
+          <span class="back">‹</span>
+          <div class="gav">SE</div>
+          <div>
+            <div class="nm">Sprint Élite</div>
+            <div class="mt">Coach M. Diallo · 12 athlètes</div>
+          </div>
+          <div class="bell">🔔<span class="dot"></span></div>
+        </div>
+        <div class="seg">
+          <button>Séances</button>
+          <button class="on">Mur<span class="pip"></span></button>
+          <button>Coéquipiers</button>
+        </div>
+      </div>
+
+      <div class="body">
+        <div class="eyebrow"><span class="live"></span>Pouls d'équipe — cette semaine</div>
+
+        <!-- POULS D'ÉQUIPE -->
+        <div class="pulse">
+          <div class="ttl">🔥 Dérivé · zéro donnée stockée</div>
+          <div class="big">3 semaines à <b>100&nbsp;%</b> · l'équipe garde le rythme.</div>
+          <div class="stats">
+            <div class="stat fire"><div class="v">42</div><div class="l">séances</div></div>
+            <div class="stat pr"><div class="v">+8</div><div class="l">records 🏅</div></div>
+            <div class="stat"><div class="v">93%</div><div class="l">présence</div></div>
+          </div>
+        </div>
+
+        <!-- PRÉSENCE NARRATIVE -->
+        <div class="narrative">
+          <div class="ic">💪</div>
+          <div class="tx"><b>5 coéquipiers</b> t'attendent jeudi pour le footing — sois-en.</div>
+        </div>
+
+        <div class="sec">Annonces du coach<span class="ct">· 3</span><span class="ln"></span></div>
+
+        <!-- ANNONCE 1 — avec picker ouvert -->
+        <div class="card">
+          <div class="who">
+            <div class="av">MD</div>
+            <div><div class="nm">Coach Diallo</div><div class="ts">Aujourd'hui · 08:12</div></div>
+            <span class="pin">📌 Épinglé</span>
+          </div>
+          <div class="msg">Changement de lieu pour jeudi : on se retrouve directement au <b>stade couvert</b>, météo annoncée pluvieuse. Pensez aux pointes.</div>
+          <div class="footer-row">
+            <span class="react mine">❤️ <span class="n">8</span></span>
+            <span class="react">🔥 <span class="n">5</span></span>
+            <span class="react">👏 <span class="n">2</span></span>
+            <button class="addreact">+</button>
+            <span class="readline"><span class="bar"><i style="width:75%"></i></span>9/12 lu</span>
+          </div>
+          <div class="picker">
+            <div class="e sel">❤️</div><div class="e">🔥</div><div class="e">👏</div><div class="e">💪</div><div class="e">😮</div>
+          </div>
+        </div>
+
+        <!-- ANNONCE 2 -->
+        <div class="card">
+          <div class="who">
+            <div class="av">MD</div>
+            <div><div class="nm">Coach Diallo</div><div class="ts">Hier · 19:40</div></div>
+          </div>
+          <div class="msg">Bravo à tous pour la séance VMA d'hier soir, beau niveau collectif 👏</div>
+          <div class="footer-row">
+            <span class="react">🔥 <span class="n">11</span></span>
+            <span class="react mine">👏 <span class="n">9</span></span>
+            <button class="addreact">+</button>
+            <span class="readline"><span class="bar"><i style="width:100%"></i></span>12/12 lu</span>
+          </div>
+        </div>
+
+        <!-- ANNONCE 3 -->
+        <div class="card">
+          <div class="who">
+            <div class="av">MD</div>
+            <div><div class="nm">Coach Diallo</div><div class="ts">Lun. · 07:55</div></div>
+          </div>
+          <div class="msg">Rappel : compétition régionale samedi, départ du bus à 7h30 précises devant le club.</div>
+          <div class="footer-row">
+            <span class="react">❤️ <span class="n">6</span></span>
+            <button class="addreact">+</button>
+            <span class="readline"><span class="bar"><i style="width:58%"></i></span>7/12 lu</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="tabbar">
+        <div class="tab"><div class="dot"></div>Accueil</div>
+        <div class="tab"><div class="dot"></div>Séances</div>
+        <div class="tab on"><div class="dot"></div>Groupes</div>
+        <div class="tab"><div class="dot"></div>Progrès</div>
+        <div class="tab"><div class="dot"></div>Profil</div>
+      </div>
+    </div></div>
+    <div class="cap">Onglet <b>Mur</b> — Palier 1. Réactions et lecture sont des <b>compteurs</b> uniquement (jamais « qui ») ; le pouls d'équipe est entièrement dérivé des séances du groupe.</div>
+  </div>
+
+  <!-- ============ TEASER PALIER 2 — nominatif (gated AIPD) ============ -->
+  <div class="col">
+    <div class="phone"><div class="notch"></div><div class="screen">
+      <div class="status"><span>9:41</span><span>5G&nbsp;&nbsp;87%</span></div>
+      <div class="topbar">
+        <div class="row1">
+          <span class="back">‹</span><div class="gav">SE</div>
+          <div><div class="nm">Sprint Élite</div><div class="mt">Coach M. Diallo · 12 athlètes</div></div>
+        </div>
+        <div class="seg"><button>Séances</button><button class="on">Mur</button><button>Coéquipiers</button></div>
+      </div>
+      <div class="body">
+        <div class="eyebrow"><span class="live"></span>Aperçu — Palier 2 (verrouillé)</div>
+
+        <div class="card" style="position:relative">
+          <span class="lockpill">🔒 AIPD requise</span>
+          <div class="who">
+            <div class="av">MD</div>
+            <div><div class="nm">Coach Diallo</div><div class="ts">Aujourd'hui · 08:12</div></div>
+          </div>
+          <div class="msg">Changement de lieu pour jeudi : on se retrouve au stade couvert.</div>
+          <div class="footer-row" style="opacity:.55">
+            <span class="react mine">❤️ <span class="n">8</span></span>
+            <div class="avstack" style="margin-left:6px">
+              <div class="av2" style="background:#2E7CF6">L</div>
+              <div class="av2" style="background:#34D17F">K</div>
+              <div class="av2" style="background:var(--raised);color:var(--text2)">+6</div>
+            </div>
+          </div>
+          <div class="teaser">
+            <div class="ic">🪪</div>
+            <div class="tx"><b>Pile d'avatars</b> sur les réactions (« ❤️ par Léa, Karim +6 ») — lève l'anonymat des Palier 1. Identité minimisée (<b>GroupTeammate</b>, ADR-37).
+              <div class="badge">⏳ Bloqué par TLX-150 — revue AIPD</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="sec">Kudos de participation<span class="ln"></span></div>
+        <div class="kudos">
+          <div class="av">KT</div>
+          <div class="tx"><b>Karim</b> a confirmé jeudi — encourage-le 👏</div>
+          <button>👏 Kudos</button>
+        </div>
+        <div class="teaser" style="margin-top:14px">
+          <div class="ic">🚧</div>
+          <div class="tx">Le kudos porte uniquement sur la <b>participation confirmée</b> — jamais sur une perf, une charge ou un record (frontière santé/perf, ADR-08/21 intacte).</div>
+        </div>
+      </div>
+      <div class="tabbar">
+        <div class="tab"><div class="dot"></div>Accueil</div>
+        <div class="tab"><div class="dot"></div>Séances</div>
+        <div class="tab on"><div class="dot"></div>Groupes</div>
+        <div class="tab"><div class="dot"></div>Progrès</div>
+        <div class="tab"><div class="dot"></div>Profil</div>
+      </div>
+    </div></div>
+    <div class="cap"><b>Palier 2 (teaser, non livré)</b> — visuel cadré par l'ADR mais conditionné à la revue AIPD déjà due (TLX-150). Replie au Palier 1 si bloquant.</div>
+  </div>
+
+  <!-- ============ TEASER PALIER 3 — fil (modération) ============ -->
+  <div class="col">
+    <div class="phone"><div class="notch"></div><div class="screen">
+      <div class="status"><span>9:41</span><span>5G&nbsp;&nbsp;87%</span></div>
+      <div class="topbar">
+        <div class="row1">
+          <span class="back">‹</span><div class="gav">SE</div>
+          <div><div class="nm">Sprint Élite</div><div class="mt">Coach M. Diallo · 12 athlètes</div></div>
+        </div>
+        <div class="seg"><button>Séances</button><button class="on">Mur</button><button>Coéquipiers</button></div>
+      </div>
+      <div class="body">
+        <div class="eyebrow"><span class="live"></span>Aperçu — Palier 3 (verrouillé)</div>
+
+        <div class="card" style="position:relative">
+          <span class="lockpill">🔒 Modération requise</span>
+          <div class="who">
+            <div class="av">MD</div>
+            <div><div class="nm">Coach Diallo</div><div class="ts">Aujourd'hui · 08:12</div></div>
+          </div>
+          <div class="msg">Changement de lieu pour jeudi : on se retrouve au stade couvert.</div>
+          <div style="margin-top:12px;display:flex;flex-direction:column;gap:8px;opacity:.5">
+            <div style="display:flex;gap:8px;align-items:flex-start">
+              <div class="av" style="width:24px;height:24px;font-size:9px;background:#34D17F">KT</div>
+              <div style="font-size:12px;color:var(--text2);background:var(--sunken);border-radius:10px;padding:7px 10px;flex:1">Ok pour moi, c'est plus proche en plus 👍</div>
+            </div>
+            <div style="display:flex;gap:8px;align-items:flex-start">
+              <div class="av" style="width:24px;height:24px;font-size:9px;background:#2E7CF6">AM</div>
+              <div style="font-size:12px;color:var(--text2);background:var(--sunken);border-radius:10px;padding:7px 10px;flex:1">On peut covoiturer si besoin !</div>
+            </div>
+          </div>
+          <div class="teaser">
+            <div class="ic">💬</div>
+            <div class="tx"><b>Fil de discussion</b> sous l'annonce — rouvre l'exclusion « pas de chat » d'ADR-46.
+              <div class="badge">⏳ ADR d'exécution + modération à cadrer</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="teaser" style="margin-top:6px">
+          <div class="ic">🛡️</div>
+          <div class="tx">Non négociable avant code : <b>signalement</b>, <b>blocage</b>, <b>suppression</b> (coach et auteur), anti-abus/rate-limit. C'est ce coût — pas la technique — qui place ce palier en dernier.</div>
+        </div>
+      </div>
+      <div class="tabbar">
+        <div class="tab"><div class="dot"></div>Accueil</div>
+        <div class="tab"><div class="dot"></div>Séances</div>
+        <div class="tab on"><div class="dot"></div>Groupes</div>
+        <div class="tab"><div class="dot"></div>Progrès</div>
+        <div class="tab"><div class="dot"></div>Profil</div>
+      </div>
+    </div></div>
+    <div class="cap"><b>Palier 3 (teaser, non livré)</b> — le « gros morceau » : nécessite son propre ADR d'exécution (scope, modération, RGPD contenu pair-à-pair).</div>
+  </div>
+
+</div>
+
+</body>
+</html>
