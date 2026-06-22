@@ -875,6 +875,76 @@ paths:
           $ref: '#/components/responses/NotFound'
         '500':
           $ref: '#/components/responses/ServerError'
+  /groups/{id}/announcements/{announcementId}/reactions/{emoji}:
+    parameters:
+    - $ref: '#/components/parameters/IdPath'
+    - name: announcementId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    - name: emoji
+      in: path
+      required: true
+      description: >-
+        Emoji du jeu borné serveur (ADR-48, Palier 1). Valeurs admises :
+        ❤️ 🔥 👏 💪 😮. Toute autre valeur → 422.
+      schema:
+        type: string
+        enum: ['❤️', '🔥', '👏', '💪', '😮']
+    put:
+      tags:
+      - Groupes
+      summary: Réagir à une annonce (emoji)
+      description: >-
+        Pose une réaction emoji sur une annonce (ADR-48, Palier 1). **Idempotent** (un emoji
+        par personne, togglable). RBAC : coach propriétaire **ou** membre actif. La réponse
+        n'expose que des **compteurs agrégés** + les emoji de l'appelant (`myReactions`) —
+        jamais l'identité d'un tiers (patron d'agrégat ADR-45). Ne notifie personne.
+      operationId: addAnnouncementReaction
+      responses:
+        '200':
+          description: Réactions de l'annonce à jour.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnnouncementReactions'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    delete:
+      tags:
+      - Groupes
+      summary: Retirer sa réaction à une annonce
+      description: >-
+        Retire la réaction emoji de l'appelant (ADR-48, Palier 1). **Idempotent** (aucune
+        erreur si la réaction est absente). RBAC : coach propriétaire **ou** membre actif.
+      operationId: removeAnnouncementReaction
+      responses:
+        '200':
+          description: Réactions de l'annonce à jour.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnnouncementReactions'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '500':
+          $ref: '#/components/responses/ServerError'
   /groups/{id}/members/{athleteId}:
     delete:
       tags:
@@ -2809,9 +2879,44 @@ components:
           maxLength: 1000
       required:
       - body
+    ReactionCount:
+      type: object
+      description: >-
+        Compteur agrégé d'un emoji sur une annonce (ADR-48, Palier 1) — un emoji + un entier,
+        jamais d'identité (patron d'agrégat ADR-45).
+      properties:
+        emoji:
+          type: string
+          enum: ['❤️', '🔥', '👏', '💪', '😮']
+        count:
+          type: integer
+          minimum: 1
+      required:
+      - emoji
+      - count
+    AnnouncementReactions:
+      type: object
+      description: >-
+        État des réactions d'une annonce (ADR-48, Palier 1). `myReactions` = emoji posés par
+        l'appelant (sa propre donnée). Renvoyé par pose/retrait pour rafraîchir l'UI.
+      properties:
+        reactions:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReactionCount'
+        myReactions:
+          type: array
+          items:
+            type: string
+            enum: ['❤️', '🔥', '👏', '💪', '😮']
+      required:
+      - reactions
+      - myReactions
     GroupAnnouncement:
       type: object
-      description: Annonce de groupe (ADR-46). L'auteur est le coach, déjà connu des membres.
+      description: >-
+        Annonce de groupe (ADR-46) enrichie des réactions agrégées (ADR-48, Palier 1).
+        L'auteur est le coach, déjà connu des membres.
       properties:
         id:
           type: string
@@ -2826,12 +2931,25 @@ components:
         createdAt:
           type: string
           format: date-time
+        reactions:
+          type: array
+          description: Compteurs agrégés par emoji (ADR-48).
+          items:
+            $ref: '#/components/schemas/ReactionCount'
+        myReactions:
+          type: array
+          description: Emoji posés par l'appelant (sa propre donnée).
+          items:
+            type: string
+            enum: ['❤️', '🔥', '👏', '💪', '😮']
       required:
       - id
       - groupId
       - body
       - author
       - createdAt
+      - reactions
+      - myReactions
     GroupAnnouncementList:
       type: object
       properties:

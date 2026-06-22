@@ -24,6 +24,7 @@ import { InviteCodeActionDto, InviteCodeDto } from './dto/invite-code.dto';
 import { JoinGroupRequestDto } from './dto/join-group.dto';
 import {
   AnnouncementCreateDto,
+  AnnouncementReactionsDto,
   GroupAnnouncementDto,
   GroupAnnouncementListDto,
 } from './dto/announcement.dto';
@@ -237,5 +238,38 @@ export class GroupsController {
     @Param('announcementId', new ParseUUIDPipe()) announcementId: string,
   ): Promise<void> {
     return this.announcements.deleteAnnouncement(coachId, id, announcementId);
+  }
+
+  // --- Réactions emoji aux annonces (ADR-48, Palier 1) ---
+  // RBAC = lecture du groupe (coach propriétaire OU membre actif) : pas de @Roles ici, la garde
+  // fine est dans le service. Réponse = compteurs agrégés + emoji de l'appelant (jamais « qui »).
+
+  @Put(':id/announcements/:announcementId/reactions/:emoji')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Réagir à une annonce (emoji)', operationId: 'addAnnouncementReaction' })
+  @ApiResponse({ status: 200, description: 'Réactions à jour.', type: AnnouncementReactionsDto })
+  addAnnouncementReaction(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('announcementId', new ParseUUIDPipe()) announcementId: string,
+    @Param('emoji') emoji: string,
+  ): Promise<AnnouncementReactionsDto> {
+    return this.announcements.addReaction(user, id, announcementId, emoji);
+  }
+
+  @Delete(':id/announcements/:announcementId/reactions/:emoji')
+  @HttpCode(200)
+  @ApiOperation({
+    summary: 'Retirer sa réaction à une annonce',
+    operationId: 'removeAnnouncementReaction',
+  })
+  @ApiResponse({ status: 200, description: 'Réactions à jour.', type: AnnouncementReactionsDto })
+  removeAnnouncementReaction(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('announcementId', new ParseUUIDPipe()) announcementId: string,
+    @Param('emoji') emoji: string,
+  ): Promise<AnnouncementReactionsDto> {
+    return this.announcements.removeReaction(user, id, announcementId, emoji);
   }
 }

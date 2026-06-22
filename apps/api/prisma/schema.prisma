@@ -51,6 +51,7 @@ model User {
   coachedGroups           Group[]                  @relation("GroupCoach")
   groupMemberships        GroupMember[]
   authoredAnnouncements   GroupAnnouncement[]      @relation("AnnouncementAuthor")
+  announcementReactions   AnnouncementReaction[]   @relation("ReactionUser")
   coachLinks              CoachAthleteLink[]       @relation("LinkCoach")
   athleteLinks            CoachAthleteLink[]       @relation("LinkAthlete")
   coachedSessions         Session[]                @relation("SessionCoach")
@@ -231,11 +232,32 @@ model GroupAnnouncement {
   createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
 
-  group  Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  author User  @relation("AnnouncementAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  group     Group                  @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  author    User                   @relation("AnnouncementAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  reactions AnnouncementReaction[]
 
   @@index([groupId], map: "ix_group_announcement_group")
   @@map("group_announcements")
+}
+
+/// Réaction emoji à une annonce (ADR-48, Palier 1). Jeu d'emoji **borné** côté serveur
+/// (CHECK en base). L'API n'en expose que des **compteurs agrégés** + les réactions propres
+/// de l'appelant (`myReactions`) — jamais l'identité d'un tiers (patron d'agrégat ADR-45).
+/// Pas de suppression soft : retirer une réaction = suppression dure (toggle).
+model AnnouncementReaction {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  announcementId String   @map("announcement_id") @db.Uuid
+  userId         String   @map("user_id") @db.Uuid
+  emoji          String
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  announcement GroupAnnouncement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  user         User              @relation("ReactionUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  // CHECK ck_announcement_reaction_emoji (jeu borné) → migration SQL.
+  @@unique([announcementId, userId, emoji], map: "uq_announcement_reaction")
+  @@index([announcementId], map: "ix_announcement_reaction_announcement")
+  @@map("announcement_reactions")
 }
 
 /// Appartenance d'un athlète à un groupe (historisée via left_at).
