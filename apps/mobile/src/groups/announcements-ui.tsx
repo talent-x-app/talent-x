@@ -21,8 +21,8 @@ import { TeamPulseCard } from './team-pulse-ui';
 
 /**
  * Palette d'emoji autorisés (ADR-48, Palier 1) — bornée côté API par une contrainte CHECK
- * (même ensemble que `ReactionCountEmoji`). Littéral local : pas de dépendance runtime à l'enum
- * généré, et l'ordre d'affichage est maîtrisé.
+ * (même ensemble que le schéma `ReactionEmoji`). Littéral local : pas de dépendance runtime à
+ * l'enum généré, et l'ordre d'affichage est maîtrisé.
  */
 const REACTION_EMOJIS: ReactionEmoji[] = ['❤️', '🔥', '👏', '💪', '😮'];
 
