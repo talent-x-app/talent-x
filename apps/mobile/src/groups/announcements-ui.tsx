@@ -18,6 +18,7 @@ import { toUserMessage, useToast } from '../feedback';
 import { formatRelativeDate } from '../notifications/notification-ui';
 import { groupAnnouncementsQueryKey } from './groups-query';
 import { TeamPulseCard } from './team-pulse-ui';
+import { NarrativePresenceBanner } from './narrative-presence-ui';
 
 /**
  * Palette d'emoji autorisés (ADR-48, Palier 1) — bornée côté API par une contrainte CHECK
@@ -30,14 +31,19 @@ const REACTION_EMOJIS: ReactionEmoji[] = ['❤️', '🔥', '👏', '💪', '�
  * Annonces de groupe (ADR-46) — canal descendant coach → membres. Composant **partagé** :
  * `canManage` (coach propriétaire) ajoute la zone de publication et la suppression ; sinon
  * lecture seule (athlète membre). Données via `GET/POST/DELETE /groups/:id/announcements`.
+ * Enrichi du « Mur » (ADR-48, Palier 1) : pouls d'équipe + présence narrative (athlète, via
+ * `coachId`) en tête, réactions et accusé de lecture sur chaque annonce.
  */
 export function AnnouncementsPane({
   groupId,
   canManage = false,
+  coachId,
   now = new Date(),
 }: {
   groupId: string;
   canManage?: boolean;
+  /** Coach du groupe — active la bannière de présence narrative côté athlète (ADR-48, slice 4). */
+  coachId?: string;
   now?: Date;
 }) {
   const { colors, typography, spacing } = useTheme();
@@ -58,6 +64,9 @@ export function AnnouncementsPane({
     <View style={{ gap: spacing[4] }}>
       {/* Pouls d'équipe (ADR-48, Palier 1) : agrégat dérivé, silencieux si semaine creuse. */}
       <TeamPulseCard groupId={groupId} />
+
+      {/* Présence narrative (athlète) : prochaine séance du groupe, silencieuse sinon. */}
+      {!canManage && coachId ? <NarrativePresenceBanner coachId={coachId} now={now} /> : null}
 
       {canManage ? <ComposeAnnouncement groupId={groupId} /> : null}
 

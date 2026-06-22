@@ -137,7 +137,7 @@ export function AthleteGroupHubScreen({
         contentContainerStyle={{ padding: spacing[5], gap: spacing[5] }}
       >
         {tab === 'announcements' ? (
-          <AnnouncementsPane groupId={groupId} />
+          <AnnouncementsPane groupId={groupId} coachId={group?.coach.id} />
         ) : tab === 'calendar' ? (
           <GroupCalendarPane coachId={group?.coach.id} />
         ) : tab === 'teammates' ? (
