@@ -4,12 +4,13 @@ import { StorageModule } from '../storage/storage.module';
 import { GroupsController } from './groups.controller';
 import { GroupsService } from './groups.service';
 import { AnnouncementsService } from './announcements.service';
+import { TeamPulseService } from './team-pulse.service';
 
 // JobsModule : group_update à l'adhésion + group_announcement (ADR-22/46).
 // StorageModule : présignature des avatars du roster pair-à-pair (ADR-37).
 @Module({
   imports: [JobsModule, StorageModule],
   controllers: [GroupsController],
-  providers: [GroupsService, AnnouncementsService],
+  providers: [GroupsService, AnnouncementsService, TeamPulseService],
 })
 export class GroupsModule {}

@@ -979,6 +979,35 @@ paths:
           $ref: '#/components/responses/NotFound'
         '500':
           $ref: '#/components/responses/ServerError'
+  /groups/{id}/pulse:
+    get:
+      tags:
+      - Groupes
+      summary: Pouls d'équipe (agrégat dérivé)
+      description: >-
+        Pouls d'équipe de la semaine en cours (ADR-48, Palier 1) — **100 % dérivé** des
+        SessionAssignment du groupe (fan-out ADR-30), zéro champ stocké. Gamification douce,
+        **collective et anonyme** : que des entiers agrégés, jamais d'identité ni de perf
+        comparée entre pairs (frontière santé/perf ADR-08/21). RBAC : coach propriétaire **ou**
+        athlète membre actif (404 anti-énumération sinon).
+      operationId: getTeamPulse
+      parameters:
+      - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: Pouls d'équipe.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeamPulse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
   /groups/{id}/members/{athleteId}:
     delete:
       tags:
@@ -3011,6 +3040,37 @@ components:
       - myReactions
       - readCount
       - memberCount
+    TeamPulse:
+      type: object
+      description: >-
+        Pouls d'équipe de la semaine (ADR-48, Palier 1) — 100 % dérivé, zéro champ stocké.
+        Entiers agrégés et anonymes ; aucune perf comparée entre pairs (ADR-08/21).
+      properties:
+        weekStart:
+          type: string
+          format: date
+          description: Lundi de la semaine ISO couverte.
+        completedSessions:
+          type: integer
+          minimum: 0
+          description: Séances du groupe terminées cette semaine.
+        personalRecords:
+          type: integer
+          minimum: 0
+          description: Records personnels déclenchés cette semaine (groupe).
+        attendanceRate:
+          type: integer
+          minimum: 0
+          maximum: 100
+          nullable: true
+          description: >-
+            Taux de présence (% « going » parmi les réponses RSVP de la semaine). null si
+            aucune réponse.
+      required:
+      - weekStart
+      - completedSessions
+      - personalRecords
+      - attendanceRate
     GroupAnnouncementList:
       type: object
       properties:

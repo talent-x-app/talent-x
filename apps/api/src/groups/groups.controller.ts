@@ -29,8 +29,10 @@ import {
   GroupAnnouncementDto,
   GroupAnnouncementListDto,
 } from './dto/announcement.dto';
+import { TeamPulseDto } from './dto/team-pulse.dto';
 import { GroupsService } from './groups.service';
 import { AnnouncementsService } from './announcements.service';
+import { TeamPulseService } from './team-pulse.service';
 
 /**
  * Groupes (TLX-041). RBAC par endpoint (matrice TX-SPEC-002 §6) :
@@ -44,6 +46,7 @@ export class GroupsController {
   constructor(
     private readonly groups: GroupsService,
     private readonly announcements: AnnouncementsService,
+    private readonly teamPulse: TeamPulseService,
   ) {}
 
   @Post()
@@ -294,5 +297,17 @@ export class GroupsController {
     @Param('announcementId', new ParseUUIDPipe()) announcementId: string,
   ): Promise<AnnouncementReadReceiptDto> {
     return this.announcements.markRead(user, id, announcementId);
+  }
+
+  // --- Pouls d'équipe (ADR-48, Palier 1) — agrégat dérivé, RBAC = coach propriétaire ou membre ---
+
+  @Get(':id/pulse')
+  @ApiOperation({ summary: "Pouls d'équipe (agrégat dérivé)", operationId: 'getTeamPulse' })
+  @ApiResponse({ status: 200, description: "Pouls d'équipe de la semaine.", type: TeamPulseDto })
+  getTeamPulse(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', new ParseUUIDPipe()) id: string,
+  ): Promise<TeamPulseDto> {
+    return this.teamPulse.getTeamPulse(user, id);
   }
 }
