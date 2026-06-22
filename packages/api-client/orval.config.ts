@@ -26,5 +26,10 @@ export default defineConfig({
         },
       },
     },
+    // orval émet un import `zod` mort (paramètre de chemin contraint) ; on le retire pour
+    // garder le client `fetch` zéro-dépendance et `tsc` vert. Voir le script pour le détail.
+    hooks: {
+      afterAllFilesWrite: 'node ./scripts/strip-unused-zod-import.mjs',
+    },
   },
 });

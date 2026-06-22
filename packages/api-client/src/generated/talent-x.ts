@@ -9,6 +9,8 @@
  */
 import type {
   AnnouncementCreate,
+  AnnouncementReactions,
+  AnnouncementReadReceipt,
   AssignRequest,
   Assignment,
   AssignmentList,
@@ -75,6 +77,7 @@ import type {
   PersonalRecord,
   PersonalRecordList,
   Progress,
+  ReactionEmoji,
   ReadAllResult,
   Readiness,
   RecordConfirm,
@@ -87,6 +90,7 @@ import type {
   SessionPage,
   SessionUpdate,
   Stats,
+  TeamPulse,
   TokenReuseResponse,
   TooManyRequestsResponse,
   TrainingLogRequest,
@@ -2057,6 +2061,262 @@ export const deleteAnnouncement = async (id: string,
   {
     ...options,
     method: 'DELETE'
+
+
+  }
+);}
+
+
+
+export type addAnnouncementReactionResponse200 = {
+  data: AnnouncementReactions
+  status: 200
+}
+
+export type addAnnouncementReactionResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type addAnnouncementReactionResponse403 = {
+  data: ForbiddenResponse
+  status: 403
+}
+
+export type addAnnouncementReactionResponse404 = {
+  data: NotFoundResponse
+  status: 404
+}
+
+export type addAnnouncementReactionResponse422 = {
+  data: ValidationFailedResponse
+  status: 422
+}
+
+export type addAnnouncementReactionResponse500 = {
+  data: ServerErrorResponse
+  status: 500
+}
+
+export type addAnnouncementReactionResponseSuccess = (addAnnouncementReactionResponse200) & {
+  headers: Headers;
+};
+export type addAnnouncementReactionResponseError = (addAnnouncementReactionResponse401 | addAnnouncementReactionResponse403 | addAnnouncementReactionResponse404 | addAnnouncementReactionResponse422 | addAnnouncementReactionResponse500) & {
+  headers: Headers;
+};
+
+export type addAnnouncementReactionResponse = (addAnnouncementReactionResponseSuccess | addAnnouncementReactionResponseError)
+
+export const getAddAnnouncementReactionUrl = (id: string,
+    announcementId: string,
+    emoji: ReactionEmoji,) => {
+
+
+
+
+  return `/groups/${id}/announcements/${announcementId}/reactions/${emoji}`
+}
+
+/**
+ * Pose une réaction emoji sur une annonce (ADR-48, Palier 1). **Idempotent** (un emoji par personne, togglable). RBAC : coach propriétaire **ou** membre actif. La réponse n'expose que des **compteurs agrégés** + les emoji de l'appelant (`myReactions`) — jamais l'identité d'un tiers (patron d'agrégat ADR-45). Ne notifie personne.
+ * @summary Réagir à une annonce (emoji)
+ */
+export const addAnnouncementReaction = async (id: string,
+    announcementId: string,
+    emoji: ReactionEmoji, options?: RequestInit): Promise<addAnnouncementReactionResponse> => {
+
+  return customFetch<addAnnouncementReactionResponse>(getAddAnnouncementReactionUrl(id,announcementId,emoji),
+  {
+    ...options,
+    method: 'PUT'
+
+
+  }
+);}
+
+
+
+export type removeAnnouncementReactionResponse200 = {
+  data: AnnouncementReactions
+  status: 200
+}
+
+export type removeAnnouncementReactionResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type removeAnnouncementReactionResponse403 = {
+  data: ForbiddenResponse
+  status: 403
+}
+
+export type removeAnnouncementReactionResponse404 = {
+  data: NotFoundResponse
+  status: 404
+}
+
+export type removeAnnouncementReactionResponse422 = {
+  data: ValidationFailedResponse
+  status: 422
+}
+
+export type removeAnnouncementReactionResponse500 = {
+  data: ServerErrorResponse
+  status: 500
+}
+
+export type removeAnnouncementReactionResponseSuccess = (removeAnnouncementReactionResponse200) & {
+  headers: Headers;
+};
+export type removeAnnouncementReactionResponseError = (removeAnnouncementReactionResponse401 | removeAnnouncementReactionResponse403 | removeAnnouncementReactionResponse404 | removeAnnouncementReactionResponse422 | removeAnnouncementReactionResponse500) & {
+  headers: Headers;
+};
+
+export type removeAnnouncementReactionResponse = (removeAnnouncementReactionResponseSuccess | removeAnnouncementReactionResponseError)
+
+export const getRemoveAnnouncementReactionUrl = (id: string,
+    announcementId: string,
+    emoji: ReactionEmoji,) => {
+
+
+
+
+  return `/groups/${id}/announcements/${announcementId}/reactions/${emoji}`
+}
+
+/**
+ * Retire la réaction emoji de l'appelant (ADR-48, Palier 1). **Idempotent** (aucune erreur si la réaction est absente). RBAC : coach propriétaire **ou** membre actif.
+ * @summary Retirer sa réaction à une annonce
+ */
+export const removeAnnouncementReaction = async (id: string,
+    announcementId: string,
+    emoji: ReactionEmoji, options?: RequestInit): Promise<removeAnnouncementReactionResponse> => {
+
+  return customFetch<removeAnnouncementReactionResponse>(getRemoveAnnouncementReactionUrl(id,announcementId,emoji),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+export type markAnnouncementReadResponse200 = {
+  data: AnnouncementReadReceipt
+  status: 200
+}
+
+export type markAnnouncementReadResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type markAnnouncementReadResponse403 = {
+  data: ForbiddenResponse
+  status: 403
+}
+
+export type markAnnouncementReadResponse404 = {
+  data: NotFoundResponse
+  status: 404
+}
+
+export type markAnnouncementReadResponse500 = {
+  data: ServerErrorResponse
+  status: 500
+}
+
+export type markAnnouncementReadResponseSuccess = (markAnnouncementReadResponse200) & {
+  headers: Headers;
+};
+export type markAnnouncementReadResponseError = (markAnnouncementReadResponse401 | markAnnouncementReadResponse403 | markAnnouncementReadResponse404 | markAnnouncementReadResponse500) & {
+  headers: Headers;
+};
+
+export type markAnnouncementReadResponse = (markAnnouncementReadResponseSuccess | markAnnouncementReadResponseError)
+
+export const getMarkAnnouncementReadUrl = (id: string,
+    announcementId: string,) => {
+
+
+
+
+  return `/groups/${id}/announcements/${announcementId}/read`
+}
+
+/**
+ * Marque l'annonce comme lue par l'appelant (ADR-48, Palier 1). **Idempotent**. Réservé aux **membres actifs** (le coach est l'auteur, pas un lecteur comptabilisé). La réponse n'expose que l'agrégat `readCount`/`memberCount` (« 9/12 ont lu ») — jamais la liste des lecteurs (patron d'agrégat ADR-45).
+ * @summary Marquer une annonce comme lue (athlète membre)
+ */
+export const markAnnouncementRead = async (id: string,
+    announcementId: string, options?: RequestInit): Promise<markAnnouncementReadResponse> => {
+
+  return customFetch<markAnnouncementReadResponse>(getMarkAnnouncementReadUrl(id,announcementId),
+  {
+    ...options,
+    method: 'PUT'
+
+
+  }
+);}
+
+
+
+export type getTeamPulseResponse200 = {
+  data: TeamPulse
+  status: 200
+}
+
+export type getTeamPulseResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type getTeamPulseResponse403 = {
+  data: ForbiddenResponse
+  status: 403
+}
+
+export type getTeamPulseResponse404 = {
+  data: NotFoundResponse
+  status: 404
+}
+
+export type getTeamPulseResponse500 = {
+  data: ServerErrorResponse
+  status: 500
+}
+
+export type getTeamPulseResponseSuccess = (getTeamPulseResponse200) & {
+  headers: Headers;
+};
+export type getTeamPulseResponseError = (getTeamPulseResponse401 | getTeamPulseResponse403 | getTeamPulseResponse404 | getTeamPulseResponse500) & {
+  headers: Headers;
+};
+
+export type getTeamPulseResponse = (getTeamPulseResponseSuccess | getTeamPulseResponseError)
+
+export const getGetTeamPulseUrl = (id: string,) => {
+
+
+
+
+  return `/groups/${id}/pulse`
+}
+
+/**
+ * Pouls d'équipe de la semaine en cours (ADR-48, Palier 1) — **100 % dérivé** des SessionAssignment du groupe (fan-out ADR-30), zéro champ stocké. Gamification douce, **collective et anonyme** : que des entiers agrégés, jamais d'identité ni de perf comparée entre pairs (frontière santé/perf ADR-08/21). RBAC : coach propriétaire **ou** athlète membre actif (404 anti-énumération sinon).
+ * @summary Pouls d'équipe (agrégat dérivé)
+ */
+export const getTeamPulse = async (id: string, options?: RequestInit): Promise<getTeamPulseResponse> => {
+
+  return customFetch<getTeamPulseResponse>(getGetTeamPulseUrl(id),
+  {
+    ...options,
+    method: 'GET'
 
 
   }

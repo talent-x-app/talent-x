@@ -888,11 +888,10 @@ paths:
       in: path
       required: true
       description: >-
-        Emoji du jeu borné serveur (ADR-48, Palier 1). Valeurs admises :
-        ❤️ 🔥 👏 💪 😮. Toute autre valeur → 422.
+        Emoji du jeu borné serveur (ADR-48, Palier 1) — voir le schéma `ReactionEmoji`.
+        Valeurs admises : ❤️ 🔥 👏 💪 😮. Toute autre valeur → 422 (validé côté API).
       schema:
-        type: string
-        enum: ['❤️', '🔥', '👏', '💪', '😮']
+        $ref: '#/components/schemas/ReactionEmoji'
     put:
       tags:
       - Groupes
@@ -2942,6 +2941,12 @@ components:
           maxLength: 1000
       required:
       - body
+    ReactionEmoji:
+      type: string
+      description: >-
+        Emoji du jeu borné serveur (ADR-48, Palier 1) — ensemble fixe, validé par une contrainte
+        CHECK côté API. Toute autre valeur → 422.
+      enum: ['❤️', '🔥', '👏', '💪', '😮']
     ReactionCount:
       type: object
       description: >-
@@ -2949,8 +2954,7 @@ components:
         jamais d'identité (patron d'agrégat ADR-45).
       properties:
         emoji:
-          type: string
-          enum: ['❤️', '🔥', '👏', '💪', '😮']
+          $ref: '#/components/schemas/ReactionEmoji'
         count:
           type: integer
           minimum: 1
@@ -2970,8 +2974,7 @@ components:
         myReactions:
           type: array
           items:
-            type: string
-            enum: ['❤️', '🔥', '👏', '💪', '😮']
+            $ref: '#/components/schemas/ReactionEmoji'
       required:
       - reactions
       - myReactions
@@ -3020,8 +3023,7 @@ components:
           type: array
           description: Emoji posés par l'appelant (sa propre donnée).
           items:
-            type: string
-            enum: ['❤️', '🔥', '👏', '💪', '😮']
+            $ref: '#/components/schemas/ReactionEmoji'
         readCount:
           type: integer
           minimum: 0

@@ -9,6 +9,8 @@
  */
 
 export * from './announcementCreate';
+export * from './announcementReactions';
+export * from './announcementReadReceipt';
 export * from './assignment';
 export * from './assignmentList';
 export * from './assignmentPage';
@@ -124,6 +126,8 @@ export * from './progressPoint';
 export * from './progressSeries';
 export * from './progressSeriesDirection';
 export * from './progressSeriesUnit';
+export * from './reactionCount';
+export * from './reactionEmoji';
 export * from './readAllResult';
 export * from './readiness';
 export * from './readinessChecks';
@@ -152,6 +156,7 @@ export * from './skipReason';
 export * from './sortParamParameter';
 export * from './stats';
 export * from './statsMetrics';
+export * from './teamPulse';
 export * from './tokenReuseResponse';
 export * from './tooManyRequestsResponse';
 export * from './trainingLoad';

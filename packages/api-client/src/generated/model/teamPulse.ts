@@ -7,31 +7,27 @@
  * Conventions transverses : préfixe /api/v1 ; jeton d'accès JWT (RS256) via en-tête Authorization ; pagination par enveloppe { data, meta } ; idempotence des écritures sensibles via Idempotency-Key ; opérations longues asynchrones (202 + ressource de statut) ; rate limiting signalé par les en-têtes RateLimit-*. L'autorisation combine rôle, appartenance (lien coach↔athlète), propriété et consentement ; voir TX-SPEC-002 §6.
  * OpenAPI spec version: 1.0.0
  */
-import type { ReactionCount } from './reactionCount';
-import type { ReactionEmoji } from './reactionEmoji';
-import type { UserSummary } from './userSummary';
 
 /**
- * Annonce de groupe (ADR-46) enrichie des réactions et de l'accusé de lecture agrégés (ADR-48, Palier 1). L'auteur est le coach, déjà connu des membres.
+ * Pouls d'équipe de la semaine (ADR-48, Palier 1) — 100 % dérivé, zéro champ stocké. Entiers agrégés et anonymes ; aucune perf comparée entre pairs (ADR-08/21).
  */
-export interface GroupAnnouncement {
-  id: string;
-  groupId: string;
-  body: string;
-  author: UserSummary;
-  createdAt: string;
-  /** Compteurs agrégés par emoji (ADR-48). */
-  reactions: ReactionCount[];
-  /** Emoji posés par l'appelant (sa propre donnée). */
-  myReactions: ReactionEmoji[];
+export interface TeamPulse {
+  /** Lundi de la semaine ISO couverte. */
+  weekStart: string;
   /**
-     * Membres ayant lu l'annonce (agrégat ADR-48).
+     * Séances du groupe terminées cette semaine.
      * @minimum 0
      */
-  readCount: number;
+  completedSessions: number;
   /**
-     * Membres actifs du groupe.
+     * Records personnels déclenchés cette semaine (groupe).
      * @minimum 0
      */
-  memberCount: number;
+  personalRecords: number;
+  /**
+     * Taux de présence (% « going » parmi les réponses RSVP de la semaine). null si aucune réponse.
+     * @minimum 0
+     * @maximum 100
+     */
+  attendanceRate: number | null;
 }

@@ -9,29 +9,11 @@
  */
 import type { ReactionCount } from './reactionCount';
 import type { ReactionEmoji } from './reactionEmoji';
-import type { UserSummary } from './userSummary';
 
 /**
- * Annonce de groupe (ADR-46) enrichie des réactions et de l'accusé de lecture agrégés (ADR-48, Palier 1). L'auteur est le coach, déjà connu des membres.
+ * État des réactions d'une annonce (ADR-48, Palier 1). `myReactions` = emoji posés par l'appelant (sa propre donnée). Renvoyé par pose/retrait pour rafraîchir l'UI.
  */
-export interface GroupAnnouncement {
-  id: string;
-  groupId: string;
-  body: string;
-  author: UserSummary;
-  createdAt: string;
-  /** Compteurs agrégés par emoji (ADR-48). */
+export interface AnnouncementReactions {
   reactions: ReactionCount[];
-  /** Emoji posés par l'appelant (sa propre donnée). */
   myReactions: ReactionEmoji[];
-  /**
-     * Membres ayant lu l'annonce (agrégat ADR-48).
-     * @minimum 0
-     */
-  readCount: number;
-  /**
-     * Membres actifs du groupe.
-     * @minimum 0
-     */
-  memberCount: number;
 }

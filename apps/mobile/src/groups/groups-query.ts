@@ -30,6 +30,11 @@ export function groupAnnouncementsQueryKey(groupId: string) {
   return ['groups', groupId, 'announcements'] as const;
 }
 
+/** Pouls d'équipe (ADR-48, Palier 1 — `GET /groups/:id/pulse`). Agrégat dérivé, partagé coach ↔ athlète. */
+export function groupPulseQueryKey(groupId: string) {
+  return ['groups', groupId, 'pulse'] as const;
+}
+
 /**
  * Affectations de l'athlète courant (`GET /assignments`, role-aware). Le hub de groupe (fil
  * Séances + Calendrier, ADR-43 §4) lit ce **même** cache que l'écran Séances (A-02) et le

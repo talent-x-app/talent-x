@@ -7,31 +7,13 @@
  * Conventions transverses : préfixe /api/v1 ; jeton d'accès JWT (RS256) via en-tête Authorization ; pagination par enveloppe { data, meta } ; idempotence des écritures sensibles via Idempotency-Key ; opérations longues asynchrones (202 + ressource de statut) ; rate limiting signalé par les en-têtes RateLimit-*. L'autorisation combine rôle, appartenance (lien coach↔athlète), propriété et consentement ; voir TX-SPEC-002 §6.
  * OpenAPI spec version: 1.0.0
  */
-import type { ReactionCount } from './reactionCount';
 import type { ReactionEmoji } from './reactionEmoji';
-import type { UserSummary } from './userSummary';
 
 /**
- * Annonce de groupe (ADR-46) enrichie des réactions et de l'accusé de lecture agrégés (ADR-48, Palier 1). L'auteur est le coach, déjà connu des membres.
+ * Compteur agrégé d'un emoji sur une annonce (ADR-48, Palier 1) — un emoji + un entier, jamais d'identité (patron d'agrégat ADR-45).
  */
-export interface GroupAnnouncement {
-  id: string;
-  groupId: string;
-  body: string;
-  author: UserSummary;
-  createdAt: string;
-  /** Compteurs agrégés par emoji (ADR-48). */
-  reactions: ReactionCount[];
-  /** Emoji posés par l'appelant (sa propre donnée). */
-  myReactions: ReactionEmoji[];
-  /**
-     * Membres ayant lu l'annonce (agrégat ADR-48).
-     * @minimum 0
-     */
-  readCount: number;
-  /**
-     * Membres actifs du groupe.
-     * @minimum 0
-     */
-  memberCount: number;
+export interface ReactionCount {
+  emoji: ReactionEmoji;
+  /** @minimum 1 */
+  count: number;
 }
