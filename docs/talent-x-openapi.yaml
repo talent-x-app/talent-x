@@ -945,6 +945,40 @@ paths:
           $ref: '#/components/responses/ValidationFailed'
         '500':
           $ref: '#/components/responses/ServerError'
+  /groups/{id}/announcements/{announcementId}/read:
+    put:
+      tags:
+      - Groupes
+      summary: Marquer une annonce comme lue (athlète membre)
+      description: >-
+        Marque l'annonce comme lue par l'appelant (ADR-48, Palier 1). **Idempotent**. Réservé
+        aux **membres actifs** (le coach est l'auteur, pas un lecteur comptabilisé). La réponse
+        n'expose que l'agrégat `readCount`/`memberCount` (« 9/12 ont lu ») — jamais la liste
+        des lecteurs (patron d'agrégat ADR-45).
+      operationId: markAnnouncementRead
+      parameters:
+      - $ref: '#/components/parameters/IdPath'
+      - name: announcementId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Accusé de lecture agrégé à jour.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnnouncementReadReceipt'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
   /groups/{id}/members/{athleteId}:
     delete:
       tags:
@@ -2912,11 +2946,28 @@ components:
       required:
       - reactions
       - myReactions
+    AnnouncementReadReceipt:
+      type: object
+      description: >-
+        Accusé de lecture agrégé d'une annonce (ADR-48, Palier 1) — « 9/12 ont lu » : deux
+        entiers, jamais la liste des lecteurs (patron d'agrégat ADR-45).
+      properties:
+        readCount:
+          type: integer
+          minimum: 0
+          description: Nombre de membres ayant lu.
+        memberCount:
+          type: integer
+          minimum: 0
+          description: Nombre de membres actifs du groupe.
+      required:
+      - readCount
+      - memberCount
     GroupAnnouncement:
       type: object
       description: >-
-        Annonce de groupe (ADR-46) enrichie des réactions agrégées (ADR-48, Palier 1).
-        L'auteur est le coach, déjà connu des membres.
+        Annonce de groupe (ADR-46) enrichie des réactions et de l'accusé de lecture agrégés
+        (ADR-48, Palier 1). L'auteur est le coach, déjà connu des membres.
       properties:
         id:
           type: string
@@ -2942,6 +2993,14 @@ components:
           items:
             type: string
             enum: ['❤️', '🔥', '👏', '💪', '😮']
+        readCount:
+          type: integer
+          minimum: 0
+          description: Membres ayant lu l'annonce (agrégat ADR-48).
+        memberCount:
+          type: integer
+          minimum: 0
+          description: Membres actifs du groupe.
       required:
       - id
       - groupId
@@ -2950,6 +3009,8 @@ components:
       - createdAt
       - reactions
       - myReactions
+      - readCount
+      - memberCount
     GroupAnnouncementList:
       type: object
       properties:

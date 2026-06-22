@@ -25,6 +25,7 @@ import { JoinGroupRequestDto } from './dto/join-group.dto';
 import {
   AnnouncementCreateDto,
   AnnouncementReactionsDto,
+  AnnouncementReadReceiptDto,
   GroupAnnouncementDto,
   GroupAnnouncementListDto,
 } from './dto/announcement.dto';
@@ -271,5 +272,27 @@ export class GroupsController {
     @Param('emoji') emoji: string,
   ): Promise<AnnouncementReactionsDto> {
     return this.announcements.removeReaction(user, id, announcementId, emoji);
+  }
+
+  // --- Accusé de lecture agrégé (ADR-48, Palier 1) ---
+
+  @Put(':id/announcements/:announcementId/read')
+  @Roles('athlete')
+  @HttpCode(200)
+  @ApiOperation({
+    summary: 'Marquer une annonce comme lue',
+    operationId: 'markAnnouncementRead',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Accusé de lecture agrégé à jour.',
+    type: AnnouncementReadReceiptDto,
+  })
+  markAnnouncementRead(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('announcementId', new ParseUUIDPipe()) announcementId: string,
+  ): Promise<AnnouncementReadReceiptDto> {
+    return this.announcements.markRead(user, id, announcementId);
   }
 }

@@ -13,6 +13,7 @@ import {
   AnnouncementCreateDto,
   AnnouncementReactionEmoji,
   AnnouncementReactionsDto,
+  AnnouncementReadReceiptDto,
   GroupAnnouncementDto,
   GroupAnnouncementListDto,
 } from './dto/announcement.dto';
@@ -23,6 +24,9 @@ type AnnouncementWithAuthor = GroupAnnouncement & {
 
 /** Réactions d'une annonce, prêtes pour le DTO : compteurs agrégés + emoji propres de l'appelant. */
 type ReactionView = Pick<GroupAnnouncementDto, 'reactions' | 'myReactions'>;
+
+/** Méta d'une annonce pour le DTO : réactions agrégées + accusé de lecture agrégé (jamais d'identité). */
+type AnnouncementMeta = ReactionView & Pick<GroupAnnouncementDto, 'readCount' | 'memberCount'>;
 
 const AUTHOR_SELECT = {
   author: { select: { id: true, firstName: true, lastName: true, sport: true } },
@@ -52,12 +56,23 @@ export class AnnouncementsService {
       include: AUTHOR_SELECT,
       orderBy: { createdAt: 'desc' },
     });
-    const reactions = await this.reactionViews(
-      rows.map((r) => r.id),
-      user.id,
-    );
+    const ids = rows.map((r) => r.id);
+
+    // Agrégats en une passe (anti N+1), tous au patron ADR-45 : compteurs, jamais d'identité.
+    const [reactions, readCounts, memberCount] = await Promise.all([
+      this.reactionViews(ids, user.id),
+      this.readCounts(ids),
+      ids.length > 0 ? this.activeMemberCount(groupId) : Promise.resolve(0),
+    ]);
+
     return {
-      data: rows.map((row) => toAnnouncementDto(row, reactions.get(row.id) ?? emptyReactions())),
+      data: rows.map((row) =>
+        toAnnouncementDto(row, {
+          ...(reactions.get(row.id) ?? emptyReactions()),
+          readCount: readCounts.get(row.id) ?? 0,
+          memberCount,
+        }),
+      ),
     };
   }
 
@@ -101,6 +116,30 @@ export class AnnouncementsService {
     return this.reactionSummary(announcementId, user.id);
   }
 
+  /**
+   * Marque une annonce comme **lue** par l'appelant (ADR-48, Palier 1) — **idempotent** (upsert
+   * sur la PK composite). Réservé aux **membres actifs** (le coach est l'auteur, pas un lecteur
+   * comptabilisé). Renvoie l'agrégat `readCount`/`memberCount` (« 9/12 ont lu ») — jamais la liste.
+   */
+  async markRead(
+    user: AuthenticatedUser,
+    groupId: string,
+    announcementId: string,
+  ): Promise<AnnouncementReadReceiptDto> {
+    await this.assertActiveMember(user.id, groupId);
+    await this.assertAnnouncementInGroup(groupId, announcementId);
+    await this.prisma.announcementRead.upsert({
+      where: { announcementId_userId: { announcementId, userId: user.id } },
+      create: { announcementId, userId: user.id },
+      update: {},
+    });
+    const [readCount, memberCount] = await Promise.all([
+      this.prisma.announcementRead.count({ where: { announcementId } }),
+      this.activeMemberCount(groupId),
+    ]);
+    return { readCount, memberCount };
+  }
+
   /** Publie une annonce (coach propriétaire) + notifie les membres actifs (sauf l'auteur). */
   async createAnnouncement(
     coachId: string,
@@ -124,7 +163,12 @@ export class AnnouncementsService {
         `group_announcement--${created.id}--${athleteId}`,
       );
     }
-    return toAnnouncementDto(created, emptyReactions());
+    // Annonce fraîche : aucune réaction ni lecture ; memberCount = membres notifiés (= actifs).
+    return toAnnouncementDto(created, {
+      ...emptyReactions(),
+      readCount: 0,
+      memberCount: members.length,
+    });
   }
 
   /** Supprime (soft) une annonce de son groupe (coach propriétaire). 404 sinon. */
@@ -226,6 +270,33 @@ export class AnnouncementsService {
     return views;
   }
 
+  /** Compteurs de lecture par annonce (anti N+1) — entiers seuls, jamais la liste des lecteurs. */
+  private async readCounts(announcementIds: string[]): Promise<Map<string, number>> {
+    const counts = new Map<string, number>();
+    if (announcementIds.length === 0) return counts;
+    const grouped = await this.prisma.announcementRead.groupBy({
+      by: ['announcementId'],
+      where: { announcementId: { in: announcementIds } },
+      _count: { userId: true },
+    });
+    for (const row of grouped) counts.set(row.announcementId, row._count.userId);
+    return counts;
+  }
+
+  /** Nombre de membres actifs du groupe (dénominateur de l'accusé de lecture). */
+  private activeMemberCount(groupId: string): Promise<number> {
+    return this.prisma.groupMember.count({ where: { groupId, leftAt: null } });
+  }
+
+  /** Membre actif requis (404 anti-énumération sinon) — le coach n'est pas un lecteur comptabilisé. */
+  private async assertActiveMember(athleteId: string, groupId: string): Promise<void> {
+    const membership = await this.prisma.groupMember.findFirst({
+      where: { groupId, athleteId, leftAt: null, group: { deletedAt: null } },
+      select: { id: true },
+    });
+    if (!membership) throw new NotFoundException('Groupe introuvable.');
+  }
+
   /** Ownership coach (inline, comme `GroupsService`) : 404 si groupe absent, 403 si pas le sien. */
   private async assertGroupOwnedByCoach(coachId: string, groupId: string): Promise<void> {
     const group = await this.prisma.group.findFirst({
@@ -262,7 +333,7 @@ function emptyReactions(): ReactionView {
 
 function toAnnouncementDto(
   row: AnnouncementWithAuthor,
-  reactions: ReactionView,
+  meta: AnnouncementMeta,
 ): GroupAnnouncementDto {
   return {
     id: row.id,
@@ -275,7 +346,9 @@ function toAnnouncementDto(
       sport: row.author.sport ?? undefined,
     },
     createdAt: row.createdAt.toISOString(),
-    reactions: reactions.reactions,
-    myReactions: reactions.myReactions,
+    reactions: meta.reactions,
+    myReactions: meta.myReactions,
+    readCount: meta.readCount,
+    memberCount: meta.memberCount,
   };
 }

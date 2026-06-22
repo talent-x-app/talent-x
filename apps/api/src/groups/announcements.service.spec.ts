@@ -26,7 +26,7 @@ function announcementRow(over: Record<string, unknown> = {}) {
 
 type PrismaMock = {
   group: { findFirst: jest.Mock };
-  groupMember: { findFirst: jest.Mock; findMany: jest.Mock };
+  groupMember: { findFirst: jest.Mock; findMany: jest.Mock; count: jest.Mock };
   groupAnnouncement: {
     findMany: jest.Mock;
     create: jest.Mock;
@@ -39,12 +39,21 @@ type PrismaMock = {
     upsert: jest.Mock;
     deleteMany: jest.Mock;
   };
+  announcementRead: {
+    groupBy: jest.Mock;
+    count: jest.Mock;
+    upsert: jest.Mock;
+  };
 };
 
 function prismaMock(): PrismaMock {
   return {
     group: { findFirst: jest.fn() },
-    groupMember: { findFirst: jest.fn(), findMany: jest.fn().mockResolvedValue([]) },
+    groupMember: {
+      findFirst: jest.fn(),
+      findMany: jest.fn().mockResolvedValue([]),
+      count: jest.fn().mockResolvedValue(0),
+    },
     groupAnnouncement: {
       findMany: jest.fn().mockResolvedValue([]),
       create: jest.fn().mockResolvedValue(announcementRow()),
@@ -56,6 +65,11 @@ function prismaMock(): PrismaMock {
       findMany: jest.fn().mockResolvedValue([]),
       upsert: jest.fn().mockResolvedValue(undefined),
       deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
+    },
+    announcementRead: {
+      groupBy: jest.fn().mockResolvedValue([]),
+      count: jest.fn().mockResolvedValue(0),
+      upsert: jest.fn().mockResolvedValue(undefined),
     },
   };
 }
@@ -154,6 +168,11 @@ describe('AnnouncementsService (ADR-46)', () => {
         { announcementId: 'ann-1', emoji: '❤️' },
       ]);
 
+      prisma.announcementRead.groupBy.mockResolvedValue([
+        { announcementId: 'ann-1', _count: { userId: 9 } },
+      ]);
+      prisma.groupMember.count.mockResolvedValue(12);
+
       const res = await service(prisma).listAnnouncements(COACH, 'g-1');
 
       expect(res.data[0].reactions).toEqual([
@@ -161,6 +180,9 @@ describe('AnnouncementsService (ADR-46)', () => {
         { emoji: '🔥', count: 5 },
       ]);
       expect(res.data[0].myReactions).toEqual(['❤️']);
+      // Accusé de lecture agrégé : « 9/12 ont lu » — deux entiers, jamais la liste.
+      expect(res.data[0].readCount).toBe(9);
+      expect(res.data[0].memberCount).toBe(12);
     });
 
     it('athlète non-membre → 404', async () => {
@@ -280,6 +302,47 @@ describe('AnnouncementsService (ADR-46)', () => {
         service(prisma).removeReaction(ATHLETE, 'g-1', 'ann-1', 'x'),
       ).rejects.toBeInstanceOf(UnprocessableEntityException);
       expect(prisma.announcementReaction.deleteMany).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('markRead (ADR-48, Palier 1)', () => {
+    it('athlète membre : upsert idempotent + renvoie l’agrégat readCount/memberCount', async () => {
+      const prisma = prismaMock();
+      prisma.groupMember.findFirst.mockResolvedValue({ id: 'm-1' });
+      prisma.groupAnnouncement.findFirst.mockResolvedValue({ id: 'ann-1' });
+      prisma.announcementRead.count.mockResolvedValue(9);
+      prisma.groupMember.count.mockResolvedValue(12);
+
+      const res = await service(prisma).markRead(ATHLETE, 'g-1', 'ann-1');
+
+      expect(prisma.announcementRead.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { announcementId_userId: { announcementId: 'ann-1', userId: 'a-1' } },
+          create: { announcementId: 'ann-1', userId: 'a-1' },
+          update: {},
+        }),
+      );
+      expect(res).toEqual({ readCount: 9, memberCount: 12 });
+    });
+
+    it('coach (pas un lecteur comptabilisé) → 404, sans écrire', async () => {
+      const prisma = prismaMock();
+      // Le coach n'a pas de ligne groupMember → assertActiveMember échoue.
+      prisma.groupMember.findFirst.mockResolvedValue(null);
+      await expect(service(prisma).markRead(COACH, 'g-1', 'ann-1')).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+      expect(prisma.announcementRead.upsert).not.toHaveBeenCalled();
+    });
+
+    it('annonce absente du groupe → 404, sans écrire', async () => {
+      const prisma = prismaMock();
+      prisma.groupMember.findFirst.mockResolvedValue({ id: 'm-1' });
+      prisma.groupAnnouncement.findFirst.mockResolvedValue(null);
+      await expect(service(prisma).markRead(ATHLETE, 'g-1', 'ann-x')).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+      expect(prisma.announcementRead.upsert).not.toHaveBeenCalled();
     });
   });
 });

@@ -44,7 +44,19 @@ export class AnnouncementReactionsDto {
   myReactions!: AnnouncementReactionEmoji[];
 }
 
-/** Annonce de groupe — schéma `GroupAnnouncement` (ADR-46 + réactions ADR-48). */
+/**
+ * Accusé de lecture agrégé d'une annonce — schéma `AnnouncementReadReceipt` (ADR-48, Palier 1).
+ * « 9/12 ont lu » : deux entiers, **jamais la liste** des lecteurs (patron d'agrégat ADR-45).
+ */
+export class AnnouncementReadReceiptDto {
+  @ApiProperty({ minimum: 0, description: 'Nombre de membres ayant lu.' })
+  readCount!: number;
+
+  @ApiProperty({ minimum: 0, description: 'Nombre de membres actifs du groupe.' })
+  memberCount!: number;
+}
+
+/** Annonce de groupe — schéma `GroupAnnouncement` (ADR-46 + réactions/lecture ADR-48). */
 export class GroupAnnouncementDto {
   @ApiProperty({ format: 'uuid' })
   id!: string;
@@ -70,6 +82,12 @@ export class GroupAnnouncementDto {
     description: "Emoji posés par l'appelant (sa propre donnée).",
   })
   myReactions!: AnnouncementReactionEmoji[];
+
+  @ApiProperty({ minimum: 0, description: 'Membres ayant lu (agrégat ADR-48).' })
+  readCount!: number;
+
+  @ApiProperty({ minimum: 0, description: 'Membres actifs du groupe.' })
+  memberCount!: number;
 }
 
 /** Liste d'annonces — schéma `GroupAnnouncementList`. */

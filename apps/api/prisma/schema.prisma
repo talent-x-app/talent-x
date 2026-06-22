@@ -52,6 +52,7 @@ model User {
   groupMemberships        GroupMember[]
   authoredAnnouncements   GroupAnnouncement[]      @relation("AnnouncementAuthor")
   announcementReactions   AnnouncementReaction[]   @relation("ReactionUser")
+  announcementReads       AnnouncementRead[]       @relation("ReadUser")
   coachLinks              CoachAthleteLink[]       @relation("LinkCoach")
   athleteLinks            CoachAthleteLink[]       @relation("LinkAthlete")
   coachedSessions         Session[]                @relation("SessionCoach")
@@ -235,6 +236,7 @@ model GroupAnnouncement {
   group     Group                  @relation(fields: [groupId], references: [id], onDelete: Cascade)
   author    User                   @relation("AnnouncementAuthor", fields: [authorId], references: [id], onDelete: Cascade)
   reactions AnnouncementReaction[]
+  reads     AnnouncementRead[]
 
   @@index([groupId], map: "ix_group_announcement_group")
   @@map("group_announcements")
@@ -258,6 +260,21 @@ model AnnouncementReaction {
   @@unique([announcementId, userId, emoji], map: "uq_announcement_reaction")
   @@index([announcementId], map: "ix_announcement_reaction_announcement")
   @@map("announcement_reactions")
+}
+
+/// Accusé de lecture d'une annonce (ADR-48, Palier 1). Une ligne par membre ayant lu.
+/// L'API n'expose que l'agrégat `readCount`/`memberCount` (« 9/12 ont lu ») — **jamais la
+/// liste des lecteurs** (patron d'agrégat ADR-45, même posture que la présence ADR-45).
+model AnnouncementRead {
+  announcementId String   @map("announcement_id") @db.Uuid
+  userId         String   @map("user_id") @db.Uuid
+  readAt         DateTime @default(now()) @map("read_at") @db.Timestamptz(6)
+
+  announcement GroupAnnouncement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  user         User              @relation("ReadUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([announcementId, userId])
+  @@map("announcement_reads")
 }
 
 /// Appartenance d'un athlète à un groupe (historisée via left_at).
