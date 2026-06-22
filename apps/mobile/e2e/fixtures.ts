@@ -115,6 +115,26 @@ class ApiSeed {
     await this.postOk(athleteToken, '/groups/join', { inviteCode });
   }
 
+  /** Publie une annonce de groupe (coach → membres, ADR-46). Renvoie l'id. */
+  async createAnnouncement(coachToken: string, groupId: string, body: string): Promise<string> {
+    const a = await this.postOk(coachToken, `/groups/${groupId}/announcements`, { body });
+    return a.id;
+  }
+
+  /** Déclare la présence (RSVP, ADR-43 §1) d'un athlète sur une affectation. */
+  async setAttendance(
+    athleteToken: string,
+    assignmentId: string,
+    attendance: 'going' | 'not_going' | 'maybe',
+    reason?: 'injury' | 'absence' | 'weather' | 'other',
+  ): Promise<void> {
+    const res = await this.api.put(`${API_URL}/assignments/${assignmentId}/attendance`, {
+      data: { attendance, reason },
+      headers: this.auth(athleteToken),
+    });
+    expect(res.ok(), `attendance → ${res.status()} ${await safeText(res)}`).toBeTruthy();
+  }
+
   /** PUT /users/me/consents — requis avant toute écriture de données perso. */
   async grantConsent(
     token: string,
