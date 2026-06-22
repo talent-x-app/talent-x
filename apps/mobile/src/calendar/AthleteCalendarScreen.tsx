@@ -1,27 +1,18 @@
-import {
-  listAssignments,
-  listCompetitions,
-  type Assignment,
-  type Competition,
-} from '@talent-x/api-client';
+import { listAssignments, type Assignment } from '@talent-x/api-client';
 import { useTheme } from '@talent-x/design-tokens';
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { ActivityIndicator, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { Button, Card } from '../components/ui';
 import { sessionDetailHref } from '../athlete/navigation';
-import { COMPETITIONS_QUERY_KEY } from '../competitions/competitions-query';
-import { athleteCompetitionDetailHref, athleteCompetitionsHref } from '../competitions/navigation';
-import { CalendarView } from './CalendarView';
-import { assignmentToCalendarEntry, competitionToCalendarEntry } from './calendar-model';
+import { athleteCompetitionsHref } from '../competitions/navigation';
+import { SessionsCalendar } from './SessionsCalendar';
 
 /**
- * Calendrier athlète (A-08 — TLX-100). Vue planning dérivée de `GET /assignments` (role-aware :
- * l'athlète reçoit ses séances affectées avec leur échéance). Chaque entrée renvoie au détail
- * séance / saisie de perf (A-03/A-04). États chargement / erreur / vide, pull-to-refresh.
- *
- * Partage la clé de cache `['assignments']` avec l'onglet Séances (A-02) : naviguer entre les
- * deux ne déclenche pas de re-fetch.
+ * Calendrier athlète (A-08, refondu ADR-47) — vue **mois/semaine** de **toutes** les séances
+ * affectées (`GET /assignments`, partagé avec l'onglet Séances). Chaque jour → ses séances
+ * (tap = détail/saisie). Lien vers les compétitions conservé (les compétitions comme entrées du
+ * calendrier sont différées, ADR-47). États chargement / erreur, pull-to-refresh.
  */
 export function AthleteCalendarScreen({ embedded = false }: { embedded?: boolean } = {}) {
   const { colors, typography, spacing } = useTheme();
@@ -36,22 +27,6 @@ export function AthleteCalendarScreen({ embedded = false }: { embedded?: boolean
     },
     retry: false,
   });
-
-  // Les compétitions où l'athlète est engagé enrichissent le calendrier (ADR-24 §5).
-  const competitions = useQuery({
-    queryKey: COMPETITIONS_QUERY_KEY,
-    queryFn: async (): Promise<Competition[]> => {
-      const response = await listCompetitions();
-      if (response.status === 200) return response.data.data;
-      throw response;
-    },
-    retry: false,
-  });
-
-  const entries = [
-    ...(query.data ?? []).map(assignmentToCalendarEntry),
-    ...(competitions.data ?? []).map(competitionToCalendarEntry),
-  ];
 
   return (
     <ScrollView
@@ -108,34 +83,11 @@ export function AthleteCalendarScreen({ embedded = false }: { embedded?: boolean
           </View>
         </Card>
       ) : (
-        <>
-          {entries.length === 0 ? (
-            <Card testID="calendar-empty">
-              <Text
-                style={{
-                  color: colors.textMuted,
-                  fontFamily: typography.fontFamily.regular,
-                  fontSize: typography.body.fontSize,
-                  textAlign: 'center',
-                }}
-              >
-                Aucune séance planifiée pour l'instant.
-              </Text>
-            </Card>
-          ) : null}
-          <CalendarView
-            entries={entries}
-            now={new Date()}
-            testIDPrefix="calendar"
-            onPressEntry={(entry) =>
-              router.push(
-                entry.kind === 'competition'
-                  ? athleteCompetitionDetailHref(entry.id)
-                  : sessionDetailHref(entry.id),
-              )
-            }
-          />
-        </>
+        <SessionsCalendar
+          testIDPrefix="calendar"
+          assignments={query.data ?? []}
+          onOpen={(a) => router.push(sessionDetailHref(a.id))}
+        />
       )}
     </ScrollView>
   );

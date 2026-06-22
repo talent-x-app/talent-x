@@ -2,29 +2,16 @@ import { ThemeProvider } from '@talent-x/design-tokens';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { type ReactNode, useState } from 'react';
+import { dayKeyOf } from './calendar-grid';
 
 const mockListAssignments = jest.fn();
-const mockListCompetitions = jest.fn();
 const mockPush = jest.fn();
 
-jest.mock('@talent-x/api-client', () => ({
-  listAssignments: (...args: unknown[]) => mockListAssignments(...args),
-  listCompetitions: (...args: unknown[]) => mockListCompetitions(...args),
-  AssignmentStatus: {
-    assigned: 'assigned',
-    in_progress: 'in_progress',
-    completed: 'completed',
-    skipped: 'skipped',
-  },
-  SessionStatus: { draft: 'draft', published: 'published', archived: 'archived' },
-  CompetitionStatus: { draft: 'draft', published: 'published', cancelled: 'cancelled' },
-}));
+jest.mock('@talent-x/api-client', () => {
+  const actual = jest.requireActual('@talent-x/api-client');
+  return { ...actual, listAssignments: (...args: unknown[]) => mockListAssignments(...args) };
+});
 jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush }) }));
-
-const EMPTY_COMPETITIONS = {
-  status: 200 as const,
-  data: { data: [], meta: { total: 0, page: 1, limit: 20 } },
-};
 
 import { AthleteCalendarScreen } from './AthleteCalendarScreen';
 
@@ -39,8 +26,8 @@ function Wrapper({ children }: { children: ReactNode }) {
   );
 }
 
-// Une affectation sans date (rendue dans « Sans date », visible quelle que soit la semaine
-// courante) garantit un test déterministe indépendant de la date réelle d'exécution.
+// Séance datée AUJOURD'HUI → visible dans le jour sélectionné par défaut (déterministe).
+const TODAY = dayKeyOf(new Date());
 const PAGE = {
   data: [
     {
@@ -48,6 +35,7 @@ const PAGE = {
       sessionId: 's-1',
       athleteId: 'me',
       status: 'assigned',
+      dueDate: TODAY,
       session: {
         id: 's-1',
         title: 'Sprint 60m',
@@ -62,37 +50,37 @@ const PAGE = {
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockListCompetitions.mockResolvedValue(EMPTY_COMPETITIONS);
 });
 
-describe('AthleteCalendarScreen (TLX-100 / A-08)', () => {
-  it('rend le calendrier avec les séances affectées dérivées', async () => {
+describe('AthleteCalendarScreen (A-08 / ADR-47 — vue mois)', () => {
+  it('rend la grille (mois) + le lien compétitions, et la séance du jour', async () => {
     mockListAssignments.mockResolvedValue({ status: 200, data: PAGE });
     render(<AthleteCalendarScreen />, { wrapper: Wrapper });
 
-    await waitFor(() => expect(screen.getByTestId('calendar-undated-as-1')).toBeOnTheScreen());
+    await waitFor(() => expect(screen.getByTestId('calendar-period')).toBeOnTheScreen());
+    expect(screen.getByTestId('calendar-mode')).toBeOnTheScreen();
+    expect(screen.getByTestId('calendar-competitions-link')).toBeOnTheScreen();
+    // Séance d'aujourd'hui listée sous le jour sélectionné par défaut.
+    await waitFor(() => expect(screen.getByTestId('session-item-as-1')).toBeOnTheScreen());
     expect(screen.getByText('Sprint 60m')).toBeOnTheScreen();
-    expect(screen.getByTestId('calendar-week-label')).toBeOnTheScreen();
+  });
+
+  it('bascule Mois → Semaine', async () => {
+    mockListAssignments.mockResolvedValue({ status: 200, data: PAGE });
+    render(<AthleteCalendarScreen />, { wrapper: Wrapper });
+    await waitFor(() => expect(screen.getByTestId('calendar-mode')).toBeOnTheScreen());
+    fireEvent.press(screen.getByLabelText('Semaine'));
+    expect(screen.getByTestId('calendar-period')).toBeOnTheScreen();
   });
 
   it('ouvre le détail de la séance au tap', async () => {
     mockListAssignments.mockResolvedValue({ status: 200, data: PAGE });
     render(<AthleteCalendarScreen />, { wrapper: Wrapper });
-
-    await waitFor(() => expect(screen.getByTestId('calendar-undated-as-1')).toBeOnTheScreen());
-    fireEvent.press(screen.getByTestId('calendar-undated-as-1'));
+    await waitFor(() => expect(screen.getByTestId('session-item-as-1')).toBeOnTheScreen());
+    fireEvent.press(screen.getByTestId('session-item-as-1'));
     expect(mockPush).toHaveBeenCalledWith(
       expect.objectContaining({ params: expect.objectContaining({ id: 'as-1' }) }),
     );
-  });
-
-  it('état vide quand aucune séance', async () => {
-    mockListAssignments.mockResolvedValue({
-      status: 200,
-      data: { data: [], meta: { total: 0, page: 1, limit: 20 } },
-    });
-    render(<AthleteCalendarScreen />, { wrapper: Wrapper });
-    await waitFor(() => expect(screen.getByTestId('calendar-empty')).toBeOnTheScreen());
   });
 
   it('état erreur + réessai', async () => {
@@ -102,40 +90,6 @@ describe('AthleteCalendarScreen (TLX-100 / A-08)', () => {
 
     mockListAssignments.mockResolvedValueOnce({ status: 200, data: PAGE });
     fireEvent.press(screen.getByTestId('calendar-retry'));
-    await waitFor(() => expect(screen.getByTestId('calendar-undated-as-1')).toBeOnTheScreen());
-  });
-
-  it('fusionne les compétitions et ouvre le détail au tap (ADR-24 §5)', async () => {
-    mockListAssignments.mockResolvedValue({
-      status: 200,
-      data: { data: [], meta: { total: 0, page: 1, limit: 20 } },
-    });
-    mockListCompetitions.mockResolvedValue({
-      status: 200,
-      data: {
-        data: [
-          {
-            id: 'k-1',
-            coachId: 'c-1',
-            name: 'Coupe régionale',
-            startDate: null,
-            status: 'published',
-          },
-        ],
-        meta: { total: 1, page: 1, limit: 20 },
-      },
-    });
-    render(<AthleteCalendarScreen />, { wrapper: Wrapper });
-
-    await waitFor(() => expect(screen.getByTestId('calendar-undated-k-1')).toBeOnTheScreen());
-    expect(screen.getByText('Coupe régionale')).toBeOnTheScreen();
-
-    fireEvent.press(screen.getByTestId('calendar-undated-k-1'));
-    expect(mockPush).toHaveBeenCalledWith(
-      expect.objectContaining({
-        pathname: '/(athlete)/competition/[id]',
-        params: expect.objectContaining({ id: 'k-1' }),
-      }),
-    );
+    await waitFor(() => expect(screen.getByTestId('calendar-period')).toBeOnTheScreen());
   });
 });

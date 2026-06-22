@@ -9,6 +9,7 @@ const mockGetMe = jest.fn();
 const mockLeaveGroup = jest.fn();
 const mockListNotifications = jest.fn();
 const mockListAnnouncements = jest.fn();
+const mockListAssignments = jest.fn();
 const mockBack = jest.fn();
 const mockShow = jest.fn();
 
@@ -22,6 +23,7 @@ jest.mock('@talent-x/api-client', () => {
     leaveGroup: (...a: unknown[]) => mockLeaveGroup(...a),
     listNotifications: (...a: unknown[]) => mockListNotifications(...a),
     listAnnouncements: (...a: unknown[]) => mockListAnnouncements(...a),
+    listAssignments: (...a: unknown[]) => mockListAssignments(...a),
   };
 });
 jest.mock('expo-router', () => ({ useRouter: () => ({ push: jest.fn(), back: mockBack }) }));
@@ -71,6 +73,7 @@ beforeEach(() => {
   });
   mockGetMe.mockResolvedValue({ status: 200, data: { id: 'self-1', role: 'athlete' } });
   mockListAnnouncements.mockResolvedValue({ status: 200, data: { data: [] } });
+  mockListAssignments.mockResolvedValue({ status: 200, data: { data: [] } });
   mockLeaveGroup.mockResolvedValue({ status: 204 });
   mockListNotifications.mockResolvedValue({ status: 200, data: { data: [] } });
   mockBack.mockReset();
@@ -122,12 +125,15 @@ describe('AthleteGroupHubScreen (ADR-44 — hub mince)', () => {
     expect(screen.queryByTestId('athlete-group-teammate-self-1')).toBeNull();
   });
 
-  it('ne montre pas de fil/calendrier de séances (recentrage ADR-44 §1)', async () => {
+  it('pas de fil « Séances » dans le hub ; calendrier du groupe présent (ADR-47)', async () => {
     renderHub();
     await waitFor(() => expect(screen.getByTestId('athlete-group-tabs')).toBeOnTheScreen());
+    // Pas de fil de séances dupliqué (ADR-44) ni d'onglet « Séances ».
     expect(screen.queryByTestId('group-next-up')).toBeNull();
-    expect(screen.queryByLabelText('Calendrier')).toBeNull();
     expect(screen.queryByLabelText('Séances')).toBeNull();
+    // Mais un onglet « Calendrier » du groupe (ADR-47) → grille mois au tap.
+    fireEvent.press(screen.getByLabelText('Calendrier'));
+    await waitFor(() => expect(screen.getByTestId('group-calendar-period')).toBeOnTheScreen());
   });
 
   it('bouton retour masquable (racine d’onglet)', async () => {

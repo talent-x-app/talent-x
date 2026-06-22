@@ -11,8 +11,9 @@ import { NotificationsBell } from '../notifications/NotificationsBell';
 import { MY_GROUPS_QUERY_KEY } from './groups-query';
 import { TeammatesPane } from './group-teammates-ui';
 import { AnnouncementsPane } from './announcements-ui';
+import { GroupCalendarPane } from './GroupCalendarPane';
 
-type HubTab = 'announcements' | 'teammates' | 'info';
+type HubTab = 'announcements' | 'calendar' | 'teammates' | 'info';
 
 /**
  * Hub de groupe vu par l'athlète (ADR-43, recentré par **ADR-44 §1** : « mince »). En-tête compact
@@ -122,6 +123,7 @@ export function AthleteGroupHubScreen({
           testID="athlete-group-tabs"
           items={[
             { key: 'announcements', label: 'Annonces' },
+            { key: 'calendar', label: 'Calendrier' },
             { key: 'teammates', label: 'Coéquipiers' },
             { key: 'info', label: 'Infos' },
           ]}
@@ -136,6 +138,8 @@ export function AthleteGroupHubScreen({
       >
         {tab === 'announcements' ? (
           <AnnouncementsPane groupId={groupId} />
+        ) : tab === 'calendar' ? (
+          <GroupCalendarPane coachId={group?.coach.id} />
         ) : tab === 'teammates' ? (
           <TeammatesPane groupId={groupId} coach={group?.coach} joinedAt={group?.joinedAt} />
         ) : (

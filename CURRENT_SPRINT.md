@@ -12,6 +12,25 @@ de débloquer les écrans coach C-01/C-02/C-03.
 - _(éditeurs typés terminés — TLX-054→061 livrés ↓)_
 - _(C-01 complet — TLX-081→085 livrés ↓)_
 
+## Terminés — ADR-47 Calendrier mois + calendrier de groupe (scopé au coach)
+
+- **ADR-47 accepté (2026-06-22)** — amende ADR-44. Deux manques de test : pas de **vue mois** (le
+  calendrier A-08 n'avait qu'une vue semaine) et **pas de calendrier dans le hub** alors que les
+  séances du groupe ≠ séances perso (séance libre `self_logged`, ADR-36). **Frontend pur.**
+- **(Composant partagé)** `SessionsCalendar` (helpers purs `calendar-grid.ts` restaurés d'ADR-44) :
+  bascule **Mois ⇄ Semaine**, grille calendaire + **pastilles de discipline dérivées** (ADR-43 §2),
+  sélection d'un jour → ses séances (`AssignmentListItem`).
+- **(Onglet Séances)** la vue Calendrier passe en **mois** sur **toutes** les séances de l'athlète
+  (lien « Mes compétitions » conservé ; compétitions-entrées différées).
+- **(Hub de groupe)** onglet **« Calendrier »** réintroduit, filtré `session.coachId === group.coach.id`
+  → **séances du coach seulement**, **hors séances libres** de l'athlète — **sans Lot 2** (filtre
+  client, zéro contrat). Hub : Annonces · Calendrier · Coéquipiers · Infos.
+- **Tests** : `calendar-grid` (helpers purs), `AthleteCalendarScreen` (mois/semaine/jour/erreur),
+  `GroupCalendarPane` (filtre coach exclut les séances libres), hub (onglet Calendrier) ; **mobile
+  811/811**, typecheck + ESLint + Prettier clean.
+- **Limite assumée** : scope « groupe » = approximation par coach (une séance individuelle du même
+  coach apparaît aussi — indistinguable sans Lot 2).
+
 ## Terminés — ADR-46 Annonces de groupe (coach → membres)
 
 - **ADR-46 accepté (2026-06-21)** — canal de communication descendant qui donne sa valeur d'équipe au
