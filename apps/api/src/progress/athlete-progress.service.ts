@@ -33,20 +33,28 @@ export class AthleteProgressService {
   }
 
   /**
-   * Progression d'un athlète lié, côté coach (TLX-112) — **miroir** de `getMyProgress` :
-   * même dérivation, portes coach (lien actif + `coach_access`, mêmes règles que les
-   * records et stats coach). L'athlète voit ainsi exactement ce que voit son coach.
+   * Progression d'un athlète lié, côté coach (TLX-112). Portes coach (lien actif + `coach_access`),
+   * **cloisonnée au coach appelant** (ADR-51 §D3) : ne dérive que sur les affectations issues des
+   * **séances de ce coach** (`session.coachId`). Un coach ne voit donc pas la progression bâtie sous
+   * un autre coach — contrairement à la vue athlète (`getMyProgress`), unifiée car c'est sa donnée.
    */
   async getForCoach(coachId: string, athleteId: string): Promise<ProgressDto> {
     await this.ownership.assertCoachLinkedToAthlete(coachId, athleteId);
     await this.consent.assertActiveConsent(athleteId, 'coach_access');
-    return this.derive(athleteId);
+    return this.derive(athleteId, coachId);
   }
 
-  /** Dérivation pure à la lecture (ADR-21) — partagée par les vues athlète et coach. */
-  private async derive(athleteId: string): Promise<ProgressDto> {
+  /**
+   * Dérivation pure à la lecture (ADR-21). Sans `coachId` : vue athlète, **toutes** ses affectations
+   * (tous coachs). Avec `coachId` : vue coach **cloisonnée** à ses propres séances (ADR-51 §D3).
+   */
+  private async derive(athleteId: string, coachId?: string): Promise<ProgressDto> {
     const assignments = await this.prisma.sessionAssignment.findMany({
-      where: { athleteId, deletedAt: null, session: { deletedAt: null } },
+      where: {
+        athleteId,
+        deletedAt: null,
+        session: { deletedAt: null, ...(coachId ? { coachId } : {}) },
+      },
       select: {
         status: true,
         dueDate: true,

@@ -43,12 +43,17 @@ export class RecordsService {
     return { items: records.map(toRecordDto) };
   }
 
-  /** Records d'un athlète lié, côté coach (lien actif + consentement `coach_access`). */
+  /**
+   * Records d'un athlète lié, côté coach (lien actif + consentement `coach_access`), **cloisonnés
+   * au coach appelant** (ADR-51 §D3) : seuls les records **issus d'une perf sur une séance de ce
+   * coach** sont exposés. Les records **manuels** (`performance_id = null`, ADR-32) et ceux établis
+   * sous un autre coach restent privés à l'athlète — un coach ne voit pas les marques bâties ailleurs.
+   */
   async listForCoach(coachId: string, athleteId: string): Promise<PersonalRecordListDto> {
     await this.ownership.assertCoachLinkedToAthlete(coachId, athleteId);
     await this.consent.assertActiveConsent(athleteId, 'coach_access');
     const records = await this.prisma.personalRecord.findMany({
-      where: { athleteId },
+      where: { athleteId, performance: { assignment: { session: { coachId } } } },
       orderBy: { label: 'asc' },
     });
     return { items: records.map(toRecordDto) };

@@ -96,6 +96,17 @@ describe('RecordsService (TLX-076, ADR-20)', () => {
       expect(consent.assertActiveConsent).toHaveBeenCalledWith('a-1', 'coach_access');
       expect(res.items[0]).toMatchObject({ eventKey: 'sprint:60m', value: 7.62, unit: 's' });
     });
+
+    it('cloisonne aux records issus des séances du coach (ADR-51 §D3)', async () => {
+      const prisma = prismaMock();
+      await service(prisma).listForCoach('c-1', 'a-1');
+      // La requête filtre sur la provenance : perf → affectation → séance du coach appelant.
+      expect(prisma.personalRecord.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { athleteId: 'a-1', performance: { assignment: { session: { coachId: 'c-1' } } } },
+        }),
+      );
+    });
   });
 
   describe('detectCandidates', () => {

@@ -58,6 +58,25 @@ describe('AthleteProgressService (TLX-090, ADR-21)', () => {
     expect(res.series).toEqual([]);
   });
 
+  it('getForCoach : cloisonne la dérivation aux séances du coach (ADR-51 §D3)', async () => {
+    const findMany = jest.fn().mockResolvedValue([]);
+    const prisma = { sessionAssignment: { findMany } } as unknown as PrismaService;
+    await new AthleteProgressService(prisma, consentMock(), ownershipMock()).getForCoach(
+      'c-1',
+      'a-1',
+    );
+    const where = findMany.mock.calls[0][0].where;
+    expect(where.athleteId).toBe('a-1');
+    expect(where.session).toMatchObject({ coachId: 'c-1' });
+  });
+
+  it('getMyProgress : dérive sur toutes les séances (aucun coachId, vue athlète unifiée)', async () => {
+    const findMany = jest.fn().mockResolvedValue([]);
+    const prisma = { sessionAssignment: { findMany } } as unknown as PrismaService;
+    await new AthleteProgressService(prisma, consentMock(), ownershipMock()).getMyProgress('a-1');
+    expect(findMany.mock.calls[0][0].where.session.coachId).toBeUndefined();
+  });
+
   it('dérive metrics (StatsMetrics) sur toutes les affectations', async () => {
     const past = new Date('2026-01-01T00:00:00.000Z');
     const res = await service([

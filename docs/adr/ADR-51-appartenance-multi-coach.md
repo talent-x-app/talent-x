@@ -1,6 +1,6 @@
 ## ADR-51 — Appartenance multi-coach : cloisonnement de la visibilité et du consentement
 
-- **Statut :** Proposé (à valider avant tout code — CLAUDE.md §7)
+- **Statut :** Accepté (2026-06-24 — validé ; implémentation par lots, D3 avant tout front)
 - **Date :** 2026-06-24
 - **Réf. :** ADR-05 (RGPD transverse) · ADR-08 (RBAC + appartenance + ownership + consentement) ·
   ADR-26 (`AthleteGroup`) · ADR-37 (identité minimisée pair-à-pair) · ADR-30 (fan-out de groupe) ·
