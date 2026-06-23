@@ -39,6 +39,11 @@ export const NOTIFICATION_PRESENTATIONS: Record<NotificationType, NotificationPr
     title: 'Nouvelle annonce',
     description: 'Ton coach a publié une annonce.',
   },
+  group_kudos: {
+    icon: 'users',
+    title: 'Un coéquipier t’encourage',
+    description: 'Quelqu’un de ton groupe t’a envoyé des encouragements 👏.',
+  },
 };
 
 /**
@@ -65,6 +70,10 @@ export function notificationHref(
   // Annonce (ADR-46) : resourceId = groupe → l'athlète ouvre le hub du groupe.
   if (role === 'athlete' && type === 'group_announcement') {
     return { pathname: '/(athlete)/group/[id]', params: { id: resourceId } };
+  }
+  // Kudos (ADR-49) : resourceId = séance → l'athlète ouvre le détail de la séance.
+  if (role === 'athlete' && type === 'group_kudos') {
+    return { pathname: '/(athlete)/session/[id]', params: { id: resourceId } };
   }
   return null;
 }

@@ -7,17 +7,16 @@
  * Conventions transverses : préfixe /api/v1 ; jeton d'accès JWT (RS256) via en-tête Authorization ; pagination par enveloppe { data, meta } ; idempotence des écritures sensibles via Idempotency-Key ; opérations longues asynchrones (202 + ressource de statut) ; rate limiting signalé par les en-têtes RateLimit-*. L'autorisation combine rôle, appartenance (lien coach↔athlète), propriété et consentement ; voir TX-SPEC-002 §6.
  * OpenAPI spec version: 1.0.0
  */
-import type { NotificationType } from './notificationType';
+import type { GroupTeammate } from './groupTeammate';
 
 /**
- * Notification in-app (ADR-23) — signal minimal, libellé côté client.
+ * Agrégat de kudos de participation sur une affectation (ADR-48/ADR-49 Palier 2) — encouragements 👏 sur une présence confirmée. `givers` = identités minimisées (GroupTeammate, ADR-37) plafonnées (KUDOS_GIVERS_CAP, défaut 8). `mine` = l'appelant a posé un kudos. Porte sur la PARTICIPATION, jamais sur la performance (ADR-08/21).
  */
-export interface Notification {
-  id: string;
-  type: NotificationType;
-  /** Ressource à ouvrir — affectation pour session_assigned, performance_feedback et performance_submitted (le fil de feedback / la revue vivent sur le détail de séance), groupe pour group_update, séance pour group_kudos. */
-  resourceId: string;
-  /** Absent tant que non lue. */
-  readAt?: string;
-  createdAt: string;
+export interface KudosSummary {
+  /** @minimum 0 */
+  count: number;
+  /** Auteurs des kudos (identité minimisée), plafonnés ; peut être plus court que `count`. */
+  givers: GroupTeammate[];
+  /** Vrai si l'appelant a posé un kudos (sa propre donnée). */
+  mine: boolean;
 }

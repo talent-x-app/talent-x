@@ -19,6 +19,7 @@ import { formatRelativeDate } from '../notifications/notification-ui';
 import { groupAnnouncementsQueryKey } from './groups-query';
 import { TeamPulseCard } from './team-pulse-ui';
 import { NarrativePresenceBanner } from './narrative-presence-ui';
+import { TeammateAvatarStack, teammateFirstName } from './teammate-avatar';
 
 /**
  * Palette d'emoji autorisés (ADR-48, Palier 1) — bornée côté API par une contrainte CHECK
@@ -435,6 +436,41 @@ function AnnouncementFooter({
           </View>
         ) : null}
       </View>
+
+      {/* Auteurs des réactions (ADR-49 D1) : pile d'avatars + prénoms, plafonnés serveur. */}
+      {announcement.reactions.some((r) => r.reactors.length > 0) ? (
+        <View style={{ gap: spacing[1] }}>
+          {announcement.reactions
+            .filter((r) => r.reactors.length > 0)
+            .map((r) => {
+              const extra = r.count - r.reactors.length;
+              const names = r.reactors.map(teammateFirstName).join(', ');
+              return (
+                <View
+                  key={r.emoji}
+                  testID={`reactors-${announcement.id}-${r.emoji}`}
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[2] }}
+                >
+                  <Text style={{ fontSize: typography.caption.fontSize }}>{r.emoji}</Text>
+                  <TeammateAvatarStack teammates={r.reactors} size={20} />
+                  <Text
+                    testID={`reactors-names-${announcement.id}-${r.emoji}`}
+                    numberOfLines={1}
+                    style={{
+                      flex: 1,
+                      color: colors.textMuted,
+                      fontFamily: typography.fontFamily.regular,
+                      fontSize: typography.caption.fontSize,
+                    }}
+                  >
+                    {names}
+                    {extra > 0 ? ` +${extra}` : ''}
+                  </Text>
+                </View>
+              );
+            })}
+        </View>
+      ) : null}
 
       {pickerOpen ? (
         <View

@@ -7,17 +7,15 @@
  * Conventions transverses : préfixe /api/v1 ; jeton d'accès JWT (RS256) via en-tête Authorization ; pagination par enveloppe { data, meta } ; idempotence des écritures sensibles via Idempotency-Key ; opérations longues asynchrones (202 + ressource de statut) ; rate limiting signalé par les en-têtes RateLimit-*. L'autorisation combine rôle, appartenance (lien coach↔athlète), propriété et consentement ; voir TX-SPEC-002 §6.
  * OpenAPI spec version: 1.0.0
  */
-import type { NotificationType } from './notificationType';
+import type { GroupTeammate } from './groupTeammate';
+import type { KudosSummary } from './kudosSummary';
 
 /**
- * Notification in-app (ADR-23) — signal minimal, libellé côté client.
+ * Présence confirmée d'un coéquipier sur une séance de groupe partagée (ADR-43 §5, AIPD TX-DPIA-007 §5.6) + kudos agrégés. Visibilité pair-à-pair bornée aux co-membres d'un groupe partagé, présences `going` uniquement. Aucune donnée de performance.
  */
-export interface Notification {
-  id: string;
-  type: NotificationType;
-  /** Ressource à ouvrir — affectation pour session_assigned, performance_feedback et performance_submitted (le fil de feedback / la revue vivent sur le détail de séance), groupe pour group_update, séance pour group_kudos. */
-  resourceId: string;
-  /** Absent tant que non lue. */
-  readAt?: string;
-  createdAt: string;
+export interface TeammateAttendance {
+  /** Affectation du coéquipier — cible des verbes kudos. */
+  assignmentId: string;
+  teammate: GroupTeammate;
+  kudos: KudosSummary;
 }

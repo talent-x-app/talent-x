@@ -136,10 +136,12 @@ async function main() {
       },
     },
   });
+  // Affectation au GROUPE (provenance groupAssignmentId, ADR-30) : requis pour la visibilité de
+  // présence entre coéquipiers et donc les kudos du Palier 2 (ADR-49 / TX-DPIA-007 §5.6).
   const assignRes = await call('POST', `/sessions/${session.id}/assign`, {
     token: coach.token,
     idempotent: true,
-    body: { athleteIds: [alex.id, lea.id, karim.id], dueDate },
+    body: { groupIds: [group.id], dueDate },
   });
   const assignments = assignRes.data ?? [];
   const byAthlete = Object.fromEntries(assignments.map((x) => [x.athleteId, x.id]));
@@ -193,6 +195,11 @@ async function main() {
   console.log('');
   console.log("Côté Alex tu dois voir : le pouls d'équipe, la bannière « 2 coéquipiers");
   console.log("seront là avec toi », l'annonce avec ❤️ 2 / 🔥 1 et la barre « 2/3 lu ».");
+  console.log('');
+  console.log('── Palier 2 (ADR-49) ──');
+  console.log('  • Sous chaque réaction : les PRÉNOMS des auteurs (« par Léa, Karim »).');
+  console.log('  • Ouvre la séance « Footing collectif + lignes » (onglet Séances) →');
+  console.log('    section « Coéquipiers présents » : encourage Léa/Karim d’un 👏 (kudos).');
 }
 
 main().catch((e) => {

@@ -1830,6 +1830,91 @@ paths:
           $ref: '#/components/responses/NotFound'
         '500':
           $ref: '#/components/responses/ServerError'
+  /assignments/{id}/teammates-attendance:
+    get:
+      tags:
+      - Affectations & performances
+      summary: Coéquipiers ayant confirmé leur présence (Mur Palier 2)
+      description: >-
+        Coéquipiers d'un groupe partagé ayant déclaré `going` sur la même séance que
+        l'affectation `{id}` de l'appelant (ADR-43 §5, AIPD TX-DPIA-007 §5.6) — identité
+        minimisée + kudos agrégés. RBAC : titulaire de l'affectation `{id}`. Exclut
+        l'appelant, les membres partis et les comptes anonymisés. 404 anti-énumération.
+      operationId: getTeammatesAttendance
+      parameters:
+      - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: Coéquipiers présents.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeammateAttendanceList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+  /assignments/{id}/kudos:
+    put:
+      tags:
+      - Affectations & performances
+      summary: Encourager la présence d'un coéquipier (kudos, idempotent)
+      description: >-
+        Pose un kudos 👏 sur l'affectation `{id}` d'un coéquipier dont la présence est
+        `going` (ADR-48/ADR-49 Palier 2). Idempotent, un kudos par personne. RBAC :
+        co-membre actif d'un groupe partagé vers lequel la séance a été diffusée ; cible
+        `going` ; pas d'auto-kudos. Notifie le destinataire (group_kudos, gate
+        groupUpdates). Porte sur la PARTICIPATION, jamais la performance (ADR-08/21).
+        404 anti-énumération hors périmètre.
+      operationId: giveKudos
+      parameters:
+      - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: Kudos posé (agrégat à jour).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KudosSummary'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    delete:
+      tags:
+      - Affectations & performances
+      summary: Retirer son kudos (idempotent)
+      description: >-
+        Retire le kudos de l'appelant sur l'affectation `{id}` (ADR-49 Palier 2) —
+        idempotent (sans erreur si absent). Mêmes gardes que la pose.
+      operationId: removeKudos
+      parameters:
+      - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: Kudos retiré (agrégat à jour).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KudosSummary'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
   /assignments/{id}/performance:
     post:
       tags:
@@ -2950,17 +3035,25 @@ components:
     ReactionCount:
       type: object
       description: >-
-        Compteur agrégé d'un emoji sur une annonce (ADR-48, Palier 1) — un emoji + un entier,
-        jamais d'identité (patron d'agrégat ADR-45).
+        Compteur d'un emoji sur une annonce avec ses auteurs minimisés (ADR-48 Palier 2,
+        ADR-49 D1). `count` = total exact ; `reactors` = identités minimisées (GroupTeammate,
+        ADR-37) plafonnées (REACTION_REACTORS_CAP, défaut 8) → l'UI rend « ❤️ par Léa, Karim +6 ».
+        Auteurs = co-membres actifs du même groupe (TX-DPIA-007 §5.5).
       properties:
         emoji:
           $ref: '#/components/schemas/ReactionEmoji'
         count:
           type: integer
           minimum: 1
+        reactors:
+          type: array
+          description: Auteurs (identité minimisée), plafonnés ; peut être plus court que `count`.
+          items:
+            $ref: '#/components/schemas/GroupTeammate'
       required:
       - emoji
       - count
+      - reactors
     AnnouncementReactions:
       type: object
       description: >-
@@ -3777,6 +3870,57 @@ components:
       - maybe
       - noResponse
       - total
+    KudosSummary:
+      type: object
+      description: >-
+        Agrégat de kudos de participation sur une affectation (ADR-48/ADR-49 Palier 2) —
+        encouragements 👏 sur une présence confirmée. `givers` = identités minimisées
+        (GroupTeammate, ADR-37) plafonnées (KUDOS_GIVERS_CAP, défaut 8). `mine` = l'appelant
+        a posé un kudos. Porte sur la PARTICIPATION, jamais sur la performance (ADR-08/21).
+      properties:
+        count:
+          type: integer
+          minimum: 0
+        givers:
+          type: array
+          description: Auteurs des kudos (identité minimisée), plafonnés ; peut être plus court que `count`.
+          items:
+            $ref: '#/components/schemas/GroupTeammate'
+        mine:
+          type: boolean
+          description: Vrai si l'appelant a posé un kudos (sa propre donnée).
+      required:
+      - count
+      - givers
+      - mine
+    TeammateAttendance:
+      type: object
+      description: >-
+        Présence confirmée d'un coéquipier sur une séance de groupe partagée (ADR-43 §5,
+        AIPD TX-DPIA-007 §5.6) + kudos agrégés. Visibilité pair-à-pair bornée aux co-membres
+        d'un groupe partagé, présences `going` uniquement. Aucune donnée de performance.
+      properties:
+        assignmentId:
+          type: string
+          format: uuid
+          description: Affectation du coéquipier — cible des verbes kudos.
+        teammate:
+          $ref: '#/components/schemas/GroupTeammate'
+        kudos:
+          $ref: '#/components/schemas/KudosSummary'
+      required:
+      - assignmentId
+      - teammate
+      - kudos
+    TeammateAttendanceList:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/TeammateAttendance'
+      required:
+      - data
     SkipReason:
       type: string
       description: Motif d'indisponibilité quand l'affectation est skipped (ADR-31).
@@ -4538,6 +4682,7 @@ components:
       - performance_submitted
       - group_update
       - group_announcement
+      - group_kudos
     Notification:
       type: object
       description: Notification in-app (ADR-23) — signal minimal, libellé côté client.
@@ -4552,7 +4697,8 @@ components:
           format: uuid
           description: Ressource à ouvrir — affectation pour session_assigned,
             performance_feedback et performance_submitted (le fil de feedback / la
-            revue vivent sur le détail de séance), groupe pour group_update.
+            revue vivent sur le détail de séance), groupe pour group_update, séance
+            pour group_kudos.
         readAt:
           type: string
           format: date-time

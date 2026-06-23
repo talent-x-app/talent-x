@@ -53,6 +53,7 @@ model User {
   authoredAnnouncements   GroupAnnouncement[]      @relation("AnnouncementAuthor")
   announcementReactions   AnnouncementReaction[]   @relation("ReactionUser")
   announcementReads       AnnouncementRead[]       @relation("ReadUser")
+  kudosGiven              ParticipationKudos[]     @relation("KudosGiver")
   coachLinks              CoachAthleteLink[]       @relation("LinkCoach")
   athleteLinks            CoachAthleteLink[]       @relation("LinkAthlete")
   coachedSessions         Session[]                @relation("SessionCoach")
@@ -364,15 +365,35 @@ model SessionAssignment {
   updatedAt         DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt         DateTime? @map("deleted_at") @db.Timestamptz(6)
 
-  session         Session          @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  athlete         User             @relation(fields: [athleteId], references: [id], onDelete: Cascade)
-  groupAssignment GroupAssignment? @relation(fields: [groupAssignmentId], references: [id], onDelete: SetNull)
+  session         Session              @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  athlete         User                 @relation(fields: [athleteId], references: [id], onDelete: Cascade)
+  groupAssignment GroupAssignment?     @relation(fields: [groupAssignmentId], references: [id], onDelete: SetNull)
   performance     Performance?
+  kudos           ParticipationKudos[]
 
   // Unique PARTIEL (session_id, athlete_id) WHERE deleted_at IS NULL → migration SQL.
   @@index([athleteId], map: "ix_assignment_athlete")
   @@index([groupAssignmentId], map: "ix_assignment_group_assignment")
   @@map("session_assignments")
+}
+
+/// Kudos de participation (ADR-48/ADR-49, Mur Palier 2). Encouragement 👏 d'un coéquipier
+/// (`giver`) sur la présence **confirmée** (`attendance='going'`) d'une affectation. Togglable,
+/// un par personne (UNIQUE). Ne porte **jamais** sur la performance/charge/record (ADR-08/21) :
+/// l'API n'expose que l'agrégat + les auteurs minimisés (`GroupTeammate`, ADR-37). Visibilité de
+/// présence pair-à-pair actée en TX-DPIA-007 §5.6 (TLX-185).
+model ParticipationKudos {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  assignmentId String   @map("assignment_id") @db.Uuid
+  giverId      String   @map("giver_id") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  assignment SessionAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  giver      User              @relation("KudosGiver", fields: [giverId], references: [id], onDelete: Cascade)
+
+  @@unique([assignmentId, giverId], map: "uq_participation_kudos")
+  @@index([assignmentId], map: "ix_participation_kudos_assignment")
+  @@map("participation_kudos")
 }
 
 /// Affectation d'une séance à un GROUPE (ADR-30) — l'intention durable. Le fan-out

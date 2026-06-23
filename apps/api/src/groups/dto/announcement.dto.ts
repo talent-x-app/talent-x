@@ -1,6 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsString, MaxLength, MinLength } from 'class-validator';
 import { UserSummaryDto } from './group-member.dto';
+import { GroupTeammateDto } from './group-teammate.dto';
 
 /**
  * Jeu d'emoji **borné** des réactions d'annonce (ADR-48, Palier 1) — source de vérité côté
@@ -20,8 +21,10 @@ export class AnnouncementCreateDto {
 }
 
 /**
- * Compteur agrégé d'un emoji sur une annonce — schéma `ReactionCount` (ADR-48, Palier 1).
- * **Jamais d'identité** : un emoji + un entier (patron d'agrégat ADR-45).
+ * Compteur d'un emoji sur une annonce avec ses auteurs minimisés — schéma `ReactionCount`
+ * (ADR-48 Palier 2, ADR-49 D1). `count` = total exact ; `reactors` = identités minimisées
+ * (`GroupTeammate`, ADR-37) **plafonnées** (`REACTION_REACTORS_CAP`, défaut 8) → l'UI rend
+ * « ❤️ par Léa, Karim +6 ». Auteurs = co-membres actifs du même groupe (TX-DPIA-007 §5.5).
  */
 export class ReactionCountDto {
   @ApiProperty({ enum: ANNOUNCEMENT_REACTION_EMOJIS })
@@ -29,6 +32,12 @@ export class ReactionCountDto {
 
   @ApiProperty({ minimum: 1 })
   count!: number;
+
+  @ApiProperty({
+    type: [GroupTeammateDto],
+    description: 'Auteurs (identité minimisée), plafonnés ; peut être plus court que `count`.',
+  })
+  reactors!: GroupTeammateDto[];
 }
 
 /**

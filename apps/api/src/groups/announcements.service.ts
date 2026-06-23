@@ -4,10 +4,12 @@ import {
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import type { GroupAnnouncement, User } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import type { AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { NotificationQueueService } from '../jobs/notification-queue.service';
+import { TeammatePresenter, type MinimalAthlete } from '../storage/teammate-presenter.service';
 import {
   ANNOUNCEMENT_REACTION_EMOJIS,
   AnnouncementCreateDto,
@@ -17,6 +19,9 @@ import {
   GroupAnnouncementDto,
   GroupAnnouncementListDto,
 } from './dto/announcement.dto';
+
+/** Plafond d'auteurs de réaction exposés par emoji (ADR-49 D1) — surchargeable par env. */
+const DEFAULT_REACTION_REACTORS_CAP = 8;
 
 type AnnouncementWithAuthor = GroupAnnouncement & {
   author: Pick<User, 'id' | 'firstName' | 'lastName' | 'sport'>;
@@ -43,7 +48,14 @@ export class AnnouncementsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notificationQueue: NotificationQueueService,
+    private readonly teammates: TeammatePresenter,
+    private readonly config: ConfigService,
   ) {}
+
+  /** Plafond d'auteurs exposés par emoji (réactions nominatives, ADR-49 D1). */
+  private reactorsCap(): number {
+    return this.config.get<number>('REACTION_REACTORS_CAP') ?? DEFAULT_REACTION_REACTORS_CAP;
+  }
 
   /** Liste les annonces (récentes d'abord). RBAC : coach propriétaire OU membre actif. */
   async listAnnouncements(
@@ -60,7 +72,7 @@ export class AnnouncementsService {
 
     // Agrégats en une passe (anti N+1), tous au patron ADR-45 : compteurs, jamais d'identité.
     const [reactions, readCounts, memberCount] = await Promise.all([
-      this.reactionViews(ids, user.id),
+      this.reactionViews(ids, user.id, groupId),
       this.readCounts(ids),
       ids.length > 0 ? this.activeMemberCount(groupId) : Promise.resolve(0),
     ]);
@@ -97,7 +109,7 @@ export class AnnouncementsService {
       create: { announcementId, userId: user.id, emoji: validEmoji },
       update: {},
     });
-    return this.reactionSummary(announcementId, user.id);
+    return this.reactionSummary(announcementId, user.id, groupId);
   }
 
   /** Retire une réaction emoji (ADR-48) — **idempotent** (DELETE sans erreur si absente). */
@@ -113,7 +125,7 @@ export class AnnouncementsService {
     await this.prisma.announcementReaction.deleteMany({
       where: { announcementId, userId: user.id, emoji: validEmoji },
     });
-    return this.reactionSummary(announcementId, user.id);
+    return this.reactionSummary(announcementId, user.id, groupId);
   }
 
   /**
@@ -209,29 +221,35 @@ export class AnnouncementsService {
     if (!announcement) throw new NotFoundException('Annonce introuvable.');
   }
 
-  /** État des réactions d'une **seule** annonce pour l'appelant (compteurs + ses emoji). */
+  /** État des réactions d'une **seule** annonce pour l'appelant (compteurs + auteurs + ses emoji). */
   private async reactionSummary(
     announcementId: string,
     userId: string,
+    groupId: string,
   ): Promise<AnnouncementReactionsDto> {
     return (
-      (await this.reactionViews([announcementId], userId)).get(announcementId) ?? emptyReactions()
+      (await this.reactionViews([announcementId], userId, groupId)).get(announcementId) ??
+      emptyReactions()
     );
   }
 
   /**
-   * Agrège les réactions de plusieurs annonces en une passe (anti N+1) : compteurs par emoji
-   * (`groupBy`) + emoji posés par l'appelant. Ordre des compteurs = ordre canonique du jeu borné
-   * (rendu déterministe). Aucune identité de tiers ne sort de cette méthode.
+   * Agrège les réactions de plusieurs annonces en une passe (anti N+1) : compteurs exacts par
+   * emoji (`groupBy`), **auteurs minimisés plafonnés** (ADR-49 D1, `GroupTeammate`) et emoji posés
+   * par l'appelant. Les auteurs sont **bornés aux membres actifs** du groupe (exclut partis et
+   * comptes anonymisés, ADR-37) — `count` reste le total exact (`reactors` peut être plus court).
+   * Ordre des compteurs = ordre canonique du jeu borné (rendu déterministe).
    */
   private async reactionViews(
     announcementIds: string[],
     userId: string,
+    groupId: string,
   ): Promise<Map<string, ReactionView>> {
     const views = new Map<string, ReactionView>();
     if (announcementIds.length === 0) return views;
 
-    const [counts, mine] = await Promise.all([
+    const cap = this.reactorsCap();
+    const [counts, mine, reactorRows] = await Promise.all([
       this.prisma.announcementReaction.groupBy({
         by: ['announcementId', 'emoji'],
         where: { announcementId: { in: announcementIds } },
@@ -240,6 +258,19 @@ export class AnnouncementsService {
       this.prisma.announcementReaction.findMany({
         where: { announcementId: { in: announcementIds }, userId },
         select: { announcementId: true, emoji: true },
+      }),
+      // Auteurs minimisés : membres ACTIFS du groupe uniquement (exclut partis/anonymisés).
+      this.prisma.announcementReaction.findMany({
+        where: {
+          announcementId: { in: announcementIds },
+          user: { deletedAt: null, groupMemberships: { some: { groupId, leftAt: null } } },
+        },
+        select: {
+          announcementId: true,
+          emoji: true,
+          user: { select: { id: true, firstName: true, lastName: true, photoUrl: true } },
+        },
+        orderBy: { createdAt: 'asc' },
       }),
     ]);
 
@@ -256,13 +287,33 @@ export class AnnouncementsService {
       mineByAnnouncement.set(row.announcementId, set);
     }
 
+    // Auteurs (capés par emoji), dédupliqués par utilisateur pour ne présigner qu'une fois.
+    const reactorsByKey = new Map<string, MinimalAthlete[]>();
+    const distinct = new Map<string, MinimalAthlete>();
+    for (const row of reactorRows) {
+      const key = `${row.announcementId}:${row.emoji}`;
+      const list = reactorsByKey.get(key) ?? [];
+      if (list.length < cap) {
+        list.push(row.user);
+        reactorsByKey.set(key, list);
+        distinct.set(row.user.id, row.user);
+      }
+    }
+    const presented = new Map(
+      (await this.teammates.presentMany([...distinct.values()])).map((t) => [t.id, t]),
+    );
+
     for (const id of announcementIds) {
       const countMap = countByAnnouncement.get(id);
       const mineSet = mineByAnnouncement.get(id);
       views.set(id, {
         // Ordre canonique du jeu borné → affichage stable, on n'expose que les emoji présents.
         reactions: ANNOUNCEMENT_REACTION_EMOJIS.filter((e) => (countMap?.get(e) ?? 0) > 0).map(
-          (emoji) => ({ emoji, count: countMap!.get(emoji)! }),
+          (emoji) => ({
+            emoji,
+            count: countMap!.get(emoji)!,
+            reactors: (reactorsByKey.get(`${id}:${emoji}`) ?? []).map((u) => presented.get(u.id)!),
+          }),
         ),
         myReactions: ANNOUNCEMENT_REACTION_EMOJIS.filter((e) => mineSet?.has(e)),
       });

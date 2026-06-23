@@ -78,8 +78,39 @@ function queueMock(): NotificationQueueService {
   return { enqueue: jest.fn().mockResolvedValue(undefined) } as unknown as NotificationQueueService;
 }
 
+// TeammatePresenter : par défaut aucun auteur présenté (reactorRows vides) ; on présigne 1:1.
+function teammatesMock() {
+  return {
+    present: jest.fn(
+      async (a: { id: string; firstName: string | null; lastName: string | null }) => ({
+        id: a.id,
+        firstName: a.firstName ?? undefined,
+        lastName: a.lastName ?? undefined,
+      }),
+    ),
+    presentMany: jest.fn(
+      async (list: Array<{ id: string; firstName: string | null; lastName: string | null }>) =>
+        list.map((a) => ({
+          id: a.id,
+          firstName: a.firstName ?? undefined,
+          lastName: a.lastName ?? undefined,
+        })),
+    ),
+  };
+}
+
+// ConfigService : get() → undefined → le service retombe sur le plafond par défaut.
+function configMock() {
+  return { get: jest.fn().mockReturnValue(undefined) };
+}
+
 function service(prisma: PrismaMock, queue = queueMock()): AnnouncementsService {
-  return new AnnouncementsService(prisma as unknown as PrismaService, queue);
+  return new AnnouncementsService(
+    prisma as unknown as PrismaService,
+    queue,
+    teammatesMock() as never,
+    configMock() as never,
+  );
 }
 
 describe('AnnouncementsService (ADR-46)', () => {
@@ -164,7 +195,8 @@ describe('AnnouncementsService (ADR-46)', () => {
         { announcementId: 'ann-1', emoji: '🔥', _count: { id: 5 } },
         { announcementId: 'ann-1', emoji: '❤️', _count: { id: 8 } },
       ]);
-      prisma.announcementReaction.findMany.mockResolvedValue([
+      // 1er findMany = emoji de l'appelant ; 2e findMany (auteurs) = défaut [] du mock.
+      prisma.announcementReaction.findMany.mockResolvedValueOnce([
         { announcementId: 'ann-1', emoji: '❤️' },
       ]);
 
@@ -176,8 +208,8 @@ describe('AnnouncementsService (ADR-46)', () => {
       const res = await service(prisma).listAnnouncements(COACH, 'g-1');
 
       expect(res.data[0].reactions).toEqual([
-        { emoji: '❤️', count: 8 },
-        { emoji: '🔥', count: 5 },
+        { emoji: '❤️', count: 8, reactors: [] },
+        { emoji: '🔥', count: 5, reactors: [] },
       ]);
       expect(res.data[0].myReactions).toEqual(['❤️']);
       // Accusé de lecture agrégé : « 9/12 ont lu » — deux entiers, jamais la liste.
@@ -191,6 +223,45 @@ describe('AnnouncementsService (ADR-46)', () => {
       await expect(service(prisma).listAnnouncements(ATHLETE, 'g-1')).rejects.toBeInstanceOf(
         NotFoundException,
       );
+    });
+
+    it('réactions nominatives (ADR-49 D1) : auteurs minimisés, filtrés membres actifs', async () => {
+      const prisma = prismaMock();
+      prisma.group.findFirst.mockResolvedValue({ id: 'g-1' });
+      prisma.groupAnnouncement.findMany.mockResolvedValue([announcementRow()]);
+      prisma.announcementReaction.groupBy.mockResolvedValue([
+        { announcementId: 'ann-1', emoji: '❤️', _count: { id: 2 } },
+      ]);
+      // 1er findMany = emoji de l'appelant (aucun) ; 2e findMany = auteurs (avec user).
+      prisma.announcementReaction.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([
+        {
+          announcementId: 'ann-1',
+          emoji: '❤️',
+          user: { id: 'a-2', firstName: 'Léa', lastName: 'Bernard', photoUrl: null },
+        },
+        {
+          announcementId: 'ann-1',
+          emoji: '❤️',
+          user: { id: 'a-3', firstName: 'Karim', lastName: 'Sow', photoUrl: null },
+        },
+      ]);
+
+      const res = await service(prisma).listAnnouncements(COACH, 'g-1');
+
+      expect(res.data[0].reactions[0]).toEqual({
+        emoji: '❤️',
+        count: 2,
+        reactors: [
+          { id: 'a-2', firstName: 'Léa', lastName: 'Bernard' },
+          { id: 'a-3', firstName: 'Karim', lastName: 'Sow' },
+        ],
+      });
+      // La requête des auteurs borne aux membres ACTIFS du groupe (exclut partis/anonymisés).
+      const reactorCall = prisma.announcementReaction.findMany.mock.calls[1][0];
+      expect(reactorCall.where.user).toEqual({
+        deletedAt: null,
+        groupMemberships: { some: { groupId: 'g-1', leftAt: null } },
+      });
     });
   });
 
@@ -223,7 +294,8 @@ describe('AnnouncementsService (ADR-46)', () => {
       prisma.announcementReaction.groupBy.mockResolvedValue([
         { announcementId: 'ann-1', emoji: '❤️', _count: { id: 1 } },
       ]);
-      prisma.announcementReaction.findMany.mockResolvedValue([
+      // 1er findMany = emoji de l'appelant ; 2e findMany (auteurs) = défaut [] du mock.
+      prisma.announcementReaction.findMany.mockResolvedValueOnce([
         { announcementId: 'ann-1', emoji: '❤️' },
       ]);
 
@@ -238,7 +310,7 @@ describe('AnnouncementsService (ADR-46)', () => {
           update: {},
         }),
       );
-      expect(res.reactions).toEqual([{ emoji: '❤️', count: 1 }]);
+      expect(res.reactions).toEqual([{ emoji: '❤️', count: 1, reactors: [] }]);
       expect(res.myReactions).toEqual(['❤️']);
     });
 

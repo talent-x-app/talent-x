@@ -6,6 +6,9 @@ import type { Assignment } from '@talent-x/api-client';
 
 const mockSetAttendance = jest.fn();
 const mockGetAttendanceSummary = jest.fn();
+const mockGetTeammatesAttendance = jest.fn();
+const mockGiveKudos = jest.fn();
+const mockRemoveKudos = jest.fn();
 const mockShow = jest.fn();
 
 jest.mock('@talent-x/api-client', () => {
@@ -14,6 +17,9 @@ jest.mock('@talent-x/api-client', () => {
     ...actual,
     setAttendance: (...a: unknown[]) => mockSetAttendance(...a),
     getAttendanceSummary: (...a: unknown[]) => mockGetAttendanceSummary(...a),
+    getTeammatesAttendance: (...a: unknown[]) => mockGetTeammatesAttendance(...a),
+    giveKudos: (...a: unknown[]) => mockGiveKudos(...a),
+    removeKudos: (...a: unknown[]) => mockRemoveKudos(...a),
   };
 });
 jest.mock('../feedback', () => ({
@@ -21,7 +27,7 @@ jest.mock('../feedback', () => ({
   toUserMessage: () => ({ title: 'Échec', description: 'réessaie' }),
 }));
 
-import { AttendanceSummaryView, PresenceControl } from './presence-ui';
+import { AttendanceSummaryView, PresenceControl, TeammatesKudosView } from './presence-ui';
 import { assignmentQueryKey } from './groups-query';
 
 const NOW = new Date(2026, 5, 20);
@@ -60,8 +66,29 @@ function setup(assignment: Assignment) {
 beforeEach(() => {
   mockSetAttendance.mockReset();
   mockGetAttendanceSummary.mockReset();
+  mockGetTeammatesAttendance.mockReset();
+  mockGiveKudos.mockReset();
+  mockRemoveKudos.mockReset();
   mockShow.mockReset();
 });
+
+function renderKudos(assignmentId = 'asg-1') {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  function Wrapper({ children }: { children: ReactNode }) {
+    const [c] = useState(() => client);
+    return (
+      <QueryClientProvider client={c}>
+        <ThemeProvider>{children}</ThemeProvider>
+      </QueryClientProvider>
+    );
+  }
+  render(
+    <Wrapper>
+      <TeammatesKudosView assignmentId={assignmentId} />
+    </Wrapper>,
+  );
+  return client;
+}
 
 describe('PresenceControl (ADR-43 §1, Phase B)', () => {
   it('déclare « présent » → optimiste + toast succès', async () => {
@@ -164,5 +191,50 @@ describe('AttendanceSummaryView (ADR-45 — agrégat sans noms)', () => {
     renderSummary();
     await waitFor(() => expect(mockGetAttendanceSummary).toHaveBeenCalled());
     expect(screen.queryByTestId('attendance-summary')).toBeNull();
+  });
+});
+
+describe('TeammatesKudosView (ADR-48/49, Palier 2)', () => {
+  const teammate = (over = {}) => ({
+    assignmentId: 'asg-2',
+    teammate: { id: 'a-2', firstName: 'Léa', lastName: 'Bernard' },
+    kudos: { count: 0, givers: [], mine: false },
+    ...over,
+  });
+
+  it('silencieux si aucun coéquipier confirmé', async () => {
+    mockGetTeammatesAttendance.mockResolvedValue({ status: 200, data: { data: [] } });
+    renderKudos();
+    await waitFor(() => expect(mockGetTeammatesAttendance).toHaveBeenCalledWith('asg-1'));
+    expect(screen.queryByTestId('teammates-attendance')).toBeNull();
+  });
+
+  it('liste les coéquipiers présents + pose un kudos (giveKudos sur leur affectation)', async () => {
+    mockGetTeammatesAttendance.mockResolvedValue({ status: 200, data: { data: [teammate()] } });
+    mockGiveKudos.mockResolvedValue({
+      status: 200,
+      data: { count: 1, givers: [{ id: 'a-1', firstName: 'At' }], mine: true },
+    });
+    renderKudos();
+    await waitFor(() => expect(screen.getByTestId('teammate-going-asg-2')).toBeOnTheScreen());
+    expect(screen.getByText('Léa Bernard')).toBeOnTheScreen();
+
+    fireEvent.press(screen.getByTestId('kudos-asg-2'));
+    await waitFor(() => expect(mockGiveKudos).toHaveBeenCalledWith('asg-2'));
+    expect(mockRemoveKudos).not.toHaveBeenCalled();
+  });
+
+  it('retire un kudos déjà posé (toggle → removeKudos)', async () => {
+    mockGetTeammatesAttendance.mockResolvedValue({
+      status: 200,
+      data: { data: [teammate({ kudos: { count: 1, givers: [], mine: true } })] },
+    });
+    mockRemoveKudos.mockResolvedValue({ status: 200, data: { count: 0, givers: [], mine: false } });
+    renderKudos();
+    await waitFor(() => expect(screen.getByTestId('kudos-count-asg-2')).toHaveTextContent('1'));
+
+    fireEvent.press(screen.getByTestId('kudos-asg-2'));
+    await waitFor(() => expect(mockRemoveKudos).toHaveBeenCalledWith('asg-2'));
+    expect(mockGiveKudos).not.toHaveBeenCalled();
   });
 });

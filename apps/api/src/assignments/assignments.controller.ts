@@ -18,10 +18,12 @@ import { CurrentUser, type AuthenticatedUser } from '../common/decorators/curren
 import { Roles } from '../common/decorators/roles.decorator';
 import { AssignmentsService } from './assignments.service';
 import { PerformancesService } from './performances.service';
+import { KudosService } from './kudos.service';
 import { AssignmentQueryDto } from './dto/assignment-query.dto';
 import { AssignmentDto, AssignmentPageDto } from './dto/assignment.dto';
 import { AssignmentUpdateRequestDto } from './dto/assignment-update.dto';
 import { AttendanceRequestDto, AttendanceSummaryDto } from './dto/attendance.dto';
+import { KudosSummaryDto, TeammateAttendanceListDto } from './dto/kudos.dto';
 import { PerformanceCreateDto, PerformanceDto } from './dto/performance.dto';
 
 /**
@@ -35,6 +37,7 @@ export class AssignmentsController {
   constructor(
     private readonly assignments: AssignmentsService,
     private readonly performances: PerformancesService,
+    private readonly kudos: KudosService,
   ) {}
 
   @Get()
@@ -115,6 +118,49 @@ export class AssignmentsController {
     @Param('id', new ParseUUIDPipe()) id: string,
   ): Promise<AttendanceSummaryDto> {
     return this.assignments.getAttendanceSummary(user, id);
+  }
+
+  @Get(':id/teammates-attendance')
+  @Roles('athlete')
+  @ApiOperation({
+    summary: 'Coéquipiers ayant confirmé leur présence (Mur Palier 2)',
+    operationId: 'getTeammatesAttendance',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Coéquipiers présents.',
+    type: TeammateAttendanceListDto,
+  })
+  getTeammatesAttendance(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', new ParseUUIDPipe()) id: string,
+  ): Promise<TeammateAttendanceListDto> {
+    return this.kudos.listTeammatesAttendance(user, id);
+  }
+
+  @Put(':id/kudos')
+  @Roles('athlete')
+  @ApiOperation({
+    summary: "Encourager la présence d'un coéquipier (kudos)",
+    operationId: 'giveKudos',
+  })
+  @ApiResponse({ status: 200, description: 'Kudos posé.', type: KudosSummaryDto })
+  giveKudos(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', new ParseUUIDPipe()) id: string,
+  ): Promise<KudosSummaryDto> {
+    return this.kudos.give(user, id);
+  }
+
+  @Delete(':id/kudos')
+  @Roles('athlete')
+  @ApiOperation({ summary: 'Retirer son kudos', operationId: 'removeKudos' })
+  @ApiResponse({ status: 200, description: 'Kudos retiré.', type: KudosSummaryDto })
+  removeKudos(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', new ParseUUIDPipe()) id: string,
+  ): Promise<KudosSummaryDto> {
+    return this.kudos.remove(user, id);
   }
 
   @Post(':id/performance')

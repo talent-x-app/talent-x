@@ -1,10 +1,14 @@
 import {
   getAttendanceSummary,
+  getTeammatesAttendance,
+  giveKudos,
+  removeKudos,
   setAttendance,
   type AttendanceStatus,
   type AttendanceSummary,
   type SkipReason,
   type Assignment,
+  type TeammateAttendance,
 } from '@talent-x/api-client';
 import { useTheme } from '@talent-x/design-tokens';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -13,7 +17,12 @@ import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { attendanceDeadlineHours } from '../config/env';
 import { toUserMessage, useToast } from '../feedback';
-import { ASSIGNMENTS_QUERY_KEY, assignmentQueryKey } from './groups-query';
+import {
+  ASSIGNMENTS_QUERY_KEY,
+  assignmentQueryKey,
+  teammatesAttendanceQueryKey,
+} from './groups-query';
+import { TeammateAvatar, teammateName } from './teammate-avatar';
 
 /**
  * Échéance de réponse de présence (ADR-43 §1) : `dueDate` − `hours`, **dérivée** (jamais stockée).
@@ -312,6 +321,121 @@ export function AttendanceSummaryView({ assignmentId }: { assignmentId: string }
           </Text>
         </View>
       ))}
+    </View>
+  );
+}
+
+/**
+ * **Coéquipiers présents + kudos** (ADR-48/49, Mur Palier 2). Pour une séance de **groupe**,
+ * liste les coéquipiers ayant **confirmé** leur présence (`going`) — identité minimisée (ADR-37,
+ * AIPD §5.6) — et permet d'**encourager** chacun d'un 👏 **togglable** (`PUT/DELETE
+ * /assignments/:id/kudos`). Porte sur la **participation**, jamais sur la performance (ADR-08/21).
+ * Silencieux si la séance n'est pas de groupe ou si personne n'a confirmé.
+ */
+export function TeammatesKudosView({ assignmentId }: { assignmentId: string }) {
+  const { colors, typography, spacing, radius, borderWidth } = useTheme();
+  const toast = useToast();
+  const queryClient = useQueryClient();
+  const key = teammatesAttendanceQueryKey(assignmentId);
+
+  const query = useQuery({
+    queryKey: key,
+    queryFn: async (): Promise<TeammateAttendance[]> => {
+      const response = await getTeammatesAttendance(assignmentId);
+      if (response.status === 200) return response.data.data;
+      throw response;
+    },
+    retry: false,
+  });
+
+  const toggle = useMutation({
+    mutationFn: async (ta: TeammateAttendance): Promise<void> => {
+      const response = ta.kudos.mine
+        ? await removeKudos(ta.assignmentId)
+        : await giveKudos(ta.assignmentId);
+      if (response.status !== 200) throw response;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: key });
+    },
+    onError: (error: unknown) => {
+      const { title, description } = toUserMessage(error);
+      toast.show({ variant: 'danger', title, description });
+    },
+  });
+
+  const teammates = query.data ?? [];
+  if (teammates.length === 0) return null;
+
+  return (
+    <View testID="teammates-attendance" style={{ gap: spacing[2] }}>
+      <Text
+        style={{
+          color: colors.textSecondary,
+          fontFamily: typography.fontFamily.medium,
+          fontSize: typography.bodySm.fontSize,
+          textTransform: 'uppercase',
+          letterSpacing: 0.6,
+        }}
+      >
+        Coéquipiers présents
+      </Text>
+      {teammates.map((ta) => {
+        const mine = ta.kudos.mine;
+        return (
+          <View
+            key={ta.assignmentId}
+            testID={`teammate-going-${ta.assignmentId}`}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[3] }}
+          >
+            <TeammateAvatar teammate={ta.teammate} size={28} />
+            <Text
+              numberOfLines={1}
+              style={{
+                flex: 1,
+                color: colors.textPrimary,
+                fontFamily: typography.fontFamily.medium,
+                fontSize: typography.body.fontSize,
+              }}
+            >
+              {teammateName(ta.teammate)}
+            </Text>
+            <Pressable
+              testID={`kudos-${ta.assignmentId}`}
+              onPress={() => toggle.mutate(ta)}
+              disabled={toggle.isPending}
+              accessibilityRole="button"
+              accessibilityState={{ selected: mine }}
+              accessibilityLabel={mine ? 'Retirer ton encouragement' : 'Encourager'}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: spacing[1],
+                height: 32,
+                paddingHorizontal: spacing[3],
+                borderRadius: radius.pill,
+                borderWidth: borderWidth.hairline,
+                borderColor: mine ? colors.accent : colors.border,
+                backgroundColor: mine ? colors.accentSubtle : colors.surfaceRaised,
+              }}
+            >
+              <Text style={{ fontSize: typography.bodySm.fontSize }}>👏</Text>
+              {ta.kudos.count > 0 ? (
+                <Text
+                  testID={`kudos-count-${ta.assignmentId}`}
+                  style={{
+                    color: mine ? colors.accentText : colors.textSecondary,
+                    fontFamily: typography.fontFamily.medium,
+                    fontSize: typography.bodySm.fontSize,
+                  }}
+                >
+                  {ta.kudos.count}
+                </Text>
+              ) : null}
+            </Pressable>
+          </View>
+        );
+      })}
     </View>
   );
 }

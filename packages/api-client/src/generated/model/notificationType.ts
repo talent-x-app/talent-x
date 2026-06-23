@@ -20,4 +20,5 @@ export const NotificationType = {
   performance_submitted: 'performance_submitted',
   group_update: 'group_update',
   group_announcement: 'group_announcement',
+  group_kudos: 'group_kudos',
 } as const;

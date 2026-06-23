@@ -148,8 +148,8 @@ describe('AnnouncementsPane — réactions & lecture (ADR-48, Palier 1)', () => 
         data: [
           ann('a1', 'Compèt', {
             reactions: [
-              { emoji: '❤️', count: 8 },
-              { emoji: '🔥', count: 5 },
+              { emoji: '❤️', count: 8, reactors: [] },
+              { emoji: '🔥', count: 5, reactors: [] },
             ],
             myReactions: ['❤️'],
             readCount: 9,
@@ -163,6 +163,35 @@ describe('AnnouncementsPane — réactions & lecture (ADR-48, Palier 1)', () => 
     expect(screen.getByText('8')).toBeOnTheScreen();
     expect(screen.getByText('5')).toBeOnTheScreen();
     expect(screen.getByTestId('read-count-a1')).toHaveTextContent('9/12 lu');
+  });
+
+  it('réactions nominatives (ADR-49 D1) : prénoms des auteurs + « +N » au-delà du plafond', async () => {
+    mockList.mockResolvedValue({
+      status: 200,
+      data: {
+        data: [
+          ann('a1', 'Compèt', {
+            reactions: [
+              {
+                emoji: '❤️',
+                count: 8,
+                reactors: [
+                  { id: 'a-2', firstName: 'Léa', lastName: 'Bernard' },
+                  { id: 'a-3', firstName: 'Karim', lastName: 'Sow' },
+                ],
+              },
+            ],
+            myReactions: [],
+            readCount: 0,
+            memberCount: 12,
+          }),
+        ],
+      },
+    });
+    renderPane(false);
+    await waitFor(() => expect(screen.getByTestId('reactors-a1-❤️')).toBeOnTheScreen());
+    // 2 auteurs présentés sur 8 → « Léa, Karim +6 » (nœud texte dédié, hors avatars).
+    expect(screen.getByTestId('reactors-names-a1-❤️')).toHaveTextContent('Léa, Karim +6');
   });
 
   it('poser une réaction non encore présente → addAnnouncementReaction', async () => {
@@ -180,7 +209,10 @@ describe('AnnouncementsPane — réactions & lecture (ADR-48, Palier 1)', () => 
       status: 200,
       data: {
         data: [
-          ann('a1', 'Compèt', { reactions: [{ emoji: '❤️', count: 1 }], myReactions: ['❤️'] }),
+          ann('a1', 'Compèt', {
+            reactions: [{ emoji: '❤️', count: 1, reactors: [] }],
+            myReactions: ['❤️'],
+          }),
         ],
       },
     });

@@ -121,6 +121,28 @@ class ApiSeed {
     return a.id;
   }
 
+  /** Pose une réaction emoji sur une annonce via l'API (ADR-48/49) — pour seeder des auteurs. */
+  async addAnnouncementReaction(
+    token: string,
+    groupId: string,
+    announcementId: string,
+    emoji: string,
+  ): Promise<void> {
+    const res = await this.api.put(
+      `${API_URL}/groups/${groupId}/announcements/${announcementId}/reactions/${encodeURIComponent(emoji)}`,
+      { headers: this.auth(token) },
+    );
+    expect(res.ok(), `reaction → ${res.status()} ${await safeText(res)}`).toBeTruthy();
+  }
+
+  /** Pose un kudos sur l'affectation d'un coéquipier via l'API (ADR-49) — seed/contrôle. */
+  async giveKudos(token: string, assignmentId: string): Promise<void> {
+    const res = await this.api.put(`${API_URL}/assignments/${assignmentId}/kudos`, {
+      headers: this.auth(token),
+    });
+    expect(res.ok(), `kudos → ${res.status()} ${await safeText(res)}`).toBeTruthy();
+  }
+
   /** Déclare la présence (RSVP, ADR-43 §1) d'un athlète sur une affectation. */
   async setAttendance(
     athleteToken: string,
@@ -270,17 +292,24 @@ class ApiSeed {
     return res.json();
   }
 
-  /** Affecte une séance à des athlètes. Renvoie la liste d'affectations créées. */
+  /**
+   * Affecte une séance à des athlètes et/ou à des **groupes**. Renvoie les affectations créées.
+   * Affecter via `groupIds` produit des affectations avec **provenance de groupe**
+   * (`groupAssignmentId`, ADR-30) — requis pour la visibilité de présence entre coéquipiers (P2).
+   */
   async assign(
     coachToken: string,
     sessionId: string,
     opts: {
-      athleteIds: string[];
+      athleteIds?: string[];
+      groupIds?: string[];
       dueDate?: string;
       recurrence?: { frequency: 'weekly'; until: string };
     },
   ): Promise<Array<{ id: string; sessionId: string; athleteId: string; dueDate?: string }>> {
-    const body: Record<string, unknown> = { athleteIds: opts.athleteIds };
+    const body: Record<string, unknown> = {};
+    if (opts.athleteIds) body.athleteIds = opts.athleteIds;
+    if (opts.groupIds) body.groupIds = opts.groupIds;
     if (opts.dueDate) body.dueDate = opts.dueDate;
     if (opts.recurrence) body.recurrence = opts.recurrence;
     const res = await this.postOk(coachToken, `/sessions/${sessionId}/assign`, body, true);

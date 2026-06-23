@@ -630,6 +630,22 @@ Décision complète : [`docs/adr/ADR-47-calendrier-mois-et-calendrier-de-groupe.
 
 ---
 
+## ADR-48 — « Mur d'équipe » : interactions de groupe par paliers RGPD
+
+Décision complète : [`docs/adr/ADR-48-mur-d-equipe-interactions-de-groupe.md`](adr/ADR-48-mur-d-equipe-interactions-de-groupe.md).
+
+**Statut : Accepté** (2026-06-23 — trajectoire validée ; Palier 1 livré, Palier 2 cadré par ADR-49). Transforme le hub descendant (annonces, ADR-46) en surface sociale **« Mur »**, livrée en **3 paliers indépendants ordonnés par risque RGPD croissant** : **P1** réactions **agrégées** + accusé de lecture agrégé + pouls d'équipe dérivé + présence narrative (zéro identité de tiers, sans AIPD — livré TLX-184) ; **P2** réactions **nominatives** + kudos de participation (lève l'anonymat → AIPD, ADR-49/TLX-185) ; **P3** fil de discussion bidirectionnel (rouvre ADR-46, modération requise — TLX-186). Invariants transverses : patron d'agrégat par défaut (ADR-45), frontière santé/perf intacte (ADR-08/21 — le social porte sur annonces et **participation**, jamais la perf), réutilisation infra, **un ADR d'exécution par palier**. Écartés : chat d'un bloc, nominatif d'emblée, leaderboard de perf.
+
+---
+
+## ADR-49 — Mur Palier 2 : exécution réactions nominatives + kudos de participation
+
+Décision complète : [`docs/adr/ADR-49-mur-palier-2-reactions-nominatives-et-kudos.md`](adr/ADR-49-mur-palier-2-reactions-nominatives-et-kudos.md).
+
+**Statut : Accepté** (2026-06-23, validé RT — périmètre Option A). Exécute ADR-48 Palier 2. **D1** réactions nominatives : pas de nouvel endpoint, on enrichit la lecture — chaque `reactions[]` gagne `reactors: GroupTeammate[]` (identité minimisée ADR-37, plafond `.env`, avatars présignés best-effort) ; auteurs = co-membres → couverts par TX-DPIA-007 §5.5. **D2** kudos : table `participation_kudos(assignment_id, giver_id)` unique togglable, verbes `PUT/DELETE /assignments/{id}/kudos` (cible = présence `going` d'un coéquipier, axe ADR-43), notif **`group_kudos`** gatée `groupUpdates` (contenu minimal ADR-10). **Invariant dur** : kudos sur la **participation**, jamais la perf/charge/record (ADR-08/21). **D3** conformité : la visibilité de présence pair-à-pair (différée ADR-43 §5) est tracée et validée en **TX-DPIA-007 §5.6**. Repli : désactiver le kudos → réactions nominatives → Palier 1, sans régression. Écartés : endpoint de liste paresseuse par emoji, kudos scopé groupe, kudos sur la perf.
+
+---
+
 ## Gabarit pour un nouvel ADR
 
 ```markdown

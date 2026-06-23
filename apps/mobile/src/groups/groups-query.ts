@@ -47,3 +47,13 @@ export const ASSIGNMENTS_QUERY_KEY = ['assignments'] as const;
 export function assignmentQueryKey(assignmentId: string) {
   return ['assignments', assignmentId] as const;
 }
+
+/**
+ * Coéquipiers ayant confirmé leur présence sur la séance de cette affectation
+ * (ADR-48/49 Palier 2 — `GET /assignments/:id/teammates-attendance`). Aligné sur le préfixe
+ * `['assignment', id, …]` du détail séance (comme l'agrégat de présence) pour une invalidation
+ * cohérente quand l'athlète change sa propre présence.
+ */
+export function teammatesAttendanceQueryKey(assignmentId: string) {
+  return ['assignment', assignmentId, 'teammates-attendance'] as const;
+}

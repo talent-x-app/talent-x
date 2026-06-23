@@ -34,7 +34,9 @@ export type NotificationType =
   | 'performance_submitted'
   | 'group_update'
   // ADR-46 : annonce publiée par le coach à son groupe (≠ `group_update` = un membre a rejoint).
-  | 'group_announcement';
+  | 'group_announcement'
+  // ADR-48/49 (Palier 2) : un coéquipier encourage une présence confirmée (kudos 👏).
+  | 'group_kudos';
 
 /**
  * Payload d'un job de notification — minimal et non sensible (ADR-10) : un signal

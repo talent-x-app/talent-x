@@ -7,13 +7,16 @@
  * Conventions transverses : préfixe /api/v1 ; jeton d'accès JWT (RS256) via en-tête Authorization ; pagination par enveloppe { data, meta } ; idempotence des écritures sensibles via Idempotency-Key ; opérations longues asynchrones (202 + ressource de statut) ; rate limiting signalé par les en-têtes RateLimit-*. L'autorisation combine rôle, appartenance (lien coach↔athlète), propriété et consentement ; voir TX-SPEC-002 §6.
  * OpenAPI spec version: 1.0.0
  */
+import type { GroupTeammate } from './groupTeammate';
 import type { ReactionEmoji } from './reactionEmoji';
 
 /**
- * Compteur agrégé d'un emoji sur une annonce (ADR-48, Palier 1) — un emoji + un entier, jamais d'identité (patron d'agrégat ADR-45).
+ * Compteur d'un emoji sur une annonce avec ses auteurs minimisés (ADR-48 Palier 2, ADR-49 D1). `count` = total exact ; `reactors` = identités minimisées (GroupTeammate, ADR-37) plafonnées (REACTION_REACTORS_CAP, défaut 8) → l'UI rend « ❤️ par Léa, Karim +6 ». Auteurs = co-membres actifs du même groupe (TX-DPIA-007 §5.5).
  */
 export interface ReactionCount {
   emoji: ReactionEmoji;
   /** @minimum 1 */
   count: number;
+  /** Auteurs (identité minimisée), plafonnés ; peut être plus court que `count`. */
+  reactors: GroupTeammate[];
 }

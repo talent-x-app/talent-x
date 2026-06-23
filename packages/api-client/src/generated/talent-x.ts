@@ -60,6 +60,7 @@ import type {
   InviteCodeAction,
   Job,
   JoinGroupRequest,
+  KudosSummary,
   ListAssignmentsParams,
   ListCommentsParams,
   ListCompetitionsParams,
@@ -91,6 +92,7 @@ import type {
   SessionUpdate,
   Stats,
   TeamPulse,
+  TeammateAttendanceList,
   TokenReuseResponse,
   TooManyRequestsResponse,
   TrainingLogRequest,
@@ -4248,6 +4250,188 @@ export const getAttendanceSummary = async (id: string, options?: RequestInit): P
   {
     ...options,
     method: 'GET'
+
+
+  }
+);}
+
+
+
+export type getTeammatesAttendanceResponse200 = {
+  data: TeammateAttendanceList
+  status: 200
+}
+
+export type getTeammatesAttendanceResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type getTeammatesAttendanceResponse403 = {
+  data: ForbiddenResponse
+  status: 403
+}
+
+export type getTeammatesAttendanceResponse404 = {
+  data: NotFoundResponse
+  status: 404
+}
+
+export type getTeammatesAttendanceResponse500 = {
+  data: ServerErrorResponse
+  status: 500
+}
+
+export type getTeammatesAttendanceResponseSuccess = (getTeammatesAttendanceResponse200) & {
+  headers: Headers;
+};
+export type getTeammatesAttendanceResponseError = (getTeammatesAttendanceResponse401 | getTeammatesAttendanceResponse403 | getTeammatesAttendanceResponse404 | getTeammatesAttendanceResponse500) & {
+  headers: Headers;
+};
+
+export type getTeammatesAttendanceResponse = (getTeammatesAttendanceResponseSuccess | getTeammatesAttendanceResponseError)
+
+export const getGetTeammatesAttendanceUrl = (id: string,) => {
+
+
+
+
+  return `/assignments/${id}/teammates-attendance`
+}
+
+/**
+ * Coéquipiers d'un groupe partagé ayant déclaré `going` sur la même séance que l'affectation `{id}` de l'appelant (ADR-43 §5, AIPD TX-DPIA-007 §5.6) — identité minimisée + kudos agrégés. RBAC : titulaire de l'affectation `{id}`. Exclut l'appelant, les membres partis et les comptes anonymisés. 404 anti-énumération.
+ * @summary Coéquipiers ayant confirmé leur présence (Mur Palier 2)
+ */
+export const getTeammatesAttendance = async (id: string, options?: RequestInit): Promise<getTeammatesAttendanceResponse> => {
+
+  return customFetch<getTeammatesAttendanceResponse>(getGetTeammatesAttendanceUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+export type giveKudosResponse200 = {
+  data: KudosSummary
+  status: 200
+}
+
+export type giveKudosResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type giveKudosResponse403 = {
+  data: ForbiddenResponse
+  status: 403
+}
+
+export type giveKudosResponse404 = {
+  data: NotFoundResponse
+  status: 404
+}
+
+export type giveKudosResponse422 = {
+  data: ValidationFailedResponse
+  status: 422
+}
+
+export type giveKudosResponse500 = {
+  data: ServerErrorResponse
+  status: 500
+}
+
+export type giveKudosResponseSuccess = (giveKudosResponse200) & {
+  headers: Headers;
+};
+export type giveKudosResponseError = (giveKudosResponse401 | giveKudosResponse403 | giveKudosResponse404 | giveKudosResponse422 | giveKudosResponse500) & {
+  headers: Headers;
+};
+
+export type giveKudosResponse = (giveKudosResponseSuccess | giveKudosResponseError)
+
+export const getGiveKudosUrl = (id: string,) => {
+
+
+
+
+  return `/assignments/${id}/kudos`
+}
+
+/**
+ * Pose un kudos 👏 sur l'affectation `{id}` d'un coéquipier dont la présence est `going` (ADR-48/ADR-49 Palier 2). Idempotent, un kudos par personne. RBAC : co-membre actif d'un groupe partagé vers lequel la séance a été diffusée ; cible `going` ; pas d'auto-kudos. Notifie le destinataire (group_kudos, gate groupUpdates). Porte sur la PARTICIPATION, jamais la performance (ADR-08/21). 404 anti-énumération hors périmètre.
+ * @summary Encourager la présence d'un coéquipier (kudos, idempotent)
+ */
+export const giveKudos = async (id: string, options?: RequestInit): Promise<giveKudosResponse> => {
+
+  return customFetch<giveKudosResponse>(getGiveKudosUrl(id),
+  {
+    ...options,
+    method: 'PUT'
+
+
+  }
+);}
+
+
+
+export type removeKudosResponse200 = {
+  data: KudosSummary
+  status: 200
+}
+
+export type removeKudosResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type removeKudosResponse403 = {
+  data: ForbiddenResponse
+  status: 403
+}
+
+export type removeKudosResponse404 = {
+  data: NotFoundResponse
+  status: 404
+}
+
+export type removeKudosResponse500 = {
+  data: ServerErrorResponse
+  status: 500
+}
+
+export type removeKudosResponseSuccess = (removeKudosResponse200) & {
+  headers: Headers;
+};
+export type removeKudosResponseError = (removeKudosResponse401 | removeKudosResponse403 | removeKudosResponse404 | removeKudosResponse500) & {
+  headers: Headers;
+};
+
+export type removeKudosResponse = (removeKudosResponseSuccess | removeKudosResponseError)
+
+export const getRemoveKudosUrl = (id: string,) => {
+
+
+
+
+  return `/assignments/${id}/kudos`
+}
+
+/**
+ * Retire le kudos de l'appelant sur l'affectation `{id}` (ADR-49 Palier 2) — idempotent (sans erreur si absent). Mêmes gardes que la pose.
+ * @summary Retirer son kudos (idempotent)
+ */
+export const removeKudos = async (id: string, options?: RequestInit): Promise<removeKudosResponse> => {
+
+  return customFetch<removeKudosResponse>(getRemoveKudosUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
 
 
   }
