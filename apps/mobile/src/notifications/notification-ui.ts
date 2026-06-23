@@ -44,6 +44,11 @@ export const NOTIFICATION_PRESENTATIONS: Record<NotificationType, NotificationPr
     title: 'Un coéquipier t’encourage',
     description: 'Quelqu’un de ton groupe t’a envoyé des encouragements 👏.',
   },
+  group_reply: {
+    icon: 'message-circle',
+    title: 'Nouvelle réponse',
+    description: 'Quelqu’un a répondu à ton annonce.',
+  },
 };
 
 /**
@@ -74,6 +79,10 @@ export function notificationHref(
   // Kudos (ADR-49) : resourceId = séance → l'athlète ouvre le détail de la séance.
   if (role === 'athlete' && type === 'group_kudos') {
     return { pathname: '/(athlete)/session/[id]', params: { id: resourceId } };
+  }
+  // Réponse de fil (ADR-50) : resourceId = groupe ; l'auteur de l'annonce est le coach → son groupe.
+  if (role === 'coach' && type === 'group_reply') {
+    return { pathname: '/(coach)/group/[id]', params: { id: resourceId } };
   }
   return null;
 }

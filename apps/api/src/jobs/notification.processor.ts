@@ -19,6 +19,8 @@ const PREFERENCE_GATE: Record<
   group_announcement: 'groupUpdates',
   // ADR-48/49 : kudos de participation, même préférence « mises à jour du groupe ».
   group_kudos: 'groupUpdates',
+  // ADR-48/50 : réponse sous une annonce, même préférence « mises à jour du groupe ».
+  group_reply: 'groupUpdates',
 };
 
 /**
@@ -49,6 +51,10 @@ const MESSAGES: Record<NotificationType, { title: string; body: string }> = {
   group_kudos: {
     title: 'Un coéquipier t’encourage',
     body: 'Quelqu’un de ton groupe t’a envoyé des encouragements 👏.',
+  },
+  group_reply: {
+    title: 'Nouvelle réponse',
+    body: 'Quelqu’un a répondu à ton annonce.',
   },
 };
 

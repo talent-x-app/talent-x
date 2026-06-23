@@ -20,6 +20,7 @@ import { groupAnnouncementsQueryKey } from './groups-query';
 import { TeamPulseCard } from './team-pulse-ui';
 import { NarrativePresenceBanner } from './narrative-presence-ui';
 import { TeammateAvatarStack, teammateFirstName } from './teammate-avatar';
+import { ReplyThread } from './announcement-replies-ui';
 
 /**
  * Palette d'emoji autorisés (ADR-48, Palier 1) — bornée côté API par une contrainte CHECK
@@ -210,6 +211,7 @@ function AnnouncementCard({
   const { colors, typography, spacing } = useTheme();
   const toast = useToast();
   const queryClient = useQueryClient();
+  const [showReplies, setShowReplies] = useState(false);
 
   const remove = useMutation({
     mutationFn: async (): Promise<void> => {
@@ -285,6 +287,40 @@ function AnnouncementCard({
         </Text>
 
         <AnnouncementFooter announcement={announcement} groupId={groupId} />
+
+        {/* Fil de réponses (ADR-48 Palier 3 / ADR-50) — déplié à la demande, chargé alors. */}
+        <Pressable
+          testID={`replies-toggle-${announcement.id}`}
+          onPress={() => setShowReplies((o) => !o)}
+          accessibilityRole="button"
+          accessibilityState={{ expanded: showReplies }}
+          accessibilityLabel={showReplies ? 'Masquer le fil' : 'Répondre'}
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: spacing[1],
+            marginTop: spacing[1],
+          }}
+        >
+          <Feather
+            name={showReplies ? 'chevron-up' : 'message-circle'}
+            size={14}
+            color={colors.accentText}
+          />
+          <Text
+            style={{
+              color: colors.accentText,
+              fontFamily: typography.fontFamily.medium,
+              fontSize: typography.bodySm.fontSize,
+            }}
+          >
+            {showReplies ? 'Masquer le fil' : 'Répondre'}
+          </Text>
+        </Pressable>
+
+        {showReplies ? (
+          <ReplyThread groupId={groupId} announcementId={announcement.id} now={now} />
+        ) : null}
       </View>
     </Card>
   );

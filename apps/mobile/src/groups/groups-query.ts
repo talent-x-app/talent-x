@@ -35,6 +35,11 @@ export function groupPulseQueryKey(groupId: string) {
   return ['groups', groupId, 'pulse'] as const;
 }
 
+/** Fil de réponses d'une annonce (ADR-48 Palier 3 / ADR-50 — `GET …/announcements/:aid/replies`). */
+export function announcementRepliesQueryKey(groupId: string, announcementId: string) {
+  return ['groups', groupId, 'announcements', announcementId, 'replies'] as const;
+}
+
 /**
  * Affectations de l'athlète courant (`GET /assignments`, role-aware). Le hub de groupe (fil
  * Séances + Calendrier, ADR-43 §4) lit ce **même** cache que l'écran Séances (A-02) et le

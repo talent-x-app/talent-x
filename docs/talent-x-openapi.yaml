@@ -978,6 +978,159 @@ paths:
           $ref: '#/components/responses/NotFound'
         '500':
           $ref: '#/components/responses/ServerError'
+  /groups/{id}/announcements/{announcementId}/replies:
+    parameters:
+    - $ref: '#/components/parameters/IdPath'
+    - name: announcementId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    get:
+      tags:
+      - Groupes
+      summary: Lister le fil d'une annonce
+      description: >-
+        Réponses d'une annonce (fil bidirectionnel, chronologique croissant — ADR-48 Palier 3 /
+        ADR-50). RBAC : coach propriétaire **ou** membre actif (404 anti-énumération sinon).
+        L'auteur est **minimisé** (ADR-37) ; un auteur au compte clos est anonyme. Une réponse
+        au-delà du seuil de signalements est **masquée** aux non-coachs (`hidden`, corps neutralisé) ;
+        le coach la voit avec `reportCount`.
+      operationId: listAnnouncementReplies
+      responses:
+        '200':
+          description: Fil de l'annonce.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnnouncementReplyList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    post:
+      tags:
+      - Groupes
+      summary: Répondre à une annonce
+      description: >-
+        Publie une réponse dans le fil (ADR-50). RBAC : coach propriétaire **ou** membre actif. Garde
+        anti-spam : plafond de réponses vivantes du même auteur (422 `REPLY_RATE_LIMITED`). Notifie
+        **l'auteur de l'annonce** seul (type group_reply, gate groupUpdates) — pas de fan-out.
+      operationId: createAnnouncementReply
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnnouncementReplyCreate'
+            example:
+              body: Merci coach, je serai là samedi !
+      responses:
+        '201':
+          description: Réponse publiée.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnnouncementReply'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '500':
+          $ref: '#/components/responses/ServerError'
+  /groups/{id}/announcements/{announcementId}/replies/{replyId}:
+    delete:
+      tags:
+      - Groupes
+      summary: Supprimer une réponse (auteur ou coach)
+      description: >-
+        Suppression logique d'une réponse (ADR-50 §D3). Autorisée à l'**auteur** de la réponse **ou**
+        au **coach propriétaire** du groupe (modération). 403 si ni l'un ni l'autre, 404 hors périmètre.
+      operationId: deleteAnnouncementReply
+      parameters:
+      - $ref: '#/components/parameters/IdPath'
+      - name: announcementId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: replyId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '204':
+          description: Réponse supprimée.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+  /groups/{id}/announcements/{announcementId}/replies/{replyId}/report:
+    post:
+      tags:
+      - Groupes
+      summary: Signaler une réponse
+      description: >-
+        Signale une réponse pour modération (ADR-50 §D3). **Idempotent** (un signalement par
+        personne). Interdit de signaler sa propre réponse (422 `REPLY_REPORT_SELF_FORBIDDEN`).
+        Au-delà du seuil de signalements distincts, la réponse est masquée aux non-coachs. RBAC :
+        coach propriétaire **ou** membre actif.
+      operationId: reportAnnouncementReply
+      parameters:
+      - $ref: '#/components/parameters/IdPath'
+      - name: announcementId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: replyId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReplyReport'
+            example:
+              reason: offensive
+      responses:
+        '200':
+          description: Réponse à jour (signalée).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnnouncementReply'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '500':
+          $ref: '#/components/responses/ServerError'
   /groups/{id}/pulse:
     get:
       tags:
@@ -3175,6 +3328,90 @@ components:
             $ref: '#/components/schemas/GroupAnnouncement'
       required:
       - data
+    AnnouncementReplyCreate:
+      type: object
+      description: Corps d'une réponse de fil (ADR-50) — texte seul, borné (fil court ≤ 500).
+      properties:
+        body:
+          type: string
+          minLength: 1
+          maxLength: 500
+      required:
+      - body
+    ReplyReportReason:
+      type: string
+      description: >-
+        Motif de signalement borné serveur (ADR-50 §D3), validé par CHECK en base.
+      enum:
+      - spam
+      - abuse
+      - offensive
+      - other
+    ReplyReport:
+      type: object
+      description: Signalement d'une réponse (ADR-50 §D3).
+      properties:
+        reason:
+          $ref: '#/components/schemas/ReplyReportReason'
+      required:
+      - reason
+    AnnouncementReply:
+      type: object
+      description: >-
+        Réponse d'un fil d'annonce (ADR-48 Palier 3 / ADR-50). L'auteur est minimisé (GroupTeammate,
+        ADR-37) ; un auteur au compte clos est anonyme. `mine`/`canDelete`/`reportedByMe` sont la
+        donnée propre de l'appelant ; `hidden` masque le corps aux non-coachs au-delà du seuil de
+        signalements ; `reportCount` n'est exposé qu'au coach propriétaire.
+      properties:
+        id:
+          type: string
+          format: uuid
+        announcementId:
+          type: string
+          format: uuid
+        author:
+          $ref: '#/components/schemas/GroupTeammate'
+        body:
+          type: string
+          description: Corps. Remplacé par un libellé neutre si la réponse est masquée.
+        createdAt:
+          type: string
+          format: date-time
+        mine:
+          type: boolean
+          description: La réponse appartient à l'appelant.
+        canDelete:
+          type: boolean
+          description: L'appelant peut supprimer (auteur ou coach propriétaire).
+        reportedByMe:
+          type: boolean
+          description: L'appelant a déjà signalé cette réponse.
+        hidden:
+          type: boolean
+          description: Masquée par modération (seuil de signalements atteint).
+        reportCount:
+          type: integer
+          minimum: 0
+          description: Nombre de signalements distincts — exposé au coach propriétaire uniquement.
+      required:
+      - id
+      - announcementId
+      - author
+      - body
+      - createdAt
+      - mine
+      - canDelete
+      - reportedByMe
+      - hidden
+    AnnouncementReplyList:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/AnnouncementReply'
+      required:
+      - data
     UserUpdate:
       type: object
       description: >-
@@ -4683,6 +4920,7 @@ components:
       - group_update
       - group_announcement
       - group_kudos
+      - group_reply
     Notification:
       type: object
       description: Notification in-app (ADR-23) — signal minimal, libellé côté client.

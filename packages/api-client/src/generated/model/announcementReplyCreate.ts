@@ -9,17 +9,12 @@
  */
 
 /**
- * Taxonomie des événements notifiables (ADR-22).
+ * Corps d'une réponse de fil (ADR-50) — texte seul, borné (fil court ≤ 500).
  */
-export type NotificationType = typeof NotificationType[keyof typeof NotificationType];
-
-
-export const NotificationType = {
-  session_assigned: 'session_assigned',
-  performance_feedback: 'performance_feedback',
-  performance_submitted: 'performance_submitted',
-  group_update: 'group_update',
-  group_announcement: 'group_announcement',
-  group_kudos: 'group_kudos',
-  group_reply: 'group_reply',
-} as const;
+export interface AnnouncementReplyCreate {
+  /**
+     * @minLength 1
+     * @maxLength 500
+     */
+  body: string;
+}

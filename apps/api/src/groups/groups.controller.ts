@@ -29,9 +29,16 @@ import {
   GroupAnnouncementDto,
   GroupAnnouncementListDto,
 } from './dto/announcement.dto';
+import {
+  AnnouncementReplyCreateDto,
+  AnnouncementReplyDto,
+  AnnouncementReplyListDto,
+  ReplyReportDto,
+} from './dto/announcement-reply.dto';
 import { TeamPulseDto } from './dto/team-pulse.dto';
 import { GroupsService } from './groups.service';
 import { AnnouncementsService } from './announcements.service';
+import { AnnouncementRepliesService } from './announcement-replies.service';
 import { TeamPulseService } from './team-pulse.service';
 
 /**
@@ -46,6 +53,7 @@ export class GroupsController {
   constructor(
     private readonly groups: GroupsService,
     private readonly announcements: AnnouncementsService,
+    private readonly replies: AnnouncementRepliesService,
     private readonly teamPulse: TeamPulseService,
   ) {}
 
@@ -297,6 +305,72 @@ export class GroupsController {
     @Param('announcementId', new ParseUUIDPipe()) announcementId: string,
   ): Promise<AnnouncementReadReceiptDto> {
     return this.announcements.markRead(user, id, announcementId);
+  }
+
+  // --- Fil de réponses sous annonce (ADR-48 Palier 3 / ADR-50) ---
+  // RBAC = lecture/écriture du groupe (coach propriétaire OU membre actif), garde fine au service.
+  // Fil bidirectionnel ; modération (suppression auteur/coach, signalement, masquage sur seuil).
+
+  @Get(':id/announcements/:announcementId/replies')
+  @ApiOperation({ summary: "Lister le fil d'une annonce", operationId: 'listAnnouncementReplies' })
+  @ApiResponse({
+    status: 200,
+    description: 'Réponses (chronologique croissant).',
+    type: AnnouncementReplyListDto,
+  })
+  listAnnouncementReplies(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('announcementId', new ParseUUIDPipe()) announcementId: string,
+  ): Promise<AnnouncementReplyListDto> {
+    return this.replies.listReplies(user, id, announcementId);
+  }
+
+  @Post(':id/announcements/:announcementId/replies')
+  @HttpCode(201)
+  @ApiOperation({ summary: 'Répondre à une annonce', operationId: 'createAnnouncementReply' })
+  @ApiResponse({ status: 201, description: 'Réponse publiée.', type: AnnouncementReplyDto })
+  createAnnouncementReply(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('announcementId', new ParseUUIDPipe()) announcementId: string,
+    @Body() dto: AnnouncementReplyCreateDto,
+  ): Promise<AnnouncementReplyDto> {
+    return this.replies.createReply(user, id, announcementId, dto);
+  }
+
+  @Delete(':id/announcements/:announcementId/replies/:replyId')
+  @HttpCode(204)
+  @ApiOperation({
+    summary: 'Supprimer une réponse (auteur ou coach)',
+    operationId: 'deleteAnnouncementReply',
+  })
+  @ApiResponse({ status: 204, description: 'Réponse supprimée.' })
+  deleteAnnouncementReply(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('announcementId', new ParseUUIDPipe()) announcementId: string,
+    @Param('replyId', new ParseUUIDPipe()) replyId: string,
+  ): Promise<void> {
+    return this.replies.deleteReply(user, id, announcementId, replyId);
+  }
+
+  @Post(':id/announcements/:announcementId/replies/:replyId/report')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Signaler une réponse', operationId: 'reportAnnouncementReply' })
+  @ApiResponse({
+    status: 200,
+    description: 'Réponse à jour (signalée).',
+    type: AnnouncementReplyDto,
+  })
+  reportAnnouncementReply(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('announcementId', new ParseUUIDPipe()) announcementId: string,
+    @Param('replyId', new ParseUUIDPipe()) replyId: string,
+    @Body() dto: ReplyReportDto,
+  ): Promise<AnnouncementReplyDto> {
+    return this.replies.reportReply(user, id, announcementId, replyId, dto.reason);
   }
 
   // --- Pouls d'équipe (ADR-48, Palier 1) — agrégat dérivé, RBAC = coach propriétaire ou membre ---

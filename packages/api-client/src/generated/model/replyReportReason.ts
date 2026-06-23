@@ -9,17 +9,14 @@
  */
 
 /**
- * Taxonomie des événements notifiables (ADR-22).
+ * Motif de signalement borné serveur (ADR-50 §D3), validé par CHECK en base.
  */
-export type NotificationType = typeof NotificationType[keyof typeof NotificationType];
+export type ReplyReportReason = typeof ReplyReportReason[keyof typeof ReplyReportReason];
 
 
-export const NotificationType = {
-  session_assigned: 'session_assigned',
-  performance_feedback: 'performance_feedback',
-  performance_submitted: 'performance_submitted',
-  group_update: 'group_update',
-  group_announcement: 'group_announcement',
-  group_kudos: 'group_kudos',
-  group_reply: 'group_reply',
+export const ReplyReportReason = {
+  spam: 'spam',
+  abuse: 'abuse',
+  offensive: 'offensive',
+  other: 'other',
 } as const;

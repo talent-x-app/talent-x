@@ -53,6 +53,9 @@ model User {
   authoredAnnouncements   GroupAnnouncement[]      @relation("AnnouncementAuthor")
   announcementReactions   AnnouncementReaction[]   @relation("ReactionUser")
   announcementReads       AnnouncementRead[]       @relation("ReadUser")
+  announcementReplies     AnnouncementReply[]      @relation("ReplyAuthor")
+  deletedReplies          AnnouncementReply[]      @relation("ReplyDeleter")
+  reportedReplies         AnnouncementReplyReport[] @relation("ReplyReporter")
   kudosGiven              ParticipationKudos[]     @relation("KudosGiver")
   coachLinks              CoachAthleteLink[]       @relation("LinkCoach")
   athleteLinks            CoachAthleteLink[]       @relation("LinkAthlete")
@@ -238,6 +241,7 @@ model GroupAnnouncement {
   author    User                   @relation("AnnouncementAuthor", fields: [authorId], references: [id], onDelete: Cascade)
   reactions AnnouncementReaction[]
   reads     AnnouncementRead[]
+  replies   AnnouncementReply[]
 
   @@index([groupId], map: "ix_group_announcement_group")
   @@map("group_announcements")
@@ -276,6 +280,48 @@ model AnnouncementRead {
 
   @@id([announcementId, userId])
   @@map("announcement_reads")
+}
+
+/// Réponse à une annonce (ADR-48 Palier 3 / ADR-50) — fil **bidirectionnel** court rattaché à une
+/// annonce. Texte seul borné, soft-delete. `deleted_by_id` trace l'acteur du retrait (auteur vs
+/// coach propriétaire = modération). Contenu **rédigé par un pair** → purgé à l'effacement du
+/// compte (FK author ON DELETE CASCADE, ADR-15). Distinct de `comments` (scopé séance/perf).
+model AnnouncementReply {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  announcementId String    @map("announcement_id") @db.Uuid
+  authorId       String    @map("author_id") @db.Uuid
+  body           String
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+  deletedById    String?   @map("deleted_by_id") @db.Uuid
+
+  announcement GroupAnnouncement         @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  author       User                      @relation("ReplyAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  deletedBy    User?                     @relation("ReplyDeleter", fields: [deletedById], references: [id], onDelete: SetNull)
+  reports      AnnouncementReplyReport[]
+
+  @@index([announcementId], map: "ix_announcement_reply_announcement")
+  @@map("announcement_replies")
+}
+
+/// Signalement d'une réponse (ADR-50 §D3) — modération communautaire. Une ligne par (réponse,
+/// signaleur), idempotente. `reason` borné côté serveur (CHECK en base). Au-delà du seuil
+/// `REPLY_REPORTS_HIDE_THRESHOLD` de signalements distincts, la réponse est masquée aux non-coachs
+/// (le coach la voit avec le compteur pour trancher). Purgé à l'effacement (FK reporter CASCADE).
+model AnnouncementReplyReport {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  replyId    String   @map("reply_id") @db.Uuid
+  reporterId String   @map("reporter_id") @db.Uuid
+  /// 'spam' | 'abuse' | 'offensive' | 'other' (CHECK en base)
+  reason     String
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  reply    AnnouncementReply @relation(fields: [replyId], references: [id], onDelete: Cascade)
+  reporter User              @relation("ReplyReporter", fields: [reporterId], references: [id], onDelete: Cascade)
+
+  @@unique([replyId, reporterId], map: "uq_announcement_reply_report")
+  @@index([replyId], map: "ix_announcement_reply_report_reply")
+  @@map("announcement_reply_reports")
 }
 
 /// Appartenance d'un athlète à un groupe (historisée via left_at).

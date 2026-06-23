@@ -11,6 +11,9 @@ import type {
   AnnouncementCreate,
   AnnouncementReactions,
   AnnouncementReadReceipt,
+  AnnouncementReply,
+  AnnouncementReplyCreate,
+  AnnouncementReplyList,
   AssignRequest,
   Assignment,
   AssignmentList,
@@ -84,6 +87,7 @@ import type {
   RecordConfirm,
   RefreshRequest,
   RegisterRequest,
+  ReplyReport,
   ResetPasswordRequest,
   ServerErrorResponse,
   Session,
@@ -2262,6 +2266,266 @@ export const markAnnouncementRead = async (id: string,
     method: 'PUT'
 
 
+  }
+);}
+
+
+
+export type listAnnouncementRepliesResponse200 = {
+  data: AnnouncementReplyList
+  status: 200
+}
+
+export type listAnnouncementRepliesResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type listAnnouncementRepliesResponse403 = {
+  data: ForbiddenResponse
+  status: 403
+}
+
+export type listAnnouncementRepliesResponse404 = {
+  data: NotFoundResponse
+  status: 404
+}
+
+export type listAnnouncementRepliesResponse500 = {
+  data: ServerErrorResponse
+  status: 500
+}
+
+export type listAnnouncementRepliesResponseSuccess = (listAnnouncementRepliesResponse200) & {
+  headers: Headers;
+};
+export type listAnnouncementRepliesResponseError = (listAnnouncementRepliesResponse401 | listAnnouncementRepliesResponse403 | listAnnouncementRepliesResponse404 | listAnnouncementRepliesResponse500) & {
+  headers: Headers;
+};
+
+export type listAnnouncementRepliesResponse = (listAnnouncementRepliesResponseSuccess | listAnnouncementRepliesResponseError)
+
+export const getListAnnouncementRepliesUrl = (id: string,
+    announcementId: string,) => {
+
+
+
+
+  return `/groups/${id}/announcements/${announcementId}/replies`
+}
+
+/**
+ * Réponses d'une annonce (fil bidirectionnel, chronologique croissant — ADR-48 Palier 3 / ADR-50). RBAC : coach propriétaire **ou** membre actif (404 anti-énumération sinon). L'auteur est **minimisé** (ADR-37) ; un auteur au compte clos est anonyme. Une réponse au-delà du seuil de signalements est **masquée** aux non-coachs (`hidden`, corps neutralisé) ; le coach la voit avec `reportCount`.
+ * @summary Lister le fil d'une annonce
+ */
+export const listAnnouncementReplies = async (id: string,
+    announcementId: string, options?: RequestInit): Promise<listAnnouncementRepliesResponse> => {
+
+  return customFetch<listAnnouncementRepliesResponse>(getListAnnouncementRepliesUrl(id,announcementId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+export type createAnnouncementReplyResponse201 = {
+  data: AnnouncementReply
+  status: 201
+}
+
+export type createAnnouncementReplyResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type createAnnouncementReplyResponse403 = {
+  data: ForbiddenResponse
+  status: 403
+}
+
+export type createAnnouncementReplyResponse404 = {
+  data: NotFoundResponse
+  status: 404
+}
+
+export type createAnnouncementReplyResponse422 = {
+  data: ValidationFailedResponse
+  status: 422
+}
+
+export type createAnnouncementReplyResponse500 = {
+  data: ServerErrorResponse
+  status: 500
+}
+
+export type createAnnouncementReplyResponseSuccess = (createAnnouncementReplyResponse201) & {
+  headers: Headers;
+};
+export type createAnnouncementReplyResponseError = (createAnnouncementReplyResponse401 | createAnnouncementReplyResponse403 | createAnnouncementReplyResponse404 | createAnnouncementReplyResponse422 | createAnnouncementReplyResponse500) & {
+  headers: Headers;
+};
+
+export type createAnnouncementReplyResponse = (createAnnouncementReplyResponseSuccess | createAnnouncementReplyResponseError)
+
+export const getCreateAnnouncementReplyUrl = (id: string,
+    announcementId: string,) => {
+
+
+
+
+  return `/groups/${id}/announcements/${announcementId}/replies`
+}
+
+/**
+ * Publie une réponse dans le fil (ADR-50). RBAC : coach propriétaire **ou** membre actif. Garde anti-spam : plafond de réponses vivantes du même auteur (422 `REPLY_RATE_LIMITED`). Notifie **l'auteur de l'annonce** seul (type group_reply, gate groupUpdates) — pas de fan-out.
+ * @summary Répondre à une annonce
+ */
+export const createAnnouncementReply = async (id: string,
+    announcementId: string,
+    announcementReplyCreate: AnnouncementReplyCreate, options?: RequestInit): Promise<createAnnouncementReplyResponse> => {
+
+  return customFetch<createAnnouncementReplyResponse>(getCreateAnnouncementReplyUrl(id,announcementId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(announcementReplyCreate)
+  }
+);}
+
+
+
+export type deleteAnnouncementReplyResponse204 = {
+  data: void
+  status: 204
+}
+
+export type deleteAnnouncementReplyResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type deleteAnnouncementReplyResponse403 = {
+  data: ForbiddenResponse
+  status: 403
+}
+
+export type deleteAnnouncementReplyResponse404 = {
+  data: NotFoundResponse
+  status: 404
+}
+
+export type deleteAnnouncementReplyResponse500 = {
+  data: ServerErrorResponse
+  status: 500
+}
+
+export type deleteAnnouncementReplyResponseSuccess = (deleteAnnouncementReplyResponse204) & {
+  headers: Headers;
+};
+export type deleteAnnouncementReplyResponseError = (deleteAnnouncementReplyResponse401 | deleteAnnouncementReplyResponse403 | deleteAnnouncementReplyResponse404 | deleteAnnouncementReplyResponse500) & {
+  headers: Headers;
+};
+
+export type deleteAnnouncementReplyResponse = (deleteAnnouncementReplyResponseSuccess | deleteAnnouncementReplyResponseError)
+
+export const getDeleteAnnouncementReplyUrl = (id: string,
+    announcementId: string,
+    replyId: string,) => {
+
+
+
+
+  return `/groups/${id}/announcements/${announcementId}/replies/${replyId}`
+}
+
+/**
+ * Suppression logique d'une réponse (ADR-50 §D3). Autorisée à l'**auteur** de la réponse **ou** au **coach propriétaire** du groupe (modération). 403 si ni l'un ni l'autre, 404 hors périmètre.
+ * @summary Supprimer une réponse (auteur ou coach)
+ */
+export const deleteAnnouncementReply = async (id: string,
+    announcementId: string,
+    replyId: string, options?: RequestInit): Promise<deleteAnnouncementReplyResponse> => {
+
+  return customFetch<deleteAnnouncementReplyResponse>(getDeleteAnnouncementReplyUrl(id,announcementId,replyId),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+export type reportAnnouncementReplyResponse200 = {
+  data: AnnouncementReply
+  status: 200
+}
+
+export type reportAnnouncementReplyResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type reportAnnouncementReplyResponse403 = {
+  data: ForbiddenResponse
+  status: 403
+}
+
+export type reportAnnouncementReplyResponse404 = {
+  data: NotFoundResponse
+  status: 404
+}
+
+export type reportAnnouncementReplyResponse422 = {
+  data: ValidationFailedResponse
+  status: 422
+}
+
+export type reportAnnouncementReplyResponse500 = {
+  data: ServerErrorResponse
+  status: 500
+}
+
+export type reportAnnouncementReplyResponseSuccess = (reportAnnouncementReplyResponse200) & {
+  headers: Headers;
+};
+export type reportAnnouncementReplyResponseError = (reportAnnouncementReplyResponse401 | reportAnnouncementReplyResponse403 | reportAnnouncementReplyResponse404 | reportAnnouncementReplyResponse422 | reportAnnouncementReplyResponse500) & {
+  headers: Headers;
+};
+
+export type reportAnnouncementReplyResponse = (reportAnnouncementReplyResponseSuccess | reportAnnouncementReplyResponseError)
+
+export const getReportAnnouncementReplyUrl = (id: string,
+    announcementId: string,
+    replyId: string,) => {
+
+
+
+
+  return `/groups/${id}/announcements/${announcementId}/replies/${replyId}/report`
+}
+
+/**
+ * Signale une réponse pour modération (ADR-50 §D3). **Idempotent** (un signalement par personne). Interdit de signaler sa propre réponse (422 `REPLY_REPORT_SELF_FORBIDDEN`). Au-delà du seuil de signalements distincts, la réponse est masquée aux non-coachs. RBAC : coach propriétaire **ou** membre actif.
+ * @summary Signaler une réponse
+ */
+export const reportAnnouncementReply = async (id: string,
+    announcementId: string,
+    replyId: string,
+    replyReport: ReplyReport, options?: RequestInit): Promise<reportAnnouncementReplyResponse> => {
+
+  return customFetch<reportAnnouncementReplyResponse>(getReportAnnouncementReplyUrl(id,announcementId,replyId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(replyReport)
   }
 );}
 
