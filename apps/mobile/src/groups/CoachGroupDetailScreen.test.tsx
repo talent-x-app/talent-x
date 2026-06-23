@@ -67,7 +67,7 @@ describe('CoachGroupDetailScreen (TLX-87)', () => {
     render(<CoachGroupDetailScreen groupId="g-1" />, { wrapper: Wrapper });
   }
 
-  it('rend le groupe, le code d’invitation et les membres', async () => {
+  it('rend le groupe, le code d’invitation et les membres (onglet Membres par défaut)', async () => {
     mountOk();
     await waitFor(() => expect(screen.getByTestId('group-detail-name')).toBeOnTheScreen());
     expect(screen.getByText('Sprint élite')).toBeOnTheScreen();
@@ -76,10 +76,11 @@ describe('CoachGroupDetailScreen (TLX-87)', () => {
     expect(screen.getByText('Moussa Traoré')).toBeOnTheScreen();
   });
 
-  it('édite le nom du groupe', async () => {
+  it('édite le nom du groupe (onglet Réglages)', async () => {
     mountOk();
     mockUpdateGroup.mockResolvedValue({ status: 200, data: { ...GROUP, name: 'Sprint A' } });
 
+    // Le crayon du bandeau bascule sur l'onglet Réglages où vit le formulaire.
     await waitFor(() => expect(screen.getByTestId('group-detail-edit')).toBeOnTheScreen());
     fireEvent.press(screen.getByTestId('group-detail-edit'));
     fireEvent.changeText(screen.getByTestId('group-edit-name'), 'Sprint A');
@@ -93,12 +94,14 @@ describe('CoachGroupDetailScreen (TLX-87)', () => {
     );
   });
 
-  it('régénère le code d’invitation', async () => {
+  it('régénère le code d’invitation (gérer → confirmer)', async () => {
     mountOk();
     mockManageInviteCode.mockResolvedValue({ status: 200, data: { inviteCode: 'WXYZ9876' } });
 
-    await waitFor(() => expect(screen.getByTestId('group-invite-regenerate')).toBeOnTheScreen());
+    await waitFor(() => expect(screen.getByTestId('group-invite-manage')).toBeOnTheScreen());
+    fireEvent.press(screen.getByTestId('group-invite-manage'));
     fireEvent.press(screen.getByTestId('group-invite-regenerate'));
+    fireEvent.press(screen.getByTestId('group-invite-regenerate-confirm'));
     await waitFor(() =>
       expect(mockManageInviteCode).toHaveBeenCalledWith('g-1', { action: 'regenerate' }),
     );
@@ -118,21 +121,24 @@ describe('CoachGroupDetailScreen (TLX-87)', () => {
     shareSpy.mockRestore();
   });
 
-  it('retire un membre', async () => {
+  it('retire un membre (avec confirmation)', async () => {
     mountOk();
     mockRemoveGroupMember.mockResolvedValue({ status: 204 });
 
     await waitFor(() => expect(screen.getByTestId('group-member-remove-a-1')).toBeOnTheScreen());
     fireEvent.press(screen.getByTestId('group-member-remove-a-1'));
+    fireEvent.press(screen.getByTestId('group-member-remove-confirm-a-1'));
     await waitFor(() => expect(mockRemoveGroupMember).toHaveBeenCalledWith('g-1', 'a-1'));
   });
 
-  it('supprime le groupe puis revient en arrière', async () => {
+  it('supprime le groupe (Réglages → confirmation) puis revient en arrière', async () => {
     mountOk();
     mockDeleteGroup.mockResolvedValue({ status: 204 });
 
-    await waitFor(() => expect(screen.getByTestId('group-delete')).toBeOnTheScreen());
+    await waitFor(() => expect(screen.getByTestId('coach-group-tabs-settings')).toBeOnTheScreen());
+    fireEvent.press(screen.getByTestId('coach-group-tabs-settings'));
     fireEvent.press(screen.getByTestId('group-delete'));
+    fireEvent.press(screen.getByTestId('group-delete-confirm'));
     await waitFor(() => expect(mockDeleteGroup).toHaveBeenCalledWith('g-1'));
     await waitFor(() => expect(mockBack).toHaveBeenCalled());
   });
