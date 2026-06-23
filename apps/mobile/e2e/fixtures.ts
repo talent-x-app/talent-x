@@ -121,6 +121,21 @@ class ApiSeed {
     return a.id;
   }
 
+  /** Publie une réponse de fil sous une annonce via l'API (ADR-50) — pour seeder un fil. Renvoie l'id. */
+  async createReply(
+    token: string,
+    groupId: string,
+    announcementId: string,
+    body: string,
+  ): Promise<string> {
+    const r = await this.postOk(
+      token,
+      `/groups/${groupId}/announcements/${announcementId}/replies`,
+      { body },
+    );
+    return r.id;
+  }
+
   /** Pose une réaction emoji sur une annonce via l'API (ADR-48/49) — pour seeder des auteurs. */
   async addAnnouncementReaction(
     token: string,
