@@ -181,6 +181,29 @@ async function main() {
     }
   }
 
+  // 7) Fil de réponses sous l'annonce (Palier 3, ADR-50) — dont une réponse SIGNALÉE 3× → masquée.
+  //    Démontre : fil bidirectionnel, suppression (auteur/coach), signalement + masquage modéré.
+  const reply = (token, text) =>
+    call('POST', `/groups/${group.id}/announcements/${ann.id}/replies`, {
+      token,
+      body: { body: text },
+    });
+  const report = (token, replyId, reason) =>
+    call('POST', `/groups/${group.id}/announcements/${ann.id}/replies/${replyId}/report`, {
+      token,
+      body: { reason },
+    });
+
+  await reply(alex.token, 'Parfait, j’y serai ! On commence par quoi à l’échauffement ?');
+  await reply(lea.token, 'Quelqu’un fait du covoiturage depuis le centre ?');
+  await reply(coach.token, 'Léa : oui, point de RDV parking nord à 17h45.');
+  // Réponse litigieuse d'un coéquipier, signalée par 3 personnes distinctes (≠ auteur) → masquée
+  // aux membres, visible du coach avec « 3 signalements » (seuil REPLY_REPORTS_HIDE_THRESHOLD=3).
+  const flagged = await reply(karim.token, 'bla bla hors-sujet, achetez mes chaussures promo!!!');
+  await report(alex.token, flagged.id, 'spam');
+  await report(lea.token, flagged.id, 'spam');
+  await report(coach.token, flagged.id, 'offensive');
+
   // --- Récap ---
   console.log('✅ Seed terminé.\n');
   console.log('Groupe          :', group.name, `(id ${group.id})`);
@@ -200,6 +223,13 @@ async function main() {
   console.log('  • Sous chaque réaction : les PRÉNOMS des auteurs (« par Léa, Karim »).');
   console.log('  • Ouvre la séance « Footing collectif + lignes » (onglet Séances) →');
   console.log('    section « Coéquipiers présents » : encourage Léa/Karim d’un 👏 (kudos).');
+  console.log('');
+  console.log('── Palier 3 (ADR-50) — fil de réponses ──');
+  console.log('  • Sous l’annonce, touche « Répondre » : 4 réponses, écris la tienne.');
+  console.log('  • Côté ATHLÈTE : la réponse de Karim (spam) est MASQUÉE (signalée 3×) ;');
+  console.log('    tu peux signaler/supprimer (ta propre réponse).');
+  console.log('  • Côté COACH : la même réponse est VISIBLE avec « Masquée · 3 signalements »,');
+  console.log('    et le coach peut supprimer n’importe quelle réponse (modération).');
 }
 
 main().catch((e) => {
