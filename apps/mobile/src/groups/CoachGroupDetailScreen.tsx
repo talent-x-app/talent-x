@@ -15,7 +15,7 @@ import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Share, Text, View } from 'react-native';
-import { Button, Card, Input, SegmentedTabs } from '../components/ui';
+import { Button, Card, Input, QrCode, SegmentedTabs } from '../components/ui';
 import { toUserMessage, useToast } from '../feedback';
 import { GROUPS_QUERY_KEY, groupMembersQueryKey, groupQueryKey } from './groups-query';
 import { AnnouncementsPane } from './announcements-ui';
@@ -373,6 +373,7 @@ function InviteCodeCard({ groupId, group }: { groupId: string; group: Group }) {
   const toast = useToast();
   const queryClient = useQueryClient();
   const [manageOpen, setManageOpen] = useState(false);
+  const [qrOpen, setQrOpen] = useState(false);
   const [pending, setPending] = useState<InviteCodeActionAction | null>(null);
 
   const invalidate = () => {
@@ -505,6 +506,47 @@ function InviteCodeCard({ groupId, group }: { groupId: string; group: Group }) {
                 </Button>
               </View>
             </View>
+
+            {/* QR du code : à présenter en séance, l'athlète le scanne pour rejoindre. */}
+            <Pressable
+              testID="group-invite-qr-toggle"
+              onPress={() => setQrOpen((o) => !o)}
+              accessibilityRole="button"
+              accessibilityState={{ expanded: qrOpen }}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: spacing[1],
+              }}
+            >
+              <Feather name="maximize" size={15} color={colors.textSecondary} />
+              <Text
+                style={{
+                  color: colors.textSecondary,
+                  fontFamily: typography.fontFamily.medium,
+                  fontSize: typography.bodySm.fontSize,
+                }}
+              >
+                {qrOpen ? 'Masquer le QR' : 'Afficher le QR'}
+              </Text>
+            </Pressable>
+
+            {qrOpen ? (
+              <View style={{ alignItems: 'center', gap: spacing[2], paddingVertical: spacing[2] }}>
+                <QrCode value={code} size={184} testID="group-invite-qr" />
+                <Text
+                  style={{
+                    color: colors.textMuted,
+                    fontFamily: typography.fontFamily.regular,
+                    fontSize: typography.caption.fontSize,
+                    textAlign: 'center',
+                  }}
+                >
+                  À scanner par tes athlètes pour rejoindre le groupe.
+                </Text>
+              </View>
+            ) : null}
 
             {/* Gestion repliée : actions rares démotées (régénérer / révoquer), avec confirmation. */}
             <Pressable

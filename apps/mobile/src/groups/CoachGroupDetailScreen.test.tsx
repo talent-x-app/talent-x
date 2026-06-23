@@ -107,6 +107,14 @@ describe('CoachGroupDetailScreen (TLX-87)', () => {
     );
   });
 
+  it('affiche le QR du code d’invitation (toggle)', async () => {
+    mountOk();
+    await waitFor(() => expect(screen.getByTestId('group-invite-qr-toggle')).toBeOnTheScreen());
+    expect(screen.queryByTestId('group-invite-qr')).toBeNull();
+    fireEvent.press(screen.getByTestId('group-invite-qr-toggle'));
+    await waitFor(() => expect(screen.getByTestId('group-invite-qr')).toBeOnTheScreen());
+  });
+
   it('partage le code d’invitation', async () => {
     const shareSpy = jest.spyOn(Share, 'share').mockResolvedValue({ action: 'sharedAction' });
     mountOk();
