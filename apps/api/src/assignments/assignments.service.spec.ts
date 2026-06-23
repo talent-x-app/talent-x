@@ -10,9 +10,15 @@ import type { NotificationQueueService } from '../jobs/notification-queue.servic
 import { AssignmentsService } from './assignments.service';
 import { AssignmentQueryDto } from './dto/assignment-query.dto';
 import { AssignmentStatus } from './dto/assignment.dto';
+import type { AttendanceRequestDto } from './dto/attendance.dto';
 
 const COACH: AuthenticatedUser = { id: 'c-1', role: 'coach' };
 const ATHLETE: AuthenticatedUser = { id: 'a-1', role: 'athlete' };
+
+/** Construit un corps `AttendanceRequest` typé depuis des littéraux (les enums portent ces valeurs). */
+function att(attendance: string, reason?: string): AttendanceRequestDto {
+  return { attendance, reason } as unknown as AttendanceRequestDto;
+}
 
 /** Brief complet (ADR-28) embarqué dans la séance d'une affectation. */
 const FULL_BRIEF = {
@@ -784,7 +790,7 @@ describe('AssignmentsService', () => {
     it('athlète titulaire déclare « présent » (going), sans toucher au statut', async () => {
       const prisma = prismaMock();
       withAssignment(prisma, { status: 'assigned' });
-      const res = await service(prisma).setAttendance(ATHLETE, 'asg-1', { attendance: 'going' });
+      const res = await service(prisma).setAttendance(ATHLETE, 'asg-1', att('going'));
       expect(prisma.sessionAssignment.update).toHaveBeenCalledWith(
         expect.objectContaining({ data: { attendance: 'going', attendanceReason: null } }),
       );
@@ -795,10 +801,7 @@ describe('AssignmentsService', () => {
     it('« absent » (not_going) exige un motif, conservé', async () => {
       const prisma = prismaMock();
       withAssignment(prisma);
-      const res = await service(prisma).setAttendance(ATHLETE, 'asg-1', {
-        attendance: 'not_going',
-        reason: 'injury',
-      });
+      const res = await service(prisma).setAttendance(ATHLETE, 'asg-1', att('not_going', 'injury'));
       expect(prisma.sessionAssignment.update).toHaveBeenCalledWith(
         expect.objectContaining({ data: { attendance: 'not_going', attendanceReason: 'injury' } }),
       );
@@ -809,7 +812,7 @@ describe('AssignmentsService', () => {
       const prisma = prismaMock();
       withAssignment(prisma);
       await expect(
-        service(prisma).setAttendance(ATHLETE, 'asg-1', { attendance: 'not_going' }),
+        service(prisma).setAttendance(ATHLETE, 'asg-1', att('not_going')),
       ).rejects.toBeInstanceOf(UnprocessableEntityException);
       expect(prisma.sessionAssignment.update).not.toHaveBeenCalled();
     });
@@ -817,10 +820,7 @@ describe('AssignmentsService', () => {
     it('« peut-être » (maybe) ignore tout motif fourni', async () => {
       const prisma = prismaMock();
       withAssignment(prisma);
-      await service(prisma).setAttendance(ATHLETE, 'asg-1', {
-        attendance: 'maybe',
-        reason: 'weather',
-      });
+      await service(prisma).setAttendance(ATHLETE, 'asg-1', att('maybe', 'weather'));
       expect(prisma.sessionAssignment.update).toHaveBeenCalledWith(
         expect.objectContaining({ data: { attendance: 'maybe', attendanceReason: null } }),
       );
@@ -830,7 +830,7 @@ describe('AssignmentsService', () => {
       const prisma = prismaMock();
       withAssignment(prisma, { athleteId: 'a-2' });
       await expect(
-        service(prisma).setAttendance(ATHLETE, 'asg-1', { attendance: 'going' }),
+        service(prisma).setAttendance(ATHLETE, 'asg-1', att('going')),
       ).rejects.toBeInstanceOf(ForbiddenException);
     });
 
@@ -838,7 +838,7 @@ describe('AssignmentsService', () => {
       const prisma = prismaMock();
       withAssignment(prisma);
       await expect(
-        service(prisma).setAttendance(COACH, 'asg-1', { attendance: 'going' }),
+        service(prisma).setAttendance(COACH, 'asg-1', att('going')),
       ).rejects.toBeInstanceOf(ForbiddenException);
     });
 
@@ -846,7 +846,7 @@ describe('AssignmentsService', () => {
       const prisma = prismaMock();
       prisma.sessionAssignment.findFirst.mockResolvedValue(null);
       await expect(
-        service(prisma).setAttendance(ATHLETE, 'asg-1', { attendance: 'going' }),
+        service(prisma).setAttendance(ATHLETE, 'asg-1', att('going')),
       ).rejects.toBeInstanceOf(NotFoundException);
     });
   });
