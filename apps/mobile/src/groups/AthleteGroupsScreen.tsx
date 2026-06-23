@@ -157,6 +157,16 @@ export function AthleteGroupsScreen() {
               </View>
             </Card>
           ))}
+          {/* Multi-coach (ADR-51) : un athlète peut rejoindre d'autres groupes (coachs inclus). */}
+          <Button
+            testID="groups-join-another"
+            variant="secondary"
+            fullWidth
+            leftIcon={<Feather name="plus" size={18} color={colors.accentText} />}
+            onPress={() => router.push(joinGroupHref())}
+          >
+            Rejoindre un autre groupe
+          </Button>
         </View>
       )}
     </ScrollView>

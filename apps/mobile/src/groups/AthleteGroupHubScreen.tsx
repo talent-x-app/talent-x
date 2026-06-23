@@ -8,6 +8,7 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 import { Button, Card, SegmentedTabs } from '../components/ui';
 import { toUserMessage, useToast } from '../feedback';
 import { NotificationsBell } from '../notifications/NotificationsBell';
+import { joinGroupHref } from './navigation';
 import { MY_GROUPS_QUERY_KEY } from './groups-query';
 import { TeammatesPane } from './group-teammates-ui';
 import { AnnouncementsPane } from './announcements-ui';
@@ -201,6 +202,16 @@ function GroupInfoPane({ group, groupId }: { group?: AthleteGroup; groupId: stri
           </Text>
         ) : null}
       </View>
+
+      {/* Multi-coach (ADR-51) : rejoindre un autre groupe (d'un autre coach inclus). */}
+      <Button
+        testID="athlete-group-join-another"
+        variant="secondary"
+        fullWidth
+        onPress={() => router.push(joinGroupHref())}
+      >
+        Rejoindre un autre groupe
+      </Button>
 
       {/* Action destructive : confirmation inline (ADR-44 §6) — robuste web + natif. */}
       <Card>
