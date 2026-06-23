@@ -296,7 +296,7 @@ Information
 
 13\-14
 
-Politique de confidentialité et écrans d'onboarding
+Politique de confidentialité et écrans d'onboarding\. La notice doit **divulguer explicitement** la **visibilité d'identité entre coéquipiers d'un même groupe** \(« trombinoscope d'équipe » : nom \+ avatar visibles des autres membres ; ADR\-37, suivi TLX\-150, tracé en TX\-DPIA\-007 §5\.5\) — *validé RT le 23/06/2026 ; à intégrer au texte publié de la notice avant mise en prod\.*
 
 —
 

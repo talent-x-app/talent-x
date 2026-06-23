@@ -36,6 +36,18 @@ __Nature des modifications__
 
 Projet initial, structuré selon la démarche CNIL/EDPB, à partir du lot Talent\-X \(TX\-ARCH\-001, TX\-SPEC\-002, TX\-SEC\-003, TX\-DATA\-006, TX\-OPS\-004\)\. Sections d'avis et de décision à compléter par le DPO\.
 
+1\.1 \(projet\)
+
+23 juin 2026
+
+Ajout du flux de **visibilité d'identité pair\-à\-pair** entre coéquipiers d'un groupe \(ADR\-37, endpoint `GET /groups/{id}/teammates` ; suivi TLX\-150\) : nouvelle §5\.5, pointeur en §3\.5 et ligne au plan d'action §6\. Base légale et risque résiduel **proposés, à valider par le DPO** avant mise en production de la fonctionnalité\.
+
+1\.2 \(validé RT\)
+
+23 juin 2026
+
+**Validation du flux §5\.5** par le responsable de traitement : base juridique \(exécution du contrat / intérêt légitime — attente raisonnable « trombinoscope d'équipe »\) et risque résiduel \(Limité\) **retenus**\. Visibilité d'identité pair\-à\-pair **autorisée en production** \(débloque TLX\-185\)\. Cas mineurs : traité au niveau projet \(TX\-SEC\-003 §7\), sans spécificité ajoutée par ce flux \(identité seule, hors art\. 9\)\. Avis formel d'un DPO désigné à recueillir si/quand l'organisation en désigne un \(art\. 35\(2\)\)\.
+
 __Sommaire__
 
 # 1\. Objet et méthode
@@ -127,6 +139,8 @@ Durées bornées par catégorie \(TX\-SEC\-003 §9\) : compte actif, performance
 ## 3\.5 Information et transparence
 
 Politique de confidentialité et écrans d'onboarding ; registre des traitements tenu \(art\. 30, TX\-SEC\-003 §5\)\.
+
+La **visibilité d'identité pair\-à\-pair** au sein d'un groupe \(« trombinoscope d'équipe », cf\. §5\.5\) doit être **mentionnée explicitement dans la notice de confidentialité** avant la mise en production : un athlète membre voit le nom \(et l'avatar\) de ses coéquipiers du même groupe\. À tracer aussi dans le registre des traitements \(nouveau flux de partage entre utilisateurs\)\. *\(TLX\-150 — validé RT le 23/06/2026 ; cf\. §5\.5\.\)*
 
 # 4\. Mesures protégeant les droits des personnes
 
@@ -317,6 +331,59 @@ Négligeable à limité — à valider\.
 - Mineurs : si le périmètre inclut des mineurs, la gravité des événements redoutés augmente et des mesures dédiées sont requises \(vérification d'âge, consentement parental\) — décision à trancher \(TX\-SEC\-003 §7\)\.
 - Transferts hors UE \(push\) : risque de conformité à lever par la vérification du mécanisme de transfert et la minimisation du contenu des notifications \(TX\-SEC\-003 §10\)\.
 
+## 5\.5 Visibilité d'identité pair\-à\-pair \(coéquipiers de groupe\)
+
+*\(Ajout TLX\-150 / ADR\-37 — projet, à valider par le DPO\.\)*
+
+__Flux nouveau\. __Jusqu'ici, la composition d'un groupe n'était visible que du **coach propriétaire** \(`GET /groups/{id}/members`\) ; l'athlète ne voyait qu'un **effectif** \(`memberCount`, ADR\-26\)\. ADR\-37 introduit `GET /groups/{id}/teammates` : un athlète **membre actif** d'un groupe voit désormais l'**identité** \(nom, prénom, avatar\) de ses coéquipiers du **même** groupe\. C'est un **partage d'identité entre utilisateurs**, distinct du partage coach↔athlète déjà analysé\.
+
+__Données partagées \(minimisées, schéma `GroupTeammate`\)\. __`firstName`, `lastName`, `avatarUrl` uniquement\. **Exclus** : e\-mail, sport, date d'adhésion, et **toute** donnée de performance / charge / santé \(qui restent consent\-gated et coach\-scopées, ADR\-08/21\)\. Aucune donnée de l'art\. 9 n'est exposée par ce flux\.
+
+__Périmètre & garde\. __Visibilité **bornée aux co\-membres d'un groupe que l'athlète a lui\-même rejoint** \(garde d'appartenance active ; 404 anti\-énumération sinon\)\. **Exclusions systématiques** : membres partis \(`left_at`\), groupes supprimés \(`deleted_at`\), comptes effacés/anonymisés \(ADR\-15\) — l'anonymisation se reflète dans le roster\.
+
+__Base juridique \(validée RT, 23/06/2026\)\. __Exécution du contrat / **intérêt légitime** \(art\. 6\(1\)\(b\)/\(f\)\) : la visibilité de l'identité au sein d'un groupe d'entraînement relève de l'**attente raisonnable** d'un « trombinoscope d'équipe » \(on rejoint un groupe nommé, animé par un coach identifié, pour s'entraîner avec d'autres\)\. **Pas** de catégorie spéciale \(art\. 9\) → **pas** de porte de consentement \(cohérent ADR\-24/26\)\. Information assurée par la notice de confidentialité \(§3\.5\)\. **Cas mineurs** : pas de spécificité ajoutée par ce flux \(identité seule\) ; traité au niveau projet \(TX\-SEC\-003 §7\)\. Avis formel d'un DPO désigné à recueillir le cas échéant \(art\. 35\(2\)\)\.
+
+__Événement redouté\. __Visibilité non souhaitée de son identité par un coéquipier ; persistance de l'identité après départ du groupe\.
+
+__Gravité \(proposée\)\. __Limitée — identité seule, sans donnée sensible, dans un cercle déjà partagé \(même groupe, même coach\)\.
+
+__Vraisemblance \(proposée\)\. __Limitée — périmètre membre\-gated, schéma minimisé, exclusion des départs/anonymisations\.
+
+__Mesures en place ou prévues\. __Schéma dédié minimisé \(pas de réutilisation de `UserSummary`\) ; garde d'appartenance active ; filtrage `left_at`/`deleted_at`/anonymisés ; avatar présigné best\-effort à TTL court \(sinon omis\) ; endpoint **isolé et désactivable** \(repli effectif seul, ADR\-26\)\.
+
+__Risque résiduel \(validé RT, 23/06/2026\)\. __Limité — **acceptable, mise en production autorisée**\. **Repli** disponible si besoin : revenir à l'effectif seul \(endpoint retiré/désactivé, additif et réversible\)\.
+
+## 5\.6 Visibilité de présence confirmée entre coéquipiers \(Mur Palier 2 / kudos\)
+
+*\(Ajout TLX\-185 / ADR\-49 — validé RT le 23/06/2026\.\)*
+
+__Flux nouveau\. __Le « kudos de participation » \(Mur Palier 2, ADR\-48/ADR\-49\) permet à un athlète
+d'**encourager** un coéquipier qui a **confirmé sa présence** \(`attendance = going`, ADR\-43\) à une
+séance de groupe\. Il suppose donc qu'un athlète **voie qu'un coéquipier a confirmé** — une visibilité
+de **présence** pair\-à\-pair, **distincte** du trombinoscope d'identité \(§5\.5\) et que ADR\-43 §5 avait
+différée à la présente AIPD\.
+
+__Données partagées \(minimisées\)\. __Le **fait** qu'un coéquipier a confirmé sa présence à une séance
+de groupe \(booléen de présence `going`\), \+ son identité minimisée \(`GroupTeammate`, §5\.5\) comme
+auteur/destinataire d'un kudos\. **Exclus** : motif d'absence, ressenti, **toute** donnée de
+performance / charge / record \(consent\-gated, coach\-scopées, ADR\-08/21\)\. Le kudos porte sur le
+**fait de venir**, jamais sur un résultat\.
+
+__Périmètre & garde\. __Visibilité **bornée aux co\-membres d'un groupe partagé** vers lequel la séance
+a été diffusée \(fan\-out ADR\-30\) ; uniquement sur les présences **`going`** ; exclusion des membres
+partis / groupes supprimés / comptes anonymisés\. Notification `group_kudos` au destinataire, gatée par
+sa préférence `groupUpdates`, contenu push minimal \(ADR\-10\)\.
+
+__Base juridique \(validée RT, 23/06/2026\)\. __Même base que §5\.5 — exécution du contrat / intérêt
+légitime \(art\. 6\(1\)\(b\)/\(f\)\), **attente raisonnable** d'un contexte d'équipe \(s'entraîner ensemble
+implique de savoir qui vient\)\. La présence n'est **pas** une donnée de l'art\. 9 \(participation ≠
+santé, ADR\-24/43\) → **pas** de porte de consentement\. Information par la notice de confidentialité\.
+
+__Gravité / vraisemblance / risque résiduel \(validés RT\)\. __Limités — encouragement positif, donnée
+de présence non sensible, cercle déjà partagé \(même groupe, même coach\)\. **Repli** : désactiver le
+kudos \(table/route isolées\) → retour aux réactions nominatives \(§5\.5\) puis au Palier 1, sans
+régression\.
+
 # 6\. Plan d'action et risques résiduels
 
 __Action__
@@ -398,6 +465,14 @@ Moyenne
 OPS §6
 
 À faire
+
+Valider la visibilité d'identité pair\-à\-pair \(base légale, notice, registre\) — coéquipiers de groupe
+
+Haute
+
+§5\.5 / ADR\-37 / TLX\-150
+
+**Validé \(RT, 23/06/2026\)** — Palier 2 \(TLX\-185\) débloqué\. Reste : aligner `.docx/.pdf` originaux ; avis DPO formel si désigné\.
 
 Sous réserve de la mise en œuvre du plan d'action et de la validation du DPO, le risque résiduel global est estimé acceptable \(proposition à valider\)\. Les deux points ouverts à plus fort enjeu sont la place des mineurs et l'encadrement des transferts hors UE\.
 
