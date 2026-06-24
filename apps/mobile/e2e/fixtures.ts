@@ -27,6 +27,19 @@ export interface Credentials {
   token?: string;
 }
 
+/** Décor coach cohérent renvoyé par `apiSeed.coachWorld()`. */
+export interface CoachWorld {
+  coach: Required<Credentials>;
+  athlete: Required<Credentials>;
+  group: { id: string; inviteCode: string };
+  sessionId: string;
+  /** présents si `toReview: true`. */
+  assignmentId?: string;
+  performanceId?: string;
+  /** présent si `secondCoach: true` (cloisonnement ADR-51). */
+  otherCoach?: Required<Credentials>;
+}
+
 /** Bloc d'épreuve minimal pour produire un eventKey canonique (record-detection.ts). */
 export interface MarkSpec {
   /** type de bloc chronométré (sprint/endurance/hurdles/interval). */
@@ -101,6 +114,44 @@ class ApiSeed {
     const res = await this.api.get(`${API_URL}${path}`, { headers: this.auth(token) });
     expect(res.ok(), `GET ${path} → ${res.status()} ${await safeText(res)}`).toBeTruthy();
     return res.json();
+  }
+
+  /**
+   * Décor coach complet et cohérent (coach + athlète + groupe rejoint + séance), pour
+   * supprimer le boilerplate `register×2 + createGroup + joinGroup + createSession` répété
+   * dans chaque spec. Options :
+   *  - `toReview`    : pousse jusqu'à une **perf soumise** (consentement → assign échéance passée
+   *                    → performance) ⇒ la séance remonte côté coach en « à revoir ».
+   *  - `secondCoach` : ajoute un **coach étranger** (cas P / cloisonnement ADR-51).
+   *  - `dueDate`     : échéance de l'assignation (par défaut **passée** ⇒ statut « en retard »).
+   */
+  async coachWorld(
+    opts: { toReview?: boolean; secondCoach?: boolean; dueDate?: string } = {},
+  ): Promise<CoachWorld> {
+    const coach = await this.register('coach', 'Coach', 'World');
+    const athlete = await this.register('athlete', 'Ath', 'World');
+    const group = await this.createGroup(coach.token);
+    await this.joinGroup(athlete.token, group.inviteCode);
+    const sessionId = await this.createSession(coach.token, { title: 'Seance World' });
+
+    let assignmentId: string | undefined;
+    let performanceId: string | undefined;
+    if (opts.toReview) {
+      await this.grantConsent(athlete.token, 'data_processing');
+      const [assignment] = await this.assign(coach.token, sessionId, {
+        athleteIds: [athlete.id],
+        dueDate: opts.dueDate ?? '2026-06-01', // passée → « en retard » / à revoir
+      });
+      assignmentId = assignment.id;
+      const perf = await this.submitPerformance(athlete.token, assignmentId);
+      performanceId = perf?.id;
+    }
+
+    const otherCoach = opts.secondCoach
+      ? await this.register('coach', 'Other', 'Coach')
+      : undefined;
+
+    return { coach, athlete, group, sessionId, assignmentId, performanceId, otherCoach };
   }
 
   async createGroup(
@@ -424,6 +475,16 @@ class ApiSeed {
   async countNotifs(token: string, type: string): Promise<number> {
     const { data } = await this.getNotifications(token);
     return (data ?? []).filter((n: any) => n.type === type).length;
+  }
+
+  /**
+   * Attend qu'une notification d'un type donné apparaisse pour le destinataire — les notifs
+   * sont produites par un **worker async** (Redis), donc non immédiates après l'écriture.
+   */
+  async waitForNotif(token: string, type: string, timeoutMs = 20_000): Promise<void> {
+    await expect
+      .poll(async () => this.countNotifs(token, type), { timeout: timeoutMs })
+      .toBeGreaterThan(0);
   }
 
   /** Crée une compétition (coach). Renvoie l'id. */
