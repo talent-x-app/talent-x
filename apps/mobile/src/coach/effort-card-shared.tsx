@@ -330,7 +330,9 @@ export function EffortTable({
             key={i}
             style={[
               colHeaderStyle,
-              c.width != null ? { width: c.width } : { flex: c.flex ?? 1 },
+              // `minWidth: 0` pour suivre les cellules (qui se rétrécissent) et rester aligné en
+              // largeur étroite (TLX-191).
+              c.width != null ? { width: c.width } : { flex: c.flex ?? 1, minWidth: 0 },
               { color: colors.textMuted },
             ]}
           >
@@ -870,6 +872,11 @@ export function CellInput({
     <View
       style={{
         flex: 1,
+        // `minWidth: 0` indispensable : react-native-web donne aux items flex un `min-width: auto`
+        // = largeur intrinsèque de l'`<input>` (~150px). Sans ça, `flex:1` ne peut PAS rétrécir les
+        // cellules sous cette taille → en largeur étroite (mobile) les colonnes se chevauchent et
+        // valeurs/unités débordent (TLX-191). À 0, les 3 colonnes se répartissent la largeur réelle.
+        minWidth: 0,
         flexDirection: 'row',
         alignItems: 'center',
         borderRadius: radius.sm,
@@ -889,6 +896,7 @@ export function CellInput({
         placeholder={placeholder}
         style={{
           flex: 1,
+          minWidth: 0, // laisse l'input rétrécir dans sa cellule (cf. minWidth:0 du conteneur)
           color: colors.textPrimary,
           fontFamily: typography.fontFamily.regular,
           fontSize: typography.bodySm.fontSize,
