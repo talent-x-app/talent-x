@@ -189,6 +189,8 @@ function hurdleEffort(opts: {
   recoverySeconds: number;
   leadLeg?: string;
   sex?: 'H' | 'F';
+  /** Intensité par défaut (% du record) — pré-remplit la colonne « Intensité ». */
+  intensityPercent?: number;
 }): EditableBlock {
   return makeBlock({
     type: BlockType.hurdles,
@@ -212,6 +214,8 @@ function hurdleEffort(opts: {
       leadLeg: opts.leadLeg ?? 'left',
       startType: 'blocks',
       sex: opts.sex ?? 'H',
+      intensityMode: 'percent_record',
+      intensityValue: String(opts.intensityPercent ?? 92),
       recoverySeconds: String(opts.recoverySeconds),
     },
   });
