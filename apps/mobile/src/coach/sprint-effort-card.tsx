@@ -239,23 +239,29 @@ export function SprintEffortCanvas({
   }
 
   function addSerie() {
+    // Une série ajoutée part du 1er preset (Départs / Accélération) → un modèle est sélectionné
+    // par défaut (match par nom), comme l'amorce de l'assistant.
+    const preset = SPRINT_PRESETS[0]?.build().find((n) => isEditableGroup(n)) as
+      | EditableGroup
+      | undefined;
     commit([
       ...series,
-      makeSeriesGroup({
-        name: 'Série de sprint',
-        rounds: '1',
-        restBetweenRoundsSeconds: '300',
-        items: [
-          makeSprintBlock({
-            distance: 60,
-            intensity: 95,
-            recovery: 240,
-            intensityMode: 'percent_record',
-            startType: 'blocks',
-            flyingZone: false,
-          }),
-        ],
-      }),
+      preset ??
+        makeSeriesGroup({
+          name: 'Série de sprint',
+          rounds: '1',
+          restBetweenRoundsSeconds: '300',
+          items: [
+            makeSprintBlock({
+              distance: 60,
+              intensity: 95,
+              recovery: 240,
+              intensityMode: 'percent_record',
+              startType: 'blocks',
+              flyingZone: false,
+            }),
+          ],
+        }),
     ]);
   }
 
@@ -412,11 +418,9 @@ function SeriesCard({
         />
       </View>
 
-      {/* Séries + récup R */}
-      <View
-        style={{ flexDirection: 'row', gap: spacing[3], flexWrap: 'wrap', alignItems: 'flex-end' }}
-      >
-        <View>
+      {/* Séries + récup R — deux colonnes égales, côte à côte. */}
+      <View style={{ flexDirection: 'row', gap: spacing[3], alignItems: 'flex-end' }}>
+        <View style={{ flex: 1 }}>
           <FieldLabel>Séries</FieldLabel>
           <Stepper
             testID={`${tid}-rounds`}
@@ -427,7 +431,7 @@ function SeriesCard({
             accessibilityLabel="Nombre de séries"
           />
         </View>
-        <View>
+        <View style={{ flex: 1 }}>
           <FieldLabel>Récup. R</FieldLabel>
           <InlineNumberInput
             testID={`${tid}-restR`}
