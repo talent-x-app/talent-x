@@ -1034,29 +1034,12 @@ export function assistantSeed(discipline: string | undefined): EditableNode[] {
     rounds: '1',
     items: [makeBlock({ type: cfg.blockType, name: cfg.effortLabel })],
   });
-  // Sprint : amorce avec échauffement + 1 sprint par défaut + retour au calme (ADR-39, TLX-165).
+  // Sprint : amorce avec le 1er preset (Départs / Accélération) — un modèle est donc « choisi »
+  // par défaut, comme Renforcement avec Force max — encadré d'échauffement / retour au calme
+  // (ADR-39, TLX-165). La carte pré-sélectionne le modèle correspondant.
   if (cfg.key === 'sprint') {
-    const sprintSeries = makeSeriesGroup({
-      name: 'Série de sprint',
-      rounds: '1',
-      restBetweenRoundsSeconds: '300',
-      items: [
-        makeBlock({
-          type: BlockType.sprint,
-          name: '60 m',
-          params: {
-            reps: '1',
-            distanceMeters: '60',
-            recoverySeconds: '240',
-            intensityMode: 'percent_record',
-            intensityValue: '95',
-            startType: 'blocks',
-            flyingZone: 'false',
-          },
-        }),
-      ],
-    });
-    return [makeWarmupBlock(), sprintSeries, makeCooldownBlock()];
+    const starts = SPRINT_PRESETS.find((p) => p.key === 'starts');
+    return [makeWarmupBlock(), ...(starts ? starts.build() : []), makeCooldownBlock()];
   }
   // Renforcement / PPG : amorce avec le preset Force max (blocs `strength` top-level), encadré
   // d'un échauffement et d'un retour au calme (même esprit que Sprint, ADR-41).

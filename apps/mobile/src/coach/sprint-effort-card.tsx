@@ -75,6 +75,19 @@ function serieProps(group: EditableGroup) {
   };
 }
 
+/**
+ * Clé du modèle dont la série amorcée correspond (match par **nom de série**), pour pré-sélectionner
+ * le sélecteur de modèle. `''` si aucune correspondance (séance custom / éditée) → « Choisir… ».
+ * Sûr pour l'édition : une séance existante qui ne matche aucun preset n'est jamais pré-sélectionnée.
+ */
+function matchPresetKey(group: EditableGroup): string {
+  for (const p of SPRINT_PRESETS) {
+    const g = p.build().find((n) => isEditableGroup(n)) as EditableGroup | undefined;
+    if (g && g.name === group.name) return p.key;
+  }
+  return '';
+}
+
 /** Résumé condensé d'une série pour la tuile réduite. */
 function serieSummary(group: EditableGroup): string {
   const { intensityMode, startType, rounds, restR } = serieProps(group);
@@ -365,7 +378,9 @@ function SeriesCard({
   onMoveDown: () => void;
   onDelete: () => void;
 }) {
-  const [selectedPresetKey, setSelectedPresetKey] = useState('');
+  // Pré-sélection : si la série amorcée correspond à un modèle (cas assistant), on l'affiche
+  // sélectionné. Dérivé une seule fois au montage (les choix ultérieurs pilotent l'état).
+  const [selectedPresetKey, setSelectedPresetKey] = useState(() => matchPresetKey(group));
   const { colors, typography, spacing } = useTheme();
   const tid = `series-card-${index}`;
   const { intensityMode, startType, flyingZone, rounds, restR } = serieProps(group);
