@@ -143,7 +143,8 @@ describe('HurdlesEffortCanvas', () => {
     const h = setup(defaultNodes());
     act(() => fireEvent.press(screen.getByTestId('series-card-0-sex-H')));
     act(() => fireEvent.changeText(screen.getByTestId('series-card-0-event'), '110mH'));
-    act(() => fireEvent.changeText(screen.getByTestId('series-card-0-intensityValue'), '95'));
+    // L'intensité se saisit par passage (colonne « Intensité » du tableau, comme Sprint).
+    act(() => fireEvent.changeText(screen.getByTestId('series-card-0-pass-0-int'), '95'));
     expect(h.groups()[0].items[0].params.intensityValue).toBe('95');
     expect(screen.getByText(/≈ .* s sur la référence du module/)).toBeTruthy();
   });

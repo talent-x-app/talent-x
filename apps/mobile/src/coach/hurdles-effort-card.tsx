@@ -578,11 +578,12 @@ function HurdlesSeriesCard({
         title="Passages de la série"
         onAddRow={onAddPass}
         addRowTestID={`${tid}-add-pass`}
-        columns={[{ label: 'Distance' }, { label: 'Récup r' }]}
+        columns={[{ label: 'Distance' }, { label: 'Intensité' }, { label: 'Récup r', width: 72 }]}
       >
         {group.items.map((block, bi) => (
           <HurdlePassRow
             key={block.key}
+            intensityMode={intensityMode}
             block={block}
             index={bi}
             isLast={bi === group.items.length - 1}
@@ -625,17 +626,8 @@ function HurdlesSeriesCard({
             onPatchSerieParam({ intensityMode: v, intensityValue: '' });
           }}
         />
-        {/* Champ valeur visible pour les 3 référentiels (unité adaptée) — plus de mode « mort »
-            sans saisie. La valeur est réinitialisée au changement de référentiel (cf. onSelect). */}
-        <InlineNumberInput
-          testID={`${tid}-intensityValue`}
-          value={intensityValue}
-          onChangeText={(t) => onPatchSerieParam({ intensityValue: t })}
-          placeholder={
-            intensityMode === 'speed' ? '8.5' : intensityMode === 'target_time' ? '14.5' : '92'
-          }
-          unit={intensityMode === 'speed' ? 'm/s' : intensityMode === 'target_time' ? 's' : '%'}
-        />
+        {/* L'intensité se saisit désormais **par passage** (colonne « Intensité » du tableau,
+            comme Sprint) ; le référentiel ci-dessus en fixe l'unité (%, s, m/s). */}
         <InfoNote>{intensityNote(intensityMode, targetTime)}</InfoNote>
       </View>
 
@@ -681,6 +673,7 @@ function HurdlePassRow({
   index,
   isLast,
   canDelete,
+  intensityMode,
   onPatch,
   onDelete,
   testIDPrefix,
@@ -689,11 +682,14 @@ function HurdlePassRow({
   index: number;
   isLast: boolean;
   canDelete: boolean;
+  intensityMode: string;
   onPatch: (patch: Record<string, string>) => void;
   onDelete: () => void;
   testIDPrefix: string;
 }) {
   const { colors, typography } = useTheme();
+  const intensityUnit =
+    intensityMode === 'speed' ? 'm/s' : intensityMode === 'target_time' ? 's' : '%';
   return (
     <EffortRowFrame
       testID={testIDPrefix}
@@ -709,8 +705,16 @@ function HurdlePassRow({
         unit="m"
         decimal
       />
+      <CellInput
+        testID={`${testIDPrefix}-int`}
+        value={block.params.intensityValue ?? ''}
+        onChangeText={(t) => onPatch({ intensityValue: t })}
+        unit={intensityUnit}
+        decimal={intensityMode !== 'percent_record'}
+      />
+      {/* Colonne « récup » à largeur fixe (72) → la dernière ligne (« → R ») reste alignée. */}
       {isLast ? (
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+        <View style={{ width: 72, height: 38, alignItems: 'center', justifyContent: 'center' }}>
           <Text
             style={{
               color: colors.textMuted,
@@ -722,18 +726,20 @@ function HurdlePassRow({
           </Text>
         </View>
       ) : (
-        <CellInput
-          testID={`${testIDPrefix}-rec`}
-          value={
-            block.params.recoverySeconds ? String(Number(block.params.recoverySeconds) / 60) : ''
-          }
-          onChangeText={(t) => {
-            const v = parseFloat(t);
-            onPatch({ recoverySeconds: String(isNaN(v) ? 0 : Math.round(v * 60)) });
-          }}
-          unit="min"
-          decimal
-        />
+        <View style={{ width: 72 }}>
+          <CellInput
+            testID={`${testIDPrefix}-rec`}
+            value={
+              block.params.recoverySeconds ? String(Number(block.params.recoverySeconds) / 60) : ''
+            }
+            onChangeText={(t) => {
+              const v = parseFloat(t);
+              onPatch({ recoverySeconds: String(isNaN(v) ? 0 : Math.round(v * 60)) });
+            }}
+            unit="min"
+            decimal
+          />
+        </View>
       )}
     </EffortRowFrame>
   );
