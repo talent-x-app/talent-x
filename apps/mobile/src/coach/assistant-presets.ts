@@ -1058,5 +1058,11 @@ export function assistantSeed(discipline: string | undefined): EditableNode[] {
     const first = HURDLES_PRESETS[0];
     return first ? first.build() : [series];
   }
+  // Endurance : amorce avec le 1er preset (Endurance fondamentale) → modèle par défaut + table
+  // d'efforts pré-remplie (vs amorce générique vide).
+  if (cfg.key === 'endurance') {
+    const first = ENDURANCE_PRESETS[0];
+    return first ? first.build() : [series];
+  }
   return [series];
 }

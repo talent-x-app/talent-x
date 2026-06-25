@@ -638,7 +638,12 @@ export function SegmentedControl({
             accessibilityState={{ selected: sel }}
             style={({ pressed }) => ({
               flex: 1,
-              height: 36,
+              // `minHeight` (et non hauteur fixe) + padding : un libellé long (« Allure spécifique »
+              // sur 4 options) peut passer sur 2 lignes sans être tronqué ; toutes les cases
+              // s'alignent à la plus haute (flex row).
+              minHeight: 36,
+              paddingVertical: 4,
+              paddingHorizontal: 4,
               alignItems: 'center',
               justifyContent: 'center',
               backgroundColor: sel ? colors.accentSubtle : pressed ? colors.surface : 'transparent',
@@ -647,7 +652,9 @@ export function SegmentedControl({
             })}
           >
             <Text
+              numberOfLines={2}
               style={{
+                textAlign: 'center',
                 color: sel ? colors.accentText : colors.textSecondary,
                 fontFamily: sel ? typography.fontFamily.semibold : typography.fontFamily.regular,
                 fontSize: typography.caption.fontSize,
