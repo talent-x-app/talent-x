@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { Feather } from '@expo/vector-icons';
-import { Pressable, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { useTheme } from '@talent-x/design-tokens';
 import { Button, Card } from '../components/ui';
 import {
@@ -740,9 +740,20 @@ export function PresetPicker({
   placeholder?: string;
 }) {
   const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
   const { colors, typography, spacing, radius, borderWidth } = useTheme();
   const selectedLabel = presets.find((p) => p.key === selectedKey)?.label;
   const accented = !subtle && selectedLabel != null;
+  // Recherche au-delà de ~8 entrées (ex. catalogue d'exercices) ; inutile pour 5–7 modèles.
+  const searchable = presets.length > 8;
+  // Normalisation insensible casse + accents (« dev » doit matcher « Développé »).
+  const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  const q = norm(query.trim());
+  const filtered = searchable && q ? presets.filter((p) => norm(p.label).includes(q)) : presets;
+  const close = () => {
+    setOpen(false);
+    setQuery('');
+  };
 
   if (!open) {
     return (
@@ -799,42 +810,98 @@ export function PresetPicker({
         overflow: 'hidden',
       }}
     >
-      {presets.map((p) => (
-        <Pressable
-          key={p.key}
-          testID={testID ? `${testID}-${p.key}` : undefined}
-          onPress={() => {
-            onSelect(p.key);
-            setOpen(false);
-          }}
-          style={({ pressed }) => ({
+      {/* Recherche (listes longues) : filtrer au lieu de tout dérouler. */}
+      {searchable ? (
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: spacing[2],
             paddingHorizontal: spacing[3],
-            paddingVertical: spacing[2],
-            backgroundColor:
-              p.key === selectedKey
-                ? colors.accentSubtle
-                : pressed
-                  ? colors.surfaceSunken
-                  : 'transparent',
-          })}
+            height: 40,
+            borderBottomWidth: borderWidth.hairline,
+            borderBottomColor: colors.border,
+          }}
         >
+          <Feather name="search" size={14} color={colors.textMuted} />
+          <TextInput
+            testID={testID ? `${testID}-search` : undefined}
+            autoFocus
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Rechercher…"
+            placeholderTextColor={colors.textMuted}
+            style={{
+              flex: 1,
+              padding: 0,
+              color: colors.textPrimary,
+              fontFamily: typography.fontFamily.regular,
+              fontSize: typography.bodySm.fontSize,
+            }}
+          />
+        </View>
+      ) : null}
+      {/* Liste scrollable à hauteur bornée (au lieu d'occuper tout l'écran). */}
+      <ScrollView
+        style={{ maxHeight: 240 }}
+        keyboardShouldPersistTaps="handled"
+        nestedScrollEnabled
+      >
+        {filtered.map((p) => (
+          <Pressable
+            key={p.key}
+            testID={testID ? `${testID}-${p.key}` : undefined}
+            onPress={() => {
+              onSelect(p.key);
+              close();
+            }}
+            style={({ pressed }) => ({
+              paddingHorizontal: spacing[3],
+              paddingVertical: spacing[2],
+              backgroundColor:
+                p.key === selectedKey
+                  ? colors.accentSubtle
+                  : pressed
+                    ? colors.surfaceSunken
+                    : 'transparent',
+            })}
+          >
+            <Text
+              style={{
+                color: p.key === selectedKey ? colors.accentText : colors.textPrimary,
+                fontFamily:
+                  p.key === selectedKey
+                    ? typography.fontFamily.semibold
+                    : typography.fontFamily.regular,
+                fontSize: typography.bodySm.fontSize,
+              }}
+            >
+              {p.label}
+            </Text>
+          </Pressable>
+        ))}
+        {filtered.length === 0 ? (
           <Text
             style={{
-              color: p.key === selectedKey ? colors.accentText : colors.textPrimary,
-              fontFamily:
-                p.key === selectedKey
-                  ? typography.fontFamily.semibold
-                  : typography.fontFamily.regular,
+              paddingHorizontal: spacing[3],
+              paddingVertical: spacing[3],
+              color: colors.textMuted,
+              fontFamily: typography.fontFamily.regular,
               fontSize: typography.bodySm.fontSize,
             }}
           >
-            {p.label}
+            Aucun résultat
           </Text>
-        </Pressable>
-      ))}
+        ) : null}
+      </ScrollView>
       <Pressable
-        onPress={() => setOpen(false)}
-        style={{ paddingHorizontal: spacing[3], paddingVertical: spacing[2] }}
+        onPress={close}
+        style={{
+          paddingHorizontal: spacing[3],
+          paddingVertical: spacing[2],
+          borderTopWidth: borderWidth.hairline,
+          borderTopColor: colors.border,
+        }}
       >
         <Text
           style={{
