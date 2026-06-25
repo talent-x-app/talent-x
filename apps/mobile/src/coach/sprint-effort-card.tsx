@@ -458,7 +458,13 @@ function SeriesCard({
           testIDPrefix={`${tid}-imode`}
           options={INTENSITY_MODES}
           selected={intensityMode}
-          onSelect={(v) => onPatchSerieParam({ intensityMode: v })}
+          // Changer de référentiel **réinitialise** la valeur d'intensité : un « 95 » en % record
+          // n'a aucun sens en s ou en m/s, et la conversion dépend du record de chaque athlète
+          // (impossible ici). On vide pour que le coach saisisse la valeur dans la bonne unité.
+          onSelect={(v) => {
+            if (v === intensityMode) return;
+            onPatchSerieParam({ intensityMode: v, intensityValue: '' });
+          }}
         />
         <InfoNote>{intensityNote(intensityMode)}</InfoNote>
       </View>
