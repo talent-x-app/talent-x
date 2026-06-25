@@ -1047,5 +1047,12 @@ export function assistantSeed(discipline: string | undefined): EditableNode[] {
     const forceMax = STRENGTH_PRESETS.find((p) => p.key === 'force_max');
     return [makeWarmupBlock(), ...(forceMax ? forceMax.build() : []), makeCooldownBlock()];
   }
+  // Haies : amorce avec le 1er preset (110 m haies) — un modèle est choisi par défaut et l'épreuve
+  // / la ligne de haies sont pré-remplies (vs amorce générique « Haies » sans valeurs). Le canvas
+  // ajoute échauffement / retour au calme par défaut (splitEffortNodes), inutile de les seeder.
+  if (cfg.key === 'hurdles') {
+    const first = HURDLES_PRESETS[0];
+    return first ? first.build() : [series];
+  }
   return [series];
 }

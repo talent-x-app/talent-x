@@ -87,6 +87,19 @@ function serieProps(group: EditableGroup) {
   };
 }
 
+/**
+ * Clé du modèle dont la série amorcée correspond (match par nom de série), pour pré-sélectionner
+ * le sélecteur. `''` si aucune correspondance (séance custom/éditée). Ne fait que le libellé —
+ * sûr pour l'édition (aucun contenu appliqué).
+ */
+function matchPresetKey(group: EditableGroup): string {
+  for (const p of HURDLES_PRESETS) {
+    const g = p.build().find((n) => isEditableGroup(n)) as EditableGroup | undefined;
+    if (g && g.name === group.name) return p.key;
+  }
+  return '';
+}
+
 /** Résumé condensé d'une série pour la tuile réduite. */
 function serieSummary(group: EditableGroup): string {
   const { event, rhythmSteps, hurdleCount, rounds, restR } = serieProps(group);
@@ -384,7 +397,7 @@ function HurdlesSeriesCard({
   onMoveDown: () => void;
   onDelete: () => void;
 }) {
-  const [selectedPresetKey, setSelectedPresetKey] = useState('');
+  const [selectedPresetKey, setSelectedPresetKey] = useState(() => matchPresetKey(group));
   const { colors, typography, spacing, radius, borderWidth } = useTheme();
   const tid = `series-card-${index}`;
   const {
@@ -417,22 +430,24 @@ function HurdlesSeriesCard({
       onMoveDown={onMoveDown}
       onDelete={onDelete}
     >
-      {/* Modèle + séries + récup R */}
+      {/* Modèle : pleine largeur (l'ouverture du sélecteur ne décale plus « Séries »). */}
+      <View>
+        <FieldLabel>Modèle</FieldLabel>
+        <PresetPicker
+          testID={`${tid}-preset`}
+          presets={HURDLES_PRESETS}
+          selectedKey={selectedPresetKey}
+          onSelect={(key) => {
+            setSelectedPresetKey(key);
+            onApplyPreset(key);
+          }}
+        />
+      </View>
+
+      {/* Séries + récup R */}
       <View
         style={{ flexDirection: 'row', gap: spacing[3], flexWrap: 'wrap', alignItems: 'flex-end' }}
       >
-        <View style={{ flex: 1, minWidth: 130 }}>
-          <FieldLabel>Modèle</FieldLabel>
-          <PresetPicker
-            testID={`${tid}-preset`}
-            presets={HURDLES_PRESETS}
-            selectedKey={selectedPresetKey}
-            onSelect={(key) => {
-              setSelectedPresetKey(key);
-              onApplyPreset(key);
-            }}
-          />
-        </View>
         <View>
           <FieldLabel>Séries</FieldLabel>
           <Stepper
@@ -587,7 +602,12 @@ function HurdlesSeriesCard({
           testIDPrefix={`${tid}-imode`}
           options={INTENSITY_MODES}
           selected={intensityMode}
-          onSelect={(v) => onPatchSerieParam({ intensityMode: v })}
+          // Réinitialise la valeur d'intensité au changement de référentiel (un % n'a aucun sens
+          // en s/m/s ; conversion non calculable au design-time). Cohérent avec le canvas Sprint.
+          onSelect={(v) => {
+            if (v === intensityMode) return;
+            onPatchSerieParam({ intensityMode: v, intensityValue: '' });
+          }}
         />
         {intensityMode === 'percent_record' && (
           <InlineNumberInput
