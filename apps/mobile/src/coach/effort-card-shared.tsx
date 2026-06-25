@@ -277,6 +277,7 @@ export function EffortTable({
   addRowTestID,
   addRowLabel = 'ajouter',
   columns,
+  hideColumnHeader = false,
   children,
 }: {
   title: string;
@@ -284,6 +285,9 @@ export function EffortTable({
   addRowTestID?: string;
   addRowLabel?: string;
   columns: EffortColumn[];
+  /** Masque la rangée d'en-têtes de colonnes (mise en page « carte » dont chaque ligne porte ses
+   *  propres libellés — ex. les exercices Muscu sur mobile). */
+  hideColumnHeader?: boolean;
   children: ReactNode;
 }) {
   const { colors, typography, spacing } = useTheme();
@@ -324,24 +328,26 @@ export function EffortTable({
         )}
       </View>
 
-      <View style={{ flexDirection: 'row', gap: spacing[2], marginBottom: spacing[1] }}>
-        <Text style={[colHeaderStyle, { width: 20, color: colors.textMuted }]}>#</Text>
-        {columns.map((c, i) => (
-          <Text
-            key={i}
-            style={[
-              colHeaderStyle,
-              // `minWidth: 0` pour suivre les cellules (qui se rétrécissent) et rester aligné en
-              // largeur étroite (TLX-191).
-              c.width != null ? { width: c.width } : { flex: c.flex ?? 1, minWidth: 0 },
-              { color: colors.textMuted },
-            ]}
-          >
-            {c.label}
-          </Text>
-        ))}
-        <View style={{ width: 24 }} />
-      </View>
+      {!hideColumnHeader && (
+        <View style={{ flexDirection: 'row', gap: spacing[2], marginBottom: spacing[1] }}>
+          <Text style={[colHeaderStyle, { width: 20, color: colors.textMuted }]}>#</Text>
+          {columns.map((c, i) => (
+            <Text
+              key={i}
+              style={[
+                colHeaderStyle,
+                // `minWidth: 0` pour suivre les cellules (qui se rétrécissent) et rester aligné en
+                // largeur étroite (TLX-191).
+                c.width != null ? { width: c.width } : { flex: c.flex ?? 1, minWidth: 0 },
+                { color: colors.textMuted },
+              ]}
+            >
+              {c.label}
+            </Text>
+          ))}
+          <View style={{ width: 24 }} />
+        </View>
+      )}
 
       {children}
     </View>

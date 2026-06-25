@@ -102,6 +102,40 @@ type MuscuSeries = { kind: 'muscu'; key: string; blocks: EditableBlock[] };
 type PpgSeries = { kind: 'ppg'; key: string; group: EditableGroup };
 type Series = MuscuSeries | PpgSeries;
 
+/** Signature compacte d'une série (exercices + prescription) pour reconnaître un preset. */
+function seriesSignature(item: Series): string {
+  if (item.kind === 'muscu') {
+    return (
+      'muscu:' +
+      item.blocks
+        .map((b) => `${b.params.exerciseKey ?? ''}/${b.sets}/${b.reps}/${b.loadValue}`)
+        .join('|')
+    );
+  }
+  return 'ppg:' + item.group.items.map((b) => b.name).join('|');
+}
+
+/**
+ * Clé du preset dont la série correspond (par signature) → pré-sélection du sélecteur « Modèle ».
+ * `''` si aucune correspondance (séance éditée/custom).
+ */
+function matchPresetKey(item: Series): string {
+  const sig = seriesSignature(item);
+  for (const p of STRENGTH_PRESETS) {
+    const built = p.build();
+    const group = built.find((n) => isEditableGroup(n)) as EditableGroup | undefined;
+    const builtItem: Series = group
+      ? { kind: 'ppg', key: '', group }
+      : {
+          kind: 'muscu',
+          key: '',
+          blocks: built.filter((n) => !isEditableGroup(n)) as EditableBlock[],
+        };
+    if (seriesSignature(builtItem) === sig) return p.key;
+  }
+  return '';
+}
+
 /** Partitionne séries (hors warmup/cooldown) en segments : run de `strength` top-level, ou groupe. */
 function toSeries(nodes: EditableNode[]): Series[] {
   const out: Series[] = [];
@@ -608,7 +642,7 @@ function StrengthSeriesCard({
   onMoveDown: () => void;
   onDelete: () => void;
 }) {
-  const [selectedPresetKey, setSelectedPresetKey] = useState('');
+  const [selectedPresetKey, setSelectedPresetKey] = useState(() => matchPresetKey(series));
   const { spacing } = useTheme();
   const tid = `series-card-${index}`;
   const mode = series.kind === 'muscu' ? 'muscu' : 'ppg';
@@ -655,18 +689,14 @@ function StrengthSeriesCard({
 
       {series.kind === 'muscu' ? (
         <>
-          {/* Table Muscu : Exercice | Séries | Reps | Charge | Tempo */}
+          {/* Exercices Muscu : une carte par exercice (nom en pleine largeur + params en sous-rangée).
+              5 colonnes ne tiennent pas en largeur mobile → le nom de l'exercice devenait illisible. */}
           <EffortTable
             title="Exercices du bloc"
             onAddRow={onAddMuscuExercise}
             addRowTestID={`${tid}-add-exercise`}
-            columns={[
-              { label: 'Exercice', flex: 2 },
-              { label: 'Séries' },
-              { label: 'Reps' },
-              { label: 'Charge' },
-              { label: 'Tempo' },
-            ]}
+            columns={[]}
+            hideColumnHeader
           >
             {series.blocks.map((block, bi) => (
               <MuscuRow
@@ -815,7 +845,8 @@ function MuscuRow({
         onDelete={onDelete}
         deleteLabel="Supprimer cet exercice"
       >
-        <View style={{ flex: 2, gap: spacing[1] }}>
+        {/* Carte d'exercice : nom en pleine largeur (lisible) + paramètres en sous-rangée. */}
+        <View style={{ flex: 1, gap: spacing[2] }}>
           <ExercisePicker
             testID={`${testIDPrefix}-exercise`}
             selectedKey={custom ? CUSTOM_EXERCISE_KEY : exerciseKey}
@@ -829,40 +860,62 @@ function MuscuRow({
               placeholder="Nom de l’exercice"
             />
           ) : null}
+          {/* Paramètres en grille 2×2 : assez de largeur pour la valeur + l'unité (« 85 % »). */}
+          <View style={{ flexDirection: 'row', gap: spacing[2] }}>
+            <View style={{ flex: 1 }}>
+              <FieldLabel>Séries</FieldLabel>
+              <CellInput
+                testID={`${testIDPrefix}-sets`}
+                value={block.sets}
+                onChangeText={(t) => onPatch({ sets: t })}
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <FieldLabel>Reps</FieldLabel>
+              <CellInput
+                testID={`${testIDPrefix}-reps`}
+                value={block.reps}
+                onChangeText={(t) => onPatch({ reps: t })}
+              />
+            </View>
+          </View>
+          <View style={{ flexDirection: 'row', gap: spacing[2] }}>
+            <View style={{ flex: 1 }}>
+              <FieldLabel>Charge</FieldLabel>
+              {loadMode === 'bodyweight' ? (
+                <CellInput
+                  testID={`${testIDPrefix}-load`}
+                  value=""
+                  onChangeText={() => {}}
+                  unit="PdC"
+                />
+              ) : loadMode === 'rpe' ? (
+                <CellInput
+                  testID={`${testIDPrefix}-load`}
+                  value={block.params.rpe ?? ''}
+                  onChangeText={(t) => onPatch({ params: { ...block.params, rpe: t } })}
+                  unit="RPE"
+                />
+              ) : (
+                <CellInput
+                  testID={`${testIDPrefix}-load`}
+                  value={block.loadValue}
+                  onChangeText={(t) => onPatch({ loadValue: t })}
+                  unit={loadMode === 'kg' ? 'kg' : '%'}
+                />
+              )}
+            </View>
+            <View style={{ flex: 1 }}>
+              <FieldLabel>Tempo</FieldLabel>
+              <CellInput
+                testID={`${testIDPrefix}-tempo`}
+                value={block.params.tempo ?? ''}
+                onChangeText={(t) => onPatch({ params: { ...block.params, tempo: t } })}
+                text
+              />
+            </View>
+          </View>
         </View>
-        <CellInput
-          testID={`${testIDPrefix}-sets`}
-          value={block.sets}
-          onChangeText={(t) => onPatch({ sets: t })}
-        />
-        <CellInput
-          testID={`${testIDPrefix}-reps`}
-          value={block.reps}
-          onChangeText={(t) => onPatch({ reps: t })}
-        />
-        {loadMode === 'bodyweight' ? (
-          <CellInput testID={`${testIDPrefix}-load`} value="" onChangeText={() => {}} unit="PdC" />
-        ) : loadMode === 'rpe' ? (
-          <CellInput
-            testID={`${testIDPrefix}-load`}
-            value={block.params.rpe ?? ''}
-            onChangeText={(t) => onPatch({ params: { ...block.params, rpe: t } })}
-            unit="RPE"
-          />
-        ) : (
-          <CellInput
-            testID={`${testIDPrefix}-load`}
-            value={block.loadValue}
-            onChangeText={(t) => onPatch({ loadValue: t })}
-            unit={loadMode === 'kg' ? 'kg' : '%'}
-          />
-        )}
-        <CellInput
-          testID={`${testIDPrefix}-tempo`}
-          value={block.params.tempo ?? ''}
-          onChangeText={(t) => onPatch({ params: { ...block.params, tempo: t } })}
-          text
-        />
       </EffortRowFrame>
       {targetKg != null ? (
         <InfoNote>{`≈ ${targetKg} kg sur la référence du module`}</InfoNote>
