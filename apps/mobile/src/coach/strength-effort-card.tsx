@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { Feather } from '@expo/vector-icons';
 import { Pressable, Text, TextInput, View } from 'react-native';
 import { useTheme } from '@talent-x/design-tokens';
@@ -137,10 +136,27 @@ function matchPresetKey(item: Series): string {
   return '';
 }
 
+/**
+ * Marqueur de regroupement Muscu (param `muscuGroup`). Sans lui, deux séries Muscu adjacentes
+ * (blocs `strength` top-level contigus) fusionneraient en une seule carte au prochain `toSeries`
+ * (cf. bug « le bloc se ferme en passant en Muscu »). C'est un simple param additif : ignoré par
+ * les autres vues / la sérialisation, préservé au round-trip → plusieurs cartes Muscu distinctes.
+ */
+const MUSCU_GROUP_PARAM = 'muscuGroup';
+let muscuGroupSeq = 0;
+function nextMuscuGroup(): string {
+  muscuGroupSeq += 1;
+  return `mg-${Date.now().toString(36)}-${muscuGroupSeq}`;
+}
+function stampMuscuGroup(blocks: EditableBlock[], gid: string): EditableBlock[] {
+  return blocks.map((b) => ({ ...b, params: { ...b.params, [MUSCU_GROUP_PARAM]: gid } }));
+}
+
 /** Partitionne séries (hors warmup/cooldown) en segments : run de `strength` top-level, ou groupe. */
 function toSeries(nodes: EditableNode[]): Series[] {
   const out: Series[] = [];
   let run: EditableBlock[] = [];
+  let runMarker: string | undefined;
   const flush = () => {
     if (run.length > 0) {
       out.push({ kind: 'muscu', key: run[0].key, blocks: run });
@@ -154,6 +170,10 @@ function toSeries(nodes: EditableNode[]): Series[] {
     } else {
       // Tout bloc top-level (typiquement `strength`/`core`) rejoint la série Muscu courante —
       // y compris un bloc d'un autre type : on ne le jette pas (N4), il reste round-trippé.
+      // Un `muscuGroup` différent ferme la carte courante et en démarre une nouvelle.
+      const marker = node.params[MUSCU_GROUP_PARAM];
+      if (run.length > 0 && marker !== runMarker) flush();
+      if (run.length === 0) runMarker = marker;
       run.push(node);
     }
   }
@@ -243,16 +263,6 @@ function defaultMuscuSeries(): EditableBlock[] {
 
 function makePpgStation(name = 'Station'): EditableBlock {
   return makeBlock({ type: BlockType.core, name, durationSeconds: '40', restSeconds: '20' });
-}
-
-function defaultPpgGroup(): EditableGroup {
-  return makeSeriesGroup({
-    name: 'Circuit PPG',
-    groupType: 'circuit',
-    rounds: '3',
-    restBetweenRoundsSeconds: '60',
-    items: [makePpgStation('Squats sautés'), makePpgStation('Pompes')],
-  });
 }
 
 // ---------- Résumés / KPI --------------------------------------------------------------------
@@ -395,7 +405,11 @@ export function StrengthEffortCanvas({
       patchSeries(si, {
         kind: 'muscu',
         key: cur.key,
-        blocks: blocks.length > 0 ? blocks : defaultMuscuSeries(),
+        // Marqueur frais → la carte convertie reste distincte (ne fusionne pas avec une Muscu voisine).
+        blocks: stampMuscuGroup(
+          blocks.length > 0 ? blocks : defaultMuscuSeries(),
+          nextMuscuGroup(),
+        ),
       });
     }
   }
@@ -443,19 +457,18 @@ export function StrengthEffortCanvas({
     if (cur.kind !== 'muscu') return;
     const last = cur.blocks[cur.blocks.length - 1];
     const mode = last ? loadModeOf(last) : 'percent_1rm';
-    patchSeries(si, {
-      ...cur,
-      blocks: [
-        ...cur.blocks,
-        makeMuscuBlock({
-          exerciseKey: 'bench',
-          sets: Number(last?.sets) || 4,
-          reps: Number(last?.reps) || 8,
-          loadMode: mode,
-          loadValue: last?.loadValue || (mode === 'percent_1rm' ? '70' : '40'),
-        }),
-      ],
+    const marker = cur.blocks[0]?.params[MUSCU_GROUP_PARAM];
+    let block = makeMuscuBlock({
+      exerciseKey: 'bench',
+      sets: Number(last?.sets) || 4,
+      reps: Number(last?.reps) || 8,
+      loadMode: mode,
+      loadValue: last?.loadValue || (mode === 'percent_1rm' ? '70' : '40'),
     });
+    // Le nouvel exercice reste dans la même carte (même marqueur de regroupement).
+    if (marker != null)
+      block = { ...block, params: { ...block.params, [MUSCU_GROUP_PARAM]: marker } };
+    patchSeries(si, { ...cur, blocks: [...cur.blocks, block] });
   }
 
   function removeMuscuExercise(si: number, bi: number) {
@@ -512,20 +525,30 @@ export function StrengthEffortCanvas({
       patchSeries(si, { kind: 'ppg', key: cur.key, group: { ...group, key: cur.key } });
     } else {
       const blocks = built.filter((n) => !isEditableGroup(n)) as EditableBlock[];
+      const muscu = blocks.length > 0 ? blocks : defaultMuscuSeries();
+      // Conserve le marqueur de la carte (ou en crée un si on convertit un PPG) → la carte garde
+      // son identité et ne fusionne pas avec une Muscu voisine.
+      const marker =
+        cur.kind === 'muscu' ? cur.blocks[0]?.params[MUSCU_GROUP_PARAM] : nextMuscuGroup();
       patchSeries(si, {
         kind: 'muscu',
         key: cur.key,
-        blocks: blocks.length > 0 ? blocks : defaultMuscuSeries(),
+        blocks: marker != null ? stampMuscuGroup(muscu, marker) : muscu,
       });
     }
   }
 
-  // Ajout d'un bloc : on insère un **groupe PPG** (toujours un nœud distinct → carte distincte).
-  // Deux blocs de travail Muscu adjacents fusionneraient en une seule carte (runs `strength`
-  // contigus, cf. modèle de données ci-dessus) ; passer par un groupe garantit une carte propre,
-  // que l'utilisateur peut rebasculer en Muscu via le Mode.
+  // Ajout d'une carte : nouvelle série **Muscu** (modèle Force max par défaut, comme les autres
+  // disciplines) marquée d'un `muscuGroup` propre → reste une carte distincte même adjacente à une
+  // autre Muscu (cf. toSeries). Bascule possible en PPG via le Mode.
   function addSerie() {
-    commit([...series, { kind: 'ppg', key: `ppg-${series.length}`, group: defaultPpgGroup() }]);
+    const built = STRENGTH_PRESETS[0]?.build() ?? [];
+    const blocks = built.filter((n) => !isEditableGroup(n)) as EditableBlock[];
+    const muscu = stampMuscuGroup(
+      blocks.length > 0 ? blocks : defaultMuscuSeries(),
+      nextMuscuGroup(),
+    );
+    commit([...series, { kind: 'muscu', key: muscu[0].key, blocks: muscu }]);
   }
 
   function removeSerie(si: number) {
@@ -643,7 +666,10 @@ function StrengthSeriesCard({
   onMoveDown: () => void;
   onDelete: () => void;
 }) {
-  const [selectedPresetKey, setSelectedPresetKey] = useState(() => matchPresetKey(series));
+  // Dérivé (pas d'état local) : le « Modèle » reflète toujours le contenu réel de la carte → il se
+  // met à jour quand on bascule le Mode (Muscu ↔ PPG) ou qu'on applique un autre modèle (fix : le
+  // modèle ne se mettait pas à jour au changement de mode).
+  const selectedPresetKey = matchPresetKey(series);
   const { spacing } = useTheme();
   const tid = `series-card-${index}`;
   const mode = series.kind === 'muscu' ? 'muscu' : 'ppg';
@@ -670,10 +696,7 @@ function StrengthSeriesCard({
           testID={`${tid}-preset`}
           presets={STRENGTH_PRESETS}
           selectedKey={selectedPresetKey}
-          onSelect={(key) => {
-            setSelectedPresetKey(key);
-            onApplyPreset(key);
-          }}
+          onSelect={onApplyPreset}
         />
       </View>
 
@@ -723,15 +746,6 @@ function StrengthSeriesCard({
               selected={loadMode}
               onSelect={onSetLoadMode}
             />
-            <InfoNote>
-              {loadMode === 'percent_1rm'
-                ? 'Charge en % du 1RM de chaque athlète (référence générique affichée ≈ kg).'
-                : loadMode === 'kg'
-                  ? 'Charge absolue en kg, commune à tous les athlètes.'
-                  : loadMode === 'bodyweight'
-                    ? 'Travail au poids de corps, sans charge additionnelle.'
-                    : 'Intensité perçue (RPE 1–10), indépendante d’un référentiel de charge.'}
-            </InfoNote>
           </View>
         </>
       ) : (
@@ -800,10 +814,6 @@ function StrengthSeriesCard({
           </InfoNote>
         </>
       )}
-
-      {series.kind === 'muscu' && selectedPresetKey && PRESET_TIPS[selectedPresetKey] ? (
-        <InfoNote>{PRESET_TIPS[selectedPresetKey]}</InfoNote>
-      ) : null}
     </SeriesCardFrame>
   );
 }
