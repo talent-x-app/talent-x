@@ -737,6 +737,46 @@ export const THROWS_PRESETS: SessionBuilderPreset[] = [
       }),
     ],
   },
+  {
+    key: 'javelin_full',
+    label: 'Javelot — jets pleins',
+    build: () => [
+      makeSeriesGroup({
+        name: 'Javelot — jets pleins',
+        rounds: '1',
+        items: [
+          throwEffort({
+            discipline: 'javelin',
+            sex: 'M',
+            name: 'Javelot',
+            techniqueThrows: 6,
+            fullThrows: 8,
+            targetPercent: 90,
+          }),
+        ],
+      }),
+    ],
+  },
+  {
+    key: 'hammer_full',
+    label: 'Marteau — jets pleins',
+    build: () => [
+      makeSeriesGroup({
+        name: 'Marteau — jets pleins',
+        rounds: '1',
+        items: [
+          throwEffort({
+            discipline: 'hammer',
+            sex: 'M',
+            name: 'Marteau',
+            techniqueThrows: 6,
+            fullThrows: 8,
+            targetPercent: 90,
+          }),
+        ],
+      }),
+    ],
+  },
 ];
 
 // --- Renforcement / PPG (TLX-172, ADR-41) ----------------------------------------------------

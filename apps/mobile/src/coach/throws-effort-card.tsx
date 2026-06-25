@@ -417,22 +417,8 @@ function ThrowsSeriesCard({
         />
       </View>
 
-      {/* Discipline */}
-      <View style={{ gap: spacing[2] }}>
-        <FieldLabel>Discipline</FieldLabel>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] }}>
-          {DISCIPLINES.map((d) => (
-            <Chip
-              key={d.value}
-              testID={`${tid}-disc-${d.value}`}
-              selected={discipline === d.value}
-              onPress={() => onPatchSerieParam({ discipline: d.value })}
-            >
-              {d.label}
-            </Chip>
-          ))}
-        </View>
-      </View>
+      {/* La discipline (poids/disque/javelot/marteau) est portée par le Modèle — pas de sélecteur
+          séparé (évitait un doublon désynchronisé avec « Modèle »). */}
 
       {/* Catégorie + état de l'engin */}
       <View style={{ flexDirection: 'row', gap: spacing[4], flexWrap: 'wrap' }}>
