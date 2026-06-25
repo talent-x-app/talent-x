@@ -13,6 +13,7 @@ import { SessionProvider } from '../src/auth/SessionProvider';
 import { QueryProvider } from '../src/data/QueryProvider';
 import { ErrorBoundary, OfflineBanner, ToastProvider } from '../src/feedback';
 import { OfflineSync } from '../src/offline';
+import { WebFocusStyle } from '../src/web/web-focus-style';
 
 // Garde le splash visible tant que les polices ne sont pas chargées.
 void SplashScreen.preventAutoHideAsync();
@@ -41,6 +42,8 @@ export default function RootLayout() {
   return (
     <QueryProvider>
       <ThemeProvider>
+        {/* Focus web propre (outline accent au clavier, rien au clic souris). No-op natif. */}
+        <WebFocusStyle />
         <ErrorBoundary>
           <ToastProvider>
             <SessionProvider>
