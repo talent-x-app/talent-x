@@ -382,22 +382,25 @@ function SeriesCard({
       onMoveDown={onMoveDown}
       onDelete={onDelete}
     >
-      {/* Modèle + séries + récup R */}
+      {/* Modèle : pleine largeur, sur sa propre rangée — le sélecteur déroulant se déploie
+          alors sans décaler « Séries »/« Récup » (qui partageaient sa rangée auparavant). */}
+      <View>
+        <FieldLabel>Modèle</FieldLabel>
+        <PresetPicker
+          testID={`${tid}-preset`}
+          presets={SPRINT_PRESETS}
+          selectedKey={selectedPresetKey}
+          onSelect={(key) => {
+            setSelectedPresetKey(key);
+            onApplyPreset(key);
+          }}
+        />
+      </View>
+
+      {/* Séries + récup R */}
       <View
         style={{ flexDirection: 'row', gap: spacing[3], flexWrap: 'wrap', alignItems: 'flex-end' }}
       >
-        <View style={{ flex: 1, minWidth: 130 }}>
-          <FieldLabel>Modèle</FieldLabel>
-          <PresetPicker
-            testID={`${tid}-preset`}
-            presets={SPRINT_PRESETS}
-            selectedKey={selectedPresetKey}
-            onSelect={(key) => {
-              setSelectedPresetKey(key);
-              onApplyPreset(key);
-            }}
-          />
-        </View>
         <View>
           <FieldLabel>Séries</FieldLabel>
           <Stepper
