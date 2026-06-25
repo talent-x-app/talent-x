@@ -151,7 +151,19 @@ function makeThrowBlock(opts: {
   });
 }
 
+/** Clé du modèle dont la série amorcée correspond (match par nom) — pré-sélection du picker. */
+function matchPresetKey(group: EditableGroup): string {
+  for (const p of THROWS_PRESETS) {
+    const g = p.build().find((n) => isEditableGroup(n)) as EditableGroup | undefined;
+    if (g && g.name === group.name) return p.key;
+  }
+  return '';
+}
+
 function defaultThrowSeries(): EditableGroup {
+  // Série ajoutée = 1er preset → modèle sélectionné par défaut + table pré-remplie.
+  const g = THROWS_PRESETS[0]?.build().find((n) => isEditableGroup(n)) as EditableGroup | undefined;
+  if (g) return g;
   return makeSeriesGroup({
     name: 'Série de lancers',
     rounds: '1',
@@ -355,7 +367,7 @@ function ThrowsSeriesCard({
   onMoveDown: () => void;
   onDelete: () => void;
 }) {
-  const [selectedPresetKey, setSelectedPresetKey] = useState('');
+  const [selectedPresetKey, setSelectedPresetKey] = useState(() => matchPresetKey(group));
   const { spacing } = useTheme();
   const tid = `series-card-${index}`;
   const { discipline, sex, implementState, style, targetMode, rounds } = serieProps(group);
@@ -380,33 +392,29 @@ function ThrowsSeriesCard({
       onMoveDown={onMoveDown}
       onDelete={onDelete}
     >
-      {/* Modèle + tours */}
-      <View
-        style={{ flexDirection: 'row', gap: spacing[3], flexWrap: 'wrap', alignItems: 'flex-end' }}
-      >
-        <View style={{ flex: 1, minWidth: 130 }}>
-          <FieldLabel>Modèle</FieldLabel>
-          <PresetPicker
-            testID={`${tid}-preset`}
-            presets={THROWS_PRESETS}
-            selectedKey={selectedPresetKey}
-            onSelect={(key) => {
-              setSelectedPresetKey(key);
-              onApplyPreset(key);
-            }}
-          />
-        </View>
-        <View>
-          <FieldLabel>Tours</FieldLabel>
-          <Stepper
-            testID={`${tid}-rounds`}
-            value={rounds}
-            min={1}
-            max={10}
-            onValueChange={(v) => onPatchGroup({ rounds: String(v) })}
-            accessibilityLabel="Nombre de tours"
-          />
-        </View>
+      {/* Modèle : pleine largeur (l'ouverture du sélecteur ne décale plus « Tours »). */}
+      <View>
+        <FieldLabel>Modèle</FieldLabel>
+        <PresetPicker
+          testID={`${tid}-preset`}
+          presets={THROWS_PRESETS}
+          selectedKey={selectedPresetKey}
+          onSelect={(key) => {
+            setSelectedPresetKey(key);
+            onApplyPreset(key);
+          }}
+        />
+      </View>
+      <View>
+        <FieldLabel>Tours</FieldLabel>
+        <Stepper
+          testID={`${tid}-rounds`}
+          value={rounds}
+          min={1}
+          max={10}
+          onValueChange={(v) => onPatchGroup({ rounds: String(v) })}
+          accessibilityLabel="Nombre de tours"
+        />
       </View>
 
       {/* Discipline */}

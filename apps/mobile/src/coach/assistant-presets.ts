@@ -1064,5 +1064,14 @@ export function assistantSeed(discipline: string | undefined): EditableNode[] {
     const first = ENDURANCE_PRESETS[0];
     return first ? first.build() : [series];
   }
+  // Sauts / Lancers : amorce avec le 1er preset → modèle par défaut + table pré-remplie.
+  if (cfg.key === 'jumps') {
+    const first = JUMPS_PRESETS[0];
+    return first ? first.build() : [series];
+  }
+  if (cfg.key === 'throws') {
+    const first = THROWS_PRESETS[0];
+    return first ? first.build() : [series];
+  }
   return [series];
 }
