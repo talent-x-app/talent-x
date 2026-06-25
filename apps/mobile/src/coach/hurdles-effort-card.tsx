@@ -476,22 +476,14 @@ function HurdlesSeriesCard({
         </View>
       </View>
 
-      {/* Paramètres techniques de l'épreuve */}
-      <View style={{ gap: spacing[2] }}>
-        <FieldLabel>Épreuve</FieldLabel>
-        <CellInput
-          testID={`${tid}-event`}
-          value={event}
-          onChangeText={(t) => onPatchSerieParam({ event: t })}
-          placeholder="Ex. 110mH"
-        />
-      </View>
-
-      {/* Ligne de haies — sous-carte commune à la série (ADR-40) */}
+      {/* Épreuve & ligne de haies — dispositif commun à la série : l'épreuve (référentiel de record)
+          et le dispositif (hauteur / nb / espacement / rythme), d'où est dérivée la distance de
+          course. La hauteur est la **source unique** (appliquée à tous les passages → plus de
+          doublon avec le tableau). */}
       <View
         testID={`${tid}-hurdle-line`}
         style={{
-          gap: spacing[2],
+          gap: spacing[3],
           padding: spacing[3],
           borderRadius: radius.md,
           borderWidth: borderWidth.hairline,
@@ -499,24 +491,46 @@ function HurdlesSeriesCard({
           backgroundColor: colors.surfaceSunken,
         }}
       >
-        <Text
-          style={{
-            color: colors.textSecondary,
-            fontFamily: typography.fontFamily.medium,
-            fontSize: typography.caption.fontSize,
-            textTransform: 'uppercase',
-            letterSpacing: 0.6,
-          }}
-        >
-          Ligne de haies · commune à la série
-        </Text>
+        <View style={{ gap: 2 }}>
+          <Text
+            style={{
+              color: colors.textSecondary,
+              fontFamily: typography.fontFamily.medium,
+              fontSize: typography.caption.fontSize,
+              textTransform: 'uppercase',
+              letterSpacing: 0.6,
+            }}
+          >
+            Épreuve & ligne de haies
+          </Text>
+          <Text
+            style={{
+              color: colors.textMuted,
+              fontFamily: typography.fontFamily.regular,
+              fontSize: typography.caption.fontSize,
+            }}
+          >
+            Dispositif commun à la série — en dérive la distance de course.
+          </Text>
+        </View>
+
+        <View>
+          <FieldLabel>Épreuve</FieldLabel>
+          <CellInput
+            testID={`${tid}-event`}
+            value={event}
+            onChangeText={(t) => onPatchSerieParam({ event: t })}
+            placeholder="Ex. 110mH"
+          />
+        </View>
+
         <View style={{ flexDirection: 'row', gap: spacing[2] }}>
           <View style={{ flex: 1 }}>
-            <FieldLabel>Hauteur (1er passage)</FieldLabel>
+            <FieldLabel>Hauteur</FieldLabel>
             <CellInput
               testID={`${tid}-line-height`}
               value={group.items[0]?.params.heightCm ?? ''}
-              onChangeText={(t) => onPatchPass(0, { heightCm: t })}
+              onChangeText={(t) => onPatchSerieParam({ heightCm: t })}
               unit="cm"
               decimal
               placeholder="84"
@@ -562,7 +576,7 @@ function HurdlesSeriesCard({
         title="Passages de la série"
         onAddRow={onAddPass}
         addRowTestID={`${tid}-add-pass`}
-        columns={[{ label: 'Distance' }, { label: 'Hauteur' }, { label: 'Récup r' }]}
+        columns={[{ label: 'Distance' }, { label: 'Récup r' }]}
       >
         {group.items.map((block, bi) => (
           <HurdlePassRow
@@ -693,13 +707,6 @@ function HurdlePassRow({
         value={block.params.distanceMeters ?? ''}
         onChangeText={(t) => onPatch({ distanceMeters: t })}
         unit="m"
-        decimal
-      />
-      <CellInput
-        testID={`${testIDPrefix}-height`}
-        value={block.params.heightCm ?? ''}
-        onChangeText={(t) => onPatch({ heightCm: t })}
-        unit="cm"
         decimal
       />
       {isLast ? (
