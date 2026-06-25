@@ -727,15 +727,22 @@ export function PresetPicker({
   selectedKey,
   onSelect,
   testID,
+  subtle = false,
+  placeholder = 'Choisir un modèle…',
 }: {
   presets: { key: string; label: string }[];
   selectedKey: string;
   onSelect: (key: string) => void;
   testID?: string;
+  /** Style discret (bordure neutre, fond surface) — pour les sélecteurs secondaires (ex. exercice
+   *  Muscu) qui ne doivent pas concurrencer visuellement le sélecteur de modèle principal. */
+  subtle?: boolean;
+  placeholder?: string;
 }) {
   const [open, setOpen] = useState(false);
   const { colors, typography, spacing, radius, borderWidth } = useTheme();
   const selectedLabel = presets.find((p) => p.key === selectedKey)?.label;
+  const accented = !subtle && selectedLabel != null;
 
   if (!open) {
     return (
@@ -743,35 +750,40 @@ export function PresetPicker({
         testID={testID}
         onPress={() => setOpen(true)}
         style={{
-          height: 42,
+          height: subtle ? 38 : 42,
           paddingHorizontal: spacing[3],
           flexDirection: 'row',
           alignItems: 'center',
           justifyContent: 'space-between',
           borderRadius: radius.sm,
           borderWidth: borderWidth.hairline,
-          borderColor: selectedLabel ? colors.accent : colors.borderStrong,
-          backgroundColor: colors.surfaceSunken,
+          borderColor: accented ? colors.accent : colors.borderStrong,
+          backgroundColor: subtle ? colors.surface : colors.surfaceSunken,
           gap: spacing[2],
         }}
       >
         <Text
           style={{
             flex: 1,
-            color: selectedLabel ? colors.accentText : colors.textMuted,
-            fontFamily: selectedLabel
-              ? typography.fontFamily.medium
-              : typography.fontFamily.regular,
+            color: accented
+              ? colors.accentText
+              : selectedLabel
+                ? colors.textPrimary
+                : colors.textMuted,
+            fontFamily:
+              selectedLabel && !subtle
+                ? typography.fontFamily.medium
+                : typography.fontFamily.regular,
             fontSize: typography.bodySm.fontSize,
           }}
           numberOfLines={1}
         >
-          {selectedLabel ?? 'Choisir un modèle…'}
+          {selectedLabel ?? placeholder}
         </Text>
         <Feather
           name="chevron-down"
           size={14}
-          color={selectedLabel ? colors.accentText : colors.textMuted}
+          color={accented ? colors.accentText : colors.textMuted}
         />
       </Pressable>
     );

@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { TextInput, View } from 'react-native';
+import { Feather } from '@expo/vector-icons';
+import { Pressable, Text, TextInput, View } from 'react-native';
 import { useTheme } from '@talent-x/design-tokens';
 import { BlockType, LoadUnit } from '@talent-x/api-client';
 import { Stepper } from '../components/ui';
@@ -828,7 +829,7 @@ function MuscuRow({
   onDelete: () => void;
   testIDPrefix: string;
 }) {
-  const { spacing } = useTheme();
+  const { spacing, colors, typography, borderWidth } = useTheme();
   const exerciseKey = block.params.exerciseKey ?? '';
   const custom = isCustomExercise(block);
   const targetKg =
@@ -837,88 +838,111 @@ function MuscuRow({
       : undefined;
 
   return (
-    <View style={{ gap: spacing[1] }}>
-      <EffortRowFrame
-        testID={testIDPrefix}
-        index={index}
-        canDelete={canDelete}
-        onDelete={onDelete}
-        deleteLabel="Supprimer cet exercice"
-      >
-        {/* Carte d'exercice : nom en pleine largeur (lisible) + paramètres en sous-rangée. */}
-        <View style={{ flex: 1, gap: spacing[2] }}>
+    <View
+      testID={testIDPrefix}
+      style={{
+        gap: spacing[2],
+        marginBottom: spacing[2],
+        // Séparateur fin entre exercices (plutôt qu'encadrer chaque ligne → plus léger).
+        paddingTop: index > 0 ? spacing[3] : 0,
+        borderTopWidth: index > 0 ? borderWidth.hairline : 0,
+        borderTopColor: colors.border,
+      }}
+    >
+      {/* Exercice (occupe la largeur) + suppression sur la même rangée. */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[2] }}>
+        <View style={{ flex: 1 }}>
           <ExercisePicker
             testID={`${testIDPrefix}-exercise`}
             selectedKey={custom ? CUSTOM_EXERCISE_KEY : exerciseKey}
             onSelect={onSetExercise}
           />
-          {custom ? (
-            <NameInput
-              testID={`${testIDPrefix}-custom-name`}
-              value={block.name}
-              onChangeText={(t) => onPatch({ name: t })}
-              placeholder="Nom de l’exercice"
-            />
-          ) : null}
-          {/* Paramètres en grille 2×2 : assez de largeur pour la valeur + l'unité (« 85 % »). */}
-          <View style={{ flexDirection: 'row', gap: spacing[2] }}>
-            <View style={{ flex: 1 }}>
-              <FieldLabel>Séries</FieldLabel>
-              <CellInput
-                testID={`${testIDPrefix}-sets`}
-                value={block.sets}
-                onChangeText={(t) => onPatch({ sets: t })}
-              />
-            </View>
-            <View style={{ flex: 1 }}>
-              <FieldLabel>Reps</FieldLabel>
-              <CellInput
-                testID={`${testIDPrefix}-reps`}
-                value={block.reps}
-                onChangeText={(t) => onPatch({ reps: t })}
-              />
-            </View>
-          </View>
-          <View style={{ flexDirection: 'row', gap: spacing[2] }}>
-            <View style={{ flex: 1 }}>
-              <FieldLabel>Charge</FieldLabel>
-              {loadMode === 'bodyweight' ? (
-                <CellInput
-                  testID={`${testIDPrefix}-load`}
-                  value=""
-                  onChangeText={() => {}}
-                  unit="PdC"
-                />
-              ) : loadMode === 'rpe' ? (
-                <CellInput
-                  testID={`${testIDPrefix}-load`}
-                  value={block.params.rpe ?? ''}
-                  onChangeText={(t) => onPatch({ params: { ...block.params, rpe: t } })}
-                  unit="RPE"
-                />
-              ) : (
-                <CellInput
-                  testID={`${testIDPrefix}-load`}
-                  value={block.loadValue}
-                  onChangeText={(t) => onPatch({ loadValue: t })}
-                  unit={loadMode === 'kg' ? 'kg' : '%'}
-                />
-              )}
-            </View>
-            <View style={{ flex: 1 }}>
-              <FieldLabel>Tempo</FieldLabel>
-              <CellInput
-                testID={`${testIDPrefix}-tempo`}
-                value={block.params.tempo ?? ''}
-                onChangeText={(t) => onPatch({ params: { ...block.params, tempo: t } })}
-                text
-              />
-            </View>
-          </View>
         </View>
-      </EffortRowFrame>
+        {canDelete ? (
+          <Pressable
+            testID={`${testIDPrefix}-del`}
+            onPress={onDelete}
+            accessibilityRole="button"
+            accessibilityLabel="Supprimer cet exercice"
+            hitSlop={8}
+            style={{ padding: spacing[1] }}
+          >
+            <Feather name="x" size={16} color={colors.danger} />
+          </Pressable>
+        ) : null}
+      </View>
+      {custom ? (
+        <NameInput
+          testID={`${testIDPrefix}-custom-name`}
+          value={block.name}
+          onChangeText={(t) => onPatch({ name: t })}
+          placeholder="Nom de l’exercice"
+        />
+      ) : null}
+      {/* Séries · Reps · Charge · Tempo sur une seule ligne (pleine largeur). */}
+      <View style={{ flexDirection: 'row', gap: spacing[2] }}>
+        <View style={{ flex: 1 }}>
+          <FieldLabel>Séries</FieldLabel>
+          <CellInput
+            testID={`${testIDPrefix}-sets`}
+            value={block.sets}
+            onChangeText={(t) => onPatch({ sets: t })}
+          />
+        </View>
+        <View style={{ flex: 1 }}>
+          <FieldLabel>Reps</FieldLabel>
+          <CellInput
+            testID={`${testIDPrefix}-reps`}
+            value={block.reps}
+            onChangeText={(t) => onPatch({ reps: t })}
+          />
+        </View>
+        <View style={{ flex: 1 }}>
+          <FieldLabel>Charge</FieldLabel>
+          {loadMode === 'bodyweight' ? (
+            <CellInput
+              testID={`${testIDPrefix}-load`}
+              value=""
+              onChangeText={() => {}}
+              unit="PdC"
+            />
+          ) : loadMode === 'rpe' ? (
+            <CellInput
+              testID={`${testIDPrefix}-load`}
+              value={block.params.rpe ?? ''}
+              onChangeText={(t) => onPatch({ params: { ...block.params, rpe: t } })}
+              unit="RPE"
+            />
+          ) : (
+            <CellInput
+              testID={`${testIDPrefix}-load`}
+              value={block.loadValue}
+              onChangeText={(t) => onPatch({ loadValue: t })}
+              unit={loadMode === 'kg' ? 'kg' : '%'}
+            />
+          )}
+        </View>
+        <View style={{ flex: 1 }}>
+          <FieldLabel>Tempo</FieldLabel>
+          <CellInput
+            testID={`${testIDPrefix}-tempo`}
+            value={block.params.tempo ?? ''}
+            onChangeText={(t) => onPatch({ params: { ...block.params, tempo: t } })}
+            text
+          />
+        </View>
+      </View>
+      {/* Référence indicative discrète (≈ kg), au lieu d'un encart d'avertissement par exercice. */}
       {targetKg != null ? (
-        <InfoNote>{`≈ ${targetKg} kg sur la référence du module`}</InfoNote>
+        <Text
+          style={{
+            fontSize: typography.caption.fontSize,
+            color: colors.textMuted,
+            fontFamily: typography.fontFamily.regular,
+          }}
+        >
+          {`≈ ${targetKg} kg sur la référence`}
+        </Text>
       ) : null}
     </View>
   );
@@ -1001,6 +1025,8 @@ function ExercisePicker({
       presets={EXERCISE_OPTIONS.map((o) => ({ key: o.value, label: o.label }))}
       selectedKey={selectedKey}
       onSelect={onSelect}
+      subtle
+      placeholder="Choisir un exercice…"
     />
   );
 }
