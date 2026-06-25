@@ -20,6 +20,19 @@ import { isExerciseGroup, type ExerciseNode } from '../sessions/exercises-doc';
  * discipline = ajouter une entrée (libellé + `paramFields`), aucun autre câblage.
  */
 
+/**
+ * Filtre une saisie numérique : ne garde que des chiffres, plus **un seul** séparateur décimal
+ * (`.`/`,` normalisé en `.`) si `decimal`. Indispensable sur web : `keyboardType` n'est qu'un
+ * indice et n'empêche pas de taper des lettres.
+ */
+export function sanitizeNumeric(text: string, decimal: boolean): string {
+  if (!decimal) return text.replace(/[^0-9]/g, '');
+  let s = text.replace(/[^0-9.,]/g, '').replace(/,/g, '.');
+  const dot = s.indexOf('.');
+  if (dot >= 0) s = s.slice(0, dot + 1) + s.slice(dot + 1).replace(/\./g, '');
+  return s;
+}
+
 /** Bloc en cours d'édition : tous les champs numériques sont des chaînes (saisie libre). */
 export interface EditableBlock {
   /** Clé stable côté client pour le rendu de liste (préservée au réordonnancement). */
@@ -1366,7 +1379,13 @@ function FieldInput({
       <TextInput
         testID={testID}
         value={value}
-        onChangeText={onChangeText}
+        // Filtre la saisie pour les champs numériques (web : `keyboardType` n'empêche pas les
+        // lettres). `numeric` autorise un décimal ; `number-pad` = entier ; `default` = libre.
+        onChangeText={
+          keyboardType === 'numeric' || keyboardType === 'number-pad'
+            ? (t) => onChangeText(sanitizeNumeric(t, keyboardType === 'numeric'))
+            : onChangeText
+        }
         placeholder={placeholder}
         placeholderTextColor={colors.textMuted}
         keyboardType={keyboardType ?? 'default'}

@@ -861,7 +861,7 @@ function MuscuRow({
           testID={`${testIDPrefix}-tempo`}
           value={block.params.tempo ?? ''}
           onChangeText={(t) => onPatch({ params: { ...block.params, tempo: t } })}
-          decimal
+          text
         />
       </EffortRowFrame>
       {targetKg != null ? (

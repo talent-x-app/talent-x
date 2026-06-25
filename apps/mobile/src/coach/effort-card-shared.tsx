@@ -6,6 +6,7 @@ import { Button, Card } from '../components/ui';
 import {
   isEditableGroup,
   makeSeriesGroup,
+  sanitizeNumeric,
   type EditableBlock,
   type EditableGroup,
   type EditableNode,
@@ -857,6 +858,7 @@ export function CellInput({
   onChangeText,
   unit,
   decimal = false,
+  text = false,
   placeholder,
   testID,
 }: {
@@ -864,6 +866,8 @@ export function CellInput({
   onChangeText: (t: string) => void;
   unit?: string;
   decimal?: boolean;
+  /** Champ libre (ex. épreuve « 110mH », tempo « 31X1 ») — pas de filtrage numérique. */
+  text?: boolean;
   placeholder?: string;
   testID?: string;
 }) {
@@ -891,8 +895,10 @@ export function CellInput({
       <TextInput
         testID={testID}
         value={value}
-        onChangeText={onChangeText}
-        keyboardType={decimal ? 'numeric' : 'number-pad'}
+        // Filtre la saisie pour les champs numériques (sur web, le clavier numérique n'empêche
+        // pas de taper des lettres). `text` = champ libre, aucune restriction.
+        onChangeText={text ? onChangeText : (t) => onChangeText(sanitizeNumeric(t, decimal))}
+        keyboardType={text ? 'default' : decimal ? 'numeric' : 'number-pad'}
         placeholder={placeholder}
         style={{
           flex: 1,
@@ -956,7 +962,9 @@ export function InlineNumberInput({
       <TextInput
         testID={testID}
         value={value}
-        onChangeText={onChangeText}
+        // Filtre la saisie numérique (web : le clavier numérique n'empêche pas les lettres).
+        // Décimal autorisé (ex. récup R en minutes « 1.5 »).
+        onChangeText={(t) => onChangeText(sanitizeNumeric(t, true))}
         keyboardType="numeric"
         placeholder={placeholder}
         placeholderTextColor={colors.textMuted}

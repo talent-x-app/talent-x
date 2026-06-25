@@ -523,6 +523,7 @@ function HurdlesSeriesCard({
             value={event}
             onChangeText={(t) => onPatchSerieParam({ event: t })}
             placeholder="Ex. 110mH"
+            text
           />
         </View>
 
