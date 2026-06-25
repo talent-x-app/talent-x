@@ -899,6 +899,9 @@ export function CellInput({
         // pas de taper des lettres). `text` = champ libre, aucune restriction.
         onChangeText={text ? onChangeText : (t) => onChangeText(sanitizeNumeric(t, decimal))}
         keyboardType={text ? 'default' : decimal ? 'numeric' : 'number-pad'}
+        // Champ aligné à droite : sans ça, react-native-web place le caret en position 0 (à
+        // gauche, avant la valeur) au clic. On sélectionne le nombre au focus → réécriture directe.
+        selectTextOnFocus={!text}
         placeholder={placeholder}
         style={{
           flex: 1,
@@ -966,6 +969,8 @@ export function InlineNumberInput({
         // Décimal autorisé (ex. récup R en minutes « 1.5 »).
         onChangeText={(t) => onChangeText(sanitizeNumeric(t, true))}
         keyboardType="numeric"
+        // Sélectionne la valeur au focus (champ aligné à droite → évite le caret à gauche).
+        selectTextOnFocus
         placeholder={placeholder}
         placeholderTextColor={colors.textMuted}
         style={{
