@@ -160,6 +160,12 @@ function makeHurdleBlock(opts: {
 }
 
 function defaultHurdleSeries(): EditableGroup {
+  // Une série ajoutée part du 1er preset (110 m haies) → un modèle est sélectionné par défaut
+  // (match par nom) et l'épreuve / la ligne sont pré-remplies, comme l'amorce de l'assistant.
+  const g = HURDLES_PRESETS[0]?.build().find((n) => isEditableGroup(n)) as
+    | EditableGroup
+    | undefined;
+  if (g) return g;
   return makeSeriesGroup({
     name: 'Série de haies',
     rounds: '4',
@@ -444,11 +450,9 @@ function HurdlesSeriesCard({
         />
       </View>
 
-      {/* Séries + récup R */}
-      <View
-        style={{ flexDirection: 'row', gap: spacing[3], flexWrap: 'wrap', alignItems: 'flex-end' }}
-      >
-        <View>
+      {/* Séries + récup R — deux colonnes égales, côte à côte (structure régulière). */}
+      <View style={{ flexDirection: 'row', gap: spacing[3], alignItems: 'flex-end' }}>
+        <View style={{ flex: 1 }}>
           <FieldLabel>Séries</FieldLabel>
           <Stepper
             testID={`${tid}-rounds`}
@@ -459,7 +463,7 @@ function HurdlesSeriesCard({
             accessibilityLabel="Nombre de séries"
           />
         </View>
-        <View>
+        <View style={{ flex: 1 }}>
           <FieldLabel>Récup. R</FieldLabel>
           <InlineNumberInput
             testID={`${tid}-restR`}
@@ -491,28 +495,17 @@ function HurdlesSeriesCard({
           backgroundColor: colors.surfaceSunken,
         }}
       >
-        <View style={{ gap: 2 }}>
-          <Text
-            style={{
-              color: colors.textSecondary,
-              fontFamily: typography.fontFamily.medium,
-              fontSize: typography.caption.fontSize,
-              textTransform: 'uppercase',
-              letterSpacing: 0.6,
-            }}
-          >
-            Épreuve & ligne de haies
-          </Text>
-          <Text
-            style={{
-              color: colors.textMuted,
-              fontFamily: typography.fontFamily.regular,
-              fontSize: typography.caption.fontSize,
-            }}
-          >
-            Dispositif commun à la série — en dérive la distance de course.
-          </Text>
-        </View>
+        <Text
+          style={{
+            color: colors.textSecondary,
+            fontFamily: typography.fontFamily.medium,
+            fontSize: typography.caption.fontSize,
+            textTransform: 'uppercase',
+            letterSpacing: 0.6,
+          }}
+        >
+          Épreuve & ligne de haies
+        </Text>
 
         <View>
           <FieldLabel>Épreuve</FieldLabel>
