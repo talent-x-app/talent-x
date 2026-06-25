@@ -453,7 +453,7 @@ function SeriesCard({
         title="Sprints de la série"
         onAddRow={onAddSprint}
         addRowTestID={`${tid}-add-sprint`}
-        columns={[{ label: 'Distance' }, { label: 'Intensité' }, { label: 'Récup r' }]}
+        columns={[{ label: 'Distance' }, { label: 'Intensité' }, { label: 'Récup r', width: 72 }]}
       >
         {group.items.map((block, bi) => (
           <SprintRow
@@ -578,8 +578,11 @@ function SprintRow({
         decimal={intensityMode !== 'percent_record'}
       />
       {/* Récup r — dernier sprint : → R (récupération de série), sinon saisie en min */}
+      {/* Colonne « récup » à largeur fixe (72) pour toutes les lignes → la dernière (« → R »)
+          s'aligne exactement avec les lignes à saisie (sinon décalage, react-native-web ne fait
+          pas grandir une cellule texte comme une CellInput). */}
       {isLast ? (
-        <View style={{ flex: 1, minWidth: 0, alignItems: 'center', justifyContent: 'center' }}>
+        <View style={{ width: 72, height: 38, alignItems: 'center', justifyContent: 'center' }}>
           <Text
             style={{
               color: colors.textMuted,
@@ -591,18 +594,20 @@ function SprintRow({
           </Text>
         </View>
       ) : (
-        <CellInput
-          testID={`${testIDPrefix}-rec`}
-          value={
-            block.params.recoverySeconds ? String(Number(block.params.recoverySeconds) / 60) : ''
-          }
-          onChangeText={(t) => {
-            const v = parseFloat(t);
-            onPatch({ recoverySeconds: String(isNaN(v) ? 0 : Math.round(v * 60)) });
-          }}
-          unit="min"
-          decimal
-        />
+        <View style={{ width: 72 }}>
+          <CellInput
+            testID={`${testIDPrefix}-rec`}
+            value={
+              block.params.recoverySeconds ? String(Number(block.params.recoverySeconds) / 60) : ''
+            }
+            onChangeText={(t) => {
+              const v = parseFloat(t);
+              onPatch({ recoverySeconds: String(isNaN(v) ? 0 : Math.round(v * 60)) });
+            }}
+            unit="min"
+            decimal
+          />
+        </View>
       )}
     </EffortRowFrame>
   );

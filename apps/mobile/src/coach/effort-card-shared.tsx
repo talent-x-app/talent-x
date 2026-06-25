@@ -910,7 +910,10 @@ export function CellInput({
             color: colors.textMuted,
             fontFamily: typography.fontFamily.regular,
             fontSize: typography.caption.fontSize,
-            minWidth: unit.length > 2 ? 30 : 16,
+            // Réserve d'unité **constante** : sinon des unités de largeurs min différentes
+            // (« % » 16 vs « min » 30) décalent les colonnes d'une ligne à l'autre du tableau
+            // (la dernière ligne « → R » n'ayant pas d'unité). Largeur fixe = colonnes alignées.
+            minWidth: 26,
           }}
         >
           {unit}
