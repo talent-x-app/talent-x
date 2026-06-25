@@ -112,6 +112,15 @@ function serieSummary(group: EditableGroup): string {
   return parts.join(' · ');
 }
 
+/** Note du référentiel d'intensité, selon le mode (record-relatif vs cible absolue). */
+function intensityNote(mode: string, targetTime?: number): string {
+  if (mode === 'target_time') return 'Temps cible absolu (s), commun à tous les athlètes.';
+  if (mode === 'speed') return 'Vitesse cible (m/s), commune à tous les athlètes.';
+  return `Cible individualisée · % du record sur l'épreuve de chaque athlète. La distance de course sert au suivi de progression.${
+    targetTime != null ? ` (≈ ${targetTime} s sur la référence du module)` : ''
+  }`;
+}
+
 /** Estimation de durée globale (base 25 min échauff + passages + récups). */
 function estMinutes(series: EditableGroup[]): number {
   let sec = 25 * 60;
@@ -616,20 +625,18 @@ function HurdlesSeriesCard({
             onPatchSerieParam({ intensityMode: v, intensityValue: '' });
           }}
         />
-        {intensityMode === 'percent_record' && (
-          <InlineNumberInput
-            testID={`${tid}-intensityValue`}
-            value={intensityValue}
-            onChangeText={(t) => onPatchSerieParam({ intensityValue: t })}
-            placeholder="92"
-            unit="%"
-          />
-        )}
-        <InfoNote>
-          {`Cible individualisée · % du record sur l'épreuve de chaque athlète. La distance de course sert au suivi de progression.${
-            targetTime != null ? ` (≈ ${targetTime} s sur la référence du module)` : ''
-          }`}
-        </InfoNote>
+        {/* Champ valeur visible pour les 3 référentiels (unité adaptée) — plus de mode « mort »
+            sans saisie. La valeur est réinitialisée au changement de référentiel (cf. onSelect). */}
+        <InlineNumberInput
+          testID={`${tid}-intensityValue`}
+          value={intensityValue}
+          onChangeText={(t) => onPatchSerieParam({ intensityValue: t })}
+          placeholder={
+            intensityMode === 'speed' ? '8.5' : intensityMode === 'target_time' ? '14.5' : '92'
+          }
+          unit={intensityMode === 'speed' ? 'm/s' : intensityMode === 'target_time' ? 's' : '%'}
+        />
+        <InfoNote>{intensityNote(intensityMode, targetTime)}</InfoNote>
       </View>
 
       {/* Jambe d'attaque + départ */}
