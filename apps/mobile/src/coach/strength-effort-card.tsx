@@ -7,7 +7,6 @@ import {
   isEditableGroup,
   makeBlock,
   makeCooldownBlock,
-  makeSeriesGroup,
   makeWarmupBlock,
   nodesToItems,
   type EditableBlock,
@@ -23,7 +22,6 @@ import {
   EffortRowFrame,
   EffortTable,
   FieldLabel,
-  InfoNote,
   InlineNumberInput,
   PresetPicker,
   SegmentedControl,
@@ -67,16 +65,6 @@ const LOAD_MODES = [
   { value: 'bodyweight', label: 'Poids de corps' },
   { value: 'rpe', label: 'RPE' },
 ];
-
-/** Astuce coach contextuelle par méthode (preset), affichée en `InfoNote`. */
-const PRESET_TIPS: Record<string, string> = {
-  force_max: 'Force max : charges lourdes (85–95 % 1RM), séries courtes, récup longue (3–5′).',
-  hypertrophy: 'Hypertrophie : 65–75 % 1RM, 8–12 reps, récup ~90″, tempo contrôlé.',
-  power: 'Force-vitesse : charges modérées (40–60 % 1RM) exécutées de façon explosive.',
-  plyo: 'Pliométrie : poids de corps, qualité des appuis et du gainage avant le volume.',
-  circuit_ppg: 'Circuit PPG : enchaîner les stations, récup courte, intensité maîtrisée.',
-  core_ppg: 'Gainage : tenir la posture, ne pas relâcher le bassin, respirer régulièrement.',
-};
 
 /** Clé sentinelle « Autre exercice… » : exercice libre saisi à la main (pas de clé catalogue). */
 const CUSTOM_EXERCISE_KEY = '__custom__';
@@ -135,6 +123,12 @@ function matchPresetKey(item: Series): string {
   }
   return '';
 }
+
+/** Modèle par défaut de chaque mode (1er preset Muscu / 1er preset PPG) — utilisé au changement de Mode. */
+const FIRST_MUSCU_PRESET =
+  STRENGTH_PRESETS.find((p) => !p.build().some((n) => isEditableGroup(n)))?.key ?? '';
+const FIRST_PPG_PRESET =
+  STRENGTH_PRESETS.find((p) => p.build().some((n) => isEditableGroup(n)))?.key ?? '';
 
 /**
  * Marqueur de regroupement Muscu (param `muscuGroup`). Sans lui, deux séries Muscu adjacentes
@@ -368,50 +362,18 @@ export function StrengthEffortCanvas({
     commit(series.map((s, i) => (i === si ? next : s)));
   }
 
-  /** Bascule le mode d'une carte : remappe le type des lignes (strength ↔ core). */
+  /**
+   * Bascule le mode d'une carte → applique le **modèle par défaut** du mode cible (Muscu : Force
+   * max ; PPG : Circuit PPG). Ainsi un modèle est toujours sélectionné (le sélecteur « Modèle »
+   * reflète le mode) et le contenu est cohérent, plutôt qu'une conversion qui ne correspondait à
+   * aucun modèle. `applyPreset` gère le marqueur de regroupement (carte Muscu distincte).
+   */
   function setMode(si: number, mode: string) {
     const cur = series[si];
-    if (mode === 'ppg' && cur.kind === 'muscu') {
-      const stations = cur.blocks.map((b) =>
-        makeBlock({
-          type: BlockType.core,
-          name: EXERCISE_LABELS[b.params.exerciseKey ?? ''] ?? (b.name || 'Station'),
-          durationSeconds: '40',
-          restSeconds: '20',
-        }),
-      );
-      patchSeries(si, {
-        kind: 'ppg',
-        key: cur.key,
-        group: makeSeriesGroup({
-          name: 'Circuit PPG',
-          groupType: 'circuit',
-          rounds: '3',
-          restBetweenRoundsSeconds: '60',
-          items: stations.length > 0 ? stations : [makePpgStation()],
-        }),
-      });
-    } else if (mode === 'muscu' && cur.kind === 'ppg') {
-      const blocks = cur.group.items.map((b, idx) =>
-        makeMuscuBlock({
-          // Cycle sur les vraies clés du catalogue — jamais la sentinelle « Autre… » (TLX-172 #5).
-          exerciseKey: MUSCU_EXERCISE_KEYS[idx % MUSCU_EXERCISE_KEYS.length],
-          sets: 4,
-          reps: 8,
-          loadMode: 'percent_1rm',
-          loadValue: '70',
-        }),
-      );
-      patchSeries(si, {
-        kind: 'muscu',
-        key: cur.key,
-        // Marqueur frais → la carte convertie reste distincte (ne fusionne pas avec une Muscu voisine).
-        blocks: stampMuscuGroup(
-          blocks.length > 0 ? blocks : defaultMuscuSeries(),
-          nextMuscuGroup(),
-        ),
-      });
-    }
+    const wantMuscu = mode === 'muscu';
+    if (wantMuscu === (cur.kind === 'muscu')) return; // déjà dans ce mode
+    const key = wantMuscu ? FIRST_MUSCU_PRESET : FIRST_PPG_PRESET;
+    if (key) applyPreset(si, key);
   }
 
   function setLoadMode(si: number, mode: string) {
@@ -808,10 +770,6 @@ function StrengthSeriesCard({
               />
             ))}
           </EffortTable>
-          <InfoNote>
-            {PRESET_TIPS[selectedPresetKey] ??
-              'Circuit : le travail s’exprime en secondes ou en répétitions par station.'}
-          </InfoNote>
         </>
       )}
     </SeriesCardFrame>
