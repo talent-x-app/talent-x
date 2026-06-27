@@ -179,6 +179,47 @@ export function earliestDueDateBySession(assignments: Assignment[]): Map<string,
  * partagée (les deux rôles consomment `GET /competitions`, role-aware). Navigue vers le
  * détail (athlète) ou l'édition (coach), résolu par le parent via `kind`.
  */
+/** Listes de séances du hub coach « Séances » (ADR-53), par filtre. */
+export interface CoachSessionBuckets {
+  /** À venir : date effective ≥ aujourd'hui, **+ les publiées sans date** (en tête). */
+  upcoming: CalendarEntry[];
+  /** Passées : date effective < aujourd'hui (récent d'abord). */
+  past: CalendarEntry[];
+  /** Brouillons (statut `draft`). */
+  drafts: CalendarEntry[];
+  /** Modèles (statut `template`, bibliothèque C-10). */
+  templates: CalendarEntry[];
+}
+
+/**
+ * Répartit les séances du coach (ADR-53) en filtres À venir / Passées / Brouillons / Modèles, à
+ * partir de `GET /sessions` + `GET /assignments` (date effective `scheduledDate` sinon échéance,
+ * TLX-195). À venir trié croissant (le plus proche d'abord, **non datées en tête**), Passées trié
+ * décroissant (récent d'abord). Builder pur (testable).
+ */
+export function coachSessionBuckets(
+  sessions: Session[],
+  assignments: Assignment[],
+  now: Date,
+): CoachSessionBuckets {
+  const todayKey = dayKey(now);
+  // `coachSessionEntries` exclut déjà les modèles et porte date effective / overdue / isDraft.
+  const entries = coachSessionEntries(sessions, assignments, now);
+  const drafts = entries.filter((e) => e.isDraft);
+  const published = entries.filter((e) => !e.isDraft);
+  // Non datées (date null → clé '') triées avant les datées → « Non planifiée » en tête d'À venir.
+  const upcoming = published
+    .filter((e) => e.date == null || e.date >= todayKey)
+    .sort((a, b) => (a.date ?? '').localeCompare(b.date ?? ''));
+  const past = published
+    .filter((e) => e.date != null && e.date < todayKey)
+    .sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''));
+  const templates = sessions
+    .filter((s) => s.status === SessionStatus.template)
+    .map((s) => sessionToCalendarEntry(s));
+  return { upcoming, past, drafts, templates };
+}
+
 export function competitionToCalendarEntry(c: Competition): CalendarEntry {
   const meta = COMPETITION_STATUS_META[c.status];
   const title = c.name?.trim();

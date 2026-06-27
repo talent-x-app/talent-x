@@ -20,16 +20,17 @@ test.describe('coach-misc — layout, dashboard, notifications', () => {
     await apiSeed.loginAs(page, w.coach);
     await expect(page.getByTestId('coach-dashboard-subtitle')).toBeVisible({ timeout: 20_000 });
 
-    for (const name of ['Accueil', 'Athlètes', 'Calendrier', 'Profil']) {
+    for (const name of ['Accueil', 'Athlètes', 'Séances', 'Profil']) {
       await expect(page.getByRole('tab', { name })).toBeVisible();
     }
 
     // Navigation client-side : un marqueur stable par écran (présent hors états ∅/L/E).
     await page.getByRole('tab', { name: 'Athlètes' }).click();
-    await expect(page.getByTestId('coach-athletes-templates')).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByTestId('coach-athletes-manage-groups')).toBeVisible({ timeout: 20_000 });
 
-    await page.getByRole('tab', { name: 'Calendrier' }).click();
-    await expect(page.getByTestId('calendar-competitions-link')).toBeVisible({ timeout: 20_000 });
+    // Onglet Séances (ADR-53) : hub Liste ⇄ Calendrier (l'ancien onglet Calendrier y est intégré).
+    await page.getByRole('tab', { name: 'Séances' }).click();
+    await expect(page.getByTestId('coach-sessions-view-tabs')).toBeVisible({ timeout: 20_000 });
 
     await page.getByRole('tab', { name: 'Profil' }).click();
     await expect(page.getByTestId('profile-name')).toBeVisible({ timeout: 20_000 });
@@ -48,7 +49,7 @@ test.describe('coach-misc — layout, dashboard, notifications', () => {
     // Deep-link direct vers une route coach → RoleGuard (role≠) redirige vers le login.
     await page.goto('/athletes');
     await expect(page.getByTestId('login-submit')).toBeVisible({ timeout: 20_000 });
-    await expect(page.getByTestId('coach-athletes-templates')).toBeHidden();
+    await expect(page.getByTestId('coach-athletes-manage-groups')).toBeHidden();
   });
 
   // ---------- Dashboard ----------

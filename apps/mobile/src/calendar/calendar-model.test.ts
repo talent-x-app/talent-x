@@ -3,6 +3,7 @@ import {
   addDays,
   assignmentToCalendarEntry,
   type CalendarEntry,
+  coachSessionBuckets,
   coachSessionEntries,
   competitionToCalendarEntry,
   dayKey,
@@ -205,6 +206,24 @@ describe('coachSessionEntries (TLX-195)', () => {
     );
     expect(entries).toHaveLength(1); // modèle exclu
     expect(entries[0]).toMatchObject({ id: 's-occ', date: '2026-06-01', overdue: true });
+  });
+});
+
+describe('coachSessionBuckets (ADR-53)', () => {
+  const NOW = new Date('2026-06-15T00:00:00Z');
+  it('répartit en À venir / Passées / Brouillons / Modèles (non datées en tête d’À venir)', () => {
+    const sessions = [
+      session({ id: 's-future', status: 'published', scheduledDate: '2026-06-20' }),
+      session({ id: 's-past', status: 'published', scheduledDate: '2026-06-01' }),
+      session({ id: 's-undated', status: 'published', scheduledDate: undefined }),
+      session({ id: 's-draft', status: 'draft' }),
+      session({ id: 't-1', status: 'template' }),
+    ];
+    const b = coachSessionBuckets(sessions, [], NOW);
+    expect(b.upcoming.map((e) => e.id)).toEqual(['s-undated', 's-future']);
+    expect(b.past.map((e) => e.id)).toEqual(['s-past']);
+    expect(b.drafts.map((e) => e.id)).toEqual(['s-draft']);
+    expect(b.templates.map((e) => e.id)).toEqual(['t-1']);
   });
 });
 

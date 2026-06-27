@@ -23,7 +23,7 @@ import { coachSessionEntries, competitionToCalendarEntry } from './calendar-mode
  * constructeur de séance (C-05) pour ajuster la planification. États chargement / erreur / vide,
  * pull-to-refresh. Les séances sans date planifiée apparaissent dans « Sans date ».
  */
-export function CoachCalendarScreen() {
+export function CoachCalendarScreen({ embedded = false }: { embedded?: boolean } = {}) {
   const { colors, typography, spacing } = useTheme();
   const router = useRouter();
 
@@ -82,15 +82,18 @@ export function CoachCalendarScreen() {
       }
     >
       <ResponsiveContent testID="coach-responsive-content" style={{ gap: spacing[5] }}>
-        <Text
-          style={{
-            color: colors.textPrimary,
-            fontFamily: typography.fontFamily.bold,
-            fontSize: typography.h2.fontSize,
-          }}
-        >
-          Calendrier
-        </Text>
+        {/* Titre masqué en mode embarqué (le hub « Séances » porte déjà son en-tête, ADR-53). */}
+        {!embedded ? (
+          <Text
+            style={{
+              color: colors.textPrimary,
+              fontFamily: typography.fontFamily.bold,
+              fontSize: typography.h2.fontSize,
+            }}
+          >
+            Calendrier
+          </Text>
+        ) : null}
 
         <Button
           testID="calendar-competitions-link"

@@ -36,9 +36,9 @@ test.describe('TLX-130 layout adaptatif coach', () => {
       const screens: Array<{ go: () => Promise<unknown>; ready: string; tag: string }> = [
         { go: () => page.goto('/'), ready: 'coach-dashboard-subtitle', tag: 'dashboard' },
         {
-          go: () => page.getByRole('tab', { name: 'Calendrier' }).click(),
+          go: () => page.getByRole('tab', { name: 'Séances' }).click(),
           ready: 'coach-responsive-content',
-          tag: 'calendar',
+          tag: 'sessions',
         },
         {
           go: () => page.goto(`/session/${sessionId}/edit`),

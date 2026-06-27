@@ -89,6 +89,8 @@ test('cloche notifs (athlète + coach), retour de nav, badge engagement', async 
   await expect(page.getByTestId('notifications-bell-badge')).toHaveCount(0);
 
   // --- 3b. Liste coach : statut de la compétition (publiée), pas d'engagement ---
+  // ADR-53 : le calendrier coach est désormais sous l'onglet Séances (sous-onglet Calendrier).
+  await page.getByRole('tab', { name: 'Séances' }).click();
   await page.getByRole('tab', { name: 'Calendrier' }).click();
   await page.getByTestId('calendar-competitions-link').click();
   await expect(page.getByTestId('competition-status-published').first()).toBeVisible({

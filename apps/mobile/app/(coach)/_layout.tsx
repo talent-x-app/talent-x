@@ -38,10 +38,10 @@ export default function CoachLayout() {
           }}
         />
         <Tabs.Screen
-          name="calendar"
+          name="sessions"
           options={{
-            title: 'Calendrier',
-            tabBarIcon: ({ color, size }) => <Feather name="calendar" color={color} size={size} />,
+            title: 'Séances',
+            tabBarIcon: ({ color, size }) => <Feather name="clipboard" color={color} size={size} />,
           }}
         />
         <Tabs.Screen
@@ -55,6 +55,8 @@ export default function CoachLayout() {
         <Tabs.Screen name="athlete/[id]" options={{ href: null }} />
         {/* Revue de perf (C-08) : routable mais masquée du tab bar. */}
         <Tabs.Screen name="review/[id]" options={{ href: null }} />
+        {/* Calendrier (ADR-53) : déplacé sous l'onglet Séances → route conservée mais hors tab bar. */}
+        <Tabs.Screen name="calendar" options={{ href: null }} />
         {/* Détail (lecture seule) + constructeur (C-05) : routables mais masqués du tab bar. */}
         <Tabs.Screen name="session/new" options={{ href: null }} />
         {/* Assistant de création par discipline (ADR-38) : routable mais masqué du tab bar. */}
