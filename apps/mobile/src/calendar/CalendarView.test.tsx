@@ -89,6 +89,59 @@ describe('CalendarView (TLX-100 / ADR-47 — Mois ⇄ Semaine)', () => {
     expect(screen.queryByTestId('cal-cell-2026-05-04')).toBeNull();
   });
 
+  it('TLX-195 : sépare « Brouillons » de « Sans date »', () => {
+    const entries: CalendarEntry[] = [
+      {
+        id: 'd-1',
+        kind: 'session',
+        title: 'Brouillon X',
+        date: null,
+        tone: 'neutral',
+        statusLabel: 'Brouillon',
+        isDraft: true,
+      },
+      {
+        id: 'u-1',
+        kind: 'session',
+        title: 'Publiée non datée',
+        date: null,
+        tone: 'accent',
+        statusLabel: 'Publiée',
+      },
+    ];
+    render(
+      <CalendarView entries={entries} now={NOW} onPressEntry={jest.fn()} testIDPrefix="cal" />,
+      {
+        wrapper: Wrapper,
+      },
+    );
+    expect(screen.getByText('Brouillons')).toBeOnTheScreen();
+    expect(screen.getByTestId('cal-draft-d-1')).toBeOnTheScreen();
+    expect(screen.getByText('Sans date')).toBeOnTheScreen();
+    expect(screen.getByTestId('cal-undated-u-1')).toBeOnTheScreen();
+  });
+
+  it('TLX-195 : badge « En retard » sur une entrée en retard du jour sélectionné', () => {
+    const entries: CalendarEntry[] = [
+      {
+        id: 'o-1',
+        kind: 'session',
+        title: 'En retard',
+        date: '2026-05-14', // jour sélectionné par défaut (NOW)
+        tone: 'accent',
+        statusLabel: 'Publiée',
+        overdue: true,
+      },
+    ];
+    render(
+      <CalendarView entries={entries} now={NOW} onPressEntry={jest.fn()} testIDPrefix="cal" />,
+      {
+        wrapper: Wrapper,
+      },
+    );
+    expect(screen.getByTestId('cal-entry-o-1-overdue')).toBeOnTheScreen();
+  });
+
   it('navigation de période : « Aujourd’hui » resélectionne le jour courant', () => {
     render(
       <CalendarView entries={ENTRIES} now={NOW} onPressEntry={jest.fn()} testIDPrefix="cal" />,

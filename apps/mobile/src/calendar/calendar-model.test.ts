@@ -3,9 +3,11 @@ import {
   addDays,
   assignmentToCalendarEntry,
   type CalendarEntry,
+  coachSessionEntries,
   competitionToCalendarEntry,
   dayKey,
   earliestDueDateBySession,
+  overdueSessionIds,
   formatDayLabel,
   formatWeekLabel,
   groupEntriesByDay,
@@ -145,9 +147,10 @@ describe('sessionToCalendarEntry (C-09)', () => {
     });
   });
 
-  it('mappe un brouillon (tonalité neutre)', () => {
+  it('mappe un brouillon (tonalité neutre, isDraft) — TLX-195', () => {
     const e = sessionToCalendarEntry(session({ status: 'draft', scheduledDate: '2026-05-13' }));
-    expect(e).toMatchObject({ tone: 'neutral', statusLabel: 'Brouillon' });
+    expect(e).toMatchObject({ tone: 'neutral', statusLabel: 'Brouillon', isDraft: true });
+    expect(sessionToCalendarEntry(session({ status: 'published' })).isDraft).toBe(false);
   });
 
   it("date null si la séance n'est pas planifiée", () => {
@@ -162,6 +165,46 @@ describe('sessionToCalendarEntry (C-09)', () => {
   it('TLX-195 : la date planifiée prime sur le repli d’échéance', () => {
     const e = sessionToCalendarEntry(session({ scheduledDate: '2026-05-13' }), '2026-05-20');
     expect(e.date).toBe('2026-05-13');
+  });
+});
+
+describe('overdueSessionIds (TLX-195 calendrier)', () => {
+  const NOW = new Date('2026-06-15T00:00:00Z');
+  it('marque une échéance passée non soldée', () => {
+    const set = overdueSessionIds(
+      [assignment({ sessionId: 's-late', dueDate: '2026-06-01', status: 'assigned' })],
+      NOW,
+    );
+    expect(set.has('s-late')).toBe(true);
+  });
+  it('ignore les échéances réalisées, passées volontairement, ou futures', () => {
+    const set = overdueSessionIds(
+      [
+        assignment({ sessionId: 's-done', dueDate: '2026-06-01', status: 'completed' }),
+        assignment({ sessionId: 's-skip', dueDate: '2026-06-01', status: 'skipped' }),
+        assignment({ sessionId: 's-future', dueDate: '2026-07-01', status: 'assigned' }),
+      ],
+      NOW,
+    );
+    expect(set.has('s-done')).toBe(false);
+    expect(set.has('s-skip')).toBe(false);
+    expect(set.has('s-future')).toBe(false);
+  });
+});
+
+describe('coachSessionEntries (TLX-195)', () => {
+  const NOW = new Date('2026-06-15T00:00:00Z');
+  it('exclut les modèles, date effective via échéance, marque le retard', () => {
+    const entries = coachSessionEntries(
+      [
+        session({ id: 's-occ', scheduledDate: undefined }),
+        session({ id: 't-1', status: 'template' }),
+      ],
+      [assignment({ sessionId: 's-occ', dueDate: '2026-06-01', status: 'assigned' })],
+      NOW,
+    );
+    expect(entries).toHaveLength(1); // modèle exclu
+    expect(entries[0]).toMatchObject({ id: 's-occ', date: '2026-06-01', overdue: true });
   });
 });
 

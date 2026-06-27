@@ -1,4 +1,5 @@
 import {
+  AssignmentStatus,
   CompetitionStatus,
   SessionStatus,
   type Assignment,
@@ -6,6 +7,8 @@ import {
   type Session,
 } from '@talent-x/api-client';
 import { ASSIGNMENT_STATUS_META } from '../athlete/athlete-session-ui';
+import { sessionDiscipline } from '../progress/session-discipline';
+import { disciplineVisual, type DisciplineVisual } from '../groups/discipline-ui';
 
 /**
  * Modèle de calendrier (TLX-100 — A-08 athlète / C-09 coach). Le calendrier est une **vue
@@ -38,6 +41,12 @@ export interface CalendarEntry {
   date: string | null;
   tone: CalendarTone;
   statusLabel: string;
+  /** Visuel de discipline pour la pastille (séances) — `null` si indéterminé ou compétition. */
+  discipline?: DisciplineVisual | null;
+  /** Séance **en retard** (échéance passée, non réalisée) — pilotage coach (TLX-195 §calendrier). */
+  overdue?: boolean;
+  /** Brouillon (séance non publiée) — séparé de « Sans date » dans le calendrier. */
+  isDraft?: boolean;
 }
 
 /** Libellé + tonalité par statut de séance (coach C-09). */
@@ -104,7 +113,47 @@ export function sessionToCalendarEntry(s: Session, fallbackDate?: string | null)
     date: normalizeDate(s.scheduledDate) ?? normalizeDate(fallbackDate),
     tone: meta.tone,
     statusLabel: meta.label,
+    // Pastille colorée par discipline (dérivée des blocs typés, comme le calendrier athlète).
+    discipline: disciplineVisual(sessionDiscipline(s.exercises?.items)),
+    isDraft: s.status === SessionStatus.draft,
   };
+}
+
+/**
+ * Séances en **retard** (TLX-195 §calendrier) : ids des séances ayant au moins une affectation
+ * d'échéance **passée** et **non soldée** (ni réalisée, ni passée volontairement). Dérivé des
+ * affectations du coach + `now` (jour courant). Sert à signaler l'overdue dans le calendrier.
+ */
+export function overdueSessionIds(assignments: Assignment[], now: Date): Set<string> {
+  const todayKey = dayKey(now);
+  const out = new Set<string>();
+  for (const a of assignments) {
+    const due = normalizeDate(a.dueDate);
+    if (!due || due >= todayKey) continue;
+    if (a.status === AssignmentStatus.completed || a.status === AssignmentStatus.skipped) continue;
+    out.add(a.sessionId);
+  }
+  return out;
+}
+
+/**
+ * Entrées calendrier **coach** (TLX-195) à partir de ses séances + affectations : exclut les
+ * modèles, place chaque séance à sa date effective (`scheduledDate` sinon échéance d'affectation),
+ * marque les séances **en retard**, et dérive la discipline/brouillon. Builder pur (testable).
+ */
+export function coachSessionEntries(
+  sessions: Session[],
+  assignments: Assignment[],
+  now: Date,
+): CalendarEntry[] {
+  const dueBySession = earliestDueDateBySession(assignments);
+  const overdue = overdueSessionIds(assignments, now);
+  return sessions
+    .filter((s) => s.status !== SessionStatus.template)
+    .map((s) => {
+      const entry = sessionToCalendarEntry(s, dueBySession.get(s.id) ?? null);
+      return overdue.has(s.id) ? { ...entry, overdue: true } : entry;
+    });
 }
 
 /**

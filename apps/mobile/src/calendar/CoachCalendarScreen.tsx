@@ -2,7 +2,6 @@ import {
   listAssignments,
   listCompetitions,
   listSessions,
-  SessionStatus,
   type Assignment,
   type Competition,
   type Session,
@@ -16,11 +15,7 @@ import { ResponsiveContent } from '../responsive/ResponsiveContent';
 import { COMPETITIONS_QUERY_KEY } from '../competitions/competitions-query';
 import { coachCompetitionsHref, competitionEditHref } from '../competitions/navigation';
 import { CalendarView } from './CalendarView';
-import {
-  competitionToCalendarEntry,
-  earliestDueDateBySession,
-  sessionToCalendarEntry,
-} from './calendar-model';
+import { coachSessionEntries, competitionToCalendarEntry } from './calendar-model';
 
 /**
  * Calendrier coach (C-09 — TLX-100). Vue planning dérivée de `GET /sessions` (role-aware :
@@ -67,12 +62,10 @@ export function CoachCalendarScreen() {
     retry: false,
   });
 
-  const dueBySession = earliestDueDateBySession(assignments.data ?? []);
+  const now = new Date();
   const entries = [
-    // Les modèles (C-10, ADR-29) ne sont pas des séances planifiées → exclus du calendrier.
-    ...(query.data ?? [])
-      .filter((session) => session.status !== SessionStatus.template)
-      .map((session) => sessionToCalendarEntry(session, dueBySession.get(session.id) ?? null)),
+    // Séances du coach : modèles exclus, date effective (planifiée ou échéance), retard + discipline.
+    ...coachSessionEntries(query.data ?? [], assignments.data ?? [], now),
     ...(competitions.data ?? []).map(competitionToCalendarEntry),
   ];
 
@@ -147,7 +140,7 @@ export function CoachCalendarScreen() {
             ) : null}
             <CalendarView
               entries={entries}
-              now={new Date()}
+              now={now}
               testIDPrefix="calendar"
               onPressEntry={(entry) =>
                 router.push(
