@@ -366,7 +366,7 @@ describe('GroupsService', () => {
       await service(prisma, ownershipMock(), queue).joinGroup('a-2', 'ABCD2345');
 
       expect(queue.enqueue).toHaveBeenCalledWith(
-        { type: 'group_update', recipientUserId: 'c-1', resourceId: 'g-1' },
+        { type: 'group_update', recipientUserId: 'c-1', resourceId: 'g-1', actorId: 'a-2' },
         'group_update--gm-1',
       );
     });
@@ -433,7 +433,7 @@ describe('GroupsService', () => {
         select: { id: true },
       });
       expect(queue.enqueue).toHaveBeenCalledWith(
-        { type: 'session_assigned', recipientUserId: 'a-2', resourceId: 'asg-new' },
+        { type: 'session_assigned', recipientUserId: 'a-2', resourceId: 'asg-new', actorId: 'c-1' },
         'session_assigned--asg-new',
       );
     });

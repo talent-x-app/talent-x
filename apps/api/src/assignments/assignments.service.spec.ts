@@ -175,11 +175,11 @@ describe('AssignmentsService', () => {
 
       expect(queue.enqueue).toHaveBeenCalledTimes(2);
       expect(queue.enqueue).toHaveBeenCalledWith(
-        { type: 'session_assigned', recipientUserId: 'a-1', resourceId: 'x' },
+        { type: 'session_assigned', recipientUserId: 'a-1', resourceId: 'x', actorId: 'c-1' },
         'session_assigned--x',
       );
       expect(queue.enqueue).toHaveBeenCalledWith(
-        { type: 'session_assigned', recipientUserId: 'a-2', resourceId: 'y' },
+        { type: 'session_assigned', recipientUserId: 'a-2', resourceId: 'y', actorId: 'c-1' },
         'session_assigned--y',
       );
     });
@@ -391,7 +391,7 @@ describe('AssignmentsService', () => {
       // 2 occurrences créées mais 1 seule notification (athlète a-1, occurrence 1).
       expect(queue.enqueue).toHaveBeenCalledTimes(1);
       expect(queue.enqueue).toHaveBeenCalledWith(
-        { type: 'session_assigned', recipientUserId: 'a-1', resourceId: 'asg-1' },
+        { type: 'session_assigned', recipientUserId: 'a-1', resourceId: 'asg-1', actorId: 'c-1' },
         'session_assigned--asg-1',
       );
     });

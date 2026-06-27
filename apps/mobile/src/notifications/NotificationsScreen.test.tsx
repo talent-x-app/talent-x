@@ -73,6 +73,35 @@ describe('NotificationsScreen (TLX-111 — ADR-23)', () => {
     await waitFor(() => expect(mockReadAllNotifications).toHaveBeenCalledTimes(1));
   });
 
+  it('rend une description nominative quand l’acteur est résolu, générique sinon (ADR-55)', async () => {
+    mockListNotifications.mockResolvedValue(
+      page(
+        [
+          {
+            id: 'n-a',
+            type: 'group_update',
+            resourceId: 'g-1',
+            actor: { id: 'a-9', displayName: 'Léa' },
+            createdAt: new Date().toISOString(),
+          },
+          // Sans acteur → repli générique.
+          {
+            id: 'n-b',
+            type: 'group_update',
+            resourceId: 'g-2',
+            createdAt: new Date().toISOString(),
+          },
+        ],
+        0,
+      ),
+    );
+    render(<NotificationsScreen />, { wrapper: Wrapper });
+
+    await waitFor(() => expect(screen.getByTestId('notification-n-a')).toBeOnTheScreen());
+    expect(screen.getByText(/Léa a rejoint votre groupe\./)).toBeOnTheScreen();
+    expect(screen.getByText(/Un athlète a rejoint votre groupe\./)).toBeOnTheScreen();
+  });
+
   it('ne marque rien quand tout est déjà lu', async () => {
     mockListNotifications.mockResolvedValue(page([READ], 0));
     render(<NotificationsScreen />, { wrapper: Wrapper });

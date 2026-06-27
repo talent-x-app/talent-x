@@ -129,7 +129,12 @@ describe('CommentsService (TLX-086)', () => {
 
       // resourceId = affectation (la ressource navigable côté athlète, ADR-23).
       expect(queue.enqueue).toHaveBeenCalledWith(
-        { type: 'performance_feedback', recipientUserId: 'a-1', resourceId: 'asg-7' },
+        {
+          type: 'performance_feedback',
+          recipientUserId: 'a-1',
+          resourceId: 'asg-7',
+          actorId: 'c-1',
+        },
         'performance_feedback--cm-1',
       );
     });

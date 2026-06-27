@@ -84,6 +84,8 @@ export class PerformancesService {
           type: 'performance_submitted',
           recipientUserId: assignment.session.coachId,
           resourceId: assignmentId,
+          // Acteur (ADR-55) = l'athlète qui soumet ; résolu en prénom au read côté coach.
+          actorId: assignment.athleteId,
         },
         // « : » interdit dans un jobId BullMQ (séparateur interne de clés Redis).
         `performance_submitted--${assignmentId}`,

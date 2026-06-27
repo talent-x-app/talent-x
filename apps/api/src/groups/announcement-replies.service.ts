@@ -122,7 +122,13 @@ export class AnnouncementRepliesService {
     // Notifie l'auteur de l'annonce (coach), sauf s'il répond à lui-même. resourceId = groupe.
     if (announcement.authorId !== user.id) {
       await this.notificationQueue.enqueue(
-        { type: 'group_reply', recipientUserId: announcement.authorId, resourceId: groupId },
+        {
+          type: 'group_reply',
+          recipientUserId: announcement.authorId,
+          resourceId: groupId,
+          // Acteur (ADR-55) = l'auteur de la réponse.
+          actorId: user.id,
+        },
         `group_reply--${created.id}--${announcement.authorId}`,
       );
     }

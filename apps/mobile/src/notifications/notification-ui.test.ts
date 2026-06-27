@@ -1,6 +1,7 @@
 import {
   NOTIFICATION_PRESENTATIONS,
   formatRelativeDate,
+  notificationDescription,
   notificationHref,
 } from './notification-ui';
 
@@ -45,6 +46,35 @@ describe('notification-ui (TLX-111, ADR-23)', () => {
         title: 'Performance à revoir',
         description: 'Un athlète a soumis une performance.',
       });
+    });
+  });
+
+  describe('notificationDescription (ADR-55)', () => {
+    it('sans acteur : repli sur la description générique du type', () => {
+      expect(notificationDescription('group_update')).toBe(
+        NOTIFICATION_PRESENTATIONS.group_update.description,
+      );
+      expect(notificationDescription('performance_submitted', undefined)).toBe(
+        NOTIFICATION_PRESENTATIONS.performance_submitted.description,
+      );
+    });
+
+    it('avec acteur : phrase nominative par type', () => {
+      expect(notificationDescription('group_update', 'Léa')).toBe('Léa a rejoint votre groupe.');
+      expect(notificationDescription('performance_submitted', 'Tom')).toBe(
+        'Tom a soumis une performance.',
+      );
+      expect(notificationDescription('performance_feedback', 'Marc')).toBe(
+        'Marc a commenté ta performance.',
+      );
+      expect(notificationDescription('session_assigned', 'Marc')).toBe(
+        'Marc t’a affecté une séance.',
+      );
+      expect(notificationDescription('group_announcement', 'Marc')).toBe(
+        'Marc a publié une annonce.',
+      );
+      expect(notificationDescription('group_reply', 'Léa')).toBe('Léa a répondu à ton annonce.');
+      expect(notificationDescription('group_kudos', 'Léa')).toContain('Léa');
     });
   });
 

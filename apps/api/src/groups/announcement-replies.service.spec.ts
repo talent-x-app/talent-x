@@ -164,7 +164,7 @@ describe('AnnouncementRepliesService (ADR-50)', () => {
         }),
       );
       expect(queue.enqueue).toHaveBeenCalledWith(
-        { type: 'group_reply', recipientUserId: 'c-1', resourceId: 'g-1' },
+        { type: 'group_reply', recipientUserId: 'c-1', resourceId: 'g-1', actorId: 'a-1' },
         'group_reply--r-1--c-1',
       );
       expect(res.mine).toBe(true);

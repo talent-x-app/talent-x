@@ -90,7 +90,7 @@ describe('KudosService (ADR-48/49, Palier 2)', () => {
         }),
       );
       expect(queue.enqueue).toHaveBeenCalledWith(
-        { type: 'group_kudos', recipientUserId: 'a-2', resourceId: 's-1' },
+        { type: 'group_kudos', recipientUserId: 'a-2', resourceId: 's-1', actorId: 'a-1' },
         'group_kudos--asg-2--a-1',
       );
     });

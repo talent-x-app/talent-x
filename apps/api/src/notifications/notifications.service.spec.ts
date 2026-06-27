@@ -7,6 +7,7 @@ type PrismaMock = {
   deviceToken: Record<string, jest.Mock>;
   notificationPreferences: Record<string, jest.Mock>;
   notification: Record<string, jest.Mock>;
+  user: Record<string, jest.Mock>;
   $transaction: jest.Mock;
 };
 
@@ -15,12 +16,27 @@ function prismaMock(): PrismaMock {
     deviceToken: { upsert: jest.fn(), updateMany: jest.fn() },
     notificationPreferences: { findUnique: jest.fn(), upsert: jest.fn() },
     notification: { findMany: jest.fn(), count: jest.fn(), updateMany: jest.fn() },
+    user: { findMany: jest.fn().mockResolvedValue([]) },
     $transaction: jest.fn((ops: Promise<unknown>[]) => Promise.all(ops)),
   };
 }
 
 function make(prisma: PrismaMock): NotificationsService {
   return new NotificationsService(prisma as unknown as PrismaService);
+}
+
+function notifRow(over: Record<string, unknown> = {}) {
+  return {
+    id: 'n-1',
+    userId: 'u-1',
+    type: 'session_assigned',
+    resourceId: 'asg-1',
+    actorId: null,
+    dedupeKey: 'k1',
+    readAt: null,
+    createdAt: new Date('2026-06-10T10:00:00.000Z'),
+    ...over,
+  };
 }
 
 function deviceRow(over: Record<string, unknown> = {}) {
@@ -81,6 +97,52 @@ describe('NotificationsService (TLX-110/111, ADR-22/23)', () => {
       expect(res.data[1].readAt).toBe('2026-06-09T10:00:00.000Z');
       expect(res.meta).toMatchObject({ total: 2, page: 1, limit: 20, hasNext: false });
       expect(res.unreadCount).toBe(1);
+      // Sans actorId : aucune résolution d'acteur (pas de requête users), pas de champ `actor`.
+      expect(prisma.user.findMany).not.toHaveBeenCalled();
+      expect(res.data[0]).not.toHaveProperty('actor');
+    });
+
+    it('résout l’acteur en prénom (ADR-55), en un lot, et désambiguïse les homonymes', async () => {
+      const prisma = prismaMock();
+      prisma.notification.findMany.mockResolvedValue([
+        notifRow({ id: 'n-1', type: 'group_update', resourceId: 'g-1', actorId: 'a-1' }),
+        notifRow({ id: 'n-2', type: 'group_update', resourceId: 'g-1', actorId: 'a-2' }),
+        notifRow({ id: 'n-3', type: 'group_kudos', resourceId: 's-1', actorId: 'a-3' }),
+      ]);
+      prisma.notification.count.mockResolvedValueOnce(3).mockResolvedValueOnce(0);
+      // Deux « Léa » → désambiguïsation « Léa K. » / « Léa M. » ; « Tom » reste « Tom ».
+      prisma.user.findMany.mockResolvedValue([
+        { id: 'a-1', firstName: 'Léa', lastName: 'Koné' },
+        { id: 'a-2', firstName: 'Léa', lastName: 'Martin' },
+        { id: 'a-3', firstName: 'Tom', lastName: 'Bah' },
+      ]);
+
+      const q = Object.assign(new PaginationQueryDto(), { page: 1, limit: 20 });
+      const res = await make(prisma).listNotifications('u-1', q);
+
+      // Un seul lot pour résoudre tous les acteurs de la page.
+      expect(prisma.user.findMany).toHaveBeenCalledTimes(1);
+      expect(prisma.user.findMany).toHaveBeenCalledWith({
+        where: { id: { in: ['a-1', 'a-2', 'a-3'] } },
+        select: { id: true, firstName: true, lastName: true },
+      });
+      expect(res.data[0].actor).toEqual({ id: 'a-1', displayName: 'Léa K.' });
+      expect(res.data[1].actor).toEqual({ id: 'a-2', displayName: 'Léa M.' });
+      expect(res.data[2].actor).toEqual({ id: 'a-3', displayName: 'Tom' });
+    });
+
+    it('actorId présent mais acteur supprimé → repli (pas de champ actor)', async () => {
+      const prisma = prismaMock();
+      prisma.notification.findMany.mockResolvedValue([
+        notifRow({ id: 'n-1', type: 'group_update', resourceId: 'g-1', actorId: 'gone' }),
+      ]);
+      prisma.notification.count.mockResolvedValueOnce(1).mockResolvedValueOnce(0);
+      prisma.user.findMany.mockResolvedValue([]); // acteur introuvable (SET NULL futur / purge)
+
+      const q = Object.assign(new PaginationQueryDto(), { page: 1, limit: 20 });
+      const res = await make(prisma).listNotifications('u-1', q);
+
+      expect(res.data[0]).not.toHaveProperty('actor');
     });
   });
 

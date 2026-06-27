@@ -171,7 +171,13 @@ export class AnnouncementsService {
     });
     for (const { athleteId } of members) {
       await this.notificationQueue.enqueue(
-        { type: 'group_announcement', recipientUserId: athleteId, resourceId: groupId },
+        {
+          type: 'group_announcement',
+          recipientUserId: athleteId,
+          resourceId: groupId,
+          // Acteur (ADR-55) = le coach auteur de l'annonce.
+          actorId: coachId,
+        },
         `group_announcement--${created.id}--${athleteId}`,
       );
     }

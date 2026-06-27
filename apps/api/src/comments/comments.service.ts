@@ -66,6 +66,8 @@ export class CommentsService {
           type: 'performance_feedback',
           recipientUserId: performance.athleteId,
           resourceId: performance.assignmentId,
+          // Acteur (ADR-55) = le coach qui commente ; résolu en prénom au read côté athlète.
+          actorId: user.id,
         },
         // « : » est interdit dans un jobId BullMQ (séparateur interne de clés Redis).
         `performance_feedback--${comment.id}`,

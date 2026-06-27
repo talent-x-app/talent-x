@@ -7,6 +7,7 @@
  * Conventions transverses : préfixe /api/v1 ; jeton d'accès JWT (RS256) via en-tête Authorization ; pagination par enveloppe { data, meta } ; idempotence des écritures sensibles via Idempotency-Key ; opérations longues asynchrones (202 + ressource de statut) ; rate limiting signalé par les en-têtes RateLimit-*. L'autorisation combine rôle, appartenance (lien coach↔athlète), propriété et consentement ; voir TX-SPEC-002 §6.
  * OpenAPI spec version: 1.0.0
  */
+import type { NotificationActor } from './notificationActor';
 import type { NotificationType } from './notificationType';
 
 /**
@@ -17,6 +18,8 @@ export interface Notification {
   type: NotificationType;
   /** Ressource à ouvrir — affectation pour session_assigned, performance_feedback et performance_submitted (le fil de feedback / la revue vivent sur le détail de séance), groupe pour group_update, séance pour group_kudos. */
   resourceId: string;
+  /** Acteur de l'événement (ADR-55) — prénom résolu pour le feed in-app (jamais dans le push). Absent pour les anciennes notifications, les types sans acteur, ou un acteur supprimé. */
+  actor?: NotificationActor;
   /** Absent tant que non lue. */
   readAt?: string;
   createdAt: string;

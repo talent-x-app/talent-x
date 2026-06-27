@@ -52,6 +52,34 @@ export const NOTIFICATION_PRESENTATIONS: Record<NotificationType, NotificationPr
 };
 
 /**
+ * Description d'une notification (ADR-55) — **nominative** si l'acteur est résolu (feed in-app),
+ * sinon **repli générique** (`NOTIFICATION_PRESENTATIONS[type].description`) pour les anciennes
+ * notifications, les acteurs supprimés, ou l'absence de nom. Le titre + l'icône restent fixes.
+ */
+export function notificationDescription(type: NotificationType, actorName?: string): string {
+  const fallback = NOTIFICATION_PRESENTATIONS[type].description;
+  if (!actorName) return fallback;
+  switch (type) {
+    case 'session_assigned':
+      return `${actorName} t’a affecté une séance.`;
+    case 'performance_feedback':
+      return `${actorName} a commenté ta performance.`;
+    case 'performance_submitted':
+      return `${actorName} a soumis une performance.`;
+    case 'group_update':
+      return `${actorName} a rejoint votre groupe.`;
+    case 'group_announcement':
+      return `${actorName} a publié une annonce.`;
+    case 'group_kudos':
+      return `${actorName} t’envoie des encouragements 👏.`;
+    case 'group_reply':
+      return `${actorName} a répondu à ton annonce.`;
+    default:
+      return fallback;
+  }
+}
+
+/**
  * Cible de navigation d'une notification, selon le rôle connecté.
  * resourceId = affectation (session_assigned, performance_feedback côté athlète ;
  * performance_submitted côté coach → revue C-08) ou groupe (group_update — pas

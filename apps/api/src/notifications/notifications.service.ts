@@ -48,8 +48,25 @@ export class NotificationsService {
       this.prisma.notification.count({ where }),
       this.prisma.notification.count({ where: { userId, readAt: null } }),
     ]);
+
+    // Résolution nominative (ADR-55) : on résout les acteurs de la page en **un** lot, en prénom
+    // (minimisé). Le destinataire est déjà autorisé à connaître ce nom (lien coach↔athlète /
+    // co-appartenance). Aucun nom n'est stocké : seul l'`actorId` l'est, résolu ici à la lecture.
+    const actorIds = [
+      ...new Set(rows.map((r) => r.actorId).filter((id): id is string => id != null)),
+    ];
+    const actors = actorIds.length
+      ? await this.prisma.user.findMany({
+          where: { id: { in: actorIds } },
+          select: { id: true, firstName: true, lastName: true },
+        })
+      : [];
+    const actorNames = buildActorNames(actors);
+
     return {
-      data: rows.map(toNotificationDto),
+      data: rows.map((r) =>
+        toNotificationDto(r, r.actorId ? actorNames.get(r.actorId) : undefined),
+      ),
       meta: buildPageMeta(total, q.page, q.limit),
       unreadCount,
     };
@@ -129,14 +146,44 @@ export class NotificationsService {
   }
 }
 
-function toNotificationDto(notification: Notification): NotificationDto {
+function toNotificationDto(notification: Notification, actorName?: string): NotificationDto {
   return {
     id: notification.id,
     type: notification.type as NotificationTypeValue,
     resourceId: notification.resourceId,
+    // Acteur résolu (ADR-55) : présent seulement si on a pu résoudre un prénom (sinon repli client).
+    ...(notification.actorId && actorName
+      ? { actor: { id: notification.actorId, displayName: actorName } }
+      : {}),
     readAt: notification.readAt?.toISOString(),
     createdAt: notification.createdAt.toISOString(),
   };
+}
+
+/**
+ * Prénoms d'affichage (ADR-55), minimisés : prénom seul, désambiguïsé en « Prénom N. » en cas
+ * d'homonymie **dans la page**. Repli sur le nom puis « Quelqu'un » si le prénom manque.
+ */
+function buildActorNames(
+  users: { id: string; firstName: string | null; lastName: string | null }[],
+): Map<string, string> {
+  const firstNameCounts = new Map<string, number>();
+  for (const u of users) {
+    const fn = u.firstName?.trim();
+    if (fn) firstNameCounts.set(fn, (firstNameCounts.get(fn) ?? 0) + 1);
+  }
+  const names = new Map<string, string>();
+  for (const u of users) {
+    const fn = u.firstName?.trim();
+    const ln = u.lastName?.trim();
+    if (!fn) {
+      names.set(u.id, ln || 'Quelqu’un');
+      continue;
+    }
+    const ambiguous = (firstNameCounts.get(fn) ?? 0) > 1 && !!ln;
+    names.set(u.id, ambiguous ? `${fn} ${ln![0].toUpperCase()}.` : fn);
+  }
+  return names;
 }
 
 function toDeviceTokenDto(device: DeviceToken): DeviceTokenDto {

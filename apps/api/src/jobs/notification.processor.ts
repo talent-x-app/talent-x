@@ -76,7 +76,7 @@ export class NotificationProcessor {
   ) {}
 
   async process(payload: NotificationJobPayload): Promise<void> {
-    const { type, recipientUserId, resourceId, dedupeKey } = payload;
+    const { type, recipientUserId, resourceId, actorId, dedupeKey } = payload;
 
     const preferences = await this.prisma.notificationPreferences.findUnique({
       where: { userId: recipientUserId },
@@ -90,10 +90,11 @@ export class NotificationProcessor {
       return;
     }
 
-    // Feed in-app (ADR-23) — un job rejoué retombe sur la même ligne.
+    // Feed in-app (ADR-23) — un job rejoué retombe sur la même ligne. `actorId` (ADR-55) est
+    // persisté pour la résolution nominative au read ; le push (plus bas) reste générique.
     await this.prisma.notification.upsert({
       where: { dedupeKey },
-      create: { userId: recipientUserId, type, resourceId, dedupeKey },
+      create: { userId: recipientUserId, type, resourceId, actorId: actorId ?? null, dedupeKey },
       update: {},
     });
 

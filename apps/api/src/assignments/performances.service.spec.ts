@@ -228,7 +228,12 @@ describe('PerformancesService', () => {
 
       expect(queue.enqueue).toHaveBeenCalledTimes(1);
       expect(queue.enqueue).toHaveBeenCalledWith(
-        { type: 'performance_submitted', recipientUserId: 'c-1', resourceId: 'asg-1' },
+        {
+          type: 'performance_submitted',
+          recipientUserId: 'c-1',
+          resourceId: 'asg-1',
+          actorId: 'a-1',
+        },
         'performance_submitted--asg-1',
       );
     });

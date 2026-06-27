@@ -95,9 +95,16 @@ export class KudosService {
       create: { assignmentId, giverId: user.id },
       update: {},
     });
-    // resourceId = séance (ADR-10) → tap ouvre la séance. Contenu push minimal, aucun nom.
+    // resourceId = séance (ADR-10) → tap ouvre la séance. Push toujours générique (aucun nom) ;
+    // `actorId` (ADR-55) ne sert qu'à la résolution nominative du feed in-app.
     await this.notificationQueue.enqueue(
-      { type: 'group_kudos', recipientUserId: target.athleteId, resourceId: target.sessionId },
+      {
+        type: 'group_kudos',
+        recipientUserId: target.athleteId,
+        resourceId: target.sessionId,
+        // Acteur (ADR-55) = le coéquipier qui encourage.
+        actorId: user.id,
+      },
       `group_kudos--${assignmentId}--${user.id}`,
     );
     return this.summary(assignmentId, user.id);

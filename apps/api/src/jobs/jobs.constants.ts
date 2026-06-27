@@ -50,6 +50,12 @@ export interface NotificationJobPayload {
   type: NotificationType;
   recipientUserId: string;
   resourceId: string;
+  /**
+   * Acteur de l'événement (ADR-55) — capturé à l'émission, persisté tel quel (id, jamais le nom) ;
+   * le prénom est résolu au read pour le **feed in-app**. Le **push reste générique** : cet `actorId`
+   * n'alimente jamais le contenu poussé via FCM/APNS. Optionnel (types/cas sans acteur pertinent).
+   */
+  actorId?: string;
   dedupeKey: string;
 }
 

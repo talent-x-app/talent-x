@@ -41,6 +41,15 @@ export const NOTIFICATION_TYPES = [
 ] as const;
 export type NotificationTypeValue = (typeof NOTIFICATION_TYPES)[number];
 
+/** Acteur d'une notification (ADR-55) — schéma `NotificationActor`. */
+export class NotificationActorDto {
+  @ApiProperty({ format: 'uuid' })
+  id!: string;
+
+  @ApiProperty({ description: "Prénom (minimisé) de l'acteur — « Prénom N. » en cas d'homonymie." })
+  displayName!: string;
+}
+
 /** Notification in-app — schéma `Notification` (ADR-23). */
 export class NotificationDto {
   @ApiProperty({ format: 'uuid' })
@@ -54,6 +63,14 @@ export class NotificationDto {
     description: 'Ressource à ouvrir (affectation, performance ou groupe selon le type).',
   })
   resourceId!: string;
+
+  @ApiPropertyOptional({
+    type: NotificationActorDto,
+    description:
+      "Acteur de l'événement (ADR-55) — prénom résolu pour le feed in-app (jamais dans le push). " +
+      'Absent pour les anciennes notifications, les types sans acteur, ou un acteur supprimé.',
+  })
+  actor?: NotificationActorDto;
 
   @ApiPropertyOptional({ format: 'date-time', description: 'Absent tant que non lue.' })
   readAt?: string;

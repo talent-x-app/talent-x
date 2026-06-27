@@ -268,14 +268,26 @@ export class GroupsService {
     // Nouvelle adhésion → notifie le coach propriétaire (ADR-22 : group_update)…
     if (created) {
       await this.notificationQueue.enqueue(
-        { type: 'group_update', recipientUserId: group.coachId, resourceId: group.id },
+        {
+          type: 'group_update',
+          recipientUserId: group.coachId,
+          resourceId: group.id,
+          // Acteur (ADR-55) = l'athlète qui rejoint → « {prénom} a rejoint votre groupe » (R1).
+          actorId: athleteId,
+        },
         // « : » est interdit dans un jobId BullMQ (séparateur interne de clés Redis).
         `group_update--${member.id}`,
       );
       // …et l'athlète pour chaque séance à venir qu'il hérite du groupe (session_assigned).
       for (const assignmentId of newAssignmentIds) {
         await this.notificationQueue.enqueue(
-          { type: 'session_assigned', recipientUserId: athleteId, resourceId: assignmentId },
+          {
+            type: 'session_assigned',
+            recipientUserId: athleteId,
+            resourceId: assignmentId,
+            // Acteur (ADR-55) = le coach propriétaire du groupe.
+            actorId: group.coachId,
+          },
           `session_assigned--${assignmentId}`,
         );
       }

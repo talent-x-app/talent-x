@@ -15,6 +15,7 @@ import { Button, Card } from '../components/ui';
 import {
   NOTIFICATION_PRESENTATIONS,
   formatRelativeDate,
+  notificationDescription,
   notificationHref,
 } from './notification-ui';
 
@@ -163,6 +164,8 @@ function NotificationItem({
 }) {
   const { colors, typography, spacing } = useTheme();
   const presentation = NOTIFICATION_PRESENTATIONS[notification.type];
+  // Description nominative (ADR-55) si l'API a résolu l'acteur ; repli générique sinon.
+  const description = notificationDescription(notification.type, notification.actor?.displayName);
   const unread = !notification.readAt;
 
   return (
@@ -198,7 +201,7 @@ function NotificationItem({
                 fontSize: typography.bodySm.fontSize,
               }}
             >
-              {presentation.description} · {formatRelativeDate(notification.createdAt, new Date())}
+              {description} · {formatRelativeDate(notification.createdAt, new Date())}
             </Text>
           </View>
           {unread ? (

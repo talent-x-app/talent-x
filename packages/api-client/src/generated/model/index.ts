@@ -112,6 +112,7 @@ export * from './manualRecordRequestDiscipline';
 export * from './manualRecordRequestFamily';
 export * from './notFoundResponse';
 export * from './notification';
+export * from './notificationActor';
 export * from './notificationPage';
 export * from './notificationPreferences';
 export * from './notificationType';

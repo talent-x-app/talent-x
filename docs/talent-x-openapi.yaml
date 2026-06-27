@@ -4930,6 +4930,20 @@ components:
       - group_announcement
       - group_kudos
       - group_reply
+    NotificationActor:
+      type: object
+      description: Acteur d'une notification (ADR-55) — prénom minimisé, résolu au
+        read pour le feed in-app uniquement (jamais dans le push).
+      properties:
+        id:
+          type: string
+          format: uuid
+        displayName:
+          type: string
+          description: Prénom (minimisé) de l'acteur — « Prénom N. » en cas d'homonymie.
+      required:
+      - id
+      - displayName
     Notification:
       type: object
       description: Notification in-app (ADR-23) — signal minimal, libellé côté client.
@@ -4946,6 +4960,12 @@ components:
             performance_feedback et performance_submitted (le fil de feedback / la
             revue vivent sur le détail de séance), groupe pour group_update, séance
             pour group_kudos.
+        actor:
+          allOf:
+          - $ref: '#/components/schemas/NotificationActor'
+          description: Acteur de l'événement (ADR-55) — prénom résolu pour le feed
+            in-app (jamais dans le push). Absent pour les anciennes notifications,
+            les types sans acteur, ou un acteur supprimé.
         readAt:
           type: string
           format: date-time

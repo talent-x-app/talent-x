@@ -77,7 +77,7 @@ L'affichage du calendrier coach est jugé daté. Côté athlète il existe un me
 
 ## 🎨 UX / produit (à arbitrer)
 
-- **R1 — Notifications nominatives.** Afficher le nom (« Léa a rejoint votre groupe ») au lieu de « Un athlète… ». _Impact contrat_ : le backend n'envoie que `type` + `resourceId` (ADR-23) → enrichir le payload (nom de l'acteur) ou résoudre côté client. Écran : `notification-ui.ts`.
+- ~~**R1 — Notifications nominatives.** Afficher le nom (« Léa a rejoint votre groupe ») au lieu de « Un athlète… ».~~ ✅ Résolu (TLX-213, ADR-55) : **feed in-app nominatif** (l'API résout un `actor.displayName` depuis un `actorId` capturé à l'émission), **push inchangé/générique** (ADR-10 préservé). Repli générique si acteur absent/supprimé. ⚠️ Migration + intégration DB non rejouées en réel ce tour (moteur Prisma verrouillé par un process en cours) — à valider live.
 - ~~**R5 — Date picker moderne.** Les dates (date prévue, échéance) sont des champs texte `AAAA-MM-JJ`.~~ ✅ Résolu (TLX-197) : sélecteur calendaire cross-platform (`DatePicker`) sur `session-field-date`, `assign-due-date`, `assign-repeat-until`, `competition-field-start/end`.
 - **R7 — « Assigner plus tard ».** La création de séance redirige de force vers l'assignation, sans échappatoire. Ajouter une sortie (retour détail/liste).
 - ~~**R9 — Graphe de progression** peu moderne.~~ ✅ Résolu (TLX-212) : le bar-chart brut devient une **courbe** (sparkline ligne + points en `View`, sans dépendance) calée sur le design system (`comp-charts.html`) — grille, point culminant surligné, point final, dates début→fin, et **orientation par la performance** (corrige le contresens chrono). Partagé athlète A-06 + coach C-03.

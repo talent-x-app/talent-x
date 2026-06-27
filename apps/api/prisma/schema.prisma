@@ -46,7 +46,8 @@ model User {
   passwordResetTokens     PasswordResetToken[]
   deviceTokens            DeviceToken[]
   notificationPreferences NotificationPreferences?
-  notifications           Notification[]
+  notifications           Notification[]           @relation("NotificationRecipient")
+  actedNotifications      Notification[]           @relation("NotificationActor")
   exportJobs              ExportJob[]
   coachedGroups           Group[]                  @relation("GroupCoach")
   groupMemberships        GroupMember[]
@@ -152,12 +153,16 @@ model Notification {
   /// 'session_assigned' | 'performance_feedback' | 'group_update' (CHECK en base)
   type       String
   resourceId String    @map("resource_id") @db.Uuid
+  /// Acteur de l'événement (ADR-55) — résolu en prénom au read pour le feed in-app.
+  /// Optionnel : anciennes lignes et types sans acteur restent génériques (repli).
+  actorId    String?   @map("actor_id") @db.Uuid
   /// Clé d'idempotence = jobId BullMQ : le rejeu d'un job ne crée pas de doublon.
   dedupeKey  String    @unique @map("dedupe_key")
   readAt     DateTime? @map("read_at") @db.Timestamptz(6)
   createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user  User  @relation("NotificationRecipient", fields: [userId], references: [id], onDelete: Cascade)
+  actor User? @relation("NotificationActor", fields: [actorId], references: [id], onDelete: SetNull)
 
   @@index([userId, createdAt(sort: Desc)], map: "ix_notifications_user_created")
   // Index partiel non-lus (user_id) WHERE read_at IS NULL → migration SQL.

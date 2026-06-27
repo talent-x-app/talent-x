@@ -99,11 +99,29 @@ describe('NotificationProcessor (TLX-110, ADR-22)', () => {
         userId: 'u-1',
         type: 'session_assigned',
         resourceId: 'asg-1',
+        actorId: null,
         dedupeKey: 'session_assigned--asg-1',
       },
       update: {},
     });
     expect(provider.send).not.toHaveBeenCalled();
+  });
+
+  it('persiste l’actorId (ADR-55) quand le payload le porte ; push toujours générique', async () => {
+    const prisma = prismaMock();
+    const provider = providerMock();
+    prisma.deviceToken.findMany.mockResolvedValue(DEVICES);
+
+    await make(prisma, provider).process({ ...PAYLOAD, actorId: 'actor-9' });
+
+    expect(prisma.notification.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({ actorId: 'actor-9' }),
+      }),
+    );
+    // Le push ne porte jamais le nom : data = { type, resourceId } seulement (ADR-10/55).
+    const [, message] = (provider.send as jest.Mock).mock.calls[0];
+    expect(message.data).toEqual({ type: 'session_assigned', resourceId: 'asg-1' });
   });
 
   it('la garde est celle du type : performance_feedback passe si seul sessionAssigned est off', async () => {

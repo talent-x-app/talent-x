@@ -132,7 +132,7 @@ describe('AnnouncementsService (ADR-46)', () => {
       );
       expect(queue.enqueue).toHaveBeenCalledTimes(2);
       expect(queue.enqueue).toHaveBeenCalledWith(
-        { type: 'group_announcement', recipientUserId: 'a-1', resourceId: 'g-1' },
+        { type: 'group_announcement', recipientUserId: 'a-1', resourceId: 'g-1', actorId: 'c-1' },
         'group_announcement--ann-1--a-1',
       );
       // L'auteur (coach) est exclu du fan-out par la requête membres.

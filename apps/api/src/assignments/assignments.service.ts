@@ -119,6 +119,8 @@ export class AssignmentsService {
             type: 'session_assigned',
             recipientUserId: assignment.athleteId,
             resourceId: assignment.id,
+            // Acteur (ADR-55) = le coach qui affecte ; résolu en prénom au read côté athlète.
+            actorId: coachId,
           },
           // « : » est interdit dans un jobId BullMQ (séparateur interne de clés Redis).
           `session_assigned--${assignment.id}`,
