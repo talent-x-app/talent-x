@@ -31,6 +31,9 @@ export default defineConfig({
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
+    // Ralenti d'observation (mode headed) : E2E_SLOWMO=ms ralentit chaque action navigateur.
+    // 0 par défaut (CI/headless) — rien en dur (cf. CLAUDE.md).
+    launchOptions: { slowMo: Number(process.env.E2E_SLOWMO ?? 0) },
   },
 
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
