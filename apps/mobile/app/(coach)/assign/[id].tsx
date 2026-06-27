@@ -11,13 +11,19 @@ import { CoachAssignScreen } from '../../../src/coach/CoachAssignScreen';
  * instance neuve par séance.
  */
 export default function AssignSessionRoute() {
-  const { id, title, from } = useLocalSearchParams<{ id: string; title?: string; from?: string }>();
+  const { id, title, from, dueDate } = useLocalSearchParams<{
+    id: string;
+    title?: string;
+    from?: string;
+    dueDate?: string;
+  }>();
   return (
     <CoachAssignScreen
       key={id}
       sessionId={id}
       sessionTitle={title || undefined}
       fromCreate={from === 'create'}
+      defaultDueDate={dueDate || undefined}
     />
   );
 }

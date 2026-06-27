@@ -34,12 +34,15 @@ export function CoachAssignScreen({
   sessionId,
   sessionTitle,
   fromCreate = false,
+  defaultDueDate,
 }: {
   sessionId: string;
   sessionTitle?: string;
   /** Arrivée post-création (TLX-198) : « Retour » sort vers l'accueil, pas `router.back()`
    *  (qui retomberait dans les écrans de création restés dans l'historique navigateur). */
   fromCreate?: boolean;
+  /** Échéance pré-remplie (date planifiée de la séance) — modifiable. Vide si absente. */
+  defaultDueDate?: string;
 }) {
   const { colors, typography, spacing } = useTheme();
   const router = useRouter();
@@ -67,7 +70,7 @@ export function CoachAssignScreen({
 
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [selectedGroups, setSelectedGroups] = useState<Set<string>>(new Set());
-  const [dueDate, setDueDate] = useState('');
+  const [dueDate, setDueDate] = useState(defaultDueDate ?? '');
   // Récurrence (ADR-35) : répéter chaque semaine jusqu'à `until`. Exige une échéance.
   const [repeat, setRepeat] = useState(false);
   const [repeatUntil, setRepeatUntil] = useState('');

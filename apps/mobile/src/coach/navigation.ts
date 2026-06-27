@@ -26,11 +26,24 @@ export function athleteDetailHref(athlete: DashboardAthlete) {
  * `fromCreate` (TLX-198) : marque l'arrivée **post-création** (le builder a fait `replace` vers ici).
  * Le « Retour » de l'écran d'assignation devient alors déterministe (→ accueil), au lieu de
  * `router.back()` qui, en historique navigateur, retombe dans les écrans de création.
+ *
+ * `scheduledDate` : **pré-remplit l'échéance** avec la date planifiée de la séance (la date saisie
+ * à la création est l'échéance par défaut, modifiable). Absent ⇒ échéance vide.
  */
-export function assignSessionHref(sessionId: string, sessionTitle?: string, fromCreate = false) {
+export function assignSessionHref(
+  sessionId: string,
+  sessionTitle?: string,
+  fromCreate = false,
+  scheduledDate?: string | null,
+) {
   return {
     pathname: '/(coach)/assign/[id]' as const,
-    params: { id: sessionId, title: sessionTitle ?? '', ...(fromCreate ? { from: 'create' } : {}) },
+    params: {
+      id: sessionId,
+      title: sessionTitle ?? '',
+      ...(fromCreate ? { from: 'create' } : {}),
+      ...(scheduledDate ? { dueDate: scheduledDate } : {}),
+    },
   };
 }
 

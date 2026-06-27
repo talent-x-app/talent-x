@@ -206,7 +206,9 @@ export function SessionBuilderScreen({
       if (savedTemplate) router.replace(coachTemplatesHref());
       // `fromCreate` (TLX-198) : « Retour » sur l'assignation sortira vers l'accueil, pas dans le
       // flux de création resté dans l'historique navigateur.
-      else router.replace(assignSessionHref(session.id, session.title, true));
+      // `scheduledDate` pré-remplit l'échéance d'assignation (date saisie à la création).
+      else
+        router.replace(assignSessionHref(session.id, session.title, true, session.scheduledDate));
     },
     onError: () => {
       toast.show({ title: "Échec de l'enregistrement", variant: 'danger' });

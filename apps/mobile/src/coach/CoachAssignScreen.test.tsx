@@ -313,6 +313,13 @@ describe('CoachAssignScreen (TLX-063 — C-06/C-07)', () => {
     expect(screen.getByTestId('assign-submit')).toBeDisabled();
   });
 
+  it('échéance pré-remplie depuis la date planifiée de la séance (defaultDueDate)', async () => {
+    mockGetCoachDashboard.mockResolvedValue({ status: 200, data: DASHBOARD });
+    render(<CoachAssignScreen sessionId="s-1" defaultDueDate="2026-07-25" />, { wrapper: Wrapper });
+    await waitFor(() => expect(screen.getByTestId('assign-due-date')).toBeOnTheScreen());
+    expect(screen.getByTestId('assign-due-date').props.value).toBe('2026-07-25');
+  });
+
   it('« Retour » post-création (fromCreate) sort vers l’accueil, pas router.back (TLX-198 nav)', async () => {
     mockGetCoachDashboard.mockResolvedValue({ status: 200, data: DASHBOARD });
     render(<CoachAssignScreen sessionId="s-1" fromCreate />, { wrapper: Wrapper });

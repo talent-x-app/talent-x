@@ -225,7 +225,11 @@ export function CoachSessionDetailScreen() {
           </Button>
           <Button
             testID="coach-session-assign"
-            onPress={() => router.push(assignSessionHref(id, session.data.title))}
+            onPress={() =>
+              router.push(
+                assignSessionHref(id, session.data.title, false, session.data.scheduledDate),
+              )
+            }
             variant="secondary"
             leftIcon={<Feather name="user-plus" size={18} color={colors.textPrimary} />}
           >
