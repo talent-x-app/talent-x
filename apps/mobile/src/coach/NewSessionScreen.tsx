@@ -9,10 +9,10 @@ import { customSessionHref, disciplineAssistantHref } from './navigation';
 
 /**
  * Écran d'entrée « Nouvelle séance » (C-05 / ADR-38, TLX-154). Point de départ de la création
- * côté coach : 5 cartes de discipline ouvrant l'assistant guidé correspondant (TLX-155→159),
- * plus une option « Personnalisé » qui ouvre le constructeur générique inchangé (canvas de
- * blocs libre, séances multi-disciplines). La discipline n'est pas persistée — l'assistant ne
- * fait que pré-structurer la séance (cf. ADR-38 §1).
+ * côté coach : 6 cartes de discipline ouvrant l'assistant guidé correspondant (TLX-155→159, ADR-41),
+ * plus une option « Composer une séance » qui ouvre le canvas composite multi-disciplines (ADR-42/52,
+ * grammaire de série unifiée). La discipline n'est pas persistée — l'assistant ne fait que
+ * pré-structurer la séance (cf. ADR-38 §1).
  */
 export function NewSessionScreen() {
   const { colors, typography, spacing } = useTheme();
@@ -62,7 +62,7 @@ export function NewSessionScreen() {
               fontSize: typography.body.fontSize,
             }}
           >
-            Choisis une discipline pour un assistant guidé, ou pars d’une séance personnalisée.
+            Choisis une discipline pour un assistant guidé, ou compose une séance multi-disciplines.
           </Text>
         </View>
 
@@ -114,10 +114,10 @@ export function NewSessionScreen() {
           ))}
         </View>
 
-        {/* Option « Personnalisé » → constructeur générique (C-05) inchangé. */}
+        {/* Option « Composer une séance » → canvas composite multi-disciplines (ADR-42/52). */}
         <Card
           testID="new-session-custom"
-          accessibilityLabel="Personnalisé"
+          accessibilityLabel="Composer une séance"
           onPress={() => router.push(customSessionHref())}
         >
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[4] }}>
@@ -141,7 +141,7 @@ export function NewSessionScreen() {
                   fontSize: typography.body.fontSize,
                 }}
               >
-                Personnalisé
+                Composer une séance
               </Text>
               <Text
                 style={{
@@ -150,7 +150,7 @@ export function NewSessionScreen() {
                   fontSize: typography.bodySm.fontSize,
                 }}
               >
-                Constructeur libre — blocs, groupes, séances multi-disciplines
+                Assemblez une séance série par série, toutes disciplines
               </Text>
             </View>
             <Feather name="chevron-right" size={20} color={colors.textMuted} />
