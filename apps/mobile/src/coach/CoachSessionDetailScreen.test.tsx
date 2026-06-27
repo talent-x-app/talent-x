@@ -8,6 +8,7 @@ const mockListComments = jest.fn();
 const mockCreateComment = jest.fn();
 const mockListAssignments = jest.fn();
 const mockGetCoachDashboard = jest.fn();
+const mockDeleteSession = jest.fn();
 const mockPush = jest.fn();
 const mockBack = jest.fn();
 
@@ -17,6 +18,7 @@ jest.mock('@talent-x/api-client', () => ({
   createComment: (...a: unknown[]) => mockCreateComment(...a),
   listAssignments: (...a: unknown[]) => mockListAssignments(...a),
   getCoachDashboard: (...a: unknown[]) => mockGetCoachDashboard(...a),
+  deleteSession: (...a: unknown[]) => mockDeleteSession(...a),
   SessionStatus: { draft: 'draft', published: 'published', archived: 'archived' },
   CompetitionStatus: { draft: 'draft', published: 'published', archived: 'archived' },
   AssignmentStatus: {
@@ -97,6 +99,7 @@ beforeEach(() => {
   // Défauts : aucune affectation, aucun athlète lié (les tests dédiés surchargent).
   mockListAssignments.mockResolvedValue({ status: 200, data: { data: [], meta: {} } });
   mockGetCoachDashboard.mockResolvedValue({ status: 200, data: { athletes: [] } });
+  mockDeleteSession.mockResolvedValue({ status: 204 });
 });
 
 describe('CoachSessionDetailScreen (C-05 — détail lecture seule)', () => {
@@ -245,6 +248,32 @@ describe('CoachSessionDetailScreen (C-05 — détail lecture seule)', () => {
     await waitFor(() =>
       expect(screen.getByTestId('coach-session-assignees-empty')).toBeOnTheScreen(),
     );
+  });
+
+  it('TLX-194 : supprimer la séance (confirmation inline → DELETE → retour)', async () => {
+    mockGetSession.mockResolvedValue({ status: 200, data: SESSION });
+    render(<CoachSessionDetailScreen />, { wrapper: Wrapper });
+
+    await waitFor(() => expect(screen.getByTestId('coach-session-delete')).toBeOnTheScreen());
+    // Pas de suppression directe : confirmation requise.
+    fireEvent.press(screen.getByTestId('coach-session-delete'));
+    expect(mockDeleteSession).not.toHaveBeenCalled();
+
+    fireEvent.press(screen.getByTestId('coach-session-delete-confirm'));
+    await waitFor(() => expect(mockDeleteSession).toHaveBeenCalledWith('s-1'));
+    expect(mockBack).toHaveBeenCalled();
+  });
+
+  it('TLX-194 : « Annuler » la suppression ne supprime pas', async () => {
+    mockGetSession.mockResolvedValue({ status: 200, data: SESSION });
+    render(<CoachSessionDetailScreen />, { wrapper: Wrapper });
+
+    await waitFor(() => expect(screen.getByTestId('coach-session-delete')).toBeOnTheScreen());
+    fireEvent.press(screen.getByTestId('coach-session-delete'));
+    fireEvent.press(screen.getByText('Annuler'));
+    // Retour à l'état initial : bouton Supprimer de nouveau visible, aucun appel DELETE.
+    expect(screen.getByTestId('coach-session-delete')).toBeOnTheScreen();
+    expect(mockDeleteSession).not.toHaveBeenCalled();
   });
 
   it('expose la discussion de séance (TLX-118) : poste sur la séance', async () => {

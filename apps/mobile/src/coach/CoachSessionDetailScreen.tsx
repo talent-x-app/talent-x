@@ -1,17 +1,19 @@
 import {
   BlockType,
+  deleteSession,
   getCoachDashboard,
   getSession,
   listAssignments,
   type Session,
 } from '@talent-x/api-client';
 import { useTheme } from '@talent-x/design-tokens';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Feather } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
-import { Button, Card } from '../components/ui';
+import { Button, Card, InlineConfirm } from '../components/ui';
+import { useToast } from '../feedback';
 import { SESSION_STATUS_META } from '../calendar/calendar-model';
 import { AssignmentStatusBadge, formatSessionDate } from '../athlete/athlete-session-ui';
 import { COACH_DASHBOARD_QUERY_KEY } from '../dashboard/dashboard-query';
@@ -227,6 +229,9 @@ export function CoachSessionDetailScreen() {
             Assigner à des athlètes
           </Button>
 
+          {/* TLX-194 : suppression (soft-delete) avec confirmation inline. */}
+          <DeleteSessionAction sessionId={id} title={session.data.title} />
+
           {/* TLX-118 : discussion de séance — le coach répond aux questions des athlètes
               affectés (cible = séance, même fil que côté athlète). */}
           <FeedbackThread
@@ -239,6 +244,54 @@ export function CoachSessionDetailScreen() {
         </>
       )}
     </ScrollView>
+  );
+}
+
+/**
+ * Action « Supprimer la séance » (TLX-194) — soft-delete `DELETE /sessions/:id` (204) derrière une
+ * confirmation inline (robuste web + natif, même patron que la zone danger des groupes). Au succès :
+ * invalide les listes (séances, cette séance, affectations) et revient à l'écran précédent.
+ */
+function DeleteSessionAction({ sessionId, title }: { sessionId: string; title: string }) {
+  const router = useRouter();
+  const toast = useToast();
+  const queryClient = useQueryClient();
+  const [confirming, setConfirming] = useState(false);
+
+  const removal = useMutation({
+    mutationFn: async (): Promise<void> => {
+      const response = await deleteSession(sessionId);
+      if (response.status !== 204) throw response;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['sessions'] });
+      void queryClient.invalidateQueries({ queryKey: ['session', sessionId] });
+      void queryClient.invalidateQueries({ queryKey: ['assignments'] });
+      toast.show({ variant: 'success', title: 'Séance supprimée' });
+      router.back();
+    },
+    onError: () => {
+      toast.show({ variant: 'danger', title: 'Échec de la suppression' });
+    },
+  });
+
+  if (confirming) {
+    return (
+      <InlineConfirm
+        message={`Supprimer « ${title} » ? Action irréversible.`}
+        confirmLabel="Supprimer définitivement"
+        confirmTestID="coach-session-delete-confirm"
+        danger
+        loading={removal.isPending}
+        onConfirm={() => removal.mutate()}
+        onCancel={() => setConfirming(false)}
+      />
+    );
+  }
+  return (
+    <Button testID="coach-session-delete" variant="danger" onPress={() => setConfirming(true)}>
+      Supprimer la séance
+    </Button>
   );
 }
 

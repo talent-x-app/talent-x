@@ -15,7 +15,7 @@ import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Share, Text, View } from 'react-native';
-import { Button, Card, Input, QrCode, SegmentedTabs } from '../components/ui';
+import { Button, Card, InlineConfirm, Input, QrCode, SegmentedTabs } from '../components/ui';
 import { toUserMessage, useToast } from '../feedback';
 import { GROUPS_QUERY_KEY, groupMembersQueryKey, groupQueryKey } from './groups-query';
 import { AnnouncementsPane } from './announcements-ui';
@@ -768,59 +768,6 @@ function SettingsTab({ groupId, group }: { groupId: string; group: Group }) {
             </Button>
           )}
         </Card>
-      </View>
-    </View>
-  );
-}
-
-/** Confirmation inline réutilisable (Annuler / action) — robuste web + natif, sans modale. */
-function InlineConfirm({
-  message,
-  confirmLabel,
-  confirmTestID,
-  danger = false,
-  loading = false,
-  onConfirm,
-  onCancel,
-}: {
-  message: string;
-  confirmLabel: string;
-  confirmTestID: string;
-  danger?: boolean;
-  loading?: boolean;
-  onConfirm: () => void;
-  onCancel: () => void;
-}) {
-  const { colors, typography, spacing } = useTheme();
-  return (
-    <View style={{ gap: spacing[3] }}>
-      <Text
-        style={{
-          color: colors.textPrimary,
-          fontFamily: typography.fontFamily.medium,
-          fontSize: typography.bodySm.fontSize,
-          textAlign: 'center',
-        }}
-      >
-        {message}
-      </Text>
-      <View style={{ flexDirection: 'row', gap: spacing[2] }}>
-        <View style={{ flex: 1 }}>
-          <Button variant="secondary" fullWidth disabled={loading} onPress={onCancel}>
-            Annuler
-          </Button>
-        </View>
-        <View style={{ flex: 1 }}>
-          <Button
-            testID={confirmTestID}
-            variant={danger ? 'danger' : 'primary'}
-            fullWidth
-            loading={loading}
-            onPress={onConfirm}
-          >
-            {confirmLabel}
-          </Button>
-        </View>
       </View>
     </View>
   );

@@ -11,3 +11,4 @@ export { Stepper, type StepperProps } from './Stepper';
 export { TabBar, type TabBarItem, type TabBarProps } from './TabBar';
 export { SegmentedTabs, type SegmentedTabItem, type SegmentedTabsProps } from './SegmentedTabs';
 export { QrCode, type QrCodeProps } from './QrCode';
+export { InlineConfirm, type InlineConfirmProps } from './InlineConfirm';
