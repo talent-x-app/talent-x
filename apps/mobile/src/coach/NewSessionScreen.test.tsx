@@ -2,7 +2,7 @@ import { ThemeProvider } from '@talent-x/design-tokens';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { type ReactNode } from 'react';
 
-const mockPush = jest.fn();
+const mockReplace = jest.fn();
 const mockBack = jest.fn();
 
 jest.mock('@talent-x/api-client', () => ({
@@ -17,7 +17,7 @@ jest.mock('@talent-x/api-client', () => ({
   // Importé transitivement via navigation.ts → athlete-ui.
   AthleteStatus: { up_to_date: 'up_to_date', late: 'late', pending_review: 'pending_review' },
 }));
-jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush, back: mockBack }) }));
+jest.mock('expo-router', () => ({ useRouter: () => ({ replace: mockReplace, back: mockBack }) }));
 
 import { NewSessionScreen } from './NewSessionScreen';
 import { DISCIPLINES } from './discipline-assistants';
@@ -38,10 +38,11 @@ describe('NewSessionScreen — choix de discipline (ADR-38, TLX-154)', () => {
     expect(screen.getByTestId('new-session-custom')).toBeOnTheScreen();
   });
 
-  it('tap sur une discipline → navigue vers son assistant', () => {
+  it('tap sur une discipline → navigue vers son assistant (replace : sélecteur transitoire)', () => {
     render(<NewSessionScreen />, { wrapper: Wrapper });
     fireEvent.press(screen.getByTestId('new-session-discipline-sprint'));
-    expect(mockPush).toHaveBeenCalledWith({
+    // `replace` (pas `push`) : le sélecteur sort de l'historique (TLX-198 — nav post-création).
+    expect(mockReplace).toHaveBeenCalledWith({
       pathname: '/(coach)/session/assistant/[discipline]',
       params: { discipline: 'sprint' },
     });
@@ -50,16 +51,16 @@ describe('NewSessionScreen — choix de discipline (ADR-38, TLX-154)', () => {
   it('tap sur Haies → assistant haies (clé de discipline correcte)', () => {
     render(<NewSessionScreen />, { wrapper: Wrapper });
     fireEvent.press(screen.getByTestId('new-session-discipline-hurdles'));
-    expect(mockPush).toHaveBeenCalledWith({
+    expect(mockReplace).toHaveBeenCalledWith({
       pathname: '/(coach)/session/assistant/[discipline]',
       params: { discipline: 'hurdles' },
     });
   });
 
-  it('tap sur Personnalisé → constructeur générique (mode=custom)', () => {
+  it('tap sur Composer une séance → constructeur (mode=custom, replace)', () => {
     render(<NewSessionScreen />, { wrapper: Wrapper });
     fireEvent.press(screen.getByTestId('new-session-custom'));
-    expect(mockPush).toHaveBeenCalledWith({
+    expect(mockReplace).toHaveBeenCalledWith({
       pathname: '/(coach)/session/new',
       params: { mode: 'custom' },
     });
