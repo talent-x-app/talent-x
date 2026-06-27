@@ -21,6 +21,7 @@ import { COACH_DASHBOARD_QUERY_KEY } from '../dashboard/dashboard-query';
 import { GROUPS_QUERY_KEY } from '../groups/groups-query';
 import { weekdayLabel } from '../assignments/recurrence-label';
 import { AthleteStatusBadge, athleteFullName, athleteInitials } from './athlete-ui';
+import { coachSessionDetailHref } from './navigation';
 
 /**
  * Assignation d'une séance (C-06) + Confirmation (C-07) — TLX-063. Le coach choisit parmi
@@ -420,6 +421,21 @@ export function CoachAssignScreen({
                 </Button>
               </>
             )}
+
+            {/* TLX-198 — échappatoire : ne pas forcer l'assignation à la création. Mène au détail
+                de la séance (déjà enregistrée), d'où on pourra l'assigner plus tard. Affiché aussi
+                dans l'état « aucun athlète lié » (sinon impasse). */}
+            {!dashboard.isLoading && !dashboard.isError ? (
+              <Button
+                testID="assign-later"
+                variant="secondary"
+                size="lg"
+                fullWidth
+                onPress={() => router.replace(coachSessionDetailHref(sessionId))}
+              >
+                Assigner plus tard
+              </Button>
+            ) : null}
           </>
         )}
       </ResponsiveContent>

@@ -7,6 +7,7 @@ const mockGetCoachDashboard = jest.fn();
 const mockAssignSession = jest.fn();
 const mockListGroups = jest.fn();
 const mockBack = jest.fn();
+const mockReplace = jest.fn();
 const mockShow = jest.fn();
 
 jest.mock('@talent-x/api-client', () => ({
@@ -15,7 +16,7 @@ jest.mock('@talent-x/api-client', () => ({
   listGroups: (...a: unknown[]) => mockListGroups(...a),
   AthleteStatus: { up_to_date: 'up_to_date', late: 'late', pending_review: 'pending_review' },
 }));
-jest.mock('expo-router', () => ({ useRouter: () => ({ back: mockBack }) }));
+jest.mock('expo-router', () => ({ useRouter: () => ({ back: mockBack, replace: mockReplace }) }));
 jest.mock('../feedback', () => ({ useToast: () => ({ show: mockShow, dismiss: jest.fn() }) }));
 
 import { CoachAssignScreen } from './CoachAssignScreen';
@@ -263,6 +264,37 @@ describe('CoachAssignScreen (TLX-063 — C-06/C-07)', () => {
 
     await waitFor(() => expect(screen.getByTestId('assign-empty')).toBeOnTheScreen());
     expect(screen.queryByTestId('assign-submit')).toBeNull();
+  });
+
+  it('« Assigner plus tard » (TLX-198) → va au détail de la séance, sans assigner', async () => {
+    mockGetCoachDashboard.mockResolvedValue({ status: 200, data: DASHBOARD });
+    render(<CoachAssignScreen sessionId="s-1" sessionTitle="Vitesse" />, { wrapper: Wrapper });
+
+    await waitFor(() => expect(screen.getByTestId('assign-later')).toBeOnTheScreen());
+    fireEvent.press(screen.getByTestId('assign-later'));
+
+    // Pas d'assignation déclenchée ; navigation vers le détail (déjà enregistrée).
+    expect(mockAssignSession).not.toHaveBeenCalled();
+    expect(mockReplace).toHaveBeenCalledWith(
+      expect.objectContaining({
+        pathname: '/(coach)/session/[id]',
+        params: expect.objectContaining({ id: 's-1' }),
+      }),
+    );
+  });
+
+  it('« Assigner plus tard » reste l’échappatoire même sans athlète lié (impasse évitée)', async () => {
+    mockGetCoachDashboard.mockResolvedValue({
+      status: 200,
+      data: { ...DASHBOARD, athletes: [], summary: { ...DASHBOARD.summary, athleteCount: 0 } },
+    });
+    render(<CoachAssignScreen sessionId="s-1" />, { wrapper: Wrapper });
+
+    await waitFor(() => expect(screen.getByTestId('assign-empty')).toBeOnTheScreen());
+    fireEvent.press(screen.getByTestId('assign-later'));
+    expect(mockReplace).toHaveBeenCalledWith(
+      expect.objectContaining({ params: expect.objectContaining({ id: 's-1' }) }),
+    );
   });
 
   it('état erreur si le chargement des athlètes échoue', async () => {
