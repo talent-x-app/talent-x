@@ -2,6 +2,7 @@ import { ThemeProvider } from '@talent-x/design-tokens';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { type ReactNode, useState } from 'react';
+import { Pressable, Text } from 'react-native';
 
 const mockGetCoachDashboard = jest.fn();
 const mockAssignSession = jest.fn();
@@ -281,6 +282,35 @@ describe('CoachAssignScreen (TLX-063 — C-06/C-07)', () => {
         params: expect.objectContaining({ id: 's-1' }),
       }),
     );
+  });
+
+  it('changer de séance réinitialise l’état (pas de fuite de sélection/confirmation, via key)', async () => {
+    // Reproduit le montage réel : la route remonte une instance par séance (`key={id}`).
+    function KeyedHarness() {
+      const [sid, setSid] = useState('s-1');
+      return (
+        <>
+          <Pressable testID="harness-next-session" onPress={() => setSid('s-2')}>
+            <Text>séance suivante</Text>
+          </Pressable>
+          <CoachAssignScreen key={sid} sessionId={sid} />
+        </>
+      );
+    }
+    mockGetCoachDashboard.mockResolvedValue({ status: 200, data: DASHBOARD });
+    render(<KeyedHarness />, { wrapper: Wrapper });
+
+    // Séance 1 : on sélectionne un athlète.
+    await waitFor(() => expect(screen.getByTestId('assign-athlete-a-1')).toBeOnTheScreen());
+    fireEvent.press(screen.getByTestId('assign-athlete-a-1'));
+    expect(screen.getByTestId('assign-submit')).toHaveTextContent('Assigner (1 cible)');
+
+    // Nouvelle séance → instance neuve : la sélection ne fuit pas (bouton de nouveau désactivé).
+    fireEvent.press(screen.getByTestId('harness-next-session'));
+    await waitFor(() =>
+      expect(screen.getByTestId('assign-submit')).toHaveTextContent(/sélectionne/i),
+    );
+    expect(screen.getByTestId('assign-submit')).toBeDisabled();
   });
 
   it('« Retour » post-création (fromCreate) sort vers l’accueil, pas router.back (TLX-198 nav)', async () => {
