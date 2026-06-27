@@ -5,6 +5,7 @@ import {
   type CalendarEntry,
   competitionToCalendarEntry,
   dayKey,
+  earliestDueDateBySession,
   formatDayLabel,
   formatWeekLabel,
   groupEntriesByDay,
@@ -151,6 +152,33 @@ describe('sessionToCalendarEntry (C-09)', () => {
 
   it("date null si la séance n'est pas planifiée", () => {
     expect(sessionToCalendarEntry(session({ scheduledDate: undefined })).date).toBeNull();
+  });
+
+  it('TLX-195 : repli sur l’échéance d’affectation quand la séance est non datée', () => {
+    const e = sessionToCalendarEntry(session({ scheduledDate: undefined }), '2026-05-20');
+    expect(e.date).toBe('2026-05-20');
+  });
+
+  it('TLX-195 : la date planifiée prime sur le repli d’échéance', () => {
+    const e = sessionToCalendarEntry(session({ scheduledDate: '2026-05-13' }), '2026-05-20');
+    expect(e.date).toBe('2026-05-13');
+  });
+});
+
+describe('earliestDueDateBySession (TLX-195)', () => {
+  it('retient l’échéance la plus précoce par séance', () => {
+    const map = earliestDueDateBySession([
+      assignment({ id: 'a1', sessionId: 's-occ', dueDate: '2026-05-20' }),
+      assignment({ id: 'a2', sessionId: 's-occ', dueDate: '2026-05-13' }),
+      assignment({ id: 'a3', sessionId: 's-other', dueDate: '2026-06-01' }),
+    ]);
+    expect(map.get('s-occ')).toBe('2026-05-13');
+    expect(map.get('s-other')).toBe('2026-06-01');
+  });
+
+  it('ignore les affectations sans échéance', () => {
+    const map = earliestDueDateBySession([assignment({ sessionId: 's-x', dueDate: undefined })]);
+    expect(map.has('s-x')).toBe(false);
   });
 });
 

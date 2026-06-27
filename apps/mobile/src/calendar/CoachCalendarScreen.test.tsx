@@ -5,11 +5,13 @@ import { type ReactNode, useState } from 'react';
 
 const mockListSessions = jest.fn();
 const mockListCompetitions = jest.fn();
+const mockListAssignments = jest.fn();
 const mockPush = jest.fn();
 
 jest.mock('@talent-x/api-client', () => ({
   listSessions: (...args: unknown[]) => mockListSessions(...args),
   listCompetitions: (...args: unknown[]) => mockListCompetitions(...args),
+  listAssignments: (...args: unknown[]) => mockListAssignments(...args),
   AssignmentStatus: {
     assigned: 'assigned',
     in_progress: 'in_progress',
@@ -62,6 +64,11 @@ beforeEach(() => {
   jest.clearAllMocks();
   // Par défaut, aucune compétition : les tests séances restent inchangés (ADR-24 §5).
   mockListCompetitions.mockResolvedValue(EMPTY_COMPETITIONS);
+  // Par défaut, aucune affectation (les tests dédiés surchargent — TLX-195).
+  mockListAssignments.mockResolvedValue({
+    status: 200,
+    data: { data: [], meta: { total: 0, page: 1, limit: 100 } },
+  });
 });
 
 describe('CoachCalendarScreen (TLX-100 / C-09)', () => {
@@ -86,6 +93,45 @@ describe('CoachCalendarScreen (TLX-100 / C-09)', () => {
         params: expect.objectContaining({ id: 's-1' }),
       }),
     );
+  });
+
+  it('TLX-195 : une séance non datée mais affectée n’apparaît plus dans « Sans date »', async () => {
+    // Occurrence de récurrence : la copie de séance est non datée, la date vit sur l'affectation.
+    mockListSessions.mockResolvedValue({
+      status: 200,
+      data: {
+        data: [
+          {
+            id: 's-occ',
+            title: 'Occurrence',
+            status: 'published',
+            coachId: 'me',
+            exercises: { items: [] },
+          },
+        ],
+        meta: { total: 1, page: 1, limit: 20 },
+      },
+    });
+    mockListAssignments.mockResolvedValue({
+      status: 200,
+      data: {
+        data: [
+          {
+            id: 'asg-1',
+            sessionId: 's-occ',
+            athleteId: 'a-1',
+            status: 'assigned',
+            dueDate: '2026-05-13',
+          },
+        ],
+        meta: { total: 1, page: 1, limit: 100 },
+      },
+    });
+    render(<CoachCalendarScreen />, { wrapper: Wrapper });
+
+    // La séance est désormais datée (via l'échéance) → plus dans la section « Sans date ».
+    await waitFor(() => expect(mockListAssignments).toHaveBeenCalled());
+    await waitFor(() => expect(screen.queryByTestId('calendar-undated-s-occ')).toBeNull());
   });
 
   it('état vide quand aucune séance', async () => {

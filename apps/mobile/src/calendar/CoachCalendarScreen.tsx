@@ -1,7 +1,9 @@
 import {
+  listAssignments,
   listCompetitions,
   listSessions,
   SessionStatus,
+  type Assignment,
   type Competition,
   type Session,
 } from '@talent-x/api-client';
@@ -14,7 +16,11 @@ import { ResponsiveContent } from '../responsive/ResponsiveContent';
 import { COMPETITIONS_QUERY_KEY } from '../competitions/competitions-query';
 import { coachCompetitionsHref, competitionEditHref } from '../competitions/navigation';
 import { CalendarView } from './CalendarView';
-import { competitionToCalendarEntry, sessionToCalendarEntry } from './calendar-model';
+import {
+  competitionToCalendarEntry,
+  earliestDueDateBySession,
+  sessionToCalendarEntry,
+} from './calendar-model';
 
 /**
  * Calendrier coach (C-09 — TLX-100). Vue planning dérivée de `GET /sessions` (role-aware :
@@ -48,11 +54,25 @@ export function CoachCalendarScreen() {
     retry: false,
   });
 
+  // Affectations du coach (TLX-195) : fournissent la date effective des séances **non datées**
+  // mais affectées (occurrences de récurrence, ADR-35) — la date vit sur l'affectation. Erreur
+  // tolérée : le planning reste affiché par `scheduledDate` si l'appel échoue.
+  const assignments = useQuery({
+    queryKey: ['assignments'],
+    queryFn: async (): Promise<Assignment[]> => {
+      const response = await listAssignments({ limit: 100 });
+      if (response.status === 200) return response.data.data;
+      throw response;
+    },
+    retry: false,
+  });
+
+  const dueBySession = earliestDueDateBySession(assignments.data ?? []);
   const entries = [
     // Les modèles (C-10, ADR-29) ne sont pas des séances planifiées → exclus du calendrier.
     ...(query.data ?? [])
       .filter((session) => session.status !== SessionStatus.template)
-      .map(sessionToCalendarEntry),
+      .map((session) => sessionToCalendarEntry(session, dueBySession.get(session.id) ?? null)),
     ...(competitions.data ?? []).map(competitionToCalendarEntry),
   ];
 

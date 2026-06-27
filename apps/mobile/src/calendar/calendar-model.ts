@@ -88,18 +88,40 @@ export function assignmentToCalendarEntry(a: Assignment): CalendarEntry {
   };
 }
 
-/** Séance → entrée (C-09). Date = date planifiée de la séance. */
-export function sessionToCalendarEntry(s: Session): CalendarEntry {
+/**
+ * Séance → entrée (C-09). Date = date planifiée de la séance, **à défaut** l'échéance de son
+ * affectation (`fallbackDate`, TLX-195) : les occurrences d'une récurrence (ADR-35) sont des copies
+ * **non datées** (la date vit sur l'affectation, pas la séance) — sans ce repli elles tombaient
+ * toutes en « Sans date ». Aligne la sémantique de date du coach sur celle de l'athlète (dueDate).
+ */
+export function sessionToCalendarEntry(s: Session, fallbackDate?: string | null): CalendarEntry {
   const meta = SESSION_STATUS_META[s.status];
   const title = s.title?.trim();
   return {
     id: s.id,
     kind: 'session',
     title: title && title.length > 0 ? title : 'Séance',
-    date: normalizeDate(s.scheduledDate),
+    date: normalizeDate(s.scheduledDate) ?? normalizeDate(fallbackDate),
     tone: meta.tone,
     statusLabel: meta.label,
   };
+}
+
+/**
+ * Date d'échéance **la plus précoce** par séance, dérivée des affectations du coach (TLX-195).
+ * Sert de repli de date pour `sessionToCalendarEntry` (placer les occurrences récurrentes — copies
+ * non datées — sur le jour de leur affectation). Une séance peut avoir plusieurs affectations
+ * (athlètes/groupe) à la même date ; on retient la plus précoce s'il y en a plusieurs.
+ */
+export function earliestDueDateBySession(assignments: Assignment[]): Map<string, string> {
+  const map = new Map<string, string>();
+  for (const a of assignments) {
+    const due = normalizeDate(a.dueDate);
+    if (!due) continue;
+    const current = map.get(a.sessionId);
+    if (!current || due < current) map.set(a.sessionId, due);
+  }
+  return map;
 }
 
 /**
