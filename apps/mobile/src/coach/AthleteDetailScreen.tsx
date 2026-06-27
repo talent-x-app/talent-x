@@ -157,7 +157,11 @@ export function AthleteDetailScreen() {
   );
 }
 
-/** Liste des séances réalisées (perf soumise) menant à la revue + feedback (C-08). */
+/**
+ * Liste des séances réalisées (perf soumise) menant à la revue + feedback (C-08). Titrée
+ * « Revue des séances » (R10) : même vocabulaire que le KPI dashboard « À revoir », sans
+ * prétendre que tout est en attente (le payload n'indique pas si une revue a déjà eu lieu).
+ */
 function ReviewableSessions({
   assignments,
   onReview,
@@ -169,7 +173,7 @@ function ReviewableSessions({
   if (assignments.length === 0) return null;
   return (
     <View style={{ gap: spacing[3] }}>
-      <SectionTitle>Séances réalisées</SectionTitle>
+      <SectionTitle>Revue des séances</SectionTitle>
       <View style={{ gap: spacing[2] }}>
         {assignments.map((a) => (
           <Card key={a.id} testID={`review-session-${a.id}`} onPress={() => onReview(a)}>
