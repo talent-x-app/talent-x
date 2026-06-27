@@ -162,6 +162,23 @@ export function coachSessionEntries(
  * non datées — sur le jour de leur affectation). Une séance peut avoir plusieurs affectations
  * (athlètes/groupe) à la même date ; on retient la plus précoce s'il y en a plusieurs.
  */
+/**
+ * Nombre d'athlètes **distincts** affectés par séance (ADR-53 lot 2, « assigné à N »). Dérivé des
+ * affectations du coach (`GET /assignments`). Une séance peut avoir plusieurs affectations (groupe /
+ * athlètes) → on compte les `athleteId` uniques.
+ */
+export function assignedCountBySession(assignments: Assignment[]): Map<string, number> {
+  const bySession = new Map<string, Set<string>>();
+  for (const a of assignments) {
+    const set = bySession.get(a.sessionId) ?? new Set<string>();
+    set.add(a.athleteId);
+    bySession.set(a.sessionId, set);
+  }
+  const counts = new Map<string, number>();
+  for (const [sessionId, athletes] of bySession) counts.set(sessionId, athletes.size);
+  return counts;
+}
+
 export function earliestDueDateBySession(assignments: Assignment[]): Map<string, string> {
   const map = new Map<string, string>();
   for (const a of assignments) {

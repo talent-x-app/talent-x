@@ -3,6 +3,7 @@ import {
   addDays,
   assignmentToCalendarEntry,
   type CalendarEntry,
+  assignedCountBySession,
   coachSessionBuckets,
   coachSessionEntries,
   competitionToCalendarEntry,
@@ -224,6 +225,19 @@ describe('coachSessionBuckets (ADR-53)', () => {
     expect(b.past.map((e) => e.id)).toEqual(['s-past']);
     expect(b.drafts.map((e) => e.id)).toEqual(['s-draft']);
     expect(b.templates.map((e) => e.id)).toEqual(['t-1']);
+  });
+});
+
+describe('assignedCountBySession (ADR-53 lot 2)', () => {
+  it('compte les athlètes distincts par séance', () => {
+    const map = assignedCountBySession([
+      assignment({ id: 'a1', sessionId: 's-1', athleteId: 'ath-1' }),
+      assignment({ id: 'a2', sessionId: 's-1', athleteId: 'ath-2' }),
+      assignment({ id: 'a3', sessionId: 's-1', athleteId: 'ath-1' }), // doublon athlète
+      assignment({ id: 'a4', sessionId: 's-2', athleteId: 'ath-9' }),
+    ]);
+    expect(map.get('s-1')).toBe(2);
+    expect(map.get('s-2')).toBe(1);
   });
 });
 
