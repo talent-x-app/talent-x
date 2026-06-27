@@ -46,9 +46,9 @@ describe('CompositeCanvas (ADR-42)', () => {
     expect(screen.getByTestId('composite-canvas-summary')).toBeOnTheScreen();
     expect(screen.getByTestId('composite-bloc-0')).toBeOnTheScreen();
     expect(screen.getByTestId('composite-bloc-1')).toBeOnTheScreen();
-    // Série 0 : carte Sprint en encart.
+    // Bloc 0 : carte Sprint en encart.
     expect(screen.getByTestId('sprint-effort-canvas')).toBeOnTheScreen();
-    // Série 1 : carte d'effort générique embarquée (segment Libre).
+    // Bloc 1 : carte d'effort générique embarquée (segment Libre).
     expect(screen.getByTestId('generic-effort-canvas')).toBeOnTheScreen();
   });
 
@@ -78,7 +78,7 @@ describe('CompositeCanvas (ADR-42)', () => {
     expect(types).not.toContain(BlockType.cooldown);
   });
 
-  it('« + série » → Libre ajoute une série générique (feuilles custom)', () => {
+  it('« + bloc » → Libre ajoute un bloc générique (feuilles custom)', () => {
     const h = setup([sprintSegment()]);
     fireEvent.press(screen.getByTestId('composite-add-bloc'));
     fireEvent.press(screen.getByTestId('composite-add-bloc-custom'));

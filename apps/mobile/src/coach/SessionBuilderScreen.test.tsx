@@ -343,7 +343,7 @@ describe('SessionBuilderScreen (TLX-052 — C-05)', () => {
     });
     render(<SessionBuilderScreen sessionId="s-custom" />, { wrapper: Wrapper });
 
-    // Série non reconnue → segment Libre (carte d'effort générique embarquée) dans un cadre de série.
+    // Bloc non reconnu → segment Libre (carte d'effort générique embarquée) dans un cadre de bloc.
     await waitFor(() => expect(screen.getByTestId('composite-bloc-0')).toBeOnTheScreen());
     expect(screen.getByTestId('generic-effort-canvas')).toBeOnTheScreen();
     expect(screen.getByTestId('composite-add-bloc')).toBeOnTheScreen();

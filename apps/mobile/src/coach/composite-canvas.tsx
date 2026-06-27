@@ -85,7 +85,7 @@ export function CompositeCanvas({
     commit([...series.slice(0, seg.start), ...series.slice(seg.end)]);
   }
 
-  /** Ajoute une série en fin de canvas : seed d'une discipline (warmup/cooldown retirés) ou libre. */
+  /** Ajoute un bloc en fin de canvas : seed d'une discipline (warmup/cooldown retirés) ou libre. */
   function addBloc(choice: DisciplineKey | 'custom') {
     if (choice === 'custom') {
       commit([...series, defaultGenericSeries()]);
@@ -104,8 +104,8 @@ export function CompositeCanvas({
     <View style={{ gap: spacing[3] }}>
       <CanvasKpiHeader
         testID="composite-canvas-summary"
-        title={`Séance personnalisée · ${blocCount} série${blocCount > 1 ? 's' : ''}`}
-        subtitle={phrase || 'Composez votre séance série par série'}
+        title={`Séance personnalisée · ${blocCount} bloc${blocCount > 1 ? 's' : ''}`}
+        subtitle={phrase || 'Composez votre séance bloc par bloc'}
       />
 
       <WarmupCooldownBar
@@ -254,27 +254,27 @@ function BlocFrame({
             letterSpacing: 0.6,
           }}
         >
-          {`Série ${index + 1} · ${segmentTitle(segment)}`}
+          {`Bloc ${index + 1} · ${segmentTitle(segment)}`}
         </Text>
         <View style={{ flexDirection: 'row', gap: 2 }}>
           <SmallIconBtn
             testID={`${tid}-up`}
             icon="arrow-up"
-            label="Monter la série"
+            label="Monter le bloc"
             disabled={index === 0}
             onPress={onMoveUp}
           />
           <SmallIconBtn
             testID={`${tid}-down`}
             icon="arrow-down"
-            label="Descendre la série"
+            label="Descendre le bloc"
             disabled={index === total - 1}
             onPress={onMoveDown}
           />
           <SmallIconBtn
             testID={`${tid}-delete`}
             icon="trash-2"
-            label="Supprimer la série"
+            label="Supprimer le bloc"
             tone="danger"
             onPress={onDelete}
           />
@@ -309,7 +309,7 @@ function AddBlocPicker({ onAdd }: { onAdd: (choice: DisciplineKey | 'custom') =>
         testID="composite-add-bloc"
         onPress={() => setOpen(true)}
         accessibilityRole="button"
-        accessibilityLabel="Ajouter une série"
+        accessibilityLabel="Ajouter un bloc"
         style={({ pressed }) => ({
           flexDirection: 'row',
           alignItems: 'center',
@@ -331,7 +331,7 @@ function AddBlocPicker({ onAdd }: { onAdd: (choice: DisciplineKey | 'custom') =>
             fontSize: typography.body.fontSize,
           }}
         >
-          Ajouter une série
+          Ajouter un bloc
         </Text>
       </Pressable>
     );
@@ -357,7 +357,7 @@ function AddBlocPicker({ onAdd }: { onAdd: (choice: DisciplineKey | 'custom') =>
           letterSpacing: 0.6,
         }}
       >
-        Quelle discipline pour cette série ?
+        Quelle discipline pour ce bloc ?
       </Text>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] }}>
         {options.map((opt) => (

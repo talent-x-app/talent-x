@@ -36,11 +36,20 @@ La cible : une **grammaire unique**. L'assistant = le canvas filtré sur une dis
 
 ### D1 — Vocabulaire unique : **la série** (suppression de « bloc »)
 
-Dans toute l'UI de création, l'unité de premier niveau s'appelle **« série »**. Le composite est
-réaligné : « Bloc N · X » → **« Série N · X »**, « Ajouter un bloc » → **« Ajouter une série »**,
-« Quelle discipline pour ce bloc ? » → **« Quelle discipline pour cette série ? »**. Le mot « bloc »
-disparaît des libellés et des `accessibilityLabel`. (Les `testID` internes peuvent rester stables
-quand ils ne sont pas visibles ; ceux exposés aux E2E sont mis à jour, cf. plan.)
+Le mot « série » est le vocable de référence ; « Tours » lève le doublon à l'intérieur d'une carte
+(cf. D2).
+
+> **Révision (2026-06-27, en cours d'implémentation).** Vérification en réel : nommer **aussi** le
+> niveau composite « série » recrée l'ambiguïté (un segment « Série 1 · Libre » contenant lui-même
+> une carte « Série 1 »). On adopte donc une **hiérarchie à deux niveaux explicites** :
+> - **Bloc** = unité de premier niveau du canvas composite (segment de discipline ou « Libre ») :
+>   « Bloc N · X », **« Ajouter un bloc »**, « N bloc(s) », « Quelle discipline pour ce bloc ? ».
+> - **Série** = la **carte** à l'intérieur d'un bloc (`SeriesCardFrame`, « Série N », ×N **Tours**),
+>   suivie de ses **exercices**.
+>
+> Lecture cible : une séance = des **blocs**, chaque bloc = une ou plusieurs **séries**, chaque série
+> = des **exercices** de **N tours**. Les `testID` (`composite-bloc-*`, `series-card-*`) étaient déjà
+> alignés sur cette hiérarchie — seuls les libellés du composite reviennent à « bloc ».
 
 ### D2 — Le champ « nombre de tours » devient **« Tours »** (ex-« Séries »)
 
