@@ -18,18 +18,34 @@ function statusOf(error: unknown): number | undefined {
   return undefined;
 }
 
+/**
+ * Un consommateur (query/mutation) peut se **désinscrire du toast d'erreur global** via
+ * `meta.skipGlobalErrorToast` quand il gère lui-même l'erreur (ex. le détail de séance affiche une
+ * carte d'erreur ; après suppression, un refetch 404 ne doit pas toaster « Séance introuvable »).
+ */
+function skipsGlobalToast(meta: unknown): boolean {
+  return (
+    !!meta &&
+    typeof meta === 'object' &&
+    (meta as { skipGlobalErrorToast?: boolean }).skipGlobalErrorToast === true
+  );
+}
+
 /** Toast d'erreur global (TLX-010) ; le 401 est traité par le refresh d'auth (TLX-009). */
-function reportError(error: unknown): void {
+function reportError(error: unknown, meta?: unknown): void {
   if (statusOf(error) === 401) return;
+  if (skipsGlobalToast(meta)) return;
   emitToast({ ...toUserMessage(error), variant: 'danger' });
 }
 
 export function createQueryClient(): QueryClient {
   return new QueryClient({
     // Gestion d'erreurs globale : toute requête/mutation en échec déclenche un
-    // toast (sauf 401, géré par le rafraîchissement de session).
-    queryCache: new QueryCache({ onError: reportError }),
-    mutationCache: new MutationCache({ onError: reportError }),
+    // toast (sauf 401, géré par le rafraîchissement de session, ou opt-out via meta).
+    queryCache: new QueryCache({ onError: (error, query) => reportError(error, query.meta) }),
+    mutationCache: new MutationCache({
+      onError: (error, _vars, _ctx, mutation) => reportError(error, mutation.meta),
+    }),
     defaultOptions: {
       queries: {
         staleTime: 30_000,

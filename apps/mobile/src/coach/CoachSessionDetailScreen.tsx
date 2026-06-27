@@ -46,6 +46,9 @@ export function CoachSessionDetailScreen() {
       throw response;
     },
     retry: false,
+    // Cet écran gère l'échec de chargement via sa carte d'erreur (et après suppression, un
+    // refetch 404 est attendu) → pas de toast global « Séance introuvable » redondant.
+    meta: { skipGlobalErrorToast: true },
   });
 
   const statusMeta = session.data ? SESSION_STATUS_META[session.data.status] : undefined;
@@ -265,7 +268,9 @@ function DeleteSessionAction({ sessionId, title }: { sessionId: string; title: s
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['sessions'] });
-      void queryClient.invalidateQueries({ queryKey: ['session', sessionId] });
+      // La séance est supprimée : on **retire** sa query du cache (pas d'invalidate, qui
+      // déclencherait un refetch 404). L'opt-out `meta` couvre tout refetch résiduel.
+      queryClient.removeQueries({ queryKey: ['session', sessionId] });
       void queryClient.invalidateQueries({ queryKey: ['assignments'] });
       toast.show({ variant: 'success', title: 'Séance supprimée' });
       router.back();
