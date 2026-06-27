@@ -404,7 +404,7 @@ function SeriesCard({
       onDelete={onDelete}
     >
       {/* Modèle : pleine largeur, sur sa propre rangée — le sélecteur déroulant se déploie
-          alors sans décaler « Séries »/« Récup » (qui partageaient sa rangée auparavant). */}
+          alors sans décaler « Tours »/« Récup » (qui partageaient sa rangée auparavant). */}
       <View>
         <FieldLabel>Modèle</FieldLabel>
         <PresetPicker
@@ -418,17 +418,17 @@ function SeriesCard({
         />
       </View>
 
-      {/* Séries + récup R — deux colonnes égales, côte à côte. */}
+      {/* Tours + récup R — deux colonnes égales, côte à côte. */}
       <View style={{ flexDirection: 'row', gap: spacing[3], alignItems: 'flex-end' }}>
         <View style={{ flex: 1 }}>
-          <FieldLabel>Séries</FieldLabel>
+          <FieldLabel>Tours</FieldLabel>
           <Stepper
             testID={`${tid}-rounds`}
             value={rounds}
             min={1}
             max={20}
             onValueChange={(v) => onPatchGroup({ rounds: String(v) })}
-            accessibilityLabel="Nombre de séries"
+            accessibilityLabel="Nombre de tours"
           />
         </View>
         <View style={{ flex: 1 }}>

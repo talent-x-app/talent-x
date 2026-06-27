@@ -459,17 +459,17 @@ function HurdlesSeriesCard({
         />
       </View>
 
-      {/* Séries + récup R — deux colonnes égales, côte à côte (structure régulière). */}
+      {/* Tours + récup R — deux colonnes égales, côte à côte (structure régulière). */}
       <View style={{ flexDirection: 'row', gap: spacing[3], alignItems: 'flex-end' }}>
         <View style={{ flex: 1 }}>
-          <FieldLabel>Séries</FieldLabel>
+          <FieldLabel>Tours</FieldLabel>
           <Stepper
             testID={`${tid}-rounds`}
             value={rounds}
             min={1}
             max={20}
             onValueChange={(v) => onPatchGroup({ rounds: String(v) })}
-            accessibilityLabel="Nombre de séries"
+            accessibilityLabel="Nombre de tours"
           />
         </View>
         <View style={{ flex: 1 }}>

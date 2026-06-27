@@ -429,17 +429,17 @@ function EnduranceSeriesCard({
         />
       </View>
 
-      {/* Répétitions + récup R — deux colonnes égales. */}
+      {/* Tours + récup R — deux colonnes égales. */}
       <View style={{ flexDirection: 'row', gap: spacing[3], alignItems: 'flex-end' }}>
         <View style={{ flex: 1 }}>
-          <FieldLabel>Répétitions</FieldLabel>
+          <FieldLabel>Tours</FieldLabel>
           <Stepper
             testID={`${tid}-rounds`}
             value={rounds}
             min={1}
             max={30}
             onValueChange={(v) => onPatchGroup({ rounds: String(v) })}
-            accessibilityLabel="Nombre de répétitions"
+            accessibilityLabel="Nombre de tours"
           />
         </View>
         <View style={{ flex: 1 }}>

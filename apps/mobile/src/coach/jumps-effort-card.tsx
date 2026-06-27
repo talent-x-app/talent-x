@@ -380,14 +380,14 @@ function JumpsSeriesCard({
       </View>
       {!vertical && (
         <View>
-          <FieldLabel>Passages</FieldLabel>
+          <FieldLabel>Tours</FieldLabel>
           <Stepper
             testID={`${tid}-rounds`}
             value={rounds}
             min={1}
             max={20}
             onValueChange={(v) => onPatchGroup({ rounds: String(v) })}
-            accessibilityLabel="Nombre de passages"
+            accessibilityLabel="Nombre de tours"
           />
         </View>
       )}
