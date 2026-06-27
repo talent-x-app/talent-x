@@ -188,4 +188,20 @@ describe('DisciplineAssistantScreen — Sprint (ADR-38, TLX-155)', () => {
     expect(screen.getByTestId('session-builder-title')).toHaveTextContent('Nouvelle séance');
     expect(screen.queryByTestId('assistant-presets')).toBeNull();
   });
+
+  it('mode modèle (ADR-54) : assistant amorce un modèle → date masquée + sauvegarde status=template', async () => {
+    mockCreateSession.mockResolvedValue({ status: 201, data: { id: 't1', title: 'Modèle' } });
+    render(<DisciplineAssistantScreen discipline="sprint" initialStatus="template" />, {
+      wrapper: Wrapper,
+    });
+
+    // Un modèle n'est pas daté (ADR-29) : le champ date est masqué.
+    expect(screen.queryByTestId('session-field-date')).toBeNull();
+
+    fireEvent.changeText(screen.getByTestId('session-field-title'), 'Modèle sprint');
+    fireEvent.press(screen.getByTestId('session-save'));
+
+    await waitFor(() => expect(mockCreateSession).toHaveBeenCalled());
+    expect(mockCreateSession.mock.calls[0][0].status).toBe('template');
+  });
 });

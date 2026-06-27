@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { type SessionStatus } from '@talent-x/api-client';
 import { SessionBuilderScreen } from './SessionBuilderScreen';
 import { disciplineConfig } from './discipline-assistants';
 import { assistantSeed } from './assistant-presets';
@@ -10,14 +11,24 @@ import { DISCIPLINE_CANVAS } from './discipline-canvas';
  * Comme c'est le même `SessionBuilderScreen`, la séance produite reste **éditable en C-05 sans
  * perte** et part au même `POST /sessions`. Une discipline inconnue retombe sur le constructeur
  * vierge (lecture défensive du paramètre de route).
+ *
+ * `initialStatus` (ADR-54) : `template` amorce un **modèle** via le même assistant — le statut est
+ * transmis au constructeur (date/assignation masquées, sauvegarde `template`, ADR-29).
  */
-export function DisciplineAssistantScreen({ discipline }: { discipline?: string }) {
+export function DisciplineAssistantScreen({
+  discipline,
+  initialStatus,
+}: {
+  discipline?: string;
+  initialStatus?: SessionStatus;
+}) {
   const cfg = disciplineConfig(discipline);
   const seed = useMemo(() => () => assistantSeed(discipline), [discipline]);
 
-  if (!cfg) return <SessionBuilderScreen />;
+  if (!cfg) return <SessionBuilderScreen initialStatus={initialStatus} />;
   return (
     <SessionBuilderScreen
+      initialStatus={initialStatus}
       titleText={`Assistant ${cfg.label}`}
       seed={seed}
       // Toutes les disciplines ont désormais leur carte d'effort dédiée avec un sélecteur de

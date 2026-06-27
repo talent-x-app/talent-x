@@ -65,6 +65,7 @@ Chaque décision suit le format **ADR** : Statut, Date, Contexte, Décision, Con
 | ADR-51 | Appartenance multi-coach : cloisonnement de la visibilité (lectures coach scopées par `coachId`) et consentement `coach_access` par coach — débloque l'adhésion à des groupes de coachs différents (complète ADR-05/08/26) | Accepté |
 | ADR-52 | Grammaire de séance unifiée (création) : hiérarchie **Bloc > Série > exercices**, champ « Séries » → « Tours », et série/bloc **libre** rendu par une **carte d'effort générique** (catalogue Type d'effort) au lieu de l'éditeur brut — révise ADR-42 §1/§3 (complète ADR-38/39/41) | Accepté |
 | ADR-53 | Onglet **« Séances » coach** (Liste ⇄ Calendrier) en remplacement de l'onglet Calendrier : liste de séances enfin disponible (À venir/Passées/Brouillons/Modèles, dates effectives TLX-195), Modèles rapatriés depuis l'onglet Athlètes — amende ADR-44/47, zéro backend | Accepté |
+| ADR-54 | **Entrée unifiée de création** séance/modèle : un modèle (`status:template`, ADR-29) passe désormais par le **même sélecteur de discipline** (assistants ADR-38) qu'une séance — `NewSessionScreen` paramétré par `asTemplate`, `newTemplateHref` pointe sur le picker, statut propagé jusqu'au builder (R17) — complète ADR-29/38, zéro backend | Accepté |
 
 ---
 
@@ -680,6 +681,14 @@ Décision complète : [`docs/adr/ADR-52-grammaire-unifiee-series-creation-seance
 Décision complète : [`docs/adr/ADR-53-onglet-seances-coach-liste-calendrier.md`](adr/ADR-53-onglet-seances-coach-liste-calendrier.md).
 
 **Statut : Accepté** (2026-06-27, validé). **Amende ADR-44** (asymétrie de nav coach/athlète) et **ADR-47** (calendrier). Constats : le coach **n'a aucune liste de ses séances** (`GET /sessions` n'alimente que calendrier + modèles → une séance non assignée est introuvable, trou TLX-198) ; les **Modèles** sont planqués sous l'onglet Athlètes ; l'athlète a déjà un onglet Séances Liste⇄Calendrier. **D1** barre de nav coach : **Calendrier → Séances** (toujours 4 onglets ; le calendrier devient un sous-onglet). **D2** hub à bascule **Liste ⇄ Calendrier** (SegmentedTabs, `CoachCalendarScreen` embarqué), défaut Liste→À venir. **D3** liste = 4 filtres dérivés de `GET /sessions` (+ `GET /assignments` pour la **date effective** = `scheduledDate` sinon échéance, TLX-195) : **À venir** (≥ aujourd'hui, tri ↑, + publiées sans date en tête tag « Non planifiée ») · **Passées** (< aujourd'hui, tri ↓, retard mis en avant) · **Brouillons** (`draft`) · **Modèles** (`template`, rapatrie `CoachTemplatesScreen`). **D4** bouton « Nouvelle séance » dans le hub + retrait de l'entrée Modèles d'Athlètes. **D5** lot 1 = nav + hub + liste 4 filtres + calendrier ; **lot 2** différé = lignes enrichies (discipline/assignés/retard), recherche/filtre, compteurs. **D6** zéro backend. Écartés : 5ᵉ onglet, liste sous le dashboard, Modèles sous Athlètes, tout livrer d'un coup. Plan : TLX-203 (nav+hub) · TLX-204 (liste) · TLX-205 (enrichissement).
+
+---
+
+## ADR-54 — Entrée unifiée de création séance / modèle
+
+Décision complète : [`docs/adr/ADR-54-entree-unifiee-creation-seance-modele.md`](adr/ADR-54-entree-unifiee-creation-seance-modele.md).
+
+**Statut : Accepté** (2026-06-27, validé). **Complète ADR-38** (entrée par sélecteur de discipline + assistants) et **ADR-29** (modèle = `Session` `status:template`). Constat (test manuel coach, R17) : un modèle est une séance `template`, mais « Créer une séance » ouvre le **sélecteur de discipline** (assistants guidés) tandis que « Créer un modèle » tombe **direct** dans le constructeur brut → les assistants par discipline sont inaccessibles pour les modèles. Le `SessionBuilderScreen` gère **déjà** le mode modèle de bout en bout : le défaut est uniquement sur l'**entrée**. **D1** `NewSessionScreen` devient l'entrée **unique**, paramétrée par `asTemplate` (titre + propagation du statut). **D2** `disciplineAssistantHref`/`customSessionHref` transportent `status=template` ; `newTemplateHref` pointe désormais sur le **picker** (`session/new?status=template`), plus sur le builder. **D3** aiguillage `new.tsx` : `mode=custom` → builder (± template) ; `status=template` seul → picker mode modèle ; défaut → picker mode séance. **D4** la route assistant lit `status` et le forwarde au builder via `initialStatus` → un modèle peut être amorcé par n'importe quel assistant. **D5** zéro backend, zéro contrat, séance/modèle restent éditables C-05 sans perte. Écartés : moderniser seulement le builder de modèle, dupliquer un `NewTemplateScreen`, toggle séance/modèle dans le picker.
 
 ---
 

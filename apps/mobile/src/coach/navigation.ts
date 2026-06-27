@@ -68,8 +68,10 @@ export function coachTemplatesHref() {
 }
 
 /**
- * Constructeur ouvert en **mode modèle** (C-10) : `session/new` avec le statut `template`
- * pré-sélectionné. Le constructeur masque alors la date et l'assignation (ADR-29).
+ * Création d'un **modèle** (C-10) : depuis ADR-54, mène à l'**entrée unique** de création
+ * (`session/new?status=template`) — c.-à-d. le **sélecteur de discipline** en mode modèle, et non
+ * plus directement le constructeur. Les assistants par discipline (ADR-38) sont ainsi disponibles
+ * aussi pour les modèles ; le constructeur masque toujours date et assignation (ADR-29).
  */
 export function newTemplateHref() {
   return { pathname: '/(coach)/session/new' as const, params: { status: SessionStatus.template } };
@@ -78,16 +80,27 @@ export function newTemplateHref() {
 /**
  * Assistant de création par discipline (ADR-38, TLX-155→159) : ouvre le formulaire guidé en
  * séries de la discipline choisie depuis l'écran « Nouvelle séance ».
+ *
+ * `asTemplate` (ADR-54) : amorce un **modèle** (`status=template`) au lieu d'une séance — le
+ * constructeur masque alors date/assignation et sauve en `template`.
  */
-export function disciplineAssistantHref(discipline: DisciplineKey) {
-  return { pathname: '/(coach)/session/assistant/[discipline]' as const, params: { discipline } };
+export function disciplineAssistantHref(discipline: DisciplineKey, asTemplate = false) {
+  return {
+    pathname: '/(coach)/session/assistant/[discipline]' as const,
+    params: { discipline, ...(asTemplate ? { status: SessionStatus.template } : {}) },
+  };
 }
 
 /**
- * Constructeur générique (C-05) ouvert depuis « Nouvelle séance » via l'option « Personnalisé ».
+ * Constructeur générique (C-05) ouvert depuis « Nouvelle séance » via l'option « Composer ».
  * `mode=custom` court-circuite l'écran de choix de discipline (ADR-38) pour aller directement au
  * canvas de blocs libre.
+ *
+ * `asTemplate` (ADR-54) : compose un **modèle** (`status=template`) plutôt qu'une séance.
  */
-export function customSessionHref() {
-  return { pathname: '/(coach)/session/new' as const, params: { mode: 'custom' } };
+export function customSessionHref(asTemplate = false) {
+  return {
+    pathname: '/(coach)/session/new' as const,
+    params: { mode: 'custom', ...(asTemplate ? { status: SessionStatus.template } : {}) },
+  };
 }

@@ -8,13 +8,16 @@ import { DISCIPLINES } from './discipline-assistants';
 import { customSessionHref, disciplineAssistantHref } from './navigation';
 
 /**
- * Écran d'entrée « Nouvelle séance » (C-05 / ADR-38, TLX-154). Point de départ de la création
- * côté coach : 6 cartes de discipline ouvrant l'assistant guidé correspondant (TLX-155→159, ADR-41),
- * plus une option « Composer une séance » qui ouvre le canvas composite multi-disciplines (ADR-42/52,
- * grammaire de série unifiée). La discipline n'est pas persistée — l'assistant ne fait que
- * pré-structurer la séance (cf. ADR-38 §1).
+ * Écran d'entrée de création (C-05 / ADR-38, TLX-154). Point de départ côté coach : 6 cartes de
+ * discipline ouvrant l'assistant guidé correspondant (TLX-155→159, ADR-41), plus une option
+ * « Composer une séance » qui ouvre le canvas composite multi-disciplines (ADR-42/52). La
+ * discipline n'est pas persistée — l'assistant ne fait que pré-structurer la séance (ADR-38 §1).
+ *
+ * `asTemplate` (ADR-54) : **entrée unifiée** séance/modèle. En mode modèle, le même sélecteur amorce
+ * un **modèle** (`status=template`) — chaque carte propage le statut jusqu'au constructeur, qui
+ * masque date/assignation et sauve en `template` (ADR-29). Aucun écran dupliqué.
  */
-export function NewSessionScreen() {
+export function NewSessionScreen({ asTemplate = false }: { asTemplate?: boolean }) {
   const { colors, typography, spacing } = useTheme();
   const router = useRouter();
 
@@ -53,7 +56,7 @@ export function NewSessionScreen() {
               letterSpacing: -0.5,
             }}
           >
-            Nouvelle séance
+            {asTemplate ? 'Nouveau modèle' : 'Nouvelle séance'}
           </Text>
           <Text
             style={{
@@ -62,7 +65,9 @@ export function NewSessionScreen() {
               fontSize: typography.body.fontSize,
             }}
           >
-            Choisis une discipline pour un assistant guidé, ou compose une séance multi-disciplines.
+            {asTemplate
+              ? 'Choisis une discipline pour un assistant guidé, ou compose un modèle multi-disciplines.'
+              : 'Choisis une discipline pour un assistant guidé, ou compose une séance multi-disciplines.'}
           </Text>
         </View>
 
@@ -73,7 +78,7 @@ export function NewSessionScreen() {
               key={d.key}
               testID={`new-session-discipline-${d.key}`}
               accessibilityLabel={d.label}
-              onPress={() => router.push(disciplineAssistantHref(d.key))}
+              onPress={() => router.push(disciplineAssistantHref(d.key, asTemplate))}
             >
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[4] }}>
                 <View
@@ -114,11 +119,11 @@ export function NewSessionScreen() {
           ))}
         </View>
 
-        {/* Option « Composer une séance » → canvas composite multi-disciplines (ADR-42/52). */}
+        {/* Option « Composer » → canvas composite multi-disciplines (ADR-42/52). */}
         <Card
           testID="new-session-custom"
-          accessibilityLabel="Composer une séance"
-          onPress={() => router.push(customSessionHref())}
+          accessibilityLabel={asTemplate ? 'Composer un modèle' : 'Composer une séance'}
+          onPress={() => router.push(customSessionHref(asTemplate))}
         >
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[4] }}>
             <View
@@ -141,7 +146,7 @@ export function NewSessionScreen() {
                   fontSize: typography.body.fontSize,
                 }}
               >
-                Composer une séance
+                {asTemplate ? 'Composer un modèle' : 'Composer une séance'}
               </Text>
               <Text
                 style={{
@@ -150,7 +155,9 @@ export function NewSessionScreen() {
                   fontSize: typography.bodySm.fontSize,
                 }}
               >
-                Assemblez une séance série par série, toutes disciplines
+                {asTemplate
+                  ? 'Assemblez un modèle série par série, toutes disciplines'
+                  : 'Assemblez une séance série par série, toutes disciplines'}
               </Text>
             </View>
             <Feather name="chevron-right" size={20} color={colors.textMuted} />

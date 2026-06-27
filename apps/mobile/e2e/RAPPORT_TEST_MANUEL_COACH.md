@@ -84,7 +84,7 @@ L'affichage du calendrier coach est jugé daté. Côté athlète il existe un me
 - **R10 — Wording.** « Séances réalisées » (fiche athlète) vs « À revoir » (dashboard) pour la même action de revue.
 - **R12 — Champ « Discipline » dans le profil coach** : pertinent pour un athlète, ambigu pour un coach. À retirer/repenser (`ProfileScreen`, champ `profile-sport`).
 - **R13 — « Actualités Talent-X » en double** : préférence de notification **et** consentement marketing portent le même libellé → confusion. Écrans : `ProfileScreen` + `PrivacySection`.
-- **R17 — Création de modèle ≠ création de séance** : « Créer une séance » passe par l'assistant par discipline ; « Créer un modèle » ouvre le constructeur brut. Aligner les deux entrées.
+- ~~**R17 — Création de modèle ≠ création de séance** : « Créer une séance » passe par l'assistant par discipline ; « Créer un modèle » ouvre le constructeur brut.~~ ✅ Résolu (TLX-209, ADR-54) : **entrée unifiée** — un modèle s'amorce via le même sélecteur de discipline (assistants), `status=template` propagé jusqu'au constructeur.
 
 ---
 

@@ -71,3 +71,32 @@ describe('NewSessionScreen — choix de discipline (ADR-38, TLX-154)', () => {
     expect(mockBack).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('NewSessionScreen — entrée unifiée en mode modèle (ADR-54, R17)', () => {
+  it('affiche le titre « Nouveau modèle » et le même sélecteur de discipline', () => {
+    render(<NewSessionScreen asTemplate />, { wrapper: Wrapper });
+    expect(screen.getByTestId('new-session-title')).toHaveTextContent('Nouveau modèle');
+    for (const d of DISCIPLINES) {
+      expect(screen.getByTestId(`new-session-discipline-${d.key}`)).toBeOnTheScreen();
+    }
+    expect(screen.getByTestId('new-session-custom')).toBeOnTheScreen();
+  });
+
+  it('tap sur une discipline → assistant en mode modèle (status=template)', () => {
+    render(<NewSessionScreen asTemplate />, { wrapper: Wrapper });
+    fireEvent.press(screen.getByTestId('new-session-discipline-sprint'));
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: '/(coach)/session/assistant/[discipline]',
+      params: { discipline: 'sprint', status: 'template' },
+    });
+  });
+
+  it('tap sur Composer → constructeur en mode modèle (mode=custom + status=template)', () => {
+    render(<NewSessionScreen asTemplate />, { wrapper: Wrapper });
+    fireEvent.press(screen.getByTestId('new-session-custom'));
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: '/(coach)/session/new',
+      params: { mode: 'custom', status: 'template' },
+    });
+  });
+});
