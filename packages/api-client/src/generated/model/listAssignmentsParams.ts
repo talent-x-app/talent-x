@@ -23,4 +23,8 @@ page?: PageParamParameter;
  */
 limit?: LimitParamParameter;
 status?: AssignmentStatusFilterParameter;
+/**
+ * Restreindre aux affectations d'une séance (TLX-193). Reste borné au scope d'autorisation de l'appelant (coach → ses séances, athlète → ses affectations).
+ */
+sessionId?: string;
 };

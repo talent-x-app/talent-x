@@ -1,4 +1,10 @@
-import { BlockType, getSession, type Session } from '@talent-x/api-client';
+import {
+  BlockType,
+  getCoachDashboard,
+  getSession,
+  listAssignments,
+  type Session,
+} from '@talent-x/api-client';
 import { useTheme } from '@talent-x/design-tokens';
 import { useQuery } from '@tanstack/react-query';
 import { Feather } from '@expo/vector-icons';
@@ -7,7 +13,9 @@ import { useMemo } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { Button, Card } from '../components/ui';
 import { SESSION_STATUS_META } from '../calendar/calendar-model';
-import { formatSessionDate } from '../athlete/athlete-session-ui';
+import { AssignmentStatusBadge, formatSessionDate } from '../athlete/athlete-session-ui';
+import { COACH_DASHBOARD_QUERY_KEY } from '../dashboard/dashboard-query';
+import { athleteFullName } from './athlete-ui';
 import { SessionContent } from '../sessions/session-content-ui';
 import { countLeaves } from '../sessions/exercises-doc';
 import { FeedbackThread } from '../comments/FeedbackThread';
@@ -199,6 +207,9 @@ export function CoachSessionDetailScreen() {
           {/* Contenu partagé : brief athlète + exercices (groupes ADR-27) + Réussi/Stop. */}
           <SessionContent exercises={exercises} brief={session.data.brief} />
 
+          {/* Visibilité a posteriori des affectations (TLX-193) : qui a cette séance + statut. */}
+          <AssignedAthletes sessionId={id} />
+
           <Button
             testID="coach-session-edit"
             onPress={() => router.push(editSessionHref(id))}
@@ -228,6 +239,104 @@ export function CoachSessionDetailScreen() {
         </>
       )}
     </ScrollView>
+  );
+}
+
+/**
+ * Section « Assigné à » (TLX-193) : liste les athlètes affectés à cette séance + leur statut
+ * d'affectation. Les affectations (`listAssignments({ sessionId })`, scope coach) ne portent que
+ * `athleteId` (pas l'identité) — on joint les **noms** via le dashboard coach (déjà en cache,
+ * même source que l'écran d'assignation). Récurrence : chaque occurrence est une séance distincte
+ * (ADR-35) → cette section ne montre que les affectations de **cette** séance.
+ */
+function AssignedAthletes({ sessionId }: { sessionId: string }) {
+  const { colors, typography, spacing } = useTheme();
+  const assignments = useQuery({
+    queryKey: ['assignments', { sessionId }],
+    queryFn: async () => {
+      const res = await listAssignments({ sessionId });
+      if (res.status === 200) return res.data;
+      throw res;
+    },
+  });
+  // Noms des athlètes liés (l'affectation ne porte que l'id) — réutilise le cache du dashboard.
+  const dashboard = useQuery({
+    queryKey: COACH_DASHBOARD_QUERY_KEY,
+    queryFn: async () => {
+      const res = await getCoachDashboard();
+      if (res.status === 200) return res.data;
+      throw res;
+    },
+  });
+
+  const rows = assignments.data?.data ?? [];
+  const namesById = new Map(
+    (dashboard.data?.athletes ?? []).map((a) => [a.id, athleteFullName(a)]),
+  );
+
+  const sectionTitle = (
+    <Text
+      style={{
+        color: colors.textSecondary,
+        fontFamily: typography.fontFamily.medium,
+        fontSize: typography.bodySm.fontSize,
+        textTransform: 'uppercase',
+        letterSpacing: 0.6,
+      }}
+    >
+      Assigné à{rows.length > 0 ? ` · ${rows.length}` : ''}
+    </Text>
+  );
+
+  if (assignments.isLoading) {
+    return (
+      <View testID="coach-session-assignees-loading" style={{ gap: spacing[2] }}>
+        {sectionTitle}
+        <ActivityIndicator color={colors.accent} />
+      </View>
+    );
+  }
+
+  return (
+    <View testID="coach-session-assignees" style={{ gap: spacing[2] }}>
+      {sectionTitle}
+      {rows.length === 0 ? (
+        <Text
+          testID="coach-session-assignees-empty"
+          style={{
+            color: colors.textMuted,
+            fontFamily: typography.fontFamily.regular,
+            fontSize: typography.bodySm.fontSize,
+          }}
+        >
+          Pas encore assignée à un athlète.
+        </Text>
+      ) : (
+        <Card>
+          <View style={{ gap: spacing[3] }}>
+            {rows.map((a) => (
+              <View
+                key={a.id}
+                testID={`coach-session-assignee-${a.athleteId}`}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[2] }}
+              >
+                <Text
+                  style={{
+                    flex: 1,
+                    color: colors.textPrimary,
+                    fontFamily: typography.fontFamily.medium,
+                    fontSize: typography.body.fontSize,
+                  }}
+                >
+                  {namesById.get(a.athleteId) ?? 'Athlète'}
+                </Text>
+                <AssignmentStatusBadge status={a.status} />
+              </View>
+            ))}
+          </View>
+        </Card>
+      )}
+    </View>
   );
 }
 

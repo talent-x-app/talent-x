@@ -6,6 +6,8 @@ import { type ReactNode, useState } from 'react';
 const mockGetSession = jest.fn();
 const mockListComments = jest.fn();
 const mockCreateComment = jest.fn();
+const mockListAssignments = jest.fn();
+const mockGetCoachDashboard = jest.fn();
 const mockPush = jest.fn();
 const mockBack = jest.fn();
 
@@ -13,6 +15,8 @@ jest.mock('@talent-x/api-client', () => ({
   getSession: (...a: unknown[]) => mockGetSession(...a),
   listComments: (...a: unknown[]) => mockListComments(...a),
   createComment: (...a: unknown[]) => mockCreateComment(...a),
+  listAssignments: (...a: unknown[]) => mockListAssignments(...a),
+  getCoachDashboard: (...a: unknown[]) => mockGetCoachDashboard(...a),
   SessionStatus: { draft: 'draft', published: 'published', archived: 'archived' },
   CompetitionStatus: { draft: 'draft', published: 'published', archived: 'archived' },
   AssignmentStatus: {
@@ -90,6 +94,9 @@ const SESSION = {
 beforeEach(() => {
   jest.clearAllMocks();
   mockListComments.mockResolvedValue({ status: 200, data: { data: [], meta: {} } });
+  // Défauts : aucune affectation, aucun athlète lié (les tests dédiés surchargent).
+  mockListAssignments.mockResolvedValue({ status: 200, data: { data: [], meta: {} } });
+  mockGetCoachDashboard.mockResolvedValue({ status: 200, data: { athletes: [] } });
 });
 
 describe('CoachSessionDetailScreen (C-05 — détail lecture seule)', () => {
@@ -196,6 +203,48 @@ describe('CoachSessionDetailScreen (C-05 — détail lecture seule)', () => {
       expect(screen.getByTestId('coach-session-title')).toHaveTextContent('Contraste & vitesse'),
     );
     expect(screen.queryByTestId('coach-session-discipline-summary')).toBeNull();
+  });
+
+  it('TLX-193 : section « Assigné à » — noms (via dashboard) + statut d’affectation', async () => {
+    mockGetSession.mockResolvedValue({ status: 200, data: SESSION });
+    mockListAssignments.mockResolvedValue({
+      status: 200,
+      data: {
+        data: [
+          { id: 'asg-1', sessionId: 's-1', athleteId: 'a-1', status: 'completed' },
+          { id: 'asg-2', sessionId: 's-1', athleteId: 'a-2', status: 'assigned' },
+        ],
+        meta: {},
+      },
+    });
+    mockGetCoachDashboard.mockResolvedValue({
+      status: 200,
+      data: {
+        athletes: [
+          { id: 'a-1', firstName: 'Nina', lastName: 'Koné', status: 'up_to_date' },
+          { id: 'a-2', firstName: 'Tom', lastName: 'Bah', status: 'late' },
+        ],
+      },
+    });
+    render(<CoachSessionDetailScreen />, { wrapper: Wrapper });
+
+    await waitFor(() => expect(screen.getByTestId('coach-session-assignee-a-1')).toBeOnTheScreen());
+    // Filtre par séance transmis au contrat (TLX-193).
+    expect(mockListAssignments).toHaveBeenCalledWith({ sessionId: 's-1' });
+    // Noms joints depuis le dashboard (nœuds texte propres) + badge de statut d'affectation.
+    expect(screen.getByText('Nina Koné')).toBeOnTheScreen();
+    expect(screen.getByText('Tom Bah')).toBeOnTheScreen();
+    expect(screen.getByTestId('assignment-status-completed')).toBeOnTheScreen(); // a-1 « Réalisée »
+    expect(screen.getByTestId('assignment-status-assigned')).toBeOnTheScreen(); // a-2 « À faire »
+  });
+
+  it('TLX-193 : séance non assignée → état vide « Pas encore assignée »', async () => {
+    mockGetSession.mockResolvedValue({ status: 200, data: SESSION });
+    render(<CoachSessionDetailScreen />, { wrapper: Wrapper });
+
+    await waitFor(() =>
+      expect(screen.getByTestId('coach-session-assignees-empty')).toBeOnTheScreen(),
+    );
   });
 
   it('expose la discussion de séance (TLX-118) : poste sur la séance', async () => {

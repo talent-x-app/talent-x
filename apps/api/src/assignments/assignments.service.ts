@@ -201,7 +201,7 @@ export class AssignmentsService {
     user: AuthenticatedUser,
     q: AssignmentQueryDto,
   ): Promise<AssignmentPageDto> {
-    const where = this.scopeForUser(user, q.status);
+    const where = this.scopeForUser(user, q.status, q.sessionId);
     const [rows, total] = await this.prisma.$transaction([
       this.prisma.sessionAssignment.findMany({
         where,
@@ -468,12 +468,24 @@ export class AssignmentsService {
   private scopeForUser(
     user: AuthenticatedUser,
     status?: AssignmentStatus,
+    sessionId?: string,
   ): Prisma.SessionAssignmentWhereInput {
     const statusFilter = status ? { status } : {};
+    // `sessionId` (TLX-193) restreint **dans** le scope d'autorisation — il ne l'élargit jamais :
+    // côté coach il s'ajoute au filtre `session.coachId` (il ne voit que ses propres séances).
     if (user.role === 'coach') {
-      return { deletedAt: null, ...statusFilter, session: { coachId: user.id } };
+      return {
+        deletedAt: null,
+        ...statusFilter,
+        session: { coachId: user.id, ...(sessionId ? { id: sessionId } : {}) },
+      };
     }
-    return { deletedAt: null, ...statusFilter, athleteId: user.id };
+    return {
+      deletedAt: null,
+      ...statusFilter,
+      athleteId: user.id,
+      ...(sessionId ? { sessionId } : {}),
+    };
   }
 
   private assertReadable(

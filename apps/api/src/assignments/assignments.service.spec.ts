@@ -508,6 +508,32 @@ describe('AssignmentsService', () => {
         status: 'completed',
       });
     });
+
+    it('coach + sessionId (TLX-193) : restreint à la séance, sans élargir le scope coach', async () => {
+      const prisma = prismaMock();
+      prisma.sessionAssignment.findMany.mockResolvedValue([]);
+      prisma.sessionAssignment.count.mockResolvedValue(0);
+      const q = Object.assign(baseQuery(), { sessionId: 's-1' });
+      await service(prisma).listAssignments(COACH, q);
+      // `sessionId` s'ajoute au filtre de propriété (id de séance DANS session.coachId).
+      expect(prisma.sessionAssignment.findMany.mock.calls[0][0].where).toEqual({
+        deletedAt: null,
+        session: { coachId: 'c-1', id: 's-1' },
+      });
+    });
+
+    it('athlète + sessionId (TLX-193) : restreint à ses affectations de cette séance', async () => {
+      const prisma = prismaMock();
+      prisma.sessionAssignment.findMany.mockResolvedValue([]);
+      prisma.sessionAssignment.count.mockResolvedValue(0);
+      const q = Object.assign(baseQuery(), { sessionId: 's-1' });
+      await service(prisma).listAssignments(ATHLETE, q);
+      expect(prisma.sessionAssignment.findMany.mock.calls[0][0].where).toEqual({
+        deletedAt: null,
+        athleteId: 'a-1',
+        sessionId: 's-1',
+      });
+    });
   });
 
   describe('getAssignment', () => {
