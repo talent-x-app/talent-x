@@ -21,7 +21,7 @@ import { COACH_DASHBOARD_QUERY_KEY } from '../dashboard/dashboard-query';
 import { GROUPS_QUERY_KEY } from '../groups/groups-query';
 import { weekdayLabel } from '../assignments/recurrence-label';
 import { AthleteStatusBadge, athleteFullName, athleteInitials } from './athlete-ui';
-import { coachSessionDetailHref } from './navigation';
+import { coachHomeHref, coachSessionDetailHref } from './navigation';
 
 /**
  * Assignation d'une séance (C-06) + Confirmation (C-07) — TLX-063. Le coach choisit parmi
@@ -33,9 +33,13 @@ import { coachSessionDetailHref } from './navigation';
 export function CoachAssignScreen({
   sessionId,
   sessionTitle,
+  fromCreate = false,
 }: {
   sessionId: string;
   sessionTitle?: string;
+  /** Arrivée post-création (TLX-198) : « Retour » sort vers l'accueil, pas `router.back()`
+   *  (qui retomberait dans les écrans de création restés dans l'historique navigateur). */
+  fromCreate?: boolean;
 }) {
   const { colors, typography, spacing } = useTheme();
   const router = useRouter();
@@ -157,7 +161,7 @@ export function CoachAssignScreen({
       <ResponsiveContent testID="coach-responsive-content" style={{ gap: spacing[5] }}>
         <Pressable
           testID="assign-back"
-          onPress={() => router.back()}
+          onPress={() => (fromCreate ? router.replace(coachHomeHref()) : router.back())}
           accessibilityRole="button"
           accessibilityLabel="Retour"
           style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[1] }}

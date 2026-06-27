@@ -73,10 +73,7 @@ export function NewSessionScreen() {
               key={d.key}
               testID={`new-session-discipline-${d.key}`}
               accessibilityLabel={d.label}
-              // `replace` (et non `push`) : le sélecteur est un écran transitoire — une fois la
-              // discipline choisie, il ne doit pas rester dans l'historique, sinon « Retour »
-              // depuis l'assistant/l'assignation y revient (TLX-198 — bug de nav post-création).
-              onPress={() => router.replace(disciplineAssistantHref(d.key))}
+              onPress={() => router.push(disciplineAssistantHref(d.key))}
             >
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[4] }}>
                 <View
@@ -121,7 +118,7 @@ export function NewSessionScreen() {
         <Card
           testID="new-session-custom"
           accessibilityLabel="Composer une séance"
-          onPress={() => router.replace(customSessionHref())}
+          onPress={() => router.push(customSessionHref())}
         >
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[4] }}>
             <View

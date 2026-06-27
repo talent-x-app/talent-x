@@ -22,12 +22,21 @@ export function athleteDetailHref(athlete: DashboardAthlete) {
 /**
  * Cible de navigation vers l'écran d'assignation (C-06/C-07, TLX-063). Le titre de la séance
  * est passé en paramètre pour un rendu immédiat (l'écran ne recharge pas la séance).
+ *
+ * `fromCreate` (TLX-198) : marque l'arrivée **post-création** (le builder a fait `replace` vers ici).
+ * Le « Retour » de l'écran d'assignation devient alors déterministe (→ accueil), au lieu de
+ * `router.back()` qui, en historique navigateur, retombe dans les écrans de création.
  */
-export function assignSessionHref(sessionId: string, sessionTitle?: string) {
+export function assignSessionHref(sessionId: string, sessionTitle?: string, fromCreate = false) {
   return {
     pathname: '/(coach)/assign/[id]' as const,
-    params: { id: sessionId, title: sessionTitle ?? '' },
+    params: { id: sessionId, title: sessionTitle ?? '', ...(fromCreate ? { from: 'create' } : {}) },
   };
+}
+
+/** Accueil coach (onglet dashboard). Destination « sortie » d'un flux empilé hors tab bar. */
+export function coachHomeHref() {
+  return '/(coach)' as const;
 }
 
 /** Détail d'une séance en **lecture seule** (consultation, mode par défaut côté coach). */

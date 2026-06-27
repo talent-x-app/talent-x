@@ -283,6 +283,27 @@ describe('CoachAssignScreen (TLX-063 — C-06/C-07)', () => {
     );
   });
 
+  it('« Retour » post-création (fromCreate) sort vers l’accueil, pas router.back (TLX-198 nav)', async () => {
+    mockGetCoachDashboard.mockResolvedValue({ status: 200, data: DASHBOARD });
+    render(<CoachAssignScreen sessionId="s-1" fromCreate />, { wrapper: Wrapper });
+
+    await waitFor(() => expect(screen.getByTestId('assign-back')).toBeOnTheScreen());
+    fireEvent.press(screen.getByTestId('assign-back'));
+
+    // Déterministe : on ne fait pas router.back() (qui retomberait dans la création), on va à l'accueil.
+    expect(mockBack).not.toHaveBeenCalled();
+    expect(mockReplace).toHaveBeenCalledWith('/(coach)');
+  });
+
+  it('« Retour » hors création (depuis le détail) reste un router.back classique', async () => {
+    mockGetCoachDashboard.mockResolvedValue({ status: 200, data: DASHBOARD });
+    render(<CoachAssignScreen sessionId="s-1" />, { wrapper: Wrapper });
+
+    await waitFor(() => expect(screen.getByTestId('assign-back')).toBeOnTheScreen());
+    fireEvent.press(screen.getByTestId('assign-back'));
+    expect(mockBack).toHaveBeenCalledTimes(1);
+  });
+
   it('« Assigner plus tard » reste l’échappatoire même sans athlète lié (impasse évitée)', async () => {
     mockGetCoachDashboard.mockResolvedValue({
       status: 200,
