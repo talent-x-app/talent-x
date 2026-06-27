@@ -77,8 +77,9 @@ describe('SessionBuilderScreen (TLX-052 — C-05)', () => {
   it('rend le mode création avec un bloc vide', () => {
     render(<SessionBuilderScreen />, { wrapper: Wrapper });
     expect(screen.getByTestId('session-builder-title')).toHaveTextContent('Nouvelle séance');
-    expect(screen.getByTestId('block-0')).toBeOnTheScreen();
-    expect(screen.queryByTestId('block-1')).toBeNull();
+    // Création par défaut → canvas composite, série libre (carte d'effort générique, ADR-52).
+    expect(screen.getByTestId('series-card-0')).toBeOnTheScreen();
+    expect(screen.queryByTestId('series-card-1')).toBeNull();
   });
 
   it('création : repart d’un formulaire vierge à chaque focus (TLX-93)', () => {
@@ -86,16 +87,16 @@ describe('SessionBuilderScreen (TLX-052 — C-05)', () => {
 
     // Le coach saisit un brouillon puis ajoute un 2ᵉ bloc.
     fireEvent.changeText(screen.getByTestId('session-field-title'), 'Brouillon résiduel');
-    fireEvent.changeText(screen.getByTestId('block-0-name'), 'Squat arrière');
-    fireEvent.press(screen.getByTestId('session-add-block'));
-    expect(screen.getByTestId('block-1')).toBeOnTheScreen();
+    fireEvent.changeText(screen.getByTestId('series-card-0-ex-0-name'), 'Squat arrière');
+    fireEvent.press(screen.getByTestId('generic-add-series'));
+    expect(screen.getByTestId('series-card-1')).toBeOnTheScreen();
 
     // Il quitte le constructeur et y revient (l'écran-tab caché reste monté) → re-focus.
     act(() => mockFocusCb.current?.());
 
     expect(screen.getByTestId('session-field-title').props.value).toBe('');
-    expect(screen.getByTestId('block-0-name').props.value).toBe('');
-    expect(screen.queryByTestId('block-1')).toBeNull();
+    expect(screen.getByTestId('series-card-0-ex-0-name').props.value).toBe('');
+    expect(screen.queryByTestId('series-card-1')).toBeNull();
   });
 
   it('refuse la sauvegarde sans titre', () => {
@@ -145,7 +146,7 @@ describe('SessionBuilderScreen (TLX-052 — C-05)', () => {
   it('refuse la sauvegarde si la date prévue est malformée (TLX-167)', async () => {
     render(<SessionBuilderScreen />, { wrapper: Wrapper });
     fireEvent.changeText(screen.getByTestId('session-field-title'), 'Vitesse');
-    fireEvent.changeText(screen.getByTestId('block-0-name'), 'Footing');
+    fireEvent.changeText(screen.getByTestId('series-card-0-ex-0-name'), 'Footing');
     // Jour impossible : la regex seule l'aurait laissé filer en 400 serveur opaque.
     fireEvent.changeText(screen.getByTestId('session-field-date'), '2026-02-30');
     fireEvent.press(screen.getByTestId('session-save'));
@@ -160,51 +161,39 @@ describe('SessionBuilderScreen (TLX-052 — C-05)', () => {
     expect(mockCreateSession.mock.calls[0][0].scheduledDate).toBe('2026-06-20');
   });
 
-  it('ajoute et supprime des blocs', () => {
+  it('ajoute et supprime des séries', () => {
     render(<SessionBuilderScreen />, { wrapper: Wrapper });
-    fireEvent.press(screen.getByTestId('session-add-block'));
-    expect(screen.getByTestId('block-1')).toBeOnTheScreen();
-    fireEvent.press(screen.getByTestId('block-1-remove'));
-    expect(screen.queryByTestId('block-1')).toBeNull();
+    fireEvent.press(screen.getByTestId('generic-add-series'));
+    expect(screen.getByTestId('series-card-1')).toBeOnTheScreen();
+    fireEvent.press(screen.getByTestId('series-card-1-del'));
+    expect(screen.queryByTestId('series-card-1')).toBeNull();
   });
 
-  // Le masquage de champ de base et la non-fuite des champs masqués (TLX-94), ainsi que toute la
-  // sérialisation par type de bloc (TLX-053→061), sont désormais couverts au niveau du composant
-  // `GenericBlocksEditor` (generic-blocks-editor.test.tsx) : dès qu'un bloc reçoit un type de
-  // discipline reconnue, il quitte l'éditeur générique pour sa carte dédiée dans le composite
-  // (ADR-42). On garde ici les parcours écran (sauvegarde, validation, routage, brief).
+  // La sérialisation détaillée par type de bloc (TLX-053→061, sets/reps/charge muscu) est couverte
+  // par les cartes dédiées (ex. strength-effort-card.test.tsx) et le composant `GenericBlocksEditor`
+  // (generic-blocks-editor.test.tsx). Depuis ADR-52, la création par défaut passe par le canvas
+  // composite et la **carte d'effort générique** (série libre). On garde ici les parcours écran
+  // (sauvegarde, validation, routage, brief).
 
-  it('crée une séance avec le document exercises v1 (order, nombres, charge)', async () => {
+  it('crée une séance : la série libre sérialise un groupe v3 (exercice custom)', async () => {
     mockCreateSession.mockResolvedValue({ status: 201, data: { id: 's-new' } });
     render(<SessionBuilderScreen />, { wrapper: Wrapper });
 
     fireEvent.changeText(screen.getByTestId('session-field-title'), '  Vitesse — départs  ');
-    fireEvent.changeText(screen.getByTestId('block-0-name'), 'Squat arrière');
-    fireEvent.changeText(screen.getByTestId('block-0-sets'), '5');
-    fireEvent.changeText(screen.getByTestId('block-0-reps'), '3');
-    fireEvent.changeText(screen.getByTestId('block-0-load'), '80');
-    fireEvent.press(screen.getByTestId('block-0-unit-kg'));
+    fireEvent.changeText(screen.getByTestId('series-card-0-ex-0-name'), 'Squat arrière');
+    fireEvent.changeText(screen.getByTestId('series-card-0-ex-0-reps'), '3');
     fireEvent.press(screen.getByTestId('session-save'));
 
     await waitFor(() => expect(mockCreateSession).toHaveBeenCalled());
-    expect(mockCreateSession).toHaveBeenCalledWith({
-      title: 'Vitesse — départs',
-      description: undefined,
-      scheduledDate: undefined,
-      status: 'draft',
-      exercises: {
-        schemaVersion: 3,
-        items: [
-          {
-            name: 'Squat arrière',
-            order: 1,
-            sets: 5,
-            reps: 3,
-            load: { value: 80, unit: 'kg' },
-          },
-        ],
-      },
-    });
+    const body = mockCreateSession.mock.calls[0][0];
+    expect(body.title).toBe('Vitesse — départs');
+    expect(body.status).toBe('draft');
+    expect(body.exercises.schemaVersion).toBe(3);
+    // La série libre devient un groupe « series » dont l'exercice reste de type custom (ADR-52 §D3).
+    const group = body.exercises.items[0];
+    expect(group.kind).toBe('group');
+    expect(group.groupType).toBe('series');
+    expect(group.items[0]).toMatchObject({ name: 'Squat arrière', reps: 3 });
     await waitFor(() =>
       expect(mockShow).toHaveBeenCalledWith(expect.objectContaining({ variant: 'success' })),
     );
@@ -218,18 +207,19 @@ describe('SessionBuilderScreen (TLX-052 — C-05)', () => {
     expect(mockBack).not.toHaveBeenCalled();
   });
 
-  it("n'attache pas de charge si l'unité n'est pas choisie", async () => {
+  it('série libre : un exercice reps/travail sérialise sans charge superflue', async () => {
     mockCreateSession.mockResolvedValue({ status: 201, data: { id: 's-new' } });
     render(<SessionBuilderScreen />, { wrapper: Wrapper });
 
     fireEvent.changeText(screen.getByTestId('session-field-title'), 'Endurance');
-    fireEvent.changeText(screen.getByTestId('block-0-name'), 'Footing');
-    fireEvent.changeText(screen.getByTestId('block-0-load'), '80'); // valeur sans unité
+    fireEvent.changeText(screen.getByTestId('series-card-0-ex-0-name'), 'Footing');
+    fireEvent.changeText(screen.getByTestId('series-card-0-ex-0-work'), '600');
     fireEvent.press(screen.getByTestId('session-save'));
 
     await waitFor(() => expect(mockCreateSession).toHaveBeenCalled());
     const body = mockCreateSession.mock.calls[0][0];
-    expect(body.exercises.items[0]).not.toHaveProperty('load');
+    // La carte générique n'expose pas de charge → l'exercice ne porte jamais de `load`.
+    expect(body.exercises.items[0].items[0]).not.toHaveProperty('load');
   });
 
   it('édition : séance mixte (intervalle + bloc custom) → canvas composite par bloc (ADR-42)', async () => {
@@ -253,11 +243,11 @@ describe('SessionBuilderScreen (TLX-052 — C-05)', () => {
     });
     render(<SessionBuilderScreen sessionId="s-2" />, { wrapper: Wrapper });
 
-    // Deux blocs : le 1er rendu par la carte Endurance en encart, le 2nd par l'éditeur générique.
+    // Deux séries : la 1re rendue par la carte Endurance en encart, la 2nde par la carte générique.
     await waitFor(() => expect(screen.getByTestId('composite-bloc-0')).toBeOnTheScreen());
     expect(screen.getByTestId('composite-bloc-1')).toBeOnTheScreen();
     expect(screen.getByTestId('endurance-effort-canvas')).toBeOnTheScreen();
-    expect(screen.getByTestId('session-add-block')).toBeOnTheScreen(); // segment Personnalisé
+    expect(screen.getByTestId('generic-effort-canvas')).toBeOnTheScreen(); // segment Libre
     expect(screen.queryByTestId('session-builder-mixed-banner')).toBeNull();
   });
 
@@ -337,7 +327,7 @@ describe('SessionBuilderScreen (TLX-052 — C-05)', () => {
     expect(screen.queryByTestId('session-builder-mixed-banner')).toBeNull();
   });
 
-  it('édition (ADR-42 §4) : séance sans bloc reconnu (custom seul) → composite, segment Personnalisé', async () => {
+  it('édition (ADR-42 §4) : séance sans bloc reconnu (custom seul) → composite, segment Libre', async () => {
     mockGetSession.mockResolvedValue({
       status: 200,
       data: {
@@ -353,9 +343,9 @@ describe('SessionBuilderScreen (TLX-052 — C-05)', () => {
     });
     render(<SessionBuilderScreen sessionId="s-custom" />, { wrapper: Wrapper });
 
-    // Bloc non reconnu → segment Personnalisé (éditeur générique embarqué) dans un cadre de bloc.
+    // Série non reconnue → segment Libre (carte d'effort générique embarquée) dans un cadre de série.
     await waitFor(() => expect(screen.getByTestId('composite-bloc-0')).toBeOnTheScreen());
-    expect(screen.getByText(/Blocs et groupes/)).toBeOnTheScreen();
+    expect(screen.getByTestId('generic-effort-canvas')).toBeOnTheScreen();
     expect(screen.getByTestId('composite-add-bloc')).toBeOnTheScreen();
     expect(screen.queryByTestId('session-builder-mixed-banner')).toBeNull();
   });
@@ -380,7 +370,7 @@ describe('SessionBuilderScreen (TLX-052 — C-05)', () => {
     await waitFor(() =>
       expect(screen.getByTestId('session-builder-title')).toHaveTextContent('Modifier la séance'),
     );
-    expect(screen.getByTestId('block-0-name').props.value).toBe('Développé');
+    expect(screen.getByTestId('series-card-0-ex-0-name').props.value).toBe('Développé');
 
     fireEvent.changeText(screen.getByTestId('session-field-title'), 'Force max v2');
     fireEvent.press(screen.getByTestId('session-save'));
@@ -403,7 +393,7 @@ describe('SessionBuilderScreen (TLX-052 — C-05)', () => {
     render(<SessionBuilderScreen />, { wrapper: Wrapper });
 
     fireEvent.changeText(screen.getByTestId('session-field-title'), 'Intermittent VO₂max');
-    fireEvent.changeText(screen.getByTestId('block-0-name'), '30/30');
+    fireEvent.changeText(screen.getByTestId('series-card-0-ex-0-name'), '30/30');
     fireEvent.press(screen.getByTestId('brief-section-toggle'));
     fireEvent.changeText(screen.getByTestId('brief-field-athleteIntent'), 'Cours relâché.');
     fireEvent.changeText(screen.getByTestId('brief-field-difficulty'), '7');
@@ -426,7 +416,7 @@ describe('SessionBuilderScreen (TLX-052 — C-05)', () => {
     mockCreateSession.mockResolvedValue({ status: 201, data: { id: 's-nobrief' } });
     render(<SessionBuilderScreen />, { wrapper: Wrapper });
     fireEvent.changeText(screen.getByTestId('session-field-title'), 'Sans brief');
-    fireEvent.changeText(screen.getByTestId('block-0-name'), 'A');
+    fireEvent.changeText(screen.getByTestId('series-card-0-ex-0-name'), 'A');
     fireEvent.press(screen.getByTestId('session-save'));
 
     await waitFor(() => expect(mockCreateSession).toHaveBeenCalled());

@@ -46,10 +46,10 @@ describe('CompositeCanvas (ADR-42)', () => {
     expect(screen.getByTestId('composite-canvas-summary')).toBeOnTheScreen();
     expect(screen.getByTestId('composite-bloc-0')).toBeOnTheScreen();
     expect(screen.getByTestId('composite-bloc-1')).toBeOnTheScreen();
-    // Bloc 0 : carte Sprint en encart.
+    // Série 0 : carte Sprint en encart.
     expect(screen.getByTestId('sprint-effort-canvas')).toBeOnTheScreen();
-    // Bloc 1 : éditeur générique embarqué (segment Personnalisé).
-    expect(screen.getByTestId('session-add-block')).toBeOnTheScreen();
+    // Série 1 : carte d'effort générique embarquée (segment Libre).
+    expect(screen.getByTestId('generic-effort-canvas')).toBeOnTheScreen();
   });
 
   it('état vide (aucune série) : header + « + bloc » sans cadre de bloc, sans crash', () => {
@@ -78,14 +78,15 @@ describe('CompositeCanvas (ADR-42)', () => {
     expect(types).not.toContain(BlockType.cooldown);
   });
 
-  it('« + bloc » → Personnalisé ajoute un bloc custom', () => {
+  it('« + série » → Libre ajoute une série générique (feuilles custom)', () => {
     const h = setup([sprintSegment()]);
     fireEvent.press(screen.getByTestId('composite-add-bloc'));
     fireEvent.press(screen.getByTestId('composite-add-bloc-custom'));
 
     expect(screen.getByTestId('composite-bloc-1')).toBeOnTheScreen();
+    // La série libre est un groupe dont les exercices sont de type custom (reste « libre »).
     expect(
-      h.nodes().some((n) => !isEditableGroup(n) && (n as EditableBlock).type === BlockType.custom),
+      h.nodes().some((n) => isEditableGroup(n) && n.items.some((b) => b.type === BlockType.custom)),
     ).toBe(true);
   });
 
@@ -183,10 +184,10 @@ describe('CompositeCanvas (ADR-42)', () => {
     ).toBe(false);
   });
 
-  it('éditer le segment Personnalisé via session-add-block remonte au parent', () => {
+  it('éditer le segment Libre via « + série » de la carte générique remonte au parent', () => {
     const h = setup([customBlock()]);
     const before = h.nodes().length;
-    fireEvent.press(screen.getByTestId('session-add-block'));
+    fireEvent.press(screen.getByTestId('generic-add-series'));
     expect(h.nodes().length).toBe(before + 1);
   });
 });

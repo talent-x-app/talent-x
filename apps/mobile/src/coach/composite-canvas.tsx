@@ -6,7 +6,6 @@ import { BlockType } from '@talent-x/api-client';
 import {
   isEditableGroup,
   makeCooldownBlock,
-  makeEmptyBlock,
   makeWarmupBlock,
   nodesToItems,
   type EditableBlock,
@@ -20,7 +19,7 @@ import {
 } from './effort-card-shared';
 import { segmentSession, type Segment } from './discipline-inference';
 import { DISCIPLINE_CANVAS } from './discipline-canvas';
-import { GenericBlocksEditor } from './generic-blocks-editor';
+import { GenericEffortCanvas, defaultGenericSeries } from './generic-effort-card';
 import { DISCIPLINES, disciplineConfig, type DisciplineKey } from './discipline-assistants';
 import { assistantSeed } from './assistant-presets';
 import { sessionPhrase } from '../sessions/session-summary';
@@ -86,10 +85,10 @@ export function CompositeCanvas({
     commit([...series.slice(0, seg.start), ...series.slice(seg.end)]);
   }
 
-  /** Ajoute un bloc en fin de canvas : seed d'une discipline (warmup/cooldown retirés) ou custom. */
+  /** Ajoute une série en fin de canvas : seed d'une discipline (warmup/cooldown retirés) ou libre. */
   function addBloc(choice: DisciplineKey | 'custom') {
     if (choice === 'custom') {
-      commit([...series, makeEmptyBlock()]);
+      commit([...series, defaultGenericSeries()]);
       return;
     }
     const seed = assistantSeed(choice).filter(
@@ -145,9 +144,10 @@ export function CompositeCanvas({
               embedded: true,
             })
           ) : (
-            <GenericBlocksEditor
+            <GenericEffortCanvas
               nodes={seg.nodes}
               onChange={(newSeg) => spliceSegment(segIndex, newSeg)}
+              embedded
             />
           )}
         </BlocFrame>
@@ -203,12 +203,12 @@ function splitSeries(nodes: EditableNode[]): {
   return { warmup, cooldown, series, hasWarmup, hasCooldown };
 }
 
-/** Titre d'un segment : libellé de la discipline, ou « Personnalisé » pour un segment custom. */
+/** Titre d'un segment : libellé de la discipline, ou « Libre » pour un segment générique. */
 function segmentTitle(segment: Segment): string {
   if (segment.kind === 'discipline') {
     return disciplineConfig(segment.discipline)?.label ?? segment.discipline;
   }
-  return 'Personnalisé';
+  return 'Libre';
 }
 
 /** Cadre d'un bloc : en-tête (titre + ▲▼🗑) puis le corps (carte dédiée ou éditeur générique). */
@@ -300,7 +300,7 @@ function AddBlocPicker({ onAdd }: { onAdd: (choice: DisciplineKey | 'custom') =>
     icon: keyof typeof Feather.glyphMap;
   }[] = [
     ...DISCIPLINES.map((d) => ({ key: d.key, label: d.label, icon: d.icon })),
-    { key: 'custom', label: 'Personnalisé', icon: 'edit-3' },
+    { key: 'custom', label: 'Libre', icon: 'edit-3' },
   ];
 
   if (!open) {
