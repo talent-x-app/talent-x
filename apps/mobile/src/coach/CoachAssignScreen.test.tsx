@@ -70,6 +70,15 @@ const GROUPS = {
 
 const NO_GROUPS = { data: [], meta: { page: 1, limit: 20, total: 0, totalPages: 0 } };
 
+// Référence « aujourd'hui » fixée → le sélecteur de date (TLX-197) s'ouvre sur juin 2026.
+const NOW = new Date('2026-06-15T00:00:00');
+
+/** Sélectionne une date via le `DatePicker` : ouvre le calendrier puis presse la cellule du jour. */
+function pickDate(testID: string, dayKey: string) {
+  fireEvent.press(screen.getByTestId(testID));
+  fireEvent.press(screen.getByTestId(`${testID}-cell-${dayKey}`));
+}
+
 beforeEach(() => {
   jest.clearAllMocks();
   // Par défaut : aucun groupe (les tests groupe surchargent ce mock).
@@ -107,12 +116,14 @@ describe('CoachAssignScreen (TLX-063 — C-06/C-07)', () => {
         ],
       },
     });
-    render(<CoachAssignScreen sessionId="s-1" sessionTitle="Vitesse" />, { wrapper: Wrapper });
+    render(<CoachAssignScreen sessionId="s-1" sessionTitle="Vitesse" now={NOW} />, {
+      wrapper: Wrapper,
+    });
 
     await waitFor(() => expect(screen.getByTestId('assign-athlete-a-1')).toBeOnTheScreen());
     fireEvent.press(screen.getByTestId('assign-athlete-a-1'));
     fireEvent.press(screen.getByTestId('assign-athlete-a-2'));
-    fireEvent.changeText(screen.getByTestId('assign-due-date'), '2026-06-20');
+    pickDate('assign-due-date', '2026-06-20');
     expect(screen.getByTestId('assign-submit')).toHaveTextContent('Assigner (2 cibles)');
     fireEvent.press(screen.getByTestId('assign-submit'));
 
@@ -197,17 +208,19 @@ describe('CoachAssignScreen (TLX-063 — C-06/C-07)', () => {
         ],
       },
     });
-    render(<CoachAssignScreen sessionId="s-1" sessionTitle="Vitesse" />, { wrapper: Wrapper });
+    render(<CoachAssignScreen sessionId="s-1" sessionTitle="Vitesse" now={NOW} />, {
+      wrapper: Wrapper,
+    });
 
     await waitFor(() => expect(screen.getByTestId('assign-athlete-a-1')).toBeOnTheScreen());
     // L'option de répétition n'apparaît qu'avec une échéance valide.
     expect(screen.queryByTestId('assign-repeat-toggle')).toBeNull();
-    fireEvent.changeText(screen.getByTestId('assign-due-date'), '2026-06-09'); // mardi
+    pickDate('assign-due-date', '2026-06-09'); // mardi
     const toggle = screen.getByTestId('assign-repeat-toggle');
     expect(toggle).toHaveTextContent(/chaque mardi/);
 
     fireEvent.press(toggle);
-    fireEvent.changeText(screen.getByTestId('assign-repeat-until'), '2026-06-23');
+    pickDate('assign-repeat-until', '2026-06-23');
     fireEvent.press(screen.getByTestId('assign-athlete-a-1'));
     fireEvent.press(screen.getByTestId('assign-submit'));
 
@@ -228,10 +241,10 @@ describe('CoachAssignScreen (TLX-063 — C-06/C-07)', () => {
       status: 201,
       data: { data: [{ id: 'asg-a', athleteId: 'a-1', sessionId: 's-1' }] },
     });
-    render(<CoachAssignScreen sessionId="s-1" />, { wrapper: Wrapper });
+    render(<CoachAssignScreen sessionId="s-1" now={NOW} />, { wrapper: Wrapper });
 
     await waitFor(() => expect(screen.getByTestId('assign-athlete-a-1')).toBeOnTheScreen());
-    fireEvent.changeText(screen.getByTestId('assign-due-date'), '2026-06-09');
+    pickDate('assign-due-date', '2026-06-09');
     // Toggle disponible mais laissé décoché.
     expect(screen.getByTestId('assign-repeat-toggle')).toBeOnTheScreen();
     fireEvent.press(screen.getByTestId('assign-athlete-a-1'));
@@ -317,7 +330,11 @@ describe('CoachAssignScreen (TLX-063 — C-06/C-07)', () => {
     mockGetCoachDashboard.mockResolvedValue({ status: 200, data: DASHBOARD });
     render(<CoachAssignScreen sessionId="s-1" defaultDueDate="2026-07-25" />, { wrapper: Wrapper });
     await waitFor(() => expect(screen.getByTestId('assign-due-date')).toBeOnTheScreen());
-    expect(screen.getByTestId('assign-due-date').props.value).toBe('2026-07-25');
+    // Le sélecteur s'ouvre sur le mois de la valeur pré-remplie, avec ce jour marqué sélectionné.
+    fireEvent.press(screen.getByTestId('assign-due-date'));
+    expect(
+      screen.getByTestId('assign-due-date-cell-2026-07-25').props.accessibilityState.selected,
+    ).toBe(true);
   });
 
   it('« Retour » post-création (fromCreate) sort vers l’accueil, pas router.back (TLX-198 nav)', async () => {

@@ -1,3 +1,4 @@
+import { type Page } from '@playwright/test';
 import { test, expect } from './fixtures';
 
 /**
@@ -5,6 +6,19 @@ import { test, expect } from './fixtures';
  * « chaque mardi jusqu'au … » → N occurrences datées ; la confirmation affiche « répétée N fois » et
  * l'athlète voit N affectations. Le bloc « Répéter » n'apparaît qu'avec une échéance valide.
  */
+
+/**
+ * Sélectionne une date via le `DatePicker` (TLX-197) : ouvre le calendrier puis avance de mois en
+ * mois jusqu'à voir la cellule du jour cible, et la presse. Dates attendues ≥ mois courant.
+ */
+async function pickDate(page: Page, testID: string, iso: string) {
+  await page.getByTestId(testID).click();
+  const cell = page.getByTestId(`${testID}-cell-${iso}`);
+  for (let i = 0; i < 18 && !(await cell.isVisible()); i++) {
+    await page.getByTestId(`${testID}-next`).click();
+  }
+  await cell.click();
+}
 
 // 2026-06-16 = mardi ; jusqu'au 2026-07-07 (mardi) inclus → 16, 23, 30 juin + 7 juil. = 4 occurrences.
 const DUE = '2026-06-16';
@@ -27,11 +41,11 @@ test('assignation récurrente → N occurrences + confirmation « répétée N f
 
   // Bloc « Répéter » caché tant qu'aucune échéance valide.
   await expect(page.getByTestId('assign-repeat-toggle')).toBeHidden();
-  await page.getByTestId('assign-due-date').fill(DUE);
+  await pickDate(page, 'assign-due-date', DUE);
   await expect(page.getByTestId('assign-repeat-toggle')).toBeVisible();
 
   await page.getByTestId('assign-repeat-toggle').click();
-  await page.getByTestId('assign-repeat-until').fill(UNTIL);
+  await pickDate(page, 'assign-repeat-until', UNTIL);
   await page.getByTestId(`assign-athlete-${athlete.id}`).click();
   await page.screenshot({ path: 'e2e/__screens__/tlx-133-assign-form.png', fullPage: true });
 

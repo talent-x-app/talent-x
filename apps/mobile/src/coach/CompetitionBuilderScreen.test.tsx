@@ -39,6 +39,15 @@ function Wrapper({ children }: { children: ReactNode }) {
 
 beforeEach(() => jest.clearAllMocks());
 
+// Référence « aujourd'hui » fixée → le sélecteur de date (TLX-197) s'ouvre sur juillet 2026.
+const NOW = new Date('2026-07-15T00:00:00');
+
+/** Sélectionne une date via le `DatePicker` : ouvre le calendrier puis presse la cellule du jour. */
+function pickDate(testID: string, dayKey: string) {
+  fireEvent.press(screen.getByTestId(testID));
+  fireEvent.press(screen.getByTestId(`${testID}-cell-${dayKey}`));
+}
+
 describe('CompetitionBuilderScreen (TLX-101)', () => {
   it('rend le mode création', () => {
     render(<CompetitionBuilderScreen />, { wrapper: Wrapper });
@@ -54,30 +63,20 @@ describe('CompetitionBuilderScreen (TLX-101)', () => {
     expect(mockCreateCompetition).not.toHaveBeenCalled();
   });
 
-  it('refuse une date de début mal formée', () => {
-    render(<CompetitionBuilderScreen />, { wrapper: Wrapper });
+  it('refuse la sauvegarde sans date de début (sélecteur non renseigné, TLX-197)', () => {
+    // Le sélecteur de date interdit désormais une saisie malformée ; reste le cas « vide ».
+    render(<CompetitionBuilderScreen now={NOW} />, { wrapper: Wrapper });
     fireEvent.changeText(screen.getByTestId('competition-field-name'), 'Meeting');
-    fireEvent.changeText(screen.getByTestId('competition-field-start'), '01/07/2026');
-    fireEvent.press(screen.getByTestId('competition-save'));
-    expect(screen.getByTestId('competition-builder-validation')).toHaveTextContent(/début/i);
-    expect(mockCreateCompetition).not.toHaveBeenCalled();
-  });
-
-  it('refuse une date de début impossible que la regex seule acceptait (TLX-167)', () => {
-    render(<CompetitionBuilderScreen />, { wrapper: Wrapper });
-    fireEvent.changeText(screen.getByTestId('competition-field-name'), 'Meeting');
-    // Bien formée `AAAA-MM-JJ` mais inexistante : bloquée côté client (plus de 400 opaque).
-    fireEvent.changeText(screen.getByTestId('competition-field-start'), '2026-02-30');
     fireEvent.press(screen.getByTestId('competition-save'));
     expect(screen.getByTestId('competition-builder-validation')).toHaveTextContent(/début/i);
     expect(mockCreateCompetition).not.toHaveBeenCalled();
   });
 
   it('refuse une date de fin antérieure au début', () => {
-    render(<CompetitionBuilderScreen />, { wrapper: Wrapper });
+    render(<CompetitionBuilderScreen now={NOW} />, { wrapper: Wrapper });
     fireEvent.changeText(screen.getByTestId('competition-field-name'), 'Meeting');
-    fireEvent.changeText(screen.getByTestId('competition-field-start'), '2026-07-03');
-    fireEvent.changeText(screen.getByTestId('competition-field-end'), '2026-07-01');
+    pickDate('competition-field-start', '2026-07-03');
+    pickDate('competition-field-end', '2026-07-01');
     fireEvent.press(screen.getByTestId('competition-save'));
     expect(screen.getByTestId('competition-builder-validation')).toHaveTextContent(/fin/i);
     expect(mockCreateCompetition).not.toHaveBeenCalled();
@@ -85,9 +84,9 @@ describe('CompetitionBuilderScreen (TLX-101)', () => {
 
   it('crée puis enchaîne sur l’engagement', async () => {
     mockCreateCompetition.mockResolvedValue({ status: 201, data: { id: 'k-9' } });
-    render(<CompetitionBuilderScreen />, { wrapper: Wrapper });
+    render(<CompetitionBuilderScreen now={NOW} />, { wrapper: Wrapper });
     fireEvent.changeText(screen.getByTestId('competition-field-name'), 'Meeting de printemps');
-    fireEvent.changeText(screen.getByTestId('competition-field-start'), '2026-07-01');
+    pickDate('competition-field-start', '2026-07-01');
     fireEvent.press(screen.getByTestId('competition-save'));
 
     await waitFor(() => expect(mockCreateCompetition).toHaveBeenCalled());

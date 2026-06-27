@@ -13,8 +13,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
-import { Button, Card } from '../components/ui';
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
+import { Button, Card, DatePicker } from '../components/ui';
 import { ResponsiveContent } from '../responsive/ResponsiveContent';
 import { useToast } from '../feedback';
 import { COACH_DASHBOARD_QUERY_KEY } from '../dashboard/dashboard-query';
@@ -35,6 +35,7 @@ export function CoachAssignScreen({
   sessionTitle,
   fromCreate = false,
   defaultDueDate,
+  now,
 }: {
   sessionId: string;
   sessionTitle?: string;
@@ -43,6 +44,8 @@ export function CoachAssignScreen({
   fromCreate?: boolean;
   /** Échéance pré-remplie (date planifiée de la séance) — modifiable. Vide si absente. */
   defaultDueDate?: string;
+  /** Référence « aujourd'hui » des sélecteurs de date (TLX-197) — injectable pour les tests. */
+  now?: Date;
 }) {
   const { colors, typography, spacing } = useTheme();
   const router = useRouter();
@@ -266,23 +269,12 @@ export function CoachAssignScreen({
                   >
                     Échéance (optionnel)
                   </Text>
-                  <TextInput
+                  <DatePicker
                     testID="assign-due-date"
                     value={dueDate}
-                    onChangeText={setDueDate}
-                    placeholder="AAAA-MM-JJ"
-                    placeholderTextColor={colors.textMuted}
-                    style={{
-                      height: 48,
-                      paddingHorizontal: spacing[4],
-                      borderRadius: 12,
-                      borderWidth: 1,
-                      borderColor: colors.borderStrong,
-                      backgroundColor: colors.surface,
-                      color: colors.textPrimary,
-                      fontFamily: typography.fontFamily.regular,
-                      fontSize: typography.body.fontSize,
-                    }}
+                    onChange={setDueDate}
+                    now={now}
+                    placeholder="Choisir une date…"
                   />
                 </View>
 
@@ -339,23 +331,12 @@ export function CoachAssignScreen({
                         >
                           Jusqu'au (inclus)
                         </Text>
-                        <TextInput
+                        <DatePicker
                           testID="assign-repeat-until"
                           value={repeatUntil}
-                          onChangeText={setRepeatUntil}
-                          placeholder="AAAA-MM-JJ"
-                          placeholderTextColor={colors.textMuted}
-                          style={{
-                            height: 48,
-                            paddingHorizontal: spacing[4],
-                            borderRadius: 12,
-                            borderWidth: 1,
-                            borderColor: colors.borderStrong,
-                            backgroundColor: colors.surface,
-                            color: colors.textPrimary,
-                            fontFamily: typography.fontFamily.regular,
-                            fontSize: typography.body.fontSize,
-                          }}
+                          onChange={setRepeatUntil}
+                          now={now}
+                          placeholder="Choisir une date…"
                         />
                       </View>
                     ) : null}

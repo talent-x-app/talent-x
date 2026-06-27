@@ -14,7 +14,7 @@ import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
-import { Button, Card, Chip } from '../components/ui';
+import { Button, Card, Chip, DatePicker } from '../components/ui';
 import { useToast } from '../feedback';
 import { COMPETITIONS_QUERY_KEY } from '../competitions/competitions-query';
 import { competitionEngageHref } from '../competitions/navigation';
@@ -26,7 +26,14 @@ import { isValidCalendarDate } from '../dates/calendar-date';
  * édition (`GET` + `PUT /competitions/:id`) selon `competitionId`. En création, enchaîne sur
  * l'engagement d'athlètes ; en édition, expose engagement et suppression (soft-delete).
  */
-export function CompetitionBuilderScreen({ competitionId }: { competitionId?: string }) {
+export function CompetitionBuilderScreen({
+  competitionId,
+  now,
+}: {
+  competitionId?: string;
+  /** Référence « aujourd'hui » des sélecteurs de date (TLX-197) — injectable pour les tests. */
+  now?: Date;
+}) {
   const { colors, typography, spacing } = useTheme();
   const router = useRouter();
   const toast = useToast();
@@ -255,19 +262,20 @@ export function CompetitionBuilderScreen({ competitionId }: { competitionId?: st
           onChangeText={setLocation}
           placeholder="Ex. Stade Charléty, Paris"
         />
-        <FormField
+        <DateField
           testID="competition-field-start"
           label="Date de début"
           value={startDate}
-          onChangeText={setStartDate}
-          placeholder="AAAA-MM-JJ"
+          onChange={setStartDate}
+          clearable={false}
+          now={now}
         />
-        <FormField
+        <DateField
           testID="competition-field-end"
           label="Date de fin (optionnel)"
           value={endDate}
-          onChangeText={setEndDate}
-          placeholder="AAAA-MM-JJ"
+          onChange={setEndDate}
+          now={now}
         />
         <FormField
           testID="competition-field-description"
@@ -358,6 +366,46 @@ export function CompetitionBuilderScreen({ competitionId }: { competitionId?: st
         </>
       ) : null}
     </ScrollView>
+  );
+}
+
+/** Champ date étiqueté : libellé + sélecteur de date (TLX-197), plus de saisie libre. */
+function DateField({
+  label,
+  value,
+  onChange,
+  clearable,
+  testID,
+  now,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  clearable?: boolean;
+  testID?: string;
+  now?: Date;
+}) {
+  const { colors, typography, spacing } = useTheme();
+  return (
+    <View style={{ gap: spacing[2] }}>
+      <Text
+        style={{
+          color: colors.textSecondary,
+          fontFamily: typography.fontFamily.medium,
+          fontSize: typography.bodySm.fontSize,
+        }}
+      >
+        {label}
+      </Text>
+      <DatePicker
+        testID={testID}
+        value={value}
+        onChange={onChange}
+        clearable={clearable}
+        now={now}
+        placeholder="Choisir une date…"
+      />
+    </View>
   );
 }
 

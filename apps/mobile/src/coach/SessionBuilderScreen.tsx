@@ -14,7 +14,7 @@ import { Feather } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { type ReactNode, useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
-import { Button, Card, Chip } from '../components/ui';
+import { Button, Card, Chip, DatePicker } from '../components/ui';
 import { ResponsiveContent } from '../responsive/ResponsiveContent';
 import { useToast } from '../feedback';
 import {
@@ -59,6 +59,7 @@ export function SessionBuilderScreen({
   presets,
   titleText,
   renderCanvas,
+  now,
 }: {
   sessionId?: string;
   /** Statut pré-sélectionné à la création (C-10 : `template` ouvre le mode modèle, ADR-29). */
@@ -83,6 +84,8 @@ export function SessionBuilderScreen({
     nodes: EditableNode[];
     setNodes: React.Dispatch<React.SetStateAction<EditableNode[]>>;
   }) => ReactNode;
+  /** Référence « aujourd'hui » du sélecteur de date (TLX-197) — injectable pour les tests. */
+  now?: Date;
 }) {
   const { colors, typography, spacing } = useTheme();
   const router = useRouter();
@@ -355,13 +358,24 @@ export function SessionBuilderScreen({
           />
           {/* Un modèle (C-10) n'est pas daté : champ masqué en mode modèle (ADR-29). */}
           {isTemplate ? null : (
-            <HeaderField
-              testID="session-field-date"
-              label="Date prévue (optionnel)"
-              value={scheduledDate}
-              onChangeText={setScheduledDate}
-              placeholder="AAAA-MM-JJ"
-            />
+            <View style={{ gap: spacing[2] }}>
+              <Text
+                style={{
+                  color: colors.textSecondary,
+                  fontFamily: typography.fontFamily.medium,
+                  fontSize: typography.bodySm.fontSize,
+                }}
+              >
+                Date prévue (optionnel)
+              </Text>
+              <DatePicker
+                testID="session-field-date"
+                value={scheduledDate}
+                onChange={setScheduledDate}
+                now={now}
+                placeholder="Choisir une date…"
+              />
+            </View>
           )}
           <View style={{ gap: spacing[2] }}>
             <Text

@@ -143,20 +143,18 @@ describe('SessionBuilderScreen (TLX-052 — C-05)', () => {
     expect(mockCreateSession).not.toHaveBeenCalled();
   });
 
-  it('refuse la sauvegarde si la date prévue est malformée (TLX-167)', async () => {
-    render(<SessionBuilderScreen />, { wrapper: Wrapper });
+  it('sélectionne la date prévue via le sélecteur et la sérialise (TLX-197)', async () => {
+    mockCreateSession.mockResolvedValue({ status: 201, data: { id: 's-date' } });
+    // `now` fixé → le calendrier s'ouvre sur juin 2026 (plus de saisie libre, donc plus de
+    // date malformée possible : l'ancienne garde TLX-167 reste défensive côté écran).
+    render(<SessionBuilderScreen now={new Date('2026-06-15T00:00:00')} />, { wrapper: Wrapper });
     fireEvent.changeText(screen.getByTestId('session-field-title'), 'Vitesse');
     fireEvent.changeText(screen.getByTestId('series-card-0-ex-0-name'), 'Footing');
-    // Jour impossible : la regex seule l'aurait laissé filer en 400 serveur opaque.
-    fireEvent.changeText(screen.getByTestId('session-field-date'), '2026-02-30');
-    fireEvent.press(screen.getByTestId('session-save'));
-    expect(screen.getByTestId('session-builder-validation')).toHaveTextContent(/date valide/i);
-    expect(mockCreateSession).not.toHaveBeenCalled();
 
-    // Corrigée en une vraie date → l'enregistrement passe et la date est sérialisée.
-    mockCreateSession.mockResolvedValue({ status: 201, data: { id: 's-date' } });
-    fireEvent.changeText(screen.getByTestId('session-field-date'), '2026-06-20');
+    fireEvent.press(screen.getByTestId('session-field-date')); // ouvre le calendrier
+    fireEvent.press(screen.getByTestId('session-field-date-cell-2026-06-20'));
     fireEvent.press(screen.getByTestId('session-save'));
+
     await waitFor(() => expect(mockCreateSession).toHaveBeenCalled());
     expect(mockCreateSession.mock.calls[0][0].scheduledDate).toBe('2026-06-20');
   });
