@@ -2,23 +2,30 @@ import { useTheme } from '@talent-x/design-tokens';
 import { Feather } from '@expo/vector-icons';
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import { Card } from '../components/ui';
+import { Card, SegmentedTabs } from '../components/ui';
+import {
+  buildMonthGrid,
+  buildWeek,
+  dayKeyOf,
+  formatDayLabel,
+  formatMonthLabel,
+  formatWeekRange,
+  WEEKDAY_LABELS,
+  type DayCell,
+} from './calendar-grid';
 import {
   type CalendarEntry,
   type CalendarTone,
-  formatDayLabel,
-  formatWeekLabel,
-  isSameDay,
-  startOfWeek,
+  groupEntriesByDay,
   undatedEntries,
-  weekView,
 } from './calendar-model';
 
 /**
- * Vue calendrier hebdomadaire partagée (TLX-100 — A-08 / C-09). Purement présentielle : le
- * parent fournit les entrées dérivées et le résolveur de tap ; le composant gère la navigation
- * de semaine (état local) et l'affichage jour par jour (« Repos » si vide), plus une section
- * « Sans date » pour les entrées non planifiées. Aucune dépendance réseau.
+ * Vue calendrier partagée coach (C-09) — bascule **Mois ⇄ Semaine** (ADR-47, harmonisée avec le
+ * calendrier athlète `SessionsCalendar`). Purement présentielle : le parent fournit les entrées
+ * dérivées (`CalendarEntry[]` : séances + compétitions, datées via `scheduledDate` ou l'échéance
+ * d'affectation — TLX-195) et le résolveur de tap. Grille calendaire avec pastilles de tonalité,
+ * sélection d'un jour → ses entrées, plus une section « Sans date » pour les entrées non planifiées.
  */
 export function CalendarView({
   entries,
@@ -31,114 +38,203 @@ export function CalendarView({
   onPressEntry: (entry: CalendarEntry) => void;
   testIDPrefix: string;
 }) {
-  const { colors, typography, spacing } = useTheme();
-  const currentWeek = startOfWeek(now);
-  const [weekStart, setWeekStart] = useState(currentWeek);
+  const { colors, typography, spacing, borderWidth } = useTheme();
+  const [mode, setMode] = useState<'month' | 'week'>('month');
+  const [cursor, setCursor] = useState(now);
+  const [selectedKey, setSelectedKey] = useState(dayKeyOf(now));
 
-  const days = weekView(entries, weekStart);
+  const byDay = groupEntriesByDay(entries);
   const undated = undatedEntries(entries);
-  const isCurrentWeek = isSameDay(weekStart, currentWeek);
+  const todayKey = dayKeyOf(now);
+
+  const weeks = mode === 'month' ? buildMonthGrid(cursor.getFullYear(), cursor.getMonth()) : null;
+  const week = mode === 'week' ? buildWeek(cursor) : null;
+  const periodLabel =
+    mode === 'month'
+      ? formatMonthLabel(cursor.getFullYear(), cursor.getMonth())
+      : formatWeekRange(week ?? []);
+
+  const goPrev = () =>
+    setCursor((c) =>
+      mode === 'month'
+        ? new Date(c.getFullYear(), c.getMonth() - 1, 1)
+        : new Date(c.getFullYear(), c.getMonth(), c.getDate() - 7),
+    );
+  const goNext = () =>
+    setCursor((c) =>
+      mode === 'month'
+        ? new Date(c.getFullYear(), c.getMonth() + 1, 1)
+        : new Date(c.getFullYear(), c.getMonth(), c.getDate() + 7),
+    );
+  const goToday = () => {
+    setCursor(now);
+    setSelectedKey(todayKey);
+  };
+
+  const selectedDate = new Date(`${selectedKey}T00:00:00`);
+  const dayEntries = byDay.get(selectedKey) ?? [];
 
   return (
     <View style={{ gap: spacing[4] }}>
-      {/* Navigation de semaine : ‹ Semaine du X › + retour à la semaine courante. */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[3] }}>
-        <Pressable
-          testID={`${testIDPrefix}-week-prev`}
-          accessibilityLabel="Semaine précédente"
-          onPress={() => setWeekStart((w) => shiftWeek(w, -7))}
-          hitSlop={8}
-        >
-          <Feather name="chevron-left" size={22} color={colors.textSecondary} />
-        </Pressable>
+      <SegmentedTabs
+        testID={`${testIDPrefix}-mode`}
+        items={[
+          { key: 'month', label: 'Mois' },
+          { key: 'week', label: 'Semaine' },
+        ]}
+        activeKey={mode}
+        onChange={(k) => setMode(k as 'month' | 'week')}
+      />
+
+      {/* Navigation de période. */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[2] }}>
         <Text
-          testID={`${testIDPrefix}-week-label`}
+          testID={`${testIDPrefix}-period`}
           style={{
             flex: 1,
-            textAlign: 'center',
             color: colors.textPrimary,
-            fontFamily: typography.fontFamily.medium,
+            fontFamily: typography.fontFamily.bold,
             fontSize: typography.body.fontSize,
           }}
         >
-          {formatWeekLabel(weekStart)}
+          {periodLabel}
         </Text>
-        <Pressable
-          testID={`${testIDPrefix}-week-next`}
-          accessibilityLabel="Semaine suivante"
-          onPress={() => setWeekStart((w) => shiftWeek(w, 7))}
-          hitSlop={8}
-        >
-          <Feather name="chevron-right" size={22} color={colors.textSecondary} />
-        </Pressable>
-      </View>
-
-      {!isCurrentWeek ? (
+        <CalNavButton
+          testIDPrefix={testIDPrefix}
+          icon="chevron-left"
+          label="Période précédente"
+          onPress={goPrev}
+        />
         <Pressable
           testID={`${testIDPrefix}-today`}
-          onPress={() => setWeekStart(currentWeek)}
-          style={{ alignSelf: 'center' }}
+          onPress={goToday}
+          accessibilityRole="button"
+          accessibilityLabel="Aujourd'hui"
+          style={{
+            paddingHorizontal: spacing[3],
+            minHeight: 36,
+            justifyContent: 'center',
+            borderRadius: 999,
+            backgroundColor: colors.accentSubtle,
+          }}
         >
           <Text
             style={{
               color: colors.accentText,
               fontFamily: typography.fontFamily.medium,
-              fontSize: typography.bodySm.fontSize,
+              fontSize: typography.caption.fontSize,
             }}
           >
-            Revenir à aujourd'hui
+            Aujourd'hui
           </Text>
         </Pressable>
-      ) : null}
+        <CalNavButton
+          testIDPrefix={testIDPrefix}
+          icon="chevron-right"
+          label="Période suivante"
+          onPress={goNext}
+        />
+      </View>
 
-      {/* Grille : un bloc par jour (lundi → dimanche). */}
-      <View style={{ gap: spacing[2] }}>
-        {days.map((day) => {
-          const today = isSameDay(day.date, now);
-          return (
-            <View
-              key={day.key}
-              testID={`${testIDPrefix}-day-${day.key}`}
-              style={{ flexDirection: 'row', gap: spacing[3] }}
+      {/* En-têtes de jours. */}
+      <View style={{ flexDirection: 'row' }}>
+        {WEEKDAY_LABELS.map((d, i) => (
+          <Text
+            key={i}
+            style={{
+              flex: 1,
+              textAlign: 'center',
+              color: colors.textMuted,
+              fontFamily: typography.fontFamily.medium,
+              fontSize: typography.caption.fontSize,
+            }}
+          >
+            {d}
+          </Text>
+        ))}
+      </View>
+
+      {/* Grille (mois) ou bande (semaine). */}
+      {mode === 'month' ? (
+        weeks?.map((row, ri) => (
+          <View key={ri} style={{ flexDirection: 'row', gap: spacing[1] }}>
+            {row.map((cell) => (
+              <CalendarCell
+                key={cell.key}
+                testIDPrefix={testIDPrefix}
+                cell={cell}
+                dots={dayToneColors(byDay.get(cell.key) ?? [], colors)}
+                selected={cell.key === selectedKey}
+                today={cell.key === todayKey}
+                onPress={() => setSelectedKey(cell.key)}
+              />
+            ))}
+          </View>
+        ))
+      ) : (
+        <View style={{ flexDirection: 'row', gap: spacing[1] }}>
+          {week?.map((cell) => (
+            <CalendarCell
+              key={cell.key}
+              testIDPrefix={testIDPrefix}
+              cell={cell}
+              dots={dayToneColors(byDay.get(cell.key) ?? [], colors)}
+              selected={cell.key === selectedKey}
+              today={cell.key === todayKey}
+              onPress={() => setSelectedKey(cell.key)}
+            />
+          ))}
+        </View>
+      )}
+
+      <View
+        style={{
+          height: borderWidth.hairline,
+          backgroundColor: colors.border,
+          marginVertical: spacing[1],
+        }}
+      />
+
+      {/* Entrées du jour sélectionné. */}
+      <View style={{ gap: spacing[3] }}>
+        <Text
+          testID={`${testIDPrefix}-day-title`}
+          style={{
+            color: colors.textSecondary,
+            fontFamily: typography.fontFamily.medium,
+            fontSize: typography.bodySm.fontSize,
+            textTransform: 'uppercase',
+            letterSpacing: 0.6,
+          }}
+        >
+          {formatDayLabel(selectedDate)} ·{' '}
+          {dayEntries.length === 0
+            ? 'aucune séance'
+            : `${dayEntries.length} séance${dayEntries.length > 1 ? 's' : ''}`}
+        </Text>
+        {dayEntries.length === 0 ? (
+          <Card testID={`${testIDPrefix}-day-empty`}>
+            <Text
+              style={{
+                color: colors.textMuted,
+                fontFamily: typography.fontFamily.regular,
+                fontSize: typography.body.fontSize,
+                textAlign: 'center',
+              }}
             >
-              <Text
-                style={{
-                  width: 64,
-                  paddingTop: spacing[3],
-                  color: today ? colors.accentText : colors.textMuted,
-                  fontFamily: today ? typography.fontFamily.bold : typography.fontFamily.medium,
-                  fontSize: typography.bodySm.fontSize,
-                  textTransform: 'capitalize',
-                }}
-              >
-                {formatDayLabel(day.date)}
-              </Text>
-              <View style={{ flex: 1, gap: spacing[2] }}>
-                {day.entries.length === 0 ? (
-                  <Text
-                    style={{
-                      paddingVertical: spacing[3],
-                      color: colors.textMuted,
-                      fontFamily: typography.fontFamily.regular,
-                      fontSize: typography.bodySm.fontSize,
-                    }}
-                  >
-                    Repos
-                  </Text>
-                ) : (
-                  day.entries.map((entry) => (
-                    <EntryCard
-                      key={entry.id}
-                      entry={entry}
-                      onPress={() => onPressEntry(entry)}
-                      testID={`${testIDPrefix}-entry-${entry.id}`}
-                    />
-                  ))
-                )}
-              </View>
-            </View>
-          );
-        })}
+              Rien de prévu ce jour-là.
+            </Text>
+          </Card>
+        ) : (
+          dayEntries.map((entry) => (
+            <EntryCard
+              key={entry.id}
+              entry={entry}
+              onPress={() => onPressEntry(entry)}
+              testID={`${testIDPrefix}-entry-${entry.id}`}
+            />
+          ))
+        )}
       </View>
 
       {/* Entrées sans date planifiée (échéance non posée), présentées à part. */}
@@ -166,6 +262,111 @@ export function CalendarView({
         </View>
       ) : null}
     </View>
+  );
+}
+
+/** Pastilles de tonalité distinctes (max 3) des entrées d'un jour. */
+function dayToneColors(
+  entries: CalendarEntry[],
+  colors: ReturnType<typeof useTheme>['colors'],
+): string[] {
+  const seen = new Set<CalendarTone>();
+  const out: string[] = [];
+  for (const e of entries) {
+    if (seen.has(e.tone)) continue;
+    seen.add(e.tone);
+    out.push(toneColor(e.tone, colors));
+    if (out.length === 3) break;
+  }
+  return out;
+}
+
+function CalNavButton({
+  icon,
+  label,
+  onPress,
+  testIDPrefix,
+}: {
+  icon: keyof typeof Feather.glyphMap;
+  label: string;
+  onPress: () => void;
+  testIDPrefix: string;
+}) {
+  const { colors, radius, borderWidth } = useTheme();
+  return (
+    <Pressable
+      testID={`${testIDPrefix}-nav-${icon === 'chevron-left' ? 'prev' : 'next'}`}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      style={{
+        width: 36,
+        height: 36,
+        borderRadius: radius.sm,
+        borderWidth: borderWidth.hairline,
+        borderColor: colors.border,
+        backgroundColor: colors.surfaceRaised,
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      <Feather name={icon} size={16} color={colors.textSecondary} />
+    </Pressable>
+  );
+}
+
+function CalendarCell({
+  cell,
+  dots,
+  selected,
+  today,
+  onPress,
+  testIDPrefix,
+}: {
+  cell: DayCell;
+  dots: string[];
+  selected: boolean;
+  today: boolean;
+  onPress: () => void;
+  testIDPrefix: string;
+}) {
+  const { colors, typography, radius, borderWidth } = useTheme();
+  const hasEntries = dots.length > 0;
+  return (
+    <Pressable
+      testID={`${testIDPrefix}-cell-${cell.key}`}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`${cell.day}`}
+      accessibilityState={{ selected }}
+      style={{
+        flex: 1,
+        aspectRatio: 1,
+        borderRadius: radius.sm,
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 3,
+        opacity: cell.inMonth ? 1 : 0.35,
+        backgroundColor: selected ? colors.accent : hasEntries ? colors.surface : 'transparent',
+        borderWidth: today && !selected ? borderWidth.thick : 0,
+        borderColor: colors.accentText,
+      }}
+    >
+      <Text
+        style={{
+          color: selected ? colors.textOnAccent : colors.textPrimary,
+          fontFamily: typography.fontFamily.medium,
+          fontSize: typography.bodySm.fontSize,
+        }}
+      >
+        {cell.day}
+      </Text>
+      <View style={{ flexDirection: 'row', gap: 2, height: 6 }}>
+        {dots.map((color, i) => (
+          <View key={i} style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: color }} />
+        ))}
+      </View>
+    </Pressable>
   );
 }
 
@@ -209,13 +410,6 @@ function EntryCard({
       </View>
     </Card>
   );
-}
-
-/** Décale un début de semaine de `n` jours en restant aligné minuit UTC. */
-function shiftWeek(weekStart: Date, n: number): Date {
-  const d = new Date(weekStart.getTime());
-  d.setUTCDate(d.getUTCDate() + n);
-  return d;
 }
 
 /** Couleur de pastille (token) par tonalité d'entrée. */

@@ -7,24 +7,24 @@ function Wrapper({ children }: { children: React.ReactNode }) {
   return <ThemeProvider>{children}</ThemeProvider>;
 }
 
-const NOW = new Date('2026-05-14T09:00:00Z'); // jeudi → semaine du 11 mai
+const NOW = new Date('2026-05-14T09:00:00Z'); // jeudi 14 mai → jour sélectionné par défaut
 
 const ENTRIES: CalendarEntry[] = [
   {
     id: 'e-1',
-    kind: 'assignment',
+    kind: 'session',
     title: 'Sprint 60m',
     date: '2026-05-12',
     tone: 'accent',
-    statusLabel: 'À faire',
+    statusLabel: 'Publiée',
   },
   {
     id: 'e-2',
-    kind: 'assignment',
+    kind: 'session',
     title: 'Récupération',
     date: '2026-05-14',
     tone: 'success',
-    statusLabel: 'Réalisée',
+    statusLabel: 'Publiée',
   },
   {
     id: 'e-undated',
@@ -36,19 +36,30 @@ const ENTRIES: CalendarEntry[] = [
   },
 ];
 
-describe('CalendarView (TLX-100)', () => {
-  it('place chaque entrée sur son jour et affiche « Repos » ailleurs', () => {
+describe('CalendarView (TLX-100 / ADR-47 — Mois ⇄ Semaine)', () => {
+  it('mois par défaut : grille + jour sélectionné (aujourd’hui) montre ses entrées', () => {
     render(
       <CalendarView entries={ENTRIES} now={NOW} onPressEntry={jest.fn()} testIDPrefix="cal" />,
       {
         wrapper: Wrapper,
       },
     );
-    expect(screen.getByText('Semaine du 11 mai')).toBeOnTheScreen();
-    expect(screen.getByText('Sprint 60m')).toBeOnTheScreen();
+    expect(screen.getByTestId('cal-period')).toBeOnTheScreen();
+    // Grille du mois : une cellule par jour (y compris débordements).
+    expect(screen.getByTestId('cal-cell-2026-05-04')).toBeOnTheScreen();
+    // 14 mai sélectionné par défaut → son entrée s'affiche.
     expect(screen.getByText('Récupération')).toBeOnTheScreen();
-    // Un jour sans entrée porte « Repos ».
-    expect(screen.getAllByText('Repos').length).toBeGreaterThan(0);
+  });
+
+  it('sélectionner un jour affiche ses entrées, et le tap remonte au parent', () => {
+    const onPress = jest.fn();
+    render(<CalendarView entries={ENTRIES} now={NOW} onPressEntry={onPress} testIDPrefix="cal" />, {
+      wrapper: Wrapper,
+    });
+    fireEvent.press(screen.getByTestId('cal-cell-2026-05-12'));
+    expect(screen.getByText('Sprint 60m')).toBeOnTheScreen();
+    fireEvent.press(screen.getByTestId('cal-entry-e-1'));
+    expect(onPress).toHaveBeenCalledWith(expect.objectContaining({ id: 'e-1' }));
   });
 
   it('liste les entrées sans date dans la section « Sans date »', () => {
@@ -63,38 +74,32 @@ describe('CalendarView (TLX-100)', () => {
     expect(screen.getByText('Séance libre')).toBeOnTheScreen();
   });
 
-  it('déclenche onPressEntry au tap', () => {
-    const onPress = jest.fn();
-    render(<CalendarView entries={ENTRIES} now={NOW} onPressEntry={onPress} testIDPrefix="cal" />, {
-      wrapper: Wrapper,
-    });
-    fireEvent.press(screen.getByTestId('cal-entry-e-1'));
-    expect(onPress).toHaveBeenCalledWith(expect.objectContaining({ id: 'e-1' }));
-  });
-
-  it('navigue de semaine et masque les entrées hors fenêtre', () => {
+  it('bascule Mois ⇄ Semaine : la semaine ne montre que ses 7 jours', () => {
     render(
       <CalendarView entries={ENTRIES} now={NOW} onPressEntry={jest.fn()} testIDPrefix="cal" />,
       {
         wrapper: Wrapper,
       },
     );
-    fireEvent.press(screen.getByTestId('cal-week-next'));
-    expect(screen.getByText('Semaine du 18 mai')).toBeOnTheScreen();
-    expect(screen.queryByTestId('cal-entry-e-1')).toBeNull(); // 12 mai hors fenêtre
-    // Retour à la semaine courante.
+    // En mois, le 4 mai (semaine précédente) est dans la grille.
+    expect(screen.getByTestId('cal-cell-2026-05-04')).toBeOnTheScreen();
+    fireEvent.press(screen.getByTestId('cal-mode-week'));
+    // En semaine (11→17 mai), le 14 reste, le 4 sort.
+    expect(screen.getByTestId('cal-cell-2026-05-14')).toBeOnTheScreen();
+    expect(screen.queryByTestId('cal-cell-2026-05-04')).toBeNull();
+  });
+
+  it('navigation de période : « Aujourd’hui » resélectionne le jour courant', () => {
+    render(
+      <CalendarView entries={ENTRIES} now={NOW} onPressEntry={jest.fn()} testIDPrefix="cal" />,
+      {
+        wrapper: Wrapper,
+      },
+    );
+    fireEvent.press(screen.getByTestId('cal-nav-next')); // mois suivant
     fireEvent.press(screen.getByTestId('cal-today'));
-    expect(screen.getByText('Semaine du 11 mai')).toBeOnTheScreen();
-    expect(screen.getByTestId('cal-entry-e-1')).toBeOnTheScreen();
-  });
-
-  it("ne montre pas le retour « aujourd'hui » sur la semaine courante", () => {
-    render(
-      <CalendarView entries={ENTRIES} now={NOW} onPressEntry={jest.fn()} testIDPrefix="cal" />,
-      {
-        wrapper: Wrapper,
-      },
-    );
-    expect(screen.queryByTestId('cal-today')).toBeNull();
+    // De retour sur le mois courant : le 14 mai et son entrée sont là.
+    expect(screen.getByTestId('cal-cell-2026-05-14')).toBeOnTheScreen();
+    expect(screen.getByText('Récupération')).toBeOnTheScreen();
   });
 });
