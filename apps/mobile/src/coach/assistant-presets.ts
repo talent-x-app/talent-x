@@ -189,6 +189,8 @@ function hurdleEffort(opts: {
   recoverySeconds: number;
   leadLeg?: string;
   sex?: 'H' | 'F';
+  /** Intensité par défaut (% du record) — pré-remplit la colonne « Intensité ». */
+  intensityPercent?: number;
 }): EditableBlock {
   return makeBlock({
     type: BlockType.hurdles,
@@ -212,6 +214,8 @@ function hurdleEffort(opts: {
       leadLeg: opts.leadLeg ?? 'left',
       startType: 'blocks',
       sex: opts.sex ?? 'H',
+      intensityMode: 'percent_record',
+      intensityValue: String(opts.intensityPercent ?? 92),
       recoverySeconds: String(opts.recoverySeconds),
     },
   });
@@ -733,6 +737,46 @@ export const THROWS_PRESETS: SessionBuilderPreset[] = [
       }),
     ],
   },
+  {
+    key: 'javelin_full',
+    label: 'Javelot — jets pleins',
+    build: () => [
+      makeSeriesGroup({
+        name: 'Javelot — jets pleins',
+        rounds: '1',
+        items: [
+          throwEffort({
+            discipline: 'javelin',
+            sex: 'M',
+            name: 'Javelot',
+            techniqueThrows: 6,
+            fullThrows: 8,
+            targetPercent: 90,
+          }),
+        ],
+      }),
+    ],
+  },
+  {
+    key: 'hammer_full',
+    label: 'Marteau — jets pleins',
+    build: () => [
+      makeSeriesGroup({
+        name: 'Marteau — jets pleins',
+        rounds: '1',
+        items: [
+          throwEffort({
+            discipline: 'hammer',
+            sex: 'M',
+            name: 'Marteau',
+            techniqueThrows: 6,
+            fullThrows: 8,
+            targetPercent: 90,
+          }),
+        ],
+      }),
+    ],
+  },
 ];
 
 // --- Renforcement / PPG (TLX-172, ADR-41) ----------------------------------------------------
@@ -1034,35 +1078,40 @@ export function assistantSeed(discipline: string | undefined): EditableNode[] {
     rounds: '1',
     items: [makeBlock({ type: cfg.blockType, name: cfg.effortLabel })],
   });
-  // Sprint : amorce avec échauffement + 1 sprint par défaut + retour au calme (ADR-39, TLX-165).
+  // Sprint : amorce avec le 1er preset (Départs / Accélération) — un modèle est donc « choisi »
+  // par défaut, comme Renforcement avec Force max — encadré d'échauffement / retour au calme
+  // (ADR-39, TLX-165). La carte pré-sélectionne le modèle correspondant.
   if (cfg.key === 'sprint') {
-    const sprintSeries = makeSeriesGroup({
-      name: 'Série de sprint',
-      rounds: '1',
-      restBetweenRoundsSeconds: '300',
-      items: [
-        makeBlock({
-          type: BlockType.sprint,
-          name: '60 m',
-          params: {
-            reps: '1',
-            distanceMeters: '60',
-            recoverySeconds: '240',
-            intensityMode: 'percent_record',
-            intensityValue: '95',
-            startType: 'blocks',
-            flyingZone: 'false',
-          },
-        }),
-      ],
-    });
-    return [makeWarmupBlock(), sprintSeries, makeCooldownBlock()];
+    const starts = SPRINT_PRESETS.find((p) => p.key === 'starts');
+    return [makeWarmupBlock(), ...(starts ? starts.build() : []), makeCooldownBlock()];
   }
   // Renforcement / PPG : amorce avec le preset Force max (blocs `strength` top-level), encadré
   // d'un échauffement et d'un retour au calme (même esprit que Sprint, ADR-41).
   if (cfg.key === 'strength') {
     const forceMax = STRENGTH_PRESETS.find((p) => p.key === 'force_max');
     return [makeWarmupBlock(), ...(forceMax ? forceMax.build() : []), makeCooldownBlock()];
+  }
+  // Haies : amorce avec le 1er preset (110 m haies) — un modèle est choisi par défaut et l'épreuve
+  // / la ligne de haies sont pré-remplies (vs amorce générique « Haies » sans valeurs). Le canvas
+  // ajoute échauffement / retour au calme par défaut (splitEffortNodes), inutile de les seeder.
+  if (cfg.key === 'hurdles') {
+    const first = HURDLES_PRESETS[0];
+    return first ? first.build() : [series];
+  }
+  // Endurance : amorce avec le 1er preset (Endurance fondamentale) → modèle par défaut + table
+  // d'efforts pré-remplie (vs amorce générique vide).
+  if (cfg.key === 'endurance') {
+    const first = ENDURANCE_PRESETS[0];
+    return first ? first.build() : [series];
+  }
+  // Sauts / Lancers : amorce avec le 1er preset → modèle par défaut + table pré-remplie.
+  if (cfg.key === 'jumps') {
+    const first = JUMPS_PRESETS[0];
+    return first ? first.build() : [series];
+  }
+  if (cfg.key === 'throws') {
+    const first = THROWS_PRESETS[0];
+    return first ? first.build() : [series];
   }
   return [series];
 }

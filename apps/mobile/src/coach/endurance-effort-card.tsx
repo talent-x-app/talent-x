@@ -162,7 +162,25 @@ function makeEnduranceBlock(opts: {
   });
 }
 
+/**
+ * Clé du modèle dont la série amorcée correspond (match par nom de série), pour pré-sélectionner
+ * le sélecteur. `''` si aucune correspondance (séance custom/éditée) — sûr pour l'édition.
+ */
+function matchPresetKey(group: EditableGroup): string {
+  for (const p of ENDURANCE_PRESETS) {
+    const g = p.build().find((n) => isEditableGroup(n)) as EditableGroup | undefined;
+    if (g && g.name === group.name) return p.key;
+  }
+  return '';
+}
+
 function defaultEnduranceSeries(): EditableGroup {
+  // Une série ajoutée part du 1er preset (Endurance fondamentale) → modèle sélectionné par défaut
+  // (match par nom) et table d'efforts pré-remplie, comme l'amorce de l'assistant.
+  const g = ENDURANCE_PRESETS[0]?.build().find((n) => isEditableGroup(n)) as
+    | EditableGroup
+    | undefined;
+  if (g) return g;
   return makeSeriesGroup({
     name: 'Série de course',
     rounds: '3',
@@ -379,7 +397,7 @@ function EnduranceSeriesCard({
   onMoveDown: () => void;
   onDelete: () => void;
 }) {
-  const [selectedPresetKey, setSelectedPresetKey] = useState('');
+  const [selectedPresetKey, setSelectedPresetKey] = useState(() => matchPresetKey(group));
   const { spacing } = useTheme();
   const tid = `series-card-${index}`;
   const { unit, intensityMode, recoveryType, specDistance, rounds, restR } = serieProps(group);
@@ -397,23 +415,23 @@ function EnduranceSeriesCard({
       onMoveDown={onMoveDown}
       onDelete={onDelete}
     >
-      {/* Modèle + répétitions + récup R */}
-      <View
-        style={{ flexDirection: 'row', gap: spacing[3], flexWrap: 'wrap', alignItems: 'flex-end' }}
-      >
-        <View style={{ flex: 1, minWidth: 130 }}>
-          <FieldLabel>Modèle</FieldLabel>
-          <PresetPicker
-            testID={`${tid}-preset`}
-            presets={ENDURANCE_PRESETS}
-            selectedKey={selectedPresetKey}
-            onSelect={(key) => {
-              setSelectedPresetKey(key);
-              onApplyPreset(key);
-            }}
-          />
-        </View>
-        <View>
+      {/* Modèle : pleine largeur (l'ouverture du sélecteur ne décale plus « Répétitions »). */}
+      <View>
+        <FieldLabel>Modèle</FieldLabel>
+        <PresetPicker
+          testID={`${tid}-preset`}
+          presets={ENDURANCE_PRESETS}
+          selectedKey={selectedPresetKey}
+          onSelect={(key) => {
+            setSelectedPresetKey(key);
+            onApplyPreset(key);
+          }}
+        />
+      </View>
+
+      {/* Répétitions + récup R — deux colonnes égales. */}
+      <View style={{ flexDirection: 'row', gap: spacing[3], alignItems: 'flex-end' }}>
+        <View style={{ flex: 1 }}>
           <FieldLabel>Répétitions</FieldLabel>
           <Stepper
             testID={`${tid}-rounds`}
@@ -424,7 +442,7 @@ function EnduranceSeriesCard({
             accessibilityLabel="Nombre de répétitions"
           />
         </View>
-        <View>
+        <View style={{ flex: 1 }}>
           <FieldLabel>Récup. R</FieldLabel>
           <InlineNumberInput
             testID={`${tid}-restR`}

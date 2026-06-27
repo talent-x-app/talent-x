@@ -7,6 +7,7 @@ import {
   makeSeriesGroup,
   makeWarmupBlock,
   nodesToItems,
+  sanitizeNumeric,
   type EditableGroup,
   type EditableNode,
 } from './session-builder-ui';
@@ -80,5 +81,20 @@ describe('splitEffortNodes — pas de perte de bloc top-level (TLX-168)', () => 
     const b = split([sprint]).series[0].key;
     expect(a).toBe(b); // stable d'un rendu à l'autre
     expect(a).toContain(sprint.key);
+  });
+});
+
+describe('sanitizeNumeric — filtre des saisies numériques', () => {
+  it('entier : ne garde que les chiffres', () => {
+    expect(sanitizeNumeric('12ab3', false)).toBe('123');
+    expect(sanitizeNumeric('9.5', false)).toBe('95'); // pas de décimal autorisé
+    expect(sanitizeNumeric('abc', false)).toBe('');
+  });
+
+  it('décimal : chiffres + un seul séparateur (virgule normalisée en point)', () => {
+    expect(sanitizeNumeric('9.1ab4', true)).toBe('9.14');
+    expect(sanitizeNumeric('1,5', true)).toBe('1.5');
+    expect(sanitizeNumeric('1.2.3', true)).toBe('1.23'); // un seul point
+    expect(sanitizeNumeric('x', true)).toBe('');
   });
 });

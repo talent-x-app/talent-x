@@ -65,10 +65,14 @@ describe('ThrowsEffortCanvas', () => {
     expect(g.items[0].params.fullThrows).toBe('8');
   });
 
-  it('dérive le poids réglementaire au changement de discipline + catégorie', () => {
+  it('dérive le poids réglementaire au changement de modèle (discipline) + catégorie', () => {
     const h = setup([makeSerie()]);
-    act(() => fireEvent.press(screen.getByTestId('series-card-0-disc-discus')));
+    // La discipline est portée par le Modèle : appliquer « Disque — compétition » → discus (2 kg H).
+    act(() => fireEvent.press(screen.getByTestId('series-card-0-preset')));
+    act(() => fireEvent.press(screen.getByTestId('series-card-0-preset-discus_comp')));
+    expect(h.groups()[0].items[0].params.discipline).toBe('discus');
     expect(h.groups()[0].items[0].params.implementKg).toBe('2');
+    // Le poids reste auto-dérivé au changement de catégorie (1 kg F).
     act(() => fireEvent.press(screen.getByTestId('series-card-0-sex-F')));
     expect(h.groups()[0].items[0].params.implementKg).toBe('1');
   });
@@ -76,7 +80,9 @@ describe('ThrowsEffortCanvas', () => {
   it('masque le style hors discipline poids', () => {
     const h = setup([makeSerie()]);
     expect(screen.getByTestId('series-card-0-style-spin')).toBeTruthy();
-    act(() => fireEvent.press(screen.getByTestId('series-card-0-disc-discus')));
+    // Modèle disque → discipline discus → le style (réservé au poids) disparaît.
+    act(() => fireEvent.press(screen.getByTestId('series-card-0-preset')));
+    act(() => fireEvent.press(screen.getByTestId('series-card-0-preset-discus_comp')));
     expect(h.groups()[0].items[0].params.discipline).toBe('discus');
     expect(screen.queryByTestId('series-card-0-style-spin')).toBeNull();
   });

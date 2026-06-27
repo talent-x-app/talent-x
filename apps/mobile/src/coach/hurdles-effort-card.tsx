@@ -87,6 +87,19 @@ function serieProps(group: EditableGroup) {
   };
 }
 
+/**
+ * Clé du modèle dont la série amorcée correspond (match par nom de série), pour pré-sélectionner
+ * le sélecteur. `''` si aucune correspondance (séance custom/éditée). Ne fait que le libellé —
+ * sûr pour l'édition (aucun contenu appliqué).
+ */
+function matchPresetKey(group: EditableGroup): string {
+  for (const p of HURDLES_PRESETS) {
+    const g = p.build().find((n) => isEditableGroup(n)) as EditableGroup | undefined;
+    if (g && g.name === group.name) return p.key;
+  }
+  return '';
+}
+
 /** Résumé condensé d'une série pour la tuile réduite. */
 function serieSummary(group: EditableGroup): string {
   const { event, rhythmSteps, hurdleCount, rounds, restR } = serieProps(group);
@@ -97,6 +110,15 @@ function serieSummary(group: EditableGroup): string {
   if (rhythmSteps) parts.push(`${rhythmSteps} appuis`);
   parts.push(`R ${formatMinutes(restR)}`);
   return parts.join(' · ');
+}
+
+/** Note du référentiel d'intensité, selon le mode (record-relatif vs cible absolue). */
+function intensityNote(mode: string, targetTime?: number): string {
+  if (mode === 'target_time') return 'Temps cible absolu (s), commun à tous les athlètes.';
+  if (mode === 'speed') return 'Vitesse cible (m/s), commune à tous les athlètes.';
+  return `Cible individualisée · % du record sur l'épreuve de chaque athlète. La distance de course sert au suivi de progression.${
+    targetTime != null ? ` (≈ ${targetTime} s sur la référence du module)` : ''
+  }`;
 }
 
 /** Estimation de durée globale (base 25 min échauff + passages + récups). */
@@ -147,6 +169,12 @@ function makeHurdleBlock(opts: {
 }
 
 function defaultHurdleSeries(): EditableGroup {
+  // Une série ajoutée part du 1er preset (110 m haies) → un modèle est sélectionné par défaut
+  // (match par nom) et l'épreuve / la ligne sont pré-remplies, comme l'amorce de l'assistant.
+  const g = HURDLES_PRESETS[0]?.build().find((n) => isEditableGroup(n)) as
+    | EditableGroup
+    | undefined;
+  if (g) return g;
   return makeSeriesGroup({
     name: 'Série de haies',
     rounds: '4',
@@ -384,7 +412,7 @@ function HurdlesSeriesCard({
   onMoveDown: () => void;
   onDelete: () => void;
 }) {
-  const [selectedPresetKey, setSelectedPresetKey] = useState('');
+  const [selectedPresetKey, setSelectedPresetKey] = useState(() => matchPresetKey(group));
   const { colors, typography, spacing, radius, borderWidth } = useTheme();
   const tid = `series-card-${index}`;
   const {
@@ -417,23 +445,23 @@ function HurdlesSeriesCard({
       onMoveDown={onMoveDown}
       onDelete={onDelete}
     >
-      {/* Modèle + séries + récup R */}
-      <View
-        style={{ flexDirection: 'row', gap: spacing[3], flexWrap: 'wrap', alignItems: 'flex-end' }}
-      >
-        <View style={{ flex: 1, minWidth: 130 }}>
-          <FieldLabel>Modèle</FieldLabel>
-          <PresetPicker
-            testID={`${tid}-preset`}
-            presets={HURDLES_PRESETS}
-            selectedKey={selectedPresetKey}
-            onSelect={(key) => {
-              setSelectedPresetKey(key);
-              onApplyPreset(key);
-            }}
-          />
-        </View>
-        <View>
+      {/* Modèle : pleine largeur (l'ouverture du sélecteur ne décale plus « Séries »). */}
+      <View>
+        <FieldLabel>Modèle</FieldLabel>
+        <PresetPicker
+          testID={`${tid}-preset`}
+          presets={HURDLES_PRESETS}
+          selectedKey={selectedPresetKey}
+          onSelect={(key) => {
+            setSelectedPresetKey(key);
+            onApplyPreset(key);
+          }}
+        />
+      </View>
+
+      {/* Séries + récup R — deux colonnes égales, côte à côte (structure régulière). */}
+      <View style={{ flexDirection: 'row', gap: spacing[3], alignItems: 'flex-end' }}>
+        <View style={{ flex: 1 }}>
           <FieldLabel>Séries</FieldLabel>
           <Stepper
             testID={`${tid}-rounds`}
@@ -444,7 +472,7 @@ function HurdlesSeriesCard({
             accessibilityLabel="Nombre de séries"
           />
         </View>
-        <View>
+        <View style={{ flex: 1 }}>
           <FieldLabel>Récup. R</FieldLabel>
           <InlineNumberInput
             testID={`${tid}-restR`}
@@ -461,22 +489,14 @@ function HurdlesSeriesCard({
         </View>
       </View>
 
-      {/* Paramètres techniques de l'épreuve */}
-      <View style={{ gap: spacing[2] }}>
-        <FieldLabel>Épreuve</FieldLabel>
-        <CellInput
-          testID={`${tid}-event`}
-          value={event}
-          onChangeText={(t) => onPatchSerieParam({ event: t })}
-          placeholder="Ex. 110mH"
-        />
-      </View>
-
-      {/* Ligne de haies — sous-carte commune à la série (ADR-40) */}
+      {/* Épreuve & ligne de haies — dispositif commun à la série : l'épreuve (référentiel de record)
+          et le dispositif (hauteur / nb / espacement / rythme), d'où est dérivée la distance de
+          course. La hauteur est la **source unique** (appliquée à tous les passages → plus de
+          doublon avec le tableau). */}
       <View
         testID={`${tid}-hurdle-line`}
         style={{
-          gap: spacing[2],
+          gap: spacing[3],
           padding: spacing[3],
           borderRadius: radius.md,
           borderWidth: borderWidth.hairline,
@@ -493,15 +513,27 @@ function HurdlesSeriesCard({
             letterSpacing: 0.6,
           }}
         >
-          Ligne de haies · commune à la série
+          Épreuve & ligne de haies
         </Text>
+
+        <View>
+          <FieldLabel>Épreuve</FieldLabel>
+          <CellInput
+            testID={`${tid}-event`}
+            value={event}
+            onChangeText={(t) => onPatchSerieParam({ event: t })}
+            placeholder="Ex. 110mH"
+            text
+          />
+        </View>
+
         <View style={{ flexDirection: 'row', gap: spacing[2] }}>
           <View style={{ flex: 1 }}>
-            <FieldLabel>Hauteur (1er passage)</FieldLabel>
+            <FieldLabel>Hauteur</FieldLabel>
             <CellInput
               testID={`${tid}-line-height`}
               value={group.items[0]?.params.heightCm ?? ''}
-              onChangeText={(t) => onPatchPass(0, { heightCm: t })}
+              onChangeText={(t) => onPatchSerieParam({ heightCm: t })}
               unit="cm"
               decimal
               placeholder="84"
@@ -547,11 +579,12 @@ function HurdlesSeriesCard({
         title="Passages de la série"
         onAddRow={onAddPass}
         addRowTestID={`${tid}-add-pass`}
-        columns={[{ label: 'Distance' }, { label: 'Hauteur' }, { label: 'Récup r' }]}
+        columns={[{ label: 'Distance' }, { label: 'Intensité' }, { label: 'Récup r', width: 72 }]}
       >
         {group.items.map((block, bi) => (
           <HurdlePassRow
             key={block.key}
+            intensityMode={intensityMode}
             block={block}
             index={bi}
             isLast={bi === group.items.length - 1}
@@ -587,22 +620,16 @@ function HurdlesSeriesCard({
           testIDPrefix={`${tid}-imode`}
           options={INTENSITY_MODES}
           selected={intensityMode}
-          onSelect={(v) => onPatchSerieParam({ intensityMode: v })}
+          // Réinitialise la valeur d'intensité au changement de référentiel (un % n'a aucun sens
+          // en s/m/s ; conversion non calculable au design-time). Cohérent avec le canvas Sprint.
+          onSelect={(v) => {
+            if (v === intensityMode) return;
+            onPatchSerieParam({ intensityMode: v, intensityValue: '' });
+          }}
         />
-        {intensityMode === 'percent_record' && (
-          <InlineNumberInput
-            testID={`${tid}-intensityValue`}
-            value={intensityValue}
-            onChangeText={(t) => onPatchSerieParam({ intensityValue: t })}
-            placeholder="92"
-            unit="%"
-          />
-        )}
-        <InfoNote>
-          {`Cible individualisée · % du record sur l'épreuve de chaque athlète. La distance de course sert au suivi de progression.${
-            targetTime != null ? ` (≈ ${targetTime} s sur la référence du module)` : ''
-          }`}
-        </InfoNote>
+        {/* L'intensité se saisit désormais **par passage** (colonne « Intensité » du tableau,
+            comme Sprint) ; le référentiel ci-dessus en fixe l'unité (%, s, m/s). */}
+        <InfoNote>{intensityNote(intensityMode, targetTime)}</InfoNote>
       </View>
 
       {/* Jambe d'attaque + départ */}
@@ -647,6 +674,7 @@ function HurdlePassRow({
   index,
   isLast,
   canDelete,
+  intensityMode,
   onPatch,
   onDelete,
   testIDPrefix,
@@ -655,11 +683,14 @@ function HurdlePassRow({
   index: number;
   isLast: boolean;
   canDelete: boolean;
+  intensityMode: string;
   onPatch: (patch: Record<string, string>) => void;
   onDelete: () => void;
   testIDPrefix: string;
 }) {
   const { colors, typography } = useTheme();
+  const intensityUnit =
+    intensityMode === 'speed' ? 'm/s' : intensityMode === 'target_time' ? 's' : '%';
   return (
     <EffortRowFrame
       testID={testIDPrefix}
@@ -676,14 +707,15 @@ function HurdlePassRow({
         decimal
       />
       <CellInput
-        testID={`${testIDPrefix}-height`}
-        value={block.params.heightCm ?? ''}
-        onChangeText={(t) => onPatch({ heightCm: t })}
-        unit="cm"
-        decimal
+        testID={`${testIDPrefix}-int`}
+        value={block.params.intensityValue ?? ''}
+        onChangeText={(t) => onPatch({ intensityValue: t })}
+        unit={intensityUnit}
+        decimal={intensityMode !== 'percent_record'}
       />
+      {/* Colonne « récup » à largeur fixe (72) → la dernière ligne (« → R ») reste alignée. */}
       {isLast ? (
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+        <View style={{ width: 72, height: 38, alignItems: 'center', justifyContent: 'center' }}>
           <Text
             style={{
               color: colors.textMuted,
@@ -695,18 +727,20 @@ function HurdlePassRow({
           </Text>
         </View>
       ) : (
-        <CellInput
-          testID={`${testIDPrefix}-rec`}
-          value={
-            block.params.recoverySeconds ? String(Number(block.params.recoverySeconds) / 60) : ''
-          }
-          onChangeText={(t) => {
-            const v = parseFloat(t);
-            onPatch({ recoverySeconds: String(isNaN(v) ? 0 : Math.round(v * 60)) });
-          }}
-          unit="min"
-          decimal
-        />
+        <View style={{ width: 72 }}>
+          <CellInput
+            testID={`${testIDPrefix}-rec`}
+            value={
+              block.params.recoverySeconds ? String(Number(block.params.recoverySeconds) / 60) : ''
+            }
+            onChangeText={(t) => {
+              const v = parseFloat(t);
+              onPatch({ recoverySeconds: String(isNaN(v) ? 0 : Math.round(v * 60)) });
+            }}
+            unit="min"
+            decimal
+          />
+        </View>
       )}
     </EffortRowFrame>
   );

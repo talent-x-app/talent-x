@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { TextInput, View } from 'react-native';
+import { Feather } from '@expo/vector-icons';
+import { Pressable, Text, TextInput, View } from 'react-native';
 import { useTheme } from '@talent-x/design-tokens';
 import { BlockType, LoadUnit } from '@talent-x/api-client';
 import { Stepper } from '../components/ui';
@@ -7,7 +7,6 @@ import {
   isEditableGroup,
   makeBlock,
   makeCooldownBlock,
-  makeSeriesGroup,
   makeWarmupBlock,
   nodesToItems,
   type EditableBlock,
@@ -23,7 +22,6 @@ import {
   EffortRowFrame,
   EffortTable,
   FieldLabel,
-  InfoNote,
   InlineNumberInput,
   PresetPicker,
   SegmentedControl,
@@ -68,16 +66,6 @@ const LOAD_MODES = [
   { value: 'rpe', label: 'RPE' },
 ];
 
-/** Astuce coach contextuelle par méthode (preset), affichée en `InfoNote`. */
-const PRESET_TIPS: Record<string, string> = {
-  force_max: 'Force max : charges lourdes (85–95 % 1RM), séries courtes, récup longue (3–5′).',
-  hypertrophy: 'Hypertrophie : 65–75 % 1RM, 8–12 reps, récup ~90″, tempo contrôlé.',
-  power: 'Force-vitesse : charges modérées (40–60 % 1RM) exécutées de façon explosive.',
-  plyo: 'Pliométrie : poids de corps, qualité des appuis et du gainage avant le volume.',
-  circuit_ppg: 'Circuit PPG : enchaîner les stations, récup courte, intensité maîtrisée.',
-  core_ppg: 'Gainage : tenir la posture, ne pas relâcher le bassin, respirer régulièrement.',
-};
-
 /** Clé sentinelle « Autre exercice… » : exercice libre saisi à la main (pas de clé catalogue). */
 const CUSTOM_EXERCISE_KEY = '__custom__';
 
@@ -102,10 +90,67 @@ type MuscuSeries = { kind: 'muscu'; key: string; blocks: EditableBlock[] };
 type PpgSeries = { kind: 'ppg'; key: string; group: EditableGroup };
 type Series = MuscuSeries | PpgSeries;
 
+/** Signature compacte d'une série (exercices + prescription) pour reconnaître un preset. */
+function seriesSignature(item: Series): string {
+  if (item.kind === 'muscu') {
+    return (
+      'muscu:' +
+      item.blocks
+        .map((b) => `${b.params.exerciseKey ?? ''}/${b.sets}/${b.reps}/${b.loadValue}`)
+        .join('|')
+    );
+  }
+  return 'ppg:' + item.group.items.map((b) => b.name).join('|');
+}
+
+/**
+ * Clé du preset dont la série correspond (par signature) → pré-sélection du sélecteur « Modèle ».
+ * `''` si aucune correspondance (séance éditée/custom).
+ */
+function matchPresetKey(item: Series): string {
+  const sig = seriesSignature(item);
+  for (const p of STRENGTH_PRESETS) {
+    const built = p.build();
+    const group = built.find((n) => isEditableGroup(n)) as EditableGroup | undefined;
+    const builtItem: Series = group
+      ? { kind: 'ppg', key: '', group }
+      : {
+          kind: 'muscu',
+          key: '',
+          blocks: built.filter((n) => !isEditableGroup(n)) as EditableBlock[],
+        };
+    if (seriesSignature(builtItem) === sig) return p.key;
+  }
+  return '';
+}
+
+/** Modèle par défaut de chaque mode (1er preset Muscu / 1er preset PPG) — utilisé au changement de Mode. */
+const FIRST_MUSCU_PRESET =
+  STRENGTH_PRESETS.find((p) => !p.build().some((n) => isEditableGroup(n)))?.key ?? '';
+const FIRST_PPG_PRESET =
+  STRENGTH_PRESETS.find((p) => p.build().some((n) => isEditableGroup(n)))?.key ?? '';
+
+/**
+ * Marqueur de regroupement Muscu (param `muscuGroup`). Sans lui, deux séries Muscu adjacentes
+ * (blocs `strength` top-level contigus) fusionneraient en une seule carte au prochain `toSeries`
+ * (cf. bug « le bloc se ferme en passant en Muscu »). C'est un simple param additif : ignoré par
+ * les autres vues / la sérialisation, préservé au round-trip → plusieurs cartes Muscu distinctes.
+ */
+const MUSCU_GROUP_PARAM = 'muscuGroup';
+let muscuGroupSeq = 0;
+function nextMuscuGroup(): string {
+  muscuGroupSeq += 1;
+  return `mg-${Date.now().toString(36)}-${muscuGroupSeq}`;
+}
+function stampMuscuGroup(blocks: EditableBlock[], gid: string): EditableBlock[] {
+  return blocks.map((b) => ({ ...b, params: { ...b.params, [MUSCU_GROUP_PARAM]: gid } }));
+}
+
 /** Partitionne séries (hors warmup/cooldown) en segments : run de `strength` top-level, ou groupe. */
 function toSeries(nodes: EditableNode[]): Series[] {
   const out: Series[] = [];
   let run: EditableBlock[] = [];
+  let runMarker: string | undefined;
   const flush = () => {
     if (run.length > 0) {
       out.push({ kind: 'muscu', key: run[0].key, blocks: run });
@@ -119,6 +164,10 @@ function toSeries(nodes: EditableNode[]): Series[] {
     } else {
       // Tout bloc top-level (typiquement `strength`/`core`) rejoint la série Muscu courante —
       // y compris un bloc d'un autre type : on ne le jette pas (N4), il reste round-trippé.
+      // Un `muscuGroup` différent ferme la carte courante et en démarre une nouvelle.
+      const marker = node.params[MUSCU_GROUP_PARAM];
+      if (run.length > 0 && marker !== runMarker) flush();
+      if (run.length === 0) runMarker = marker;
       run.push(node);
     }
   }
@@ -208,16 +257,6 @@ function defaultMuscuSeries(): EditableBlock[] {
 
 function makePpgStation(name = 'Station'): EditableBlock {
   return makeBlock({ type: BlockType.core, name, durationSeconds: '40', restSeconds: '20' });
-}
-
-function defaultPpgGroup(): EditableGroup {
-  return makeSeriesGroup({
-    name: 'Circuit PPG',
-    groupType: 'circuit',
-    rounds: '3',
-    restBetweenRoundsSeconds: '60',
-    items: [makePpgStation('Squats sautés'), makePpgStation('Pompes')],
-  });
 }
 
 // ---------- Résumés / KPI --------------------------------------------------------------------
@@ -323,46 +362,18 @@ export function StrengthEffortCanvas({
     commit(series.map((s, i) => (i === si ? next : s)));
   }
 
-  /** Bascule le mode d'une carte : remappe le type des lignes (strength ↔ core). */
+  /**
+   * Bascule le mode d'une carte → applique le **modèle par défaut** du mode cible (Muscu : Force
+   * max ; PPG : Circuit PPG). Ainsi un modèle est toujours sélectionné (le sélecteur « Modèle »
+   * reflète le mode) et le contenu est cohérent, plutôt qu'une conversion qui ne correspondait à
+   * aucun modèle. `applyPreset` gère le marqueur de regroupement (carte Muscu distincte).
+   */
   function setMode(si: number, mode: string) {
     const cur = series[si];
-    if (mode === 'ppg' && cur.kind === 'muscu') {
-      const stations = cur.blocks.map((b) =>
-        makeBlock({
-          type: BlockType.core,
-          name: EXERCISE_LABELS[b.params.exerciseKey ?? ''] ?? (b.name || 'Station'),
-          durationSeconds: '40',
-          restSeconds: '20',
-        }),
-      );
-      patchSeries(si, {
-        kind: 'ppg',
-        key: cur.key,
-        group: makeSeriesGroup({
-          name: 'Circuit PPG',
-          groupType: 'circuit',
-          rounds: '3',
-          restBetweenRoundsSeconds: '60',
-          items: stations.length > 0 ? stations : [makePpgStation()],
-        }),
-      });
-    } else if (mode === 'muscu' && cur.kind === 'ppg') {
-      const blocks = cur.group.items.map((b, idx) =>
-        makeMuscuBlock({
-          // Cycle sur les vraies clés du catalogue — jamais la sentinelle « Autre… » (TLX-172 #5).
-          exerciseKey: MUSCU_EXERCISE_KEYS[idx % MUSCU_EXERCISE_KEYS.length],
-          sets: 4,
-          reps: 8,
-          loadMode: 'percent_1rm',
-          loadValue: '70',
-        }),
-      );
-      patchSeries(si, {
-        kind: 'muscu',
-        key: cur.key,
-        blocks: blocks.length > 0 ? blocks : defaultMuscuSeries(),
-      });
-    }
+    const wantMuscu = mode === 'muscu';
+    if (wantMuscu === (cur.kind === 'muscu')) return; // déjà dans ce mode
+    const key = wantMuscu ? FIRST_MUSCU_PRESET : FIRST_PPG_PRESET;
+    if (key) applyPreset(si, key);
   }
 
   function setLoadMode(si: number, mode: string) {
@@ -408,19 +419,18 @@ export function StrengthEffortCanvas({
     if (cur.kind !== 'muscu') return;
     const last = cur.blocks[cur.blocks.length - 1];
     const mode = last ? loadModeOf(last) : 'percent_1rm';
-    patchSeries(si, {
-      ...cur,
-      blocks: [
-        ...cur.blocks,
-        makeMuscuBlock({
-          exerciseKey: 'bench',
-          sets: Number(last?.sets) || 4,
-          reps: Number(last?.reps) || 8,
-          loadMode: mode,
-          loadValue: last?.loadValue || (mode === 'percent_1rm' ? '70' : '40'),
-        }),
-      ],
+    const marker = cur.blocks[0]?.params[MUSCU_GROUP_PARAM];
+    let block = makeMuscuBlock({
+      exerciseKey: 'bench',
+      sets: Number(last?.sets) || 4,
+      reps: Number(last?.reps) || 8,
+      loadMode: mode,
+      loadValue: last?.loadValue || (mode === 'percent_1rm' ? '70' : '40'),
     });
+    // Le nouvel exercice reste dans la même carte (même marqueur de regroupement).
+    if (marker != null)
+      block = { ...block, params: { ...block.params, [MUSCU_GROUP_PARAM]: marker } };
+    patchSeries(si, { ...cur, blocks: [...cur.blocks, block] });
   }
 
   function removeMuscuExercise(si: number, bi: number) {
@@ -477,20 +487,30 @@ export function StrengthEffortCanvas({
       patchSeries(si, { kind: 'ppg', key: cur.key, group: { ...group, key: cur.key } });
     } else {
       const blocks = built.filter((n) => !isEditableGroup(n)) as EditableBlock[];
+      const muscu = blocks.length > 0 ? blocks : defaultMuscuSeries();
+      // Conserve le marqueur de la carte (ou en crée un si on convertit un PPG) → la carte garde
+      // son identité et ne fusionne pas avec une Muscu voisine.
+      const marker =
+        cur.kind === 'muscu' ? cur.blocks[0]?.params[MUSCU_GROUP_PARAM] : nextMuscuGroup();
       patchSeries(si, {
         kind: 'muscu',
         key: cur.key,
-        blocks: blocks.length > 0 ? blocks : defaultMuscuSeries(),
+        blocks: marker != null ? stampMuscuGroup(muscu, marker) : muscu,
       });
     }
   }
 
-  // Ajout d'un bloc : on insère un **groupe PPG** (toujours un nœud distinct → carte distincte).
-  // Deux blocs de travail Muscu adjacents fusionneraient en une seule carte (runs `strength`
-  // contigus, cf. modèle de données ci-dessus) ; passer par un groupe garantit une carte propre,
-  // que l'utilisateur peut rebasculer en Muscu via le Mode.
+  // Ajout d'une carte : nouvelle série **Muscu** (modèle Force max par défaut, comme les autres
+  // disciplines) marquée d'un `muscuGroup` propre → reste une carte distincte même adjacente à une
+  // autre Muscu (cf. toSeries). Bascule possible en PPG via le Mode.
   function addSerie() {
-    commit([...series, { kind: 'ppg', key: `ppg-${series.length}`, group: defaultPpgGroup() }]);
+    const built = STRENGTH_PRESETS[0]?.build() ?? [];
+    const blocks = built.filter((n) => !isEditableGroup(n)) as EditableBlock[];
+    const muscu = stampMuscuGroup(
+      blocks.length > 0 ? blocks : defaultMuscuSeries(),
+      nextMuscuGroup(),
+    );
+    commit([...series, { kind: 'muscu', key: muscu[0].key, blocks: muscu }]);
   }
 
   function removeSerie(si: number) {
@@ -608,7 +628,10 @@ function StrengthSeriesCard({
   onMoveDown: () => void;
   onDelete: () => void;
 }) {
-  const [selectedPresetKey, setSelectedPresetKey] = useState('');
+  // Dérivé (pas d'état local) : le « Modèle » reflète toujours le contenu réel de la carte → il se
+  // met à jour quand on bascule le Mode (Muscu ↔ PPG) ou qu'on applique un autre modèle (fix : le
+  // modèle ne se mettait pas à jour au changement de mode).
+  const selectedPresetKey = matchPresetKey(series);
   const { spacing } = useTheme();
   const tid = `series-card-${index}`;
   const mode = series.kind === 'muscu' ? 'muscu' : 'ppg';
@@ -635,10 +658,7 @@ function StrengthSeriesCard({
           testID={`${tid}-preset`}
           presets={STRENGTH_PRESETS}
           selectedKey={selectedPresetKey}
-          onSelect={(key) => {
-            setSelectedPresetKey(key);
-            onApplyPreset(key);
-          }}
+          onSelect={onApplyPreset}
         />
       </View>
 
@@ -655,18 +675,14 @@ function StrengthSeriesCard({
 
       {series.kind === 'muscu' ? (
         <>
-          {/* Table Muscu : Exercice | Séries | Reps | Charge | Tempo */}
+          {/* Exercices Muscu : une carte par exercice (nom en pleine largeur + params en sous-rangée).
+              5 colonnes ne tiennent pas en largeur mobile → le nom de l'exercice devenait illisible. */}
           <EffortTable
             title="Exercices du bloc"
             onAddRow={onAddMuscuExercise}
             addRowTestID={`${tid}-add-exercise`}
-            columns={[
-              { label: 'Exercice', flex: 2 },
-              { label: 'Séries' },
-              { label: 'Reps' },
-              { label: 'Charge' },
-              { label: 'Tempo' },
-            ]}
+            columns={[]}
+            hideColumnHeader
           >
             {series.blocks.map((block, bi) => (
               <MuscuRow
@@ -692,15 +708,6 @@ function StrengthSeriesCard({
               selected={loadMode}
               onSelect={onSetLoadMode}
             />
-            <InfoNote>
-              {loadMode === 'percent_1rm'
-                ? 'Charge en % du 1RM de chaque athlète (référence générique affichée ≈ kg).'
-                : loadMode === 'kg'
-                  ? 'Charge absolue en kg, commune à tous les athlètes.'
-                  : loadMode === 'bodyweight'
-                    ? 'Travail au poids de corps, sans charge additionnelle.'
-                    : 'Intensité perçue (RPE 1–10), indépendante d’un référentiel de charge.'}
-            </InfoNote>
           </View>
         </>
       ) : (
@@ -763,16 +770,8 @@ function StrengthSeriesCard({
               />
             ))}
           </EffortTable>
-          <InfoNote>
-            {PRESET_TIPS[selectedPresetKey] ??
-              'Circuit : le travail s’exprime en secondes ou en répétitions par station.'}
-          </InfoNote>
         </>
       )}
-
-      {series.kind === 'muscu' && selectedPresetKey && PRESET_TIPS[selectedPresetKey] ? (
-        <InfoNote>{PRESET_TIPS[selectedPresetKey]}</InfoNote>
-      ) : null}
     </SeriesCardFrame>
   );
 }
@@ -798,7 +797,7 @@ function MuscuRow({
   onDelete: () => void;
   testIDPrefix: string;
 }) {
-  const { spacing } = useTheme();
+  const { spacing, colors, typography, borderWidth } = useTheme();
   const exerciseKey = block.params.exerciseKey ?? '';
   const custom = isCustomExercise(block);
   const targetKg =
@@ -807,65 +806,111 @@ function MuscuRow({
       : undefined;
 
   return (
-    <View style={{ gap: spacing[1] }}>
-      <EffortRowFrame
-        testID={testIDPrefix}
-        index={index}
-        canDelete={canDelete}
-        onDelete={onDelete}
-        deleteLabel="Supprimer cet exercice"
-      >
-        <View style={{ flex: 2, gap: spacing[1] }}>
+    <View
+      testID={testIDPrefix}
+      style={{
+        gap: spacing[2],
+        marginBottom: spacing[2],
+        // Séparateur fin entre exercices (plutôt qu'encadrer chaque ligne → plus léger).
+        paddingTop: index > 0 ? spacing[3] : 0,
+        borderTopWidth: index > 0 ? borderWidth.hairline : 0,
+        borderTopColor: colors.border,
+      }}
+    >
+      {/* Exercice (occupe la largeur) + suppression sur la même rangée. */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[2] }}>
+        <View style={{ flex: 1 }}>
           <ExercisePicker
             testID={`${testIDPrefix}-exercise`}
             selectedKey={custom ? CUSTOM_EXERCISE_KEY : exerciseKey}
             onSelect={onSetExercise}
           />
-          {custom ? (
-            <NameInput
-              testID={`${testIDPrefix}-custom-name`}
-              value={block.name}
-              onChangeText={(t) => onPatch({ name: t })}
-              placeholder="Nom de l’exercice"
-            />
-          ) : null}
         </View>
-        <CellInput
-          testID={`${testIDPrefix}-sets`}
-          value={block.sets}
-          onChangeText={(t) => onPatch({ sets: t })}
+        {canDelete ? (
+          <Pressable
+            testID={`${testIDPrefix}-del`}
+            onPress={onDelete}
+            accessibilityRole="button"
+            accessibilityLabel="Supprimer cet exercice"
+            hitSlop={8}
+            style={{ padding: spacing[1] }}
+          >
+            <Feather name="x" size={16} color={colors.danger} />
+          </Pressable>
+        ) : null}
+      </View>
+      {custom ? (
+        <NameInput
+          testID={`${testIDPrefix}-custom-name`}
+          value={block.name}
+          onChangeText={(t) => onPatch({ name: t })}
+          placeholder="Nom de l’exercice"
         />
-        <CellInput
-          testID={`${testIDPrefix}-reps`}
-          value={block.reps}
-          onChangeText={(t) => onPatch({ reps: t })}
-        />
-        {loadMode === 'bodyweight' ? (
-          <CellInput testID={`${testIDPrefix}-load`} value="" onChangeText={() => {}} unit="PdC" />
-        ) : loadMode === 'rpe' ? (
+      ) : null}
+      {/* Séries · Reps · Charge · Tempo sur une seule ligne (pleine largeur). */}
+      <View style={{ flexDirection: 'row', gap: spacing[2] }}>
+        <View style={{ flex: 1 }}>
+          <FieldLabel>Séries</FieldLabel>
           <CellInput
-            testID={`${testIDPrefix}-load`}
-            value={block.params.rpe ?? ''}
-            onChangeText={(t) => onPatch({ params: { ...block.params, rpe: t } })}
-            unit="RPE"
+            testID={`${testIDPrefix}-sets`}
+            value={block.sets}
+            onChangeText={(t) => onPatch({ sets: t })}
           />
-        ) : (
+        </View>
+        <View style={{ flex: 1 }}>
+          <FieldLabel>Reps</FieldLabel>
           <CellInput
-            testID={`${testIDPrefix}-load`}
-            value={block.loadValue}
-            onChangeText={(t) => onPatch({ loadValue: t })}
-            unit={loadMode === 'kg' ? 'kg' : '%'}
+            testID={`${testIDPrefix}-reps`}
+            value={block.reps}
+            onChangeText={(t) => onPatch({ reps: t })}
           />
-        )}
-        <CellInput
-          testID={`${testIDPrefix}-tempo`}
-          value={block.params.tempo ?? ''}
-          onChangeText={(t) => onPatch({ params: { ...block.params, tempo: t } })}
-          decimal
-        />
-      </EffortRowFrame>
+        </View>
+        <View style={{ flex: 1 }}>
+          <FieldLabel>Charge</FieldLabel>
+          {loadMode === 'bodyweight' ? (
+            <CellInput
+              testID={`${testIDPrefix}-load`}
+              value=""
+              onChangeText={() => {}}
+              unit="PdC"
+            />
+          ) : loadMode === 'rpe' ? (
+            <CellInput
+              testID={`${testIDPrefix}-load`}
+              value={block.params.rpe ?? ''}
+              onChangeText={(t) => onPatch({ params: { ...block.params, rpe: t } })}
+              unit="RPE"
+            />
+          ) : (
+            <CellInput
+              testID={`${testIDPrefix}-load`}
+              value={block.loadValue}
+              onChangeText={(t) => onPatch({ loadValue: t })}
+              unit={loadMode === 'kg' ? 'kg' : '%'}
+            />
+          )}
+        </View>
+        <View style={{ flex: 1 }}>
+          <FieldLabel>Tempo</FieldLabel>
+          <CellInput
+            testID={`${testIDPrefix}-tempo`}
+            value={block.params.tempo ?? ''}
+            onChangeText={(t) => onPatch({ params: { ...block.params, tempo: t } })}
+            text
+          />
+        </View>
+      </View>
+      {/* Référence indicative discrète (≈ kg), au lieu d'un encart d'avertissement par exercice. */}
       {targetKg != null ? (
-        <InfoNote>{`≈ ${targetKg} kg sur la référence du module`}</InfoNote>
+        <Text
+          style={{
+            fontSize: typography.caption.fontSize,
+            color: colors.textMuted,
+            fontFamily: typography.fontFamily.regular,
+          }}
+        >
+          {`≈ ${targetKg} kg sur la référence`}
+        </Text>
       ) : null}
     </View>
   );
@@ -948,6 +993,8 @@ function ExercisePicker({
       presets={EXERCISE_OPTIONS.map((o) => ({ key: o.value, label: o.label }))}
       selectedKey={selectedKey}
       onSelect={onSelect}
+      subtle
+      placeholder="Choisir un exercice…"
     />
   );
 }

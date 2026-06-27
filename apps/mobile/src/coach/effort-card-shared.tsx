@@ -1,11 +1,12 @@
 import { useState, type ReactNode } from 'react';
 import { Feather } from '@expo/vector-icons';
-import { Pressable, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { useTheme } from '@talent-x/design-tokens';
 import { Button, Card } from '../components/ui';
 import {
   isEditableGroup,
   makeSeriesGroup,
+  sanitizeNumeric,
   type EditableBlock,
   type EditableGroup,
   type EditableNode,
@@ -276,6 +277,7 @@ export function EffortTable({
   addRowTestID,
   addRowLabel = 'ajouter',
   columns,
+  hideColumnHeader = false,
   children,
 }: {
   title: string;
@@ -283,6 +285,9 @@ export function EffortTable({
   addRowTestID?: string;
   addRowLabel?: string;
   columns: EffortColumn[];
+  /** Masque la rangée d'en-têtes de colonnes (mise en page « carte » dont chaque ligne porte ses
+   *  propres libellés — ex. les exercices Muscu sur mobile). */
+  hideColumnHeader?: boolean;
   children: ReactNode;
 }) {
   const { colors, typography, spacing } = useTheme();
@@ -323,22 +328,26 @@ export function EffortTable({
         )}
       </View>
 
-      <View style={{ flexDirection: 'row', gap: spacing[2], marginBottom: spacing[1] }}>
-        <Text style={[colHeaderStyle, { width: 20, color: colors.textMuted }]}>#</Text>
-        {columns.map((c, i) => (
-          <Text
-            key={i}
-            style={[
-              colHeaderStyle,
-              c.width != null ? { width: c.width } : { flex: c.flex ?? 1 },
-              { color: colors.textMuted },
-            ]}
-          >
-            {c.label}
-          </Text>
-        ))}
-        <View style={{ width: 24 }} />
-      </View>
+      {!hideColumnHeader && (
+        <View style={{ flexDirection: 'row', gap: spacing[2], marginBottom: spacing[1] }}>
+          <Text style={[colHeaderStyle, { width: 20, color: colors.textMuted }]}>#</Text>
+          {columns.map((c, i) => (
+            <Text
+              key={i}
+              style={[
+                colHeaderStyle,
+                // `minWidth: 0` pour suivre les cellules (qui se rétrécissent) et rester aligné en
+                // largeur étroite (TLX-191).
+                c.width != null ? { width: c.width } : { flex: c.flex ?? 1, minWidth: 0 },
+                { color: colors.textMuted },
+              ]}
+            >
+              {c.label}
+            </Text>
+          ))}
+          <View style={{ width: 24 }} />
+        </View>
+      )}
 
       {children}
     </View>
@@ -635,7 +644,12 @@ export function SegmentedControl({
             accessibilityState={{ selected: sel }}
             style={({ pressed }) => ({
               flex: 1,
-              height: 36,
+              // `minHeight` (et non hauteur fixe) + padding : un libellé long (« Allure spécifique »
+              // sur 4 options) peut passer sur 2 lignes sans être tronqué ; toutes les cases
+              // s'alignent à la plus haute (flex row).
+              minHeight: 36,
+              paddingVertical: 4,
+              paddingHorizontal: 4,
               alignItems: 'center',
               justifyContent: 'center',
               backgroundColor: sel ? colors.accentSubtle : pressed ? colors.surface : 'transparent',
@@ -644,7 +658,9 @@ export function SegmentedControl({
             })}
           >
             <Text
+              numberOfLines={2}
               style={{
+                textAlign: 'center',
                 color: sel ? colors.accentText : colors.textSecondary,
                 fontFamily: sel ? typography.fontFamily.semibold : typography.fontFamily.regular,
                 fontSize: typography.caption.fontSize,
@@ -711,15 +727,33 @@ export function PresetPicker({
   selectedKey,
   onSelect,
   testID,
+  subtle = false,
+  placeholder = 'Choisir un modèle…',
 }: {
   presets: { key: string; label: string }[];
   selectedKey: string;
   onSelect: (key: string) => void;
   testID?: string;
+  /** Style discret (bordure neutre, fond surface) — pour les sélecteurs secondaires (ex. exercice
+   *  Muscu) qui ne doivent pas concurrencer visuellement le sélecteur de modèle principal. */
+  subtle?: boolean;
+  placeholder?: string;
 }) {
   const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
   const { colors, typography, spacing, radius, borderWidth } = useTheme();
   const selectedLabel = presets.find((p) => p.key === selectedKey)?.label;
+  const accented = !subtle && selectedLabel != null;
+  // Recherche au-delà de ~8 entrées (ex. catalogue d'exercices) ; inutile pour 5–7 modèles.
+  const searchable = presets.length > 8;
+  // Normalisation insensible casse + accents (« dev » doit matcher « Développé »).
+  const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  const q = norm(query.trim());
+  const filtered = searchable && q ? presets.filter((p) => norm(p.label).includes(q)) : presets;
+  const close = () => {
+    setOpen(false);
+    setQuery('');
+  };
 
   if (!open) {
     return (
@@ -727,35 +761,40 @@ export function PresetPicker({
         testID={testID}
         onPress={() => setOpen(true)}
         style={{
-          height: 42,
+          height: subtle ? 38 : 42,
           paddingHorizontal: spacing[3],
           flexDirection: 'row',
           alignItems: 'center',
           justifyContent: 'space-between',
           borderRadius: radius.sm,
           borderWidth: borderWidth.hairline,
-          borderColor: selectedLabel ? colors.accent : colors.borderStrong,
-          backgroundColor: colors.surfaceSunken,
+          borderColor: accented ? colors.accent : colors.borderStrong,
+          backgroundColor: subtle ? colors.surface : colors.surfaceSunken,
           gap: spacing[2],
         }}
       >
         <Text
           style={{
             flex: 1,
-            color: selectedLabel ? colors.accentText : colors.textMuted,
-            fontFamily: selectedLabel
-              ? typography.fontFamily.medium
-              : typography.fontFamily.regular,
+            color: accented
+              ? colors.accentText
+              : selectedLabel
+                ? colors.textPrimary
+                : colors.textMuted,
+            fontFamily:
+              selectedLabel && !subtle
+                ? typography.fontFamily.medium
+                : typography.fontFamily.regular,
             fontSize: typography.bodySm.fontSize,
           }}
           numberOfLines={1}
         >
-          {selectedLabel ?? 'Choisir un modèle…'}
+          {selectedLabel ?? placeholder}
         </Text>
         <Feather
           name="chevron-down"
           size={14}
-          color={selectedLabel ? colors.accentText : colors.textMuted}
+          color={accented ? colors.accentText : colors.textMuted}
         />
       </Pressable>
     );
@@ -771,42 +810,98 @@ export function PresetPicker({
         overflow: 'hidden',
       }}
     >
-      {presets.map((p) => (
-        <Pressable
-          key={p.key}
-          testID={testID ? `${testID}-${p.key}` : undefined}
-          onPress={() => {
-            onSelect(p.key);
-            setOpen(false);
-          }}
-          style={({ pressed }) => ({
+      {/* Recherche (listes longues) : filtrer au lieu de tout dérouler. */}
+      {searchable ? (
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: spacing[2],
             paddingHorizontal: spacing[3],
-            paddingVertical: spacing[2],
-            backgroundColor:
-              p.key === selectedKey
-                ? colors.accentSubtle
-                : pressed
-                  ? colors.surfaceSunken
-                  : 'transparent',
-          })}
+            height: 40,
+            borderBottomWidth: borderWidth.hairline,
+            borderBottomColor: colors.border,
+          }}
         >
+          <Feather name="search" size={14} color={colors.textMuted} />
+          <TextInput
+            testID={testID ? `${testID}-search` : undefined}
+            autoFocus
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Rechercher…"
+            placeholderTextColor={colors.textMuted}
+            style={{
+              flex: 1,
+              padding: 0,
+              color: colors.textPrimary,
+              fontFamily: typography.fontFamily.regular,
+              fontSize: typography.bodySm.fontSize,
+            }}
+          />
+        </View>
+      ) : null}
+      {/* Liste scrollable à hauteur bornée (au lieu d'occuper tout l'écran). */}
+      <ScrollView
+        style={{ maxHeight: 240 }}
+        keyboardShouldPersistTaps="handled"
+        nestedScrollEnabled
+      >
+        {filtered.map((p) => (
+          <Pressable
+            key={p.key}
+            testID={testID ? `${testID}-${p.key}` : undefined}
+            onPress={() => {
+              onSelect(p.key);
+              close();
+            }}
+            style={({ pressed }) => ({
+              paddingHorizontal: spacing[3],
+              paddingVertical: spacing[2],
+              backgroundColor:
+                p.key === selectedKey
+                  ? colors.accentSubtle
+                  : pressed
+                    ? colors.surfaceSunken
+                    : 'transparent',
+            })}
+          >
+            <Text
+              style={{
+                color: p.key === selectedKey ? colors.accentText : colors.textPrimary,
+                fontFamily:
+                  p.key === selectedKey
+                    ? typography.fontFamily.semibold
+                    : typography.fontFamily.regular,
+                fontSize: typography.bodySm.fontSize,
+              }}
+            >
+              {p.label}
+            </Text>
+          </Pressable>
+        ))}
+        {filtered.length === 0 ? (
           <Text
             style={{
-              color: p.key === selectedKey ? colors.accentText : colors.textPrimary,
-              fontFamily:
-                p.key === selectedKey
-                  ? typography.fontFamily.semibold
-                  : typography.fontFamily.regular,
+              paddingHorizontal: spacing[3],
+              paddingVertical: spacing[3],
+              color: colors.textMuted,
+              fontFamily: typography.fontFamily.regular,
               fontSize: typography.bodySm.fontSize,
             }}
           >
-            {p.label}
+            Aucun résultat
           </Text>
-        </Pressable>
-      ))}
+        ) : null}
+      </ScrollView>
       <Pressable
-        onPress={() => setOpen(false)}
-        style={{ paddingHorizontal: spacing[3], paddingVertical: spacing[2] }}
+        onPress={close}
+        style={{
+          paddingHorizontal: spacing[3],
+          paddingVertical: spacing[2],
+          borderTopWidth: borderWidth.hairline,
+          borderTopColor: colors.border,
+        }}
       >
         <Text
           style={{
@@ -855,6 +950,7 @@ export function CellInput({
   onChangeText,
   unit,
   decimal = false,
+  text = false,
   placeholder,
   testID,
 }: {
@@ -862,6 +958,8 @@ export function CellInput({
   onChangeText: (t: string) => void;
   unit?: string;
   decimal?: boolean;
+  /** Champ libre (ex. épreuve « 110mH », tempo « 31X1 ») — pas de filtrage numérique. */
+  text?: boolean;
   placeholder?: string;
   testID?: string;
 }) {
@@ -870,6 +968,11 @@ export function CellInput({
     <View
       style={{
         flex: 1,
+        // `minWidth: 0` indispensable : react-native-web donne aux items flex un `min-width: auto`
+        // = largeur intrinsèque de l'`<input>` (~150px). Sans ça, `flex:1` ne peut PAS rétrécir les
+        // cellules sous cette taille → en largeur étroite (mobile) les colonnes se chevauchent et
+        // valeurs/unités débordent (TLX-191). À 0, les 3 colonnes se répartissent la largeur réelle.
+        minWidth: 0,
         flexDirection: 'row',
         alignItems: 'center',
         borderRadius: radius.sm,
@@ -884,11 +987,17 @@ export function CellInput({
       <TextInput
         testID={testID}
         value={value}
-        onChangeText={onChangeText}
-        keyboardType={decimal ? 'numeric' : 'number-pad'}
+        // Filtre la saisie pour les champs numériques (sur web, le clavier numérique n'empêche
+        // pas de taper des lettres). `text` = champ libre, aucune restriction.
+        onChangeText={text ? onChangeText : (t) => onChangeText(sanitizeNumeric(t, decimal))}
+        keyboardType={text ? 'default' : decimal ? 'numeric' : 'number-pad'}
+        // Champ aligné à droite : sans ça, react-native-web place le caret en position 0 (à
+        // gauche, avant la valeur) au clic. On sélectionne le nombre au focus → réécriture directe.
+        selectTextOnFocus={!text}
         placeholder={placeholder}
         style={{
           flex: 1,
+          minWidth: 0, // laisse l'input rétrécir dans sa cellule (cf. minWidth:0 du conteneur)
           color: colors.textPrimary,
           fontFamily: typography.fontFamily.regular,
           fontSize: typography.bodySm.fontSize,
@@ -902,7 +1011,10 @@ export function CellInput({
             color: colors.textMuted,
             fontFamily: typography.fontFamily.regular,
             fontSize: typography.caption.fontSize,
-            minWidth: unit.length > 2 ? 30 : 16,
+            // Réserve d'unité **constante** : sinon des unités de largeurs min différentes
+            // (« % » 16 vs « min » 30) décalent les colonnes d'une ligne à l'autre du tableau
+            // (la dernière ligne « → R » n'ayant pas d'unité). Largeur fixe = colonnes alignées.
+            minWidth: 26,
           }}
         >
           {unit}
@@ -945,8 +1057,12 @@ export function InlineNumberInput({
       <TextInput
         testID={testID}
         value={value}
-        onChangeText={onChangeText}
+        // Filtre la saisie numérique (web : le clavier numérique n'empêche pas les lettres).
+        // Décimal autorisé (ex. récup R en minutes « 1.5 »).
+        onChangeText={(t) => onChangeText(sanitizeNumeric(t, true))}
         keyboardType="numeric"
+        // Sélectionne la valeur au focus (champ aligné à droite → évite le caret à gauche).
+        selectTextOnFocus
         placeholder={placeholder}
         placeholderTextColor={colors.textMuted}
         style={{

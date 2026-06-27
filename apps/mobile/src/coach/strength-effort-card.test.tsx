@@ -177,12 +177,16 @@ describe('StrengthEffortCanvas', () => {
     expect(screen.queryByText(/≈ \d+ kg/)).toBeNull();
   });
 
-  it('ajoute un bloc de travail (nouvelle carte PPG distincte)', () => {
-    const h = setup(muscuCanvas());
+  it('ajoute une nouvelle carte Muscu distincte (sans fusionner avec le bloc existant)', () => {
+    setup(muscuCanvas());
     act(() => fireEvent.press(screen.getByTestId('strength-add-series')));
+    // Deux cartes distinctes : la nouvelle série Muscu ne fusionne PAS avec le bloc Muscu existant
+    // (marqueur `muscuGroup` → toSeries ne réunit pas les blocs `strength` contigus en une carte).
+    expect(screen.getByTestId('series-card-0')).toBeTruthy();
     expect(screen.getByTestId('series-card-1')).toBeTruthy();
-    // La nouvelle carte est un groupe PPG (nœud distinct, ne fusionne pas avec le bloc Muscu).
-    expect(h.groups()).toHaveLength(1);
+    expect(screen.queryByTestId('series-card-2')).toBeNull();
+    // La nouvelle carte est bien Muscu (a ses propres exercices).
+    expect(screen.getByTestId('series-card-1-ex-0-exercise')).toBeTruthy();
   });
 
   it('mode encart : séries + ajout rendus, en-tête KPI et barres écha/RAC masqués', () => {

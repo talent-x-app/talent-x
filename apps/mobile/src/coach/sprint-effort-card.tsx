@@ -75,6 +75,19 @@ function serieProps(group: EditableGroup) {
   };
 }
 
+/**
+ * Clé du modèle dont la série amorcée correspond (match par **nom de série**), pour pré-sélectionner
+ * le sélecteur de modèle. `''` si aucune correspondance (séance custom / éditée) → « Choisir… ».
+ * Sûr pour l'édition : une séance existante qui ne matche aucun preset n'est jamais pré-sélectionnée.
+ */
+function matchPresetKey(group: EditableGroup): string {
+  for (const p of SPRINT_PRESETS) {
+    const g = p.build().find((n) => isEditableGroup(n)) as EditableGroup | undefined;
+    if (g && g.name === group.name) return p.key;
+  }
+  return '';
+}
+
 /** Résumé condensé d'une série pour la tuile réduite. */
 function serieSummary(group: EditableGroup): string {
   const { intensityMode, startType, rounds, restR } = serieProps(group);
@@ -226,23 +239,29 @@ export function SprintEffortCanvas({
   }
 
   function addSerie() {
+    // Une série ajoutée part du 1er preset (Départs / Accélération) → un modèle est sélectionné
+    // par défaut (match par nom), comme l'amorce de l'assistant.
+    const preset = SPRINT_PRESETS[0]?.build().find((n) => isEditableGroup(n)) as
+      | EditableGroup
+      | undefined;
     commit([
       ...series,
-      makeSeriesGroup({
-        name: 'Série de sprint',
-        rounds: '1',
-        restBetweenRoundsSeconds: '300',
-        items: [
-          makeSprintBlock({
-            distance: 60,
-            intensity: 95,
-            recovery: 240,
-            intensityMode: 'percent_record',
-            startType: 'blocks',
-            flyingZone: false,
-          }),
-        ],
-      }),
+      preset ??
+        makeSeriesGroup({
+          name: 'Série de sprint',
+          rounds: '1',
+          restBetweenRoundsSeconds: '300',
+          items: [
+            makeSprintBlock({
+              distance: 60,
+              intensity: 95,
+              recovery: 240,
+              intensityMode: 'percent_record',
+              startType: 'blocks',
+              flyingZone: false,
+            }),
+          ],
+        }),
     ]);
   }
 
@@ -365,7 +384,9 @@ function SeriesCard({
   onMoveDown: () => void;
   onDelete: () => void;
 }) {
-  const [selectedPresetKey, setSelectedPresetKey] = useState('');
+  // Pré-sélection : si la série amorcée correspond à un modèle (cas assistant), on l'affiche
+  // sélectionné. Dérivé une seule fois au montage (les choix ultérieurs pilotent l'état).
+  const [selectedPresetKey, setSelectedPresetKey] = useState(() => matchPresetKey(group));
   const { colors, typography, spacing } = useTheme();
   const tid = `series-card-${index}`;
   const { intensityMode, startType, flyingZone, rounds, restR } = serieProps(group);
@@ -382,23 +403,24 @@ function SeriesCard({
       onMoveDown={onMoveDown}
       onDelete={onDelete}
     >
-      {/* Modèle + séries + récup R */}
-      <View
-        style={{ flexDirection: 'row', gap: spacing[3], flexWrap: 'wrap', alignItems: 'flex-end' }}
-      >
-        <View style={{ flex: 1, minWidth: 130 }}>
-          <FieldLabel>Modèle</FieldLabel>
-          <PresetPicker
-            testID={`${tid}-preset`}
-            presets={SPRINT_PRESETS}
-            selectedKey={selectedPresetKey}
-            onSelect={(key) => {
-              setSelectedPresetKey(key);
-              onApplyPreset(key);
-            }}
-          />
-        </View>
-        <View>
+      {/* Modèle : pleine largeur, sur sa propre rangée — le sélecteur déroulant se déploie
+          alors sans décaler « Séries »/« Récup » (qui partageaient sa rangée auparavant). */}
+      <View>
+        <FieldLabel>Modèle</FieldLabel>
+        <PresetPicker
+          testID={`${tid}-preset`}
+          presets={SPRINT_PRESETS}
+          selectedKey={selectedPresetKey}
+          onSelect={(key) => {
+            setSelectedPresetKey(key);
+            onApplyPreset(key);
+          }}
+        />
+      </View>
+
+      {/* Séries + récup R — deux colonnes égales, côte à côte. */}
+      <View style={{ flexDirection: 'row', gap: spacing[3], alignItems: 'flex-end' }}>
+        <View style={{ flex: 1 }}>
           <FieldLabel>Séries</FieldLabel>
           <Stepper
             testID={`${tid}-rounds`}
@@ -409,7 +431,7 @@ function SeriesCard({
             accessibilityLabel="Nombre de séries"
           />
         </View>
-        <View>
+        <View style={{ flex: 1 }}>
           <FieldLabel>Récup. R</FieldLabel>
           <InlineNumberInput
             testID={`${tid}-restR`}
@@ -431,7 +453,7 @@ function SeriesCard({
         title="Sprints de la série"
         onAddRow={onAddSprint}
         addRowTestID={`${tid}-add-sprint`}
-        columns={[{ label: 'Distance' }, { label: 'Intensité' }, { label: 'Récup r' }]}
+        columns={[{ label: 'Distance' }, { label: 'Intensité' }, { label: 'Récup r', width: 72 }]}
       >
         {group.items.map((block, bi) => (
           <SprintRow
@@ -455,7 +477,13 @@ function SeriesCard({
           testIDPrefix={`${tid}-imode`}
           options={INTENSITY_MODES}
           selected={intensityMode}
-          onSelect={(v) => onPatchSerieParam({ intensityMode: v })}
+          // Changer de référentiel **réinitialise** la valeur d'intensité : un « 95 » en % record
+          // n'a aucun sens en s ou en m/s, et la conversion dépend du record de chaque athlète
+          // (impossible ici). On vide pour que le coach saisisse la valeur dans la bonne unité.
+          onSelect={(v) => {
+            if (v === intensityMode) return;
+            onPatchSerieParam({ intensityMode: v, intensityValue: '' });
+          }}
         />
         <InfoNote>{intensityNote(intensityMode)}</InfoNote>
       </View>
@@ -550,8 +578,11 @@ function SprintRow({
         decimal={intensityMode !== 'percent_record'}
       />
       {/* Récup r — dernier sprint : → R (récupération de série), sinon saisie en min */}
+      {/* Colonne « récup » à largeur fixe (72) pour toutes les lignes → la dernière (« → R »)
+          s'aligne exactement avec les lignes à saisie (sinon décalage, react-native-web ne fait
+          pas grandir une cellule texte comme une CellInput). */}
       {isLast ? (
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+        <View style={{ width: 72, height: 38, alignItems: 'center', justifyContent: 'center' }}>
           <Text
             style={{
               color: colors.textMuted,
@@ -563,18 +594,20 @@ function SprintRow({
           </Text>
         </View>
       ) : (
-        <CellInput
-          testID={`${testIDPrefix}-rec`}
-          value={
-            block.params.recoverySeconds ? String(Number(block.params.recoverySeconds) / 60) : ''
-          }
-          onChangeText={(t) => {
-            const v = parseFloat(t);
-            onPatch({ recoverySeconds: String(isNaN(v) ? 0 : Math.round(v * 60)) });
-          }}
-          unit="min"
-          decimal
-        />
+        <View style={{ width: 72 }}>
+          <CellInput
+            testID={`${testIDPrefix}-rec`}
+            value={
+              block.params.recoverySeconds ? String(Number(block.params.recoverySeconds) / 60) : ''
+            }
+            onChangeText={(t) => {
+              const v = parseFloat(t);
+              onPatch({ recoverySeconds: String(isNaN(v) ? 0 : Math.round(v * 60)) });
+            }}
+            unit="min"
+            decimal
+          />
+        </View>
       )}
     </EffortRowFrame>
   );

@@ -148,29 +148,19 @@ function makeHorizontalJump(opts: {
   });
 }
 
-function makeVerticalJump(opts: {
-  discipline: string;
-  startHeightCm?: number;
-  incrementCm?: number;
-  bars?: number;
-  attemptsPerBar?: number;
-}): EditableBlock {
-  const pole = opts.discipline === 'pole';
-  return makeBlock({
-    type: BlockType.vertical_jumps,
-    name: disciplineLabel(opts.discipline),
-    params: {
-      discipline: opts.discipline,
-      startHeightCm: String(opts.startHeightCm ?? (pole ? 360 : 165)),
-      incrementCm: String(opts.incrementCm ?? (pole ? 15 : 5)),
-      bars: String(opts.bars ?? 6),
-      attemptsPerBar: String(opts.attemptsPerBar ?? 3),
-      ...(pole ? { gripCm: '430' } : {}),
-    },
-  });
+/** Clé du modèle dont la série amorcée correspond (match par nom) — pré-sélection du picker. */
+function matchPresetKey(group: EditableGroup): string {
+  for (const p of JUMPS_PRESETS) {
+    const g = p.build().find((n) => isEditableGroup(n)) as EditableGroup | undefined;
+    if (g && g.name === group.name) return p.key;
+  }
+  return '';
 }
 
 function defaultJumpSeries(): EditableGroup {
+  // Série ajoutée = 1er preset → modèle sélectionné par défaut + table pré-remplie.
+  const g = JUMPS_PRESETS[0]?.build().find((n) => isEditableGroup(n)) as EditableGroup | undefined;
+  if (g) return g;
   return makeSeriesGroup({
     name: 'Série de sauts',
     rounds: '6',
@@ -220,38 +210,6 @@ export function JumpsEffortCanvas({
   }
 
   /** Change la discipline : reconvertit le bloc de la série (horizontal ↔ vertical). */
-  function setDiscipline(gi: number, discipline: string) {
-    commit(
-      series.map((g, i) => {
-        if (i !== gi) return g;
-        const p = serieProps(g);
-        const wasVertical = p.vertical;
-        const willVertical = isVerticalDiscipline(discipline);
-        // Même famille : on garde les blocs et on change juste la discipline.
-        if (wasVertical === willVertical) {
-          return {
-            ...g,
-            items: g.items.map((b) => ({
-              ...b,
-              name: disciplineLabel(discipline),
-              params: { ...b.params, discipline },
-            })),
-          };
-        }
-        // Bascule de famille : on reconstruit un bloc neuf typé.
-        const block = willVertical
-          ? makeVerticalJump({ discipline })
-          : makeHorizontalJump({
-              discipline,
-              approachUnit: p.approachUnit,
-              takeoff: p.takeoff,
-              targetMode: p.targetMode,
-            });
-        return { ...g, items: [{ ...block, key: g.items[0]?.key ?? block.key }] };
-      }),
-    );
-  }
-
   function patchJump(gi: number, bi: number, paramPatch: Record<string, string>) {
     commit(
       series.map((g, i) =>
@@ -349,7 +307,6 @@ export function JumpsEffortCanvas({
           total={series.length}
           onPatchGroup={(patch) => patchGroup(gi, patch)}
           onPatchSerieParam={(patch) => patchSerieParam(gi, patch)}
-          onSetDiscipline={(d) => setDiscipline(gi, d)}
           onPatchJump={(bi, patch) => patchJump(gi, bi, patch)}
           onAddJump={() => addJump(gi)}
           onRemoveJump={(bi) => removeJump(gi, bi)}
@@ -371,7 +328,6 @@ function JumpsSeriesCard({
   total,
   onPatchGroup,
   onPatchSerieParam,
-  onSetDiscipline,
   onPatchJump,
   onAddJump,
   onRemoveJump,
@@ -385,7 +341,6 @@ function JumpsSeriesCard({
   total: number;
   onPatchGroup: (patch: Partial<EditableGroup>) => void;
   onPatchSerieParam: (patch: Record<string, string>) => void;
-  onSetDiscipline: (d: string) => void;
   onPatchJump: (bi: number, patch: Record<string, string>) => void;
   onAddJump: () => void;
   onRemoveJump: (bi: number) => void;
@@ -394,10 +349,9 @@ function JumpsSeriesCard({
   onMoveDown: () => void;
   onDelete: () => void;
 }) {
-  const [selectedPresetKey, setSelectedPresetKey] = useState('');
-  const { spacing } = useTheme();
+  const [selectedPresetKey, setSelectedPresetKey] = useState(() => matchPresetKey(group));
   const tid = `series-card-${index}`;
-  const { discipline, vertical, approachUnit, takeoff, targetMode, rounds } = serieProps(group);
+  const { vertical, approachUnit, takeoff, targetMode, rounds } = serieProps(group);
 
   return (
     <SeriesCardFrame
@@ -411,53 +365,36 @@ function JumpsSeriesCard({
       onMoveDown={onMoveDown}
       onDelete={onDelete}
     >
-      {/* Modèle + tours/essais */}
-      <View
-        style={{ flexDirection: 'row', gap: spacing[3], flexWrap: 'wrap', alignItems: 'flex-end' }}
-      >
-        <View style={{ flex: 1, minWidth: 130 }}>
-          <FieldLabel>Modèle</FieldLabel>
-          <PresetPicker
-            testID={`${tid}-preset`}
-            presets={JUMPS_PRESETS}
-            selectedKey={selectedPresetKey}
-            onSelect={(key) => {
-              setSelectedPresetKey(key);
-              onApplyPreset(key);
-            }}
+      {/* Modèle : pleine largeur (l'ouverture du sélecteur ne décale plus « Passages »). */}
+      <View>
+        <FieldLabel>Modèle</FieldLabel>
+        <PresetPicker
+          testID={`${tid}-preset`}
+          presets={JUMPS_PRESETS}
+          selectedKey={selectedPresetKey}
+          onSelect={(key) => {
+            setSelectedPresetKey(key);
+            onApplyPreset(key);
+          }}
+        />
+      </View>
+      {!vertical && (
+        <View>
+          <FieldLabel>Passages</FieldLabel>
+          <Stepper
+            testID={`${tid}-rounds`}
+            value={rounds}
+            min={1}
+            max={20}
+            onValueChange={(v) => onPatchGroup({ rounds: String(v) })}
+            accessibilityLabel="Nombre de passages"
           />
         </View>
-        {!vertical && (
-          <View>
-            <FieldLabel>Passages</FieldLabel>
-            <Stepper
-              testID={`${tid}-rounds`}
-              value={rounds}
-              min={1}
-              max={20}
-              onValueChange={(v) => onPatchGroup({ rounds: String(v) })}
-              accessibilityLabel="Nombre de passages"
-            />
-          </View>
-        )}
-      </View>
+      )}
 
-      {/* Discipline */}
-      <View style={{ gap: spacing[2] }}>
-        <FieldLabel>Discipline</FieldLabel>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] }}>
-          {DISCIPLINES.map((d) => (
-            <Chip
-              key={d.value}
-              testID={`${tid}-disc-${d.value}`}
-              selected={discipline === d.value}
-              onPress={() => onSetDiscipline(d.value)}
-            >
-              {d.label}
-            </Chip>
-          ))}
-        </View>
-      </View>
+      {/* La discipline (longueur/triple/hauteur/perche) est portée par le Modèle — pas de sélecteur
+          séparé (évitait un doublon désynchronisé avec « Modèle » ; le modèle bascule aussi
+          l'éditeur horizontal/vertical). */}
 
       {vertical ? (
         <VerticalJumpEditor

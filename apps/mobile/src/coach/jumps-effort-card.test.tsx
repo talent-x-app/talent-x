@@ -100,9 +100,12 @@ describe('JumpsEffortCanvas', () => {
     expect(h.groups()[0].items[0].params.incrementCm).toBe('10');
   });
 
-  it('convertit horizontal → vertical au changement de discipline', () => {
+  it('convertit horizontal → vertical via un modèle vertical (hauteur)', () => {
     const h = setup([makeHorizontal()]);
-    act(() => fireEvent.press(screen.getByTestId('series-card-0-disc-high')));
+    // La discipline est portée par le Modèle (plus de sélecteur Discipline) : appliquer
+    // « Hauteur » bascule le bloc horizontal en bloc vertical.
+    act(() => fireEvent.press(screen.getByTestId('series-card-0-preset')));
+    act(() => fireEvent.press(screen.getByTestId('series-card-0-preset-high')));
     const g = h.groups()[0];
     expect(g.items[0].type).toBe(BlockType.vertical_jumps);
     expect(g.items[0].params.discipline).toBe('high');

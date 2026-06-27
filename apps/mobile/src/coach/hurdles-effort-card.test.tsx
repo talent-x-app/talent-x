@@ -80,10 +80,12 @@ describe('HurdlesEffortCanvas', () => {
     expect(screen.getByTestId('cooldown-bar')).toBeTruthy();
   });
 
-  it("met à jour la distance et la hauteur d'un passage", () => {
+  it('met à jour la distance (par passage) et la hauteur (ligne, source unique)', () => {
     const h = setup(defaultNodes());
     act(() => fireEvent.changeText(screen.getByTestId('series-card-0-pass-0-dist'), '100'));
-    act(() => fireEvent.changeText(screen.getByTestId('series-card-0-pass-0-height'), '84'));
+    // La hauteur est désormais éditée par la « ligne de haies » (commune) et appliquée à tous
+    // les passages — plus de colonne hauteur par passage (dé-duplication).
+    act(() => fireEvent.changeText(screen.getByTestId('series-card-0-line-height'), '84'));
     const g = h.groups()[0];
     expect(g.items[0].params.distanceMeters).toBe('100');
     expect(g.items[0].params.heightCm).toBe('84');
@@ -141,7 +143,8 @@ describe('HurdlesEffortCanvas', () => {
     const h = setup(defaultNodes());
     act(() => fireEvent.press(screen.getByTestId('series-card-0-sex-H')));
     act(() => fireEvent.changeText(screen.getByTestId('series-card-0-event'), '110mH'));
-    act(() => fireEvent.changeText(screen.getByTestId('series-card-0-intensityValue'), '95'));
+    // L'intensité se saisit par passage (colonne « Intensité » du tableau, comme Sprint).
+    act(() => fireEvent.changeText(screen.getByTestId('series-card-0-pass-0-int'), '95'));
     expect(h.groups()[0].items[0].params.intensityValue).toBe('95');
     expect(screen.getByText(/≈ .* s sur la référence du module/)).toBeTruthy();
   });
