@@ -6,13 +6,15 @@ import {
 } from '@talent-x/api-client';
 import { useTheme } from '@talent-x/design-tokens';
 import { Feather } from '@expo/vector-icons';
-import { Text, View } from 'react-native';
+import { useState } from 'react';
+import { type LayoutChangeEvent, Text, View } from 'react-native';
 import { Card, Chip } from '../components/ui';
 import { formatSessionDate } from './athlete-session-ui';
 import { formatRecordValue } from './perf-entry';
 import {
   PROGRESS_WINDOWS,
-  barHeights,
+  bestIndex,
+  perfHeights,
   pointsInWindow,
   seriesTrend,
   type ProgressWindow,
@@ -93,7 +95,12 @@ function Metric({ label, value }: { label: string; value: string }) {
 
 const CHART_HEIGHT = 72;
 
-/** Carte d'épreuve : dernière marque, tendance et barres des marques de la fenêtre. */
+/** Date compacte « JJ/MM » à partir d'une clé `YYYY-MM-DD` (axe de la courbe). */
+function shortDate(date: string): string {
+  return `${date.slice(8, 10)}/${date.slice(5, 7)}`;
+}
+
+/** Carte d'épreuve : dernière marque, tendance et courbe des marques de la fenêtre (R9). */
 export function ProgressSeriesCard({
   series,
   window,
@@ -101,10 +108,9 @@ export function ProgressSeriesCard({
   series: ProgressSeries;
   window: ProgressWindow;
 }) {
-  const { colors, typography, spacing, radius } = useTheme();
+  const { colors, typography, spacing } = useTheme();
   const points = pointsInWindow(series.points, window, new Date());
   const trend = seriesTrend(points, series.direction);
-  const heights = barHeights(points);
   const last = points[points.length - 1];
 
   return (
@@ -171,28 +177,11 @@ export function ProgressSeriesCard({
             Aucune marque sur cette période.
           </Text>
         ) : (
-          <View
-            style={{
-              height: CHART_HEIGHT,
-              flexDirection: 'row',
-              alignItems: 'flex-end',
-              gap: spacing[1],
-            }}
-          >
-            {heights.map((h, i) => (
-              <View
-                key={`${points[i].date}-${i}`}
-                testID={`progress-bar-${series.eventKey}-${i}`}
-                style={{
-                  flex: 1,
-                  maxWidth: 28,
-                  height: Math.round(CHART_HEIGHT * h),
-                  borderRadius: radius.sm,
-                  backgroundColor: i === heights.length - 1 ? colors.accent : colors.accentSubtle,
-                }}
-              />
-            ))}
-          </View>
+          <ProgressSparkline
+            points={points}
+            direction={series.direction}
+            eventKey={series.eventKey}
+          />
         )}
 
         {/* Saison & carrière (ADR-34) : SB de l'année en cours + tableau des marques par année. */}
@@ -275,6 +264,132 @@ export function ProgressSeriesCard({
         ) : null}
       </View>
     </Card>
+  );
+}
+
+/**
+ * Courbe de progression (R9) — sparkline **ligne + points** dessinée en `View` (sans dépendance
+ * SVG, rendu identique web/natif), calée sur le design system (`design/preview/comp-charts.html`) :
+ * 3 lignes de grille, segments accent reliant les marques, **point culminant** (best) surligné d'un
+ * anneau, point **final** plein, et dates **début → fin** sous l'axe. Orientée par la performance
+ * (meilleure marque toujours plus haute, chrono inclus — corrige le bar-chart brut précédent).
+ *
+ * Les **points** sont positionnés en pourcentage (donc rendus sans mesure de largeur — testables) ;
+ * seuls les **segments** (rotation) requièrent la largeur mesurée via `onLayout`.
+ */
+function ProgressSparkline({
+  points,
+  direction,
+  eventKey,
+}: {
+  points: ProgressPoint[];
+  direction: ProgressSeries['direction'];
+  eventKey: string;
+}) {
+  const { colors, spacing, typography } = useTheme();
+  const [width, setWidth] = useState(0);
+  const heights = perfHeights(points, direction);
+  const best = bestIndex(points, direction);
+  const lastIdx = points.length - 1;
+  const single = points.length === 1;
+  const DOT = 9;
+  const TH = 2.5;
+
+  const yOf = (i: number) => CHART_HEIGHT - heights[i] * CHART_HEIGHT;
+  // Coordonnées pixel (segments) — disponibles une fois la largeur connue.
+  const xy = heights.map((_, i) => ({
+    x: single ? width / 2 : (i / (lastIdx || 1)) * width,
+    y: yOf(i),
+  }));
+
+  const axisStyle = {
+    color: colors.textMuted,
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.caption.fontSize,
+  } as const;
+
+  return (
+    <View style={{ gap: spacing[2] }}>
+      <View
+        onLayout={(e: LayoutChangeEvent) => setWidth(e.nativeEvent.layout.width)}
+        style={{ height: CHART_HEIGHT, position: 'relative' }}
+      >
+        {/* Lignes de grille horizontales. */}
+        {[0.25, 0.5, 0.75].map((g) => (
+          <View
+            key={g}
+            style={{
+              position: 'absolute',
+              left: 0,
+              right: 0,
+              top: CHART_HEIGHT * g,
+              height: 1,
+              backgroundColor: colors.border,
+            }}
+          />
+        ))}
+
+        {/* Segments reliant les marques (centrés puis tournés ; origine par défaut = centre). */}
+        {width > 0
+          ? xy.slice(1).map((p1, i) => {
+              const p0 = xy[i];
+              const dx = p1.x - p0.x;
+              const dy = p1.y - p0.y;
+              const len = Math.hypot(dx, dy);
+              const angle = Math.atan2(dy, dx);
+              return (
+                <View
+                  key={`seg-${i}`}
+                  style={{
+                    position: 'absolute',
+                    left: (p0.x + p1.x) / 2 - len / 2,
+                    top: (p0.y + p1.y) / 2 - TH / 2,
+                    width: len,
+                    height: TH,
+                    borderRadius: TH,
+                    backgroundColor: colors.accent,
+                    transform: [{ rotateZ: `${angle}rad` }],
+                  }}
+                />
+              );
+            })
+          : null}
+
+        {/* Points (positionnés en %) : best surligné d'un anneau, final plein, autres en aplat doux. */}
+        {heights.map((_, i) => {
+          const isBest = i === best;
+          const isLast = i === lastIdx;
+          const size = isBest ? DOT + 4 : isLast ? DOT + 2 : DOT;
+          const pct = single ? 50 : (i / (lastIdx || 1)) * 100;
+          return (
+            <View
+              key={`${points[i].date}-${i}`}
+              testID={`progress-point-${eventKey}-${i}`}
+              style={{
+                position: 'absolute',
+                left: `${pct}%`,
+                marginLeft: -size / 2,
+                top: yOf(i) - size / 2,
+                width: size,
+                height: size,
+                borderRadius: size / 2,
+                backgroundColor: isBest || isLast ? colors.accent : colors.accentSubtle,
+                borderWidth: isBest ? 2 : 0,
+                borderColor: colors.surface,
+              }}
+            />
+          );
+        })}
+      </View>
+
+      {/* Axe : dates début → fin de la période. */}
+      {!single ? (
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+          <Text style={axisStyle}>{shortDate(points[0].date)}</Text>
+          <Text style={axisStyle}>{shortDate(points[lastIdx].date)}</Text>
+        </View>
+      ) : null}
+    </View>
   );
 }
 

@@ -87,8 +87,8 @@ describe('ProgressScreen (TLX-090 — A-06)', () => {
     expect(screen.getByTestId('progress-last-sprint:60m')).toHaveTextContent('7.45 s');
     // Chrono en baisse → progression (sens min).
     expect(screen.getByTestId('progress-trend-sprint:60m-up')).toBeOnTheScreen();
-    expect(screen.getByTestId('progress-bar-sprint:60m-0')).toBeOnTheScreen();
-    expect(screen.getByTestId('progress-bar-sprint:60m-1')).toBeOnTheScreen();
+    expect(screen.getByTestId('progress-point-sprint:60m-0')).toBeOnTheScreen();
+    expect(screen.getByTestId('progress-point-sprint:60m-1')).toBeOnTheScreen();
   });
 
   it('affiche le SB de la saison et le tableau des marques par année (ADR-34)', async () => {
@@ -109,9 +109,9 @@ describe('ProgressScreen (TLX-090 — A-06)', () => {
     await waitFor(() => expect(screen.getByTestId('progress-series-sprint:60m')).toBeOnTheScreen());
 
     fireEvent.press(screen.getByTestId('progress-window-week'));
-    // Une seule marque (J-2) reste : plus de barre n° 1, plus de tendance.
-    expect(screen.getByTestId('progress-bar-sprint:60m-0')).toBeOnTheScreen();
-    expect(screen.queryByTestId('progress-bar-sprint:60m-1')).toBeNull();
+    // Une seule marque (J-2) reste : plus de point n° 1, plus de tendance.
+    expect(screen.getByTestId('progress-point-sprint:60m-0')).toBeOnTheScreen();
+    expect(screen.queryByTestId('progress-point-sprint:60m-1')).toBeNull();
     expect(screen.queryByTestId('progress-trend-sprint:60m-up')).toBeNull();
   });
 

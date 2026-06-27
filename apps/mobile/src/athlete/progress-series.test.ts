@@ -1,4 +1,4 @@
-import { barHeights, pointsInWindow, seriesTrend } from './progress-series';
+import { bestIndex, perfHeights, pointsInWindow, seriesTrend } from './progress-series';
 
 const NOW = new Date('2026-06-10T12:00:00.000Z');
 
@@ -45,24 +45,49 @@ describe('progress-series (A-06 — TLX-090)', () => {
     });
   });
 
-  describe('barHeights', () => {
-    it('échelle min/max avec plancher de visibilité', () => {
-      const h = barHeights([
-        { date: 'a', value: 7.3 },
-        { date: 'b', value: 7.6 },
-      ]);
-      expect(h[0]).toBeCloseTo(0.15);
-      expect(h[1]).toBeCloseTo(1);
+  describe('perfHeights (orientées performance, R9)', () => {
+    const marks = [
+      { date: 'a', value: 7.3 },
+      { date: 'b', value: 7.6 },
+    ];
+
+    it('sens max : la valeur la plus haute est en haut', () => {
+      const h = perfHeights(marks, 'max');
+      expect(h[0]).toBeCloseTo(0.12); // 7.3 = plus basse → en bas
+      expect(h[1]).toBeCloseTo(0.88); // 7.6 = plus haute → en haut
+    });
+
+    it('sens min (chrono) : la valeur la plus basse est en haut', () => {
+      const h = perfHeights(marks, 'min');
+      expect(h[0]).toBeCloseTo(0.88); // 7.3 = meilleur chrono → en haut
+      expect(h[1]).toBeCloseTo(0.12);
     });
 
     it('série plate → mi-hauteur ; vide → vide', () => {
       expect(
-        barHeights([
-          { date: 'a', value: 5 },
-          { date: 'b', value: 5 },
-        ]),
+        perfHeights(
+          [
+            { date: 'a', value: 5 },
+            { date: 'b', value: 5 },
+          ],
+          'min',
+        ),
       ).toEqual([0.5, 0.5]);
-      expect(barHeights([])).toEqual([]);
+      expect(perfHeights([], 'min')).toEqual([]);
+    });
+  });
+
+  describe('bestIndex (selon le sens de l’épreuve)', () => {
+    const marks = [
+      { date: 'a', value: 7.6 },
+      { date: 'b', value: 7.3 },
+      { date: 'c', value: 7.5 },
+    ];
+
+    it('min → meilleur = chrono le plus bas ; max → marque la plus haute', () => {
+      expect(bestIndex(marks, 'min')).toBe(1);
+      expect(bestIndex(marks, 'max')).toBe(0);
+      expect(bestIndex([], 'min')).toBe(-1);
     });
   });
 });

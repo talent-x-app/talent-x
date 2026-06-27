@@ -45,14 +45,37 @@ export function seriesTrend(
 }
 
 /**
- * Hauteurs relatives (0.15..1) des barres du graphe — échelle min/max de la fenêtre,
- * plancher pour que chaque marque reste visible. Série plate → barres à mi-hauteur.
+ * Hauteurs relatives (0.12..0.88) des points de la **courbe** de progression (R9), **orientées
+ * par la performance** (ADR-21/34) : une meilleure marque est toujours plus haute, quel que soit le
+ * sens de l'épreuve (`min` → un chrono plus bas est meilleur, donc tracé plus haut). Marge haut/bas
+ * pour que les points extrêmes ne collent pas aux bords. Série plate → ligne à mi-hauteur.
  */
-export function barHeights(points: ProgressPoint[]): number[] {
+export function perfHeights(
+  points: ProgressPoint[],
+  direction: ProgressSeries['direction'],
+): number[] {
   if (points.length === 0) return [];
   const values = points.map((p) => p.value);
   const min = Math.min(...values);
   const max = Math.max(...values);
   if (max === min) return values.map(() => 0.5);
-  return values.map((v) => 0.15 + 0.85 * ((v - min) / (max - min)));
+  return values.map((v) => {
+    const raw = (v - min) / (max - min); // 0..1, 1 = valeur brute la plus haute
+    const perf = direction === 'min' ? 1 - raw : raw; // 1 = meilleure performance
+    return 0.12 + 0.76 * perf;
+  });
+}
+
+/** Index de la meilleure marque de la fenêtre (selon le sens de l'épreuve). `-1` si vide. */
+export function bestIndex(points: ProgressPoint[], direction: ProgressSeries['direction']): number {
+  if (points.length === 0) return -1;
+  let best = 0;
+  for (let i = 1; i < points.length; i++) {
+    const better =
+      direction === 'min'
+        ? points[i].value < points[best].value
+        : points[i].value > points[best].value;
+    if (better) best = i;
+  }
+  return best;
 }
