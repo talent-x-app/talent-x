@@ -87,6 +87,15 @@ describe('PrivacySection — consentements (TLX-106)', () => {
     expect(screen.queryByTestId('privacy-consent-coach_access')).toBeNull();
   });
 
+  it('R13 : le consentement marketing porte un libellé distinct de la préférence de notif', async () => {
+    render(<PrivacySection role="athlete" />, { wrapper: Wrapper });
+
+    await waitFor(() => expect(screen.getByTestId('privacy-consent-marketing')).toBeOnTheScreen());
+    // Consentement RGPD = « Communications marketing » (≠ notif « Actualités Talent-X »).
+    expect(screen.getByText('Communications marketing')).toBeOnTheScreen();
+    expect(screen.queryByText('Actualités Talent-X')).toBeNull();
+  });
+
   it('basculer un consentement appelle updateConsent {type, granted}', async () => {
     mockUpdateConsent.mockResolvedValue({ status: 200, data: {} });
     render(<PrivacySection role="athlete" />, { wrapper: Wrapper });

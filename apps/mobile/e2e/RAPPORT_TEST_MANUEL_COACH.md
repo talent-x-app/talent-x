@@ -82,8 +82,8 @@ L'affichage du calendrier coach est jugé daté. Côté athlète il existe un me
 - **R7 — « Assigner plus tard ».** La création de séance redirige de force vers l'assignation, sans échappatoire. Ajouter une sortie (retour détail/liste).
 - **R9 — Graphe de progression** peu moderne. `AthleteDetailScreen` → `CoachProgressSection` (partagé avec la vue athlète A-06).
 - ~~**R10 — Wording.** « Séances réalisées » (fiche athlète) vs « À revoir » (dashboard) pour la même action de revue.~~ ✅ Résolu (TLX-210) : fiche athlète « Séances réalisées » → **« Revue des séances »** (même verbe que le KPI « À revoir », sans contredire le compteur — le payload n'indique pas si une revue a déjà eu lieu, cf. R1).
-- **R12 — Champ « Discipline » dans le profil coach** : pertinent pour un athlète, ambigu pour un coach. À retirer/repenser (`ProfileScreen`, champ `profile-sport`).
-- **R13 — « Actualités Talent-X » en double** : préférence de notification **et** consentement marketing portent le même libellé → confusion. Écrans : `ProfileScreen` + `PrivacySection`.
+- ~~**R12 — Champ « Discipline » dans le profil coach** : pertinent pour un athlète, ambigu pour un coach.~~ ✅ Résolu (TLX-211) : champ `sport` **masqué côté coach** (bandeau, formulaire, ligne Infos) ; conservé pour l'athlète.
+- ~~**R13 — « Actualités Talent-X » en double** : préférence de notification **et** consentement marketing portent le même libellé → confusion.~~ ✅ Résolu (TLX-211) : le **consentement** RGPD devient **« Communications marketing »** (distinct de la préférence de notif « Actualités Talent-X »).
 - ~~**R17 — Création de modèle ≠ création de séance** : « Créer une séance » passe par l'assistant par discipline ; « Créer un modèle » ouvre le constructeur brut.~~ ✅ Résolu (TLX-209, ADR-54) : **entrée unifiée** — un modèle s'amorce via le même sélecteur de discipline (assistants), `status=template` propagé jusqu'au constructeur.
 
 ---

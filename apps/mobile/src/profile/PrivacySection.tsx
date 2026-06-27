@@ -40,10 +40,13 @@ const ATHLETE_CONSENT_ROWS: ConsentRow[] = [
     help: 'Autorise ton coach à consulter tes performances et statistiques.',
   },
 ];
+// R13 : libellé distinct de la **préférence de notification** « Actualités Talent-X »
+// (NotificationPreferencesSection). Ici c'est le **consentement RGPD** aux communications
+// marketing (la base légale), pas le canal de notification — d'où un intitulé explicite.
 const MARKETING_ROW: ConsentRow = {
   type: ConsentType.marketing,
-  label: 'Actualités Talent-X',
-  help: 'Communications non essentielles. Désactivé par défaut.',
+  label: 'Communications marketing',
+  help: 'Consentement aux communications non essentielles (e-mails). Désactivé par défaut.',
 };
 
 /**

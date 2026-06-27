@@ -115,7 +115,8 @@ export function ProfileScreen() {
     setForm({
       firstName: user.firstName ?? '',
       lastName: user.lastName ?? '',
-      sport: user.sport ?? '',
+      // R12 : la discipline n'est éditable que par l'athlète (champ masqué côté coach).
+      ...(user.role === 'athlete' ? { sport: user.sport ?? '' } : {}),
       bio: user.bio ?? '',
     });
     setEditing(true);
@@ -163,7 +164,12 @@ export function ProfileScreen() {
   }
 
   const user = profile.data;
-  const roleLine = [ROLE_LABEL[user.role] ?? user.role, user.sport].filter(Boolean).join(' · ');
+  // R12 : la « Discipline » (sport) n'a de sens que pour un athlète — masquée côté coach
+  // (bandeau, formulaire, ligne Infos).
+  const isAthlete = user.role === 'athlete';
+  const roleLine = [ROLE_LABEL[user.role] ?? user.role, isAthlete ? user.sport : undefined]
+    .filter(Boolean)
+    .join(' · ');
 
   return (
     <ScrollView
@@ -296,14 +302,16 @@ export function ProfileScreen() {
             onChangeText={(t) => setForm((p) => ({ ...p, lastName: t }))}
             editable={!save.isPending}
           />
-          <Input
-            label="Discipline"
-            testID="profile-sport"
-            value={form.sport ?? ''}
-            onChangeText={(t) => setForm((p) => ({ ...p, sport: t }))}
-            placeholder="ex. 200m, saut en longueur"
-            editable={!save.isPending}
-          />
+          {isAthlete ? (
+            <Input
+              label="Discipline"
+              testID="profile-sport"
+              value={form.sport ?? ''}
+              onChangeText={(t) => setForm((p) => ({ ...p, sport: t }))}
+              placeholder="ex. 200m, saut en longueur"
+              editable={!save.isPending}
+            />
+          ) : null}
           <Input
             label="Bio"
             testID="profile-bio"
@@ -342,7 +350,9 @@ export function ProfileScreen() {
             <Card>
               <View style={{ gap: spacing[4] }}>
                 <InfoRow icon="mail" label="E-mail" value={user.email} muted />
-                <InfoRow icon="activity" label="Discipline" value={user.sport} />
+                {isAthlete ? (
+                  <InfoRow icon="activity" label="Discipline" value={user.sport} />
+                ) : null}
                 <InfoRow icon="file-text" label="Bio" value={user.bio} />
               </View>
             </Card>

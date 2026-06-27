@@ -217,6 +217,33 @@ describe('ProfileScreen (TLX-042)', () => {
     expect(screen.getByText('Coach')).toBeOnTheScreen();
   });
 
+  it('R12 : la « Discipline » est masquée côté coach (lecture + édition)', async () => {
+    mockGetMe.mockResolvedValue({
+      status: 200,
+      data: { ...USER, role: 'coach', firstName: 'Marc', lastName: 'Caron' },
+    });
+    render(<ProfileScreen />, { wrapper: Wrapper });
+
+    // Lecture : pas de ligne Infos « Discipline » pour un coach.
+    await waitFor(() => expect(screen.getByTestId('profile-edit')).toBeOnTheScreen());
+    expect(screen.queryByText('Discipline')).toBeNull();
+
+    // Édition : pas de champ Discipline non plus.
+    fireEvent.press(screen.getByTestId('profile-edit'));
+    await waitFor(() => expect(screen.getByTestId('profile-firstName')).toBeOnTheScreen());
+    expect(screen.queryByTestId('profile-sport')).toBeNull();
+  });
+
+  it('R12 : la « Discipline » reste visible côté athlète', async () => {
+    mockGetMe.mockResolvedValue({ status: 200, data: USER });
+    render(<ProfileScreen />, { wrapper: Wrapper });
+
+    await waitFor(() => expect(screen.getByTestId('profile-edit')).toBeOnTheScreen());
+    expect(screen.getByText('Discipline')).toBeOnTheScreen();
+    fireEvent.press(screen.getByTestId('profile-edit'));
+    await waitFor(() => expect(screen.getByTestId('profile-sport')).toBeOnTheScreen());
+  });
+
   it('réglage Notifications repliable : révèle les préférences au tap (TLX-111)', async () => {
     mockGetMe.mockResolvedValue({ status: 200, data: USER });
     render(<ProfileScreen />, { wrapper: Wrapper });
