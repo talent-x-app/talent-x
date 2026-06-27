@@ -81,11 +81,12 @@ describe('DisciplineAssistantScreen — Sprint (ADR-38, TLX-155)', () => {
     mockCreateSession.mockResolvedValue({ status: 201, data: { id: 's3', title: 'Carte' } });
     render(<DisciplineAssistantScreen discipline="sprint" />, { wrapper: Wrapper });
 
-    // Seed : [warmup, série(60m 95% blocks rounds=1 restR=300s), cooldown]
+    // Seed : modèle « Départs » pré-sélectionné → [warmup, série(rounds=3 restR=300s,
+    // efforts 20/30/40 m 95 % blocks), cooldown]. Effort 0 : 20 m, 95 %, récup r 180 s.
     // Édition via le canvas (1 carte de série = 1 EditableGroup).
     fireEvent.changeText(screen.getByTestId('series-card-0-sprint-0-dist'), '80'); // distance 80 m
     fireEvent.changeText(screen.getByTestId('series-card-0-sprint-0-int'), '90'); // intensité 90 %
-    fireEvent.press(screen.getByTestId('series-card-0-rounds-inc')); // séries 1 → 2
+    fireEvent.press(screen.getByTestId('series-card-0-rounds-inc')); // séries 3 → 4
     fireEvent.press(screen.getByTestId('series-card-0-start-standing')); // départ Debout
     fireEvent.changeText(screen.getByTestId('series-card-0-restR'), '6'); // récup R 6 min = 360 s
 
@@ -98,14 +99,14 @@ describe('DisciplineAssistantScreen — Sprint (ADR-38, TLX-155)', () => {
     const group = body.exercises.items[1];
     expect(group.kind).toBe('group');
     expect(group.groupType).toBe('series');
-    expect(group.rounds).toBe(2);
+    expect(group.rounds).toBe(4);
     expect(group.restBetweenRoundsSeconds).toBe(360);
     expect(group.items[0]).toMatchObject({
       type: 'sprint',
       params: {
         distanceMeters: 80,
         reps: 1,
-        recoverySeconds: 240,
+        recoverySeconds: 180,
         startType: 'standing',
         intensityMode: 'percent_record',
         intensityValue: 90,
