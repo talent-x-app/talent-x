@@ -108,6 +108,28 @@ function formatDelta(magnitude: number, unit: 's' | 'm'): string {
   return `${magnitude} ${unit}`;
 }
 
+/**
+ * Couleur de **discipline** (ADR-56) — dérivée de la famille de l'`eventKey`. Sert à la **pastille
+ * d'en-tête** et à la **ligne PB** pour distinguer les disciplines quand on scrolle plusieurs
+ * cartes ; les courbes/points restent en `accent` (identité mono-accent du design system).
+ */
+function disciplineColor(eventKey: string, colors: ReturnType<typeof useTheme>['colors']): string {
+  switch (eventKey.split(':')[0]) {
+    case 'hurdles':
+      return colors.info;
+    case 'endurance':
+    case 'interval':
+      return colors.success;
+    case 'jumps':
+    case 'vertical':
+      return colors.warning;
+    case 'throws':
+      return colors.danger;
+    default:
+      return colors.accent; // sprint + repli
+  }
+}
+
 /** Carte d'épreuve : dernière marque, tendance et courbe des marques de la fenêtre (R9). */
 export function ProgressSeriesCard({
   series,
@@ -126,6 +148,16 @@ export function ProgressSeriesCard({
     <Card testID={`progress-series-${series.eventKey}`}>
       <View style={{ gap: spacing[3] }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[2] }}>
+          {/* Pastille de discipline (ADR-56) — repère couleur quand plusieurs cartes. */}
+          <View
+            testID={`progress-discipline-${series.eventKey}`}
+            style={{
+              width: 10,
+              height: 10,
+              borderRadius: 5,
+              backgroundColor: disciplineColor(series.eventKey, colors),
+            }}
+          />
           <View style={{ flex: 1, gap: 2 }}>
             <Text
               style={{
@@ -233,6 +265,7 @@ export function ProgressSeriesCard({
             direction={series.direction}
             unit={series.unit}
             eventKey={series.eventKey}
+            pbColor={disciplineColor(series.eventKey, colors)}
           />
         )}
 
@@ -338,11 +371,13 @@ function ProgressTimeline({
   direction,
   unit,
   eventKey,
+  pbColor,
 }: {
   points: ProgressPoint[];
   direction: ProgressSeries['direction'];
   unit: 's' | 'm';
   eventKey: string;
+  pbColor: string;
 }) {
   const { colors, spacing, typography } = useTheme();
   const [width, setWidth] = useState(0);
@@ -383,6 +418,7 @@ function ProgressTimeline({
             best={best}
             selected={sel}
             single={single}
+            pbColor={pbColor}
           />
         ) : null}
 
@@ -523,12 +559,14 @@ function ProgressChart({
   best,
   selected,
   single,
+  pbColor,
 }: {
   width: number;
   heights: number[];
   best: number;
   selected: number;
   single: boolean;
+  pbColor: string;
 }) {
   const { colors } = useTheme();
   const innerH = CHART_HEIGHT - CHART_PAD_Y * 2;
@@ -576,17 +614,17 @@ function ProgressChart({
         />
       ) : null}
 
-      {/* Ligne PB (meilleure marque). */}
+      {/* Ligne PB (meilleure marque) — couleur de discipline. */}
       {pts[best] ? (
         <Line
           x1={0}
           y1={pts[best].y}
           x2={width}
           y2={pts[best].y}
-          stroke={colors.accentText}
+          stroke={pbColor}
           strokeWidth={1}
           strokeDasharray="4 4"
-          opacity={0.5}
+          opacity={0.6}
         />
       ) : null}
 
@@ -603,6 +641,21 @@ function ProgressChart({
         />
       ) : null}
 
+      {/* Halo de focus autour du point sélectionné. */}
+      {pts[selected] ? (
+        <Circle
+          cx={pts[selected].x}
+          cy={pts[selected].y}
+          r={9}
+          fill="none"
+          stroke={colors.accent}
+          strokeWidth={1.5}
+          opacity={0.3}
+        />
+      ) : null}
+
+      {/* Pastilles : remplies accent + **halo surface** pour décoller de l'aire/la ligne
+          (lisibilité, ADR-56) ; best cerné de la couleur de discipline ; sélection plus grosse. */}
       {pts.map((p, i) => {
         const isBest = i === best;
         const isSel = i === selected;
@@ -611,10 +664,10 @@ function ProgressChart({
             key={i}
             cx={p.x}
             cy={p.y}
-            r={isSel ? 5.5 : isBest ? 5 : 3.5}
-            fill={isSel || isBest ? colors.accent : colors.accentSubtle}
-            stroke={isBest ? colors.accentText : colors.surface}
-            strokeWidth={isBest ? 2 : 1}
+            r={isSel ? 6 : isBest ? 5 : 4}
+            fill={colors.accent}
+            stroke={isBest ? pbColor : colors.surface}
+            strokeWidth={isBest ? 2.5 : 2}
           />
         );
       })}
