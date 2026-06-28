@@ -67,6 +67,20 @@ export function perfHeights(
 }
 
 /**
+ * Fractions X (0..1) **proportionnelles au temps** des marques (ADR-56) : un grand écart de dates
+ * occupe plus de largeur qu'un petit (axe honnête vs espacement par index). ≤ 1 point → centré ;
+ * toutes les marques le même jour → espacement régulier (repli).
+ */
+export function timeFractions(points: ProgressPoint[]): number[] {
+  if (points.length <= 1) return points.map(() => 0.5);
+  const ts = points.map((p) => Date.parse(`${p.date}T00:00:00.000Z`));
+  const t0 = ts[0];
+  const span = ts[ts.length - 1] - t0;
+  if (span <= 0) return points.map((_, i) => i / (points.length - 1));
+  return ts.map((t) => (t - t0) / span);
+}
+
+/**
  * Delta net de la fenêtre (première → dernière marque), **orienté performance** (ADR-56) :
  * `improved` vrai si on progresse au sens de l'épreuve (chrono qui baisse *ou* distance qui monte).
  * `magnitude` = ampleur absolue du changement (arrondie). `null` à moins de deux points.

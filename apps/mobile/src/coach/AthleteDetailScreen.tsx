@@ -16,12 +16,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Button, Card } from '../components/ui';
-import {
-  ProgressMetricsRow,
-  ProgressSeriesCard,
-  ProgressWindowChips,
-  RecordRow,
-} from '../athlete/progress-charts';
+import { ProgressExplorer, ProgressMetricsRow, RecordRow } from '../athlete/progress-charts';
 import { type ProgressWindow } from '../athlete/progress-series';
 import { AthleteStatusBadge } from './athlete-ui';
 
@@ -324,7 +319,6 @@ function CoachProgressSection({ id }: { id: string }) {
     <View style={{ gap: spacing[3] }}>
       <SectionTitle>Progression</SectionTitle>
       <ProgressMetricsRow progress={data} />
-      <ProgressWindowChips window={window} onChange={setWindow} />
       {data.series.length === 0 ? (
         <Card testID="athlete-progress-empty">
           <Text
@@ -339,9 +333,7 @@ function CoachProgressSection({ id }: { id: string }) {
           </Text>
         </Card>
       ) : (
-        data.series.map((series) => (
-          <ProgressSeriesCard key={series.eventKey} series={series} window={window} />
-        ))
+        <ProgressExplorer series={data.series} window={window} onWindow={setWindow} />
       )}
     </View>
   );

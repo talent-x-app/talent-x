@@ -155,6 +155,52 @@ describe('AthleteProgressService (TLX-090, ADR-21)', () => {
     expect(res.series[0].seasonBest).toEqual({ date: '2026-06-08', value: 7.45 });
   });
 
+  it('agrège les marques d’une même épreuve le même jour en 1 point = best (ADR-56)', async () => {
+    const res = await service([
+      // Deux perfs de 60 m le **même jour réalisé** (dueDate) → un seul point, la meilleure.
+      assignmentRow({
+        dueDate: new Date('2026-06-10T00:00:00.000Z'),
+        performance: {
+          rpe: null,
+          submittedAt: new Date('2026-06-10T09:00:00.000Z'),
+          results: {
+            items: [{ exerciseName: '60m', order: 0, setResults: [{ set: 1, timeSeconds: 7.6 }] }],
+          },
+        },
+      }),
+      assignmentRow({
+        dueDate: new Date('2026-06-10T00:00:00.000Z'),
+        performance: {
+          rpe: null,
+          submittedAt: new Date('2026-06-10T18:00:00.000Z'),
+          results: {
+            items: [{ exerciseName: '60m', order: 0, setResults: [{ set: 1, timeSeconds: 7.48 }] }],
+          },
+        },
+      }),
+    ]).getMyProgress('a-1');
+
+    expect(res.series[0].points).toEqual([{ date: '2026-06-10', value: 7.48 }]);
+  });
+
+  it('date du point = date réalisée (dueDate), pas la soumission (ADR-56)', async () => {
+    const res = await service([
+      assignmentRow({
+        dueDate: new Date('2026-06-10T00:00:00.000Z'),
+        performance: {
+          rpe: null,
+          // Saisie tardive : ne doit PAS dater le point au 20/06.
+          submittedAt: new Date('2026-06-20T10:00:00.000Z'),
+          results: {
+            items: [{ exerciseName: '60m', order: 0, setResults: [{ set: 1, timeSeconds: 7.5 }] }],
+          },
+        },
+      }),
+    ]).getMyProgress('a-1');
+
+    expect(res.series[0].points).toEqual([{ date: '2026-06-10', value: 7.5 }]);
+  });
+
   it('expose SB de l’année en cours et le tableau par année (ADR-34)', async () => {
     const res = await service([
       assignmentRow({

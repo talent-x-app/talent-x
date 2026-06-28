@@ -18,6 +18,7 @@ import {
   perfHeights,
   pointsInWindow,
   seriesTrend,
+  timeFractions,
   windowDelta,
   type ProgressWindow,
 } from './progress-series';
@@ -97,6 +98,7 @@ function Metric({ label, value }: { label: string; value: string }) {
 
 const CHART_HEIGHT = 132;
 const CHART_PAD_Y = 16; // marge haut/bas pour les points extrêmes + la ligne PB.
+const CHART_PAD_X = 10; // marge gauche/droite pour ne pas rogner les pastilles aux bords.
 
 /** Date compacte « JJ/MM » à partir d'une clé `YYYY-MM-DD` (axe de la courbe). */
 function shortDate(date: string): string {
@@ -128,6 +130,125 @@ function disciplineColor(eventKey: string, colors: ReturnType<typeof useTheme>['
     default:
       return colors.accent; // sprint + repli
   }
+}
+
+/** Libellés de discipline (regroupe interval→Demi-fond, vertical→Sauts). */
+const DISCIPLINE_LABELS: Record<string, string> = {
+  sprint: 'Sprint',
+  hurdles: 'Haies',
+  endurance: 'Demi-fond',
+  jumps: 'Sauts',
+  throws: 'Lancers',
+};
+
+/** Clé de discipline d'une épreuve (regroupe interval→endurance, vertical→jumps). */
+function disciplineKeyOf(eventKey: string): string {
+  const family = eventKey.split(':')[0];
+  if (family === 'interval') return 'endurance';
+  if (family === 'vertical') return 'jumps';
+  return family;
+}
+
+/**
+ * Explorateur de progression (ADR-56) — au lieu d'empiler tous les graphes, navigation à **deux
+ * niveaux** : **discipline** (onglets) puis **épreuve** (pills), avec un graphe en **focus**.
+ * « Toutes » retombe sur la liste. La fenêtre temporelle (Semaine/Mois/Année) est intégrée.
+ * Partagé athlète (A-06) et coach (C-03). Défaut : l'épreuve **la plus récente** (focus direct).
+ */
+export function ProgressExplorer({
+  series,
+  window,
+  onWindow,
+}: {
+  series: ProgressSeries[];
+  window: ProgressWindow;
+  onWindow: (w: ProgressWindow) => void;
+}) {
+  const { spacing } = useTheme();
+  const disciplines = [...new Set(series.map((s) => disciplineKeyOf(s.eventKey)))];
+  const lastDateOf = (s: ProgressSeries) => s.points[s.points.length - 1]?.date ?? '';
+  const mostRecent = [...series].sort((a, b) => lastDateOf(b).localeCompare(lastDateOf(a)))[0];
+
+  const [discipline, setDiscipline] = useState<string>(
+    mostRecent ? disciplineKeyOf(mostRecent.eventKey) : 'all',
+  );
+  const [event, setEvent] = useState<string>(mostRecent ? mostRecent.eventKey : 'all');
+
+  const inDiscipline =
+    discipline === 'all'
+      ? series
+      : series.filter((s) => disciplineKeyOf(s.eventKey) === discipline);
+  const shown =
+    discipline !== 'all' && event !== 'all'
+      ? inDiscipline.filter((s) => s.eventKey === event)
+      : inDiscipline;
+
+  const selectDiscipline = (key: string) => {
+    setDiscipline(key);
+    setEvent('all'); // repart sur la vue d'ensemble de la discipline
+  };
+
+  return (
+    <View style={{ gap: spacing[3] }}>
+      <ProgressWindowChips window={window} onChange={onWindow} />
+
+      {/* Onglets discipline (pastille couleur + libellé). */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{ gap: spacing[2] }}
+      >
+        <Chip
+          testID="progress-discipline-all"
+          selected={discipline === 'all'}
+          onPress={() => setDiscipline('all')}
+        >
+          Toutes
+        </Chip>
+        {disciplines.map((d) => (
+          <Chip
+            key={d}
+            testID={`progress-discipline-tab-${d}`}
+            selected={discipline === d}
+            onPress={() => selectDiscipline(d)}
+          >
+            {DISCIPLINE_LABELS[d] ?? d}
+          </Chip>
+        ))}
+      </ScrollView>
+
+      {/* Pills d'épreuve (si une discipline est choisie et a plusieurs épreuves). */}
+      {discipline !== 'all' && inDiscipline.length > 1 ? (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ gap: spacing[2] }}
+        >
+          <Chip
+            testID="progress-event-all"
+            selected={event === 'all'}
+            onPress={() => setEvent('all')}
+          >
+            Toutes
+          </Chip>
+          {inDiscipline.map((s) => (
+            <Chip
+              key={s.eventKey}
+              testID={`progress-event-${s.eventKey}`}
+              selected={event === s.eventKey}
+              onPress={() => setEvent(s.eventKey)}
+            >
+              {s.label}
+            </Chip>
+          ))}
+        </ScrollView>
+      ) : null}
+
+      {shown.map((s) => (
+        <ProgressSeriesCard key={s.eventKey} series={s} window={window} />
+      ))}
+    </View>
+  );
 }
 
 /** Carte d'épreuve : dernière marque, tendance et courbe des marques de la fenêtre (R9). */
@@ -387,8 +508,15 @@ function ProgressTimeline({
   const heights = perfHeights(points, direction);
   const best = bestIndex(points, direction);
   const single = points.length === 1;
+  const fracs = timeFractions(points); // X proportionnel au temps (ADR-56)
 
-  const xOf = (i: number) => (single ? width / 2 : (i / (lastIdx || 1)) * width);
+  const xOf = (i: number) => CHART_PAD_X + fracs[i] * (width - 2 * CHART_PAD_X);
+  // Largeurs des zones de tap, **proportionnelles au temps** (alignées sur l'espacement des points).
+  const hitWeights = fracs.map((f, i) => {
+    const left = i === 0 ? 0 : (fracs[i - 1] + f) / 2;
+    const right = i === lastIdx ? 1 : (f + fracs[i + 1]) / 2;
+    return Math.max(0.0001, right - left);
+  });
   const selPoint = points[sel];
   const prevDelta =
     sel > 0 ? Math.round(Math.abs(points[sel].value - points[sel - 1].value) * 100) / 100 : 0;
@@ -415,9 +543,9 @@ function ProgressTimeline({
           <ProgressChart
             width={width}
             heights={heights}
+            fracs={fracs}
             best={best}
             selected={sel}
-            single={single}
             pbColor={pbColor}
           />
         ) : null}
@@ -476,7 +604,7 @@ function ProgressTimeline({
               accessibilityRole="button"
               accessibilityLabel={`${shortDate(p.date)} ${formatRecordValue(p.value, unit)}`}
               onPress={() => setSelected(i)}
-              style={{ flex: 1 }}
+              style={{ flex: hitWeights[i] }}
             />
           ))}
         </View>
@@ -556,22 +684,22 @@ function ProgressTimeline({
 function ProgressChart({
   width,
   heights,
+  fracs,
   best,
   selected,
-  single,
   pbColor,
 }: {
   width: number;
   heights: number[];
+  fracs: number[];
   best: number;
   selected: number;
-  single: boolean;
   pbColor: string;
 }) {
   const { colors } = useTheme();
   const innerH = CHART_HEIGHT - CHART_PAD_Y * 2;
   const n = heights.length;
-  const xOf = (i: number) => (single ? width / 2 : (i / (n - 1 || 1)) * width);
+  const xOf = (i: number) => CHART_PAD_X + fracs[i] * (width - 2 * CHART_PAD_X);
   const yOf = (i: number) => CHART_PAD_Y + (1 - heights[i]) * innerH;
   const pts = heights.map((_, i) => ({ x: xOf(i), y: yOf(i) }));
 

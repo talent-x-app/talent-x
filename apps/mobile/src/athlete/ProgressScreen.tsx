@@ -8,7 +8,7 @@ import { Button, Card } from '../components/ui';
 import { AttendanceSection } from './AttendanceSection';
 import { FreeSessionLog } from './FreeSessionLog';
 import { PersonalRecordsSection } from './PersonalRecordsSection';
-import { ProgressMetricsRow, ProgressSeriesCard, ProgressWindowChips } from './progress-charts';
+import { ProgressExplorer, ProgressMetricsRow } from './progress-charts';
 import { type ProgressWindow } from './progress-series';
 
 /** Réponse 403 dont le code métier indique un consentement manquant. */
@@ -99,9 +99,6 @@ export function ProgressScreen() {
           {/* Assiduité : série + taux du mois (TLX-115), dérivée du cache ['assignments']. */}
           <AttendanceSection />
 
-          {/* Fenêtre temporelle (ADR-21 : segmentation côté client). */}
-          <ProgressWindowChips window={window} onChange={setWindow} />
-
           {progress.data.series.length === 0 ? (
             <Card testID="progress-empty">
               <View style={{ alignItems: 'center', gap: spacing[2] }}>
@@ -121,9 +118,8 @@ export function ProgressScreen() {
               </View>
             </Card>
           ) : (
-            progress.data.series.map((series) => (
-              <ProgressSeriesCard key={series.eventKey} series={series} window={window} />
-            ))
+            /* Explorateur : discipline → épreuve → graphe en focus (ADR-56). */
+            <ProgressExplorer series={progress.data.series} window={window} onWindow={setWindow} />
           )}
 
           <PersonalRecordsSection />

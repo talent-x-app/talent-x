@@ -3,6 +3,7 @@ import {
   perfHeights,
   pointsInWindow,
   seriesTrend,
+  timeFractions,
   windowDelta,
 } from './progress-series';
 
@@ -127,6 +128,30 @@ describe('progress-series (A-06 — TLX-090)', () => {
         )?.changed,
       ).toBe(false);
       expect(windowDelta([{ date: 'a', value: 7.5 }], 'min')).toBeNull();
+    });
+  });
+
+  describe('timeFractions (axe proportionnel au temps, ADR-56)', () => {
+    it('un grand écart occupe plus de largeur qu’un petit', () => {
+      const f = timeFractions([
+        { date: '2026-06-01', value: 1 },
+        { date: '2026-06-03', value: 1 }, // +2 j
+        { date: '2026-06-13', value: 1 }, // +10 j
+      ]);
+      expect(f[0]).toBe(0);
+      expect(f[2]).toBe(1);
+      expect(f[1]).toBeCloseTo(2 / 12); // 2 j sur 12 j d'amplitude
+    });
+
+    it('≤ 1 point → centré ; toutes le même jour → espacement régulier', () => {
+      expect(timeFractions([{ date: '2026-06-01', value: 1 }])).toEqual([0.5]);
+      expect(
+        timeFractions([
+          { date: '2026-06-01', value: 1 },
+          { date: '2026-06-01', value: 2 },
+          { date: '2026-06-01', value: 3 },
+        ]),
+      ).toEqual([0, 0.5, 1]);
     });
   });
 

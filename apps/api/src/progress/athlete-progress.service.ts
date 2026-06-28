@@ -5,7 +5,7 @@ import { OwnershipService } from '../common/authorization/ownership.service';
 import type { ExerciseDto } from '../sessions/dto/exercises.dto';
 import type { ExerciseResultDto } from '../assignments/dto/results.dto';
 import { PENDING_STATUSES, dayBounds, round } from './coach-insights.service';
-import { bestMeasuresByEvent, type EventBest } from './record-detection';
+import { bestMeasuresByEvent, isBetter, type EventBest } from './record-detection';
 import { seasonAggregates } from './season-marks';
 import { ProgressDto, ProgressSeriesDto } from './dto/progress.dto';
 
@@ -58,7 +58,7 @@ export class AthleteProgressService {
       select: {
         status: true,
         dueDate: true,
-        session: { select: { exercises: true } },
+        session: { select: { exercises: true, scheduledDate: true } },
         performance: { select: { results: true, rpe: true, submittedAt: true } },
       },
     });
@@ -71,10 +71,12 @@ export class AthleteProgressService {
     const rpes: number[] = [];
     let lastPerformanceAt: Date | undefined;
 
-    // Accumulation des séries : épreuve → points datés (une entrée par perf).
+    // Accumulation des séries : épreuve → **meilleure marque par jour** (ADR-56). On agrège par
+    // jour (clé `YYYY-MM-DD`) en gardant la meilleure mesure : deux perfs d'une même épreuve le
+    // même jour (ex. 2 séances de 150 m, ou journal + séance coach) ne donnent qu'**un** point.
     const seriesByKey = new Map<
       string,
-      { event: Omit<EventBest, 'value'>; points: { date: Date; value: number }[] }
+      { event: Omit<EventBest, 'value'>; byDay: Map<string, number> }
     >();
 
     for (const a of assignments) {
@@ -89,6 +91,12 @@ export class AthleteProgressService {
         lastPerformanceAt = a.performance.submittedAt;
       }
 
+      // Date **réalisée** de la marque (ADR-56) : échéance de l'affectation, sinon date planifiée
+      // de la séance, sinon (repli) la soumission. Évite que les perfs assignées se regroupent au
+      // jour de saisie ; le journal libre (dueDate = date d'entraînement) reste exact.
+      const achievedAt = a.dueDate ?? a.session.scheduledDate ?? a.performance.submittedAt;
+      const dayKey = achievedAt.toISOString().slice(0, 10);
+
       const exercises = docItems(a.session.exercises) as Partial<ExerciseDto>[];
       const results = docItems(a.performance.results) as Partial<ExerciseResultDto>[];
       for (const best of bestMeasuresByEvent(exercises, results)) {
@@ -99,9 +107,12 @@ export class AthleteProgressService {
             unit: best.unit,
             direction: best.direction,
           },
-          points: [],
+          byDay: new Map<string, number>(),
         };
-        entry.points.push({ date: a.performance.submittedAt, value: best.value });
+        const current = entry.byDay.get(dayKey);
+        if (current === undefined || isBetter(best.value, current, best.direction)) {
+          entry.byDay.set(dayKey, best.value);
+        }
         seriesByKey.set(best.eventKey, entry);
       }
     }
@@ -109,8 +120,10 @@ export class AthleteProgressService {
     // Saison (année civile) & marques par année dérivées des points (ADR-34), `now` injecté.
     const now = new Date();
     const series: ProgressSeriesDto[] = [...seriesByKey.values()]
-      .map(({ event, points }) => {
-        const ordered = points.sort((a, b) => a.date.getTime() - b.date.getTime());
+      .map(({ event, byDay }) => {
+        const ordered = [...byDay.entries()]
+          .map(([day, value]) => ({ date: new Date(`${day}T00:00:00.000Z`), value }))
+          .sort((a, b) => a.date.getTime() - b.date.getTime());
         const { seasonBest, marksByYear } = seasonAggregates(ordered, event.direction, now);
         return {
           ...event,
