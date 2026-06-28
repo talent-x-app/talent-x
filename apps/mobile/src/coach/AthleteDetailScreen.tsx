@@ -57,6 +57,9 @@ export function AthleteDetailScreen() {
       throw response;
     },
     retry: false,
+    // Le consentement manquant (403) est affiché **inline** par StatsSection : pas de toast global
+    // (sinon 3 « Accès refusé » empilés avec progression/records — TLX-112).
+    meta: { skipGlobalErrorToast: true },
   });
 
   // Séances réalisées par cet athlète (perf soumise) → revue (C-08). `listAssignments`
@@ -310,6 +313,8 @@ function CoachProgressSection({ id }: { id: string }) {
       throw response;
     },
     retry: false,
+    // Consent-gated : la section se rend `null` en erreur ; le message vit dans Stats (pas de toast).
+    meta: { skipGlobalErrorToast: true },
   });
 
   if (!progress.data) return null;
@@ -356,6 +361,8 @@ function CoachRecordsSection({ id }: { id: string }) {
       throw response;
     },
     retry: false,
+    // Consent-gated : section `null` en erreur ; le message vit dans Stats (pas de toast).
+    meta: { skipGlobalErrorToast: true },
   });
 
   if (!records.data?.length) return null;
