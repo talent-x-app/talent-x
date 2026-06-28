@@ -8,6 +8,14 @@ export class ProgressPointDto {
 
   @ApiProperty()
   value!: number;
+
+  @ApiPropertyOptional({
+    type: [Number],
+    description:
+      "Autres marques de l'épreuve le même jour (ADR-56) — `value` est la meilleure ; ces autres " +
+      'sont ordonnées de la meilleure à la moins bonne. Absent/omis si une seule marque ce jour-là.',
+  })
+  others?: number[];
 }
 
 /** Meilleure marque d'une année civile — schéma `ProgressMarkByYear` (ADR-34). */

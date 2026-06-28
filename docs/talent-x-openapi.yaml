@@ -4724,6 +4724,13 @@ components:
           format: date
         value:
           type: number
+        others:
+          type: array
+          items:
+            type: number
+          description: Autres marques de l'épreuve le même jour (ADR-56) — `value` est la
+            meilleure ; ces autres sont ordonnées de la meilleure à la moins bonne. Omis
+            si une seule marque ce jour-là.
       required:
       - date
       - value

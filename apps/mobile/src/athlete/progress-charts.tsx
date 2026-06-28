@@ -99,6 +99,7 @@ function Metric({ label, value }: { label: string; value: string }) {
 const CHART_HEIGHT = 132;
 const CHART_PAD_Y = 16; // marge haut/bas pour les points extrêmes + la ligne PB.
 const CHART_PAD_X = 10; // marge gauche/droite pour ne pas rogner les pastilles aux bords.
+const TOOLTIP_W = 150; // largeur de la bulle (assez pour « aussi : x · y »).
 
 /** Date compacte « JJ/MM » à partir d'une clé `YYYY-MM-DD` (axe de la courbe). */
 function shortDate(date: string): string {
@@ -550,7 +551,7 @@ function ProgressTimeline({
           />
         ) : null}
 
-        {/* Tooltip du point sélectionné (date · valeur · Δ vs précédente). */}
+        {/* Tooltip du point sélectionné (date · valeur · Δ vs précédente + autres marques du jour). */}
         {width > 0 && selPoint ? (
           <View
             testID={`progress-tooltip-${eventKey}`}
@@ -558,8 +559,8 @@ function ProgressTimeline({
             style={{
               position: 'absolute',
               top: 0,
-              left: clamp(xOf(sel) - 56, 0, Math.max(0, width - 112)),
-              width: 112,
+              left: clamp(xOf(sel) - TOOLTIP_W / 2, 0, Math.max(0, width - TOOLTIP_W)),
+              width: TOOLTIP_W,
               alignItems: 'center',
               gap: 1,
               paddingVertical: 4,
@@ -583,6 +584,15 @@ function ProgressTimeline({
               {shortDate(selPoint.date)}
               {prevDelta > 0 ? ` · ${selImproved ? '▲' : '▼'} ${formatDelta(prevDelta, unit)}` : ''}
             </Text>
+            {/* Autres marques du même jour (ADR-56) : `value` est la meilleure ; on liste le reste. */}
+            {selPoint.others && selPoint.others.length > 0 ? (
+              <Text
+                testID={`progress-others-${eventKey}`}
+                style={{ ...axisStyle, textAlign: 'center' }}
+              >
+                aussi : {selPoint.others.map((o) => formatRecordValue(o, unit)).join(' · ')}
+              </Text>
+            ) : null}
           </View>
         ) : null}
 

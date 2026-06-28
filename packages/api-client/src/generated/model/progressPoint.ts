@@ -11,4 +11,6 @@
 export interface ProgressPoint {
   date: string;
   value: number;
+  /** Autres marques de l'épreuve le même jour (ADR-56) — `value` est la meilleure ; ces autres sont ordonnées de la meilleure à la moins bonne. Omis si une seule marque ce jour-là. */
+  others?: number[];
 }

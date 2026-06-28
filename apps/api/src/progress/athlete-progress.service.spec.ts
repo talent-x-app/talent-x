@@ -180,7 +180,8 @@ describe('AthleteProgressService (TLX-090, ADR-21)', () => {
       }),
     ]).getMyProgress('a-1');
 
-    expect(res.series[0].points).toEqual([{ date: '2026-06-10', value: 7.48 }]);
+    // 1 point (la meilleure) ; les autres marques du jour sont exposées dans `others` (ADR-56).
+    expect(res.series[0].points).toEqual([{ date: '2026-06-10', value: 7.48, others: [7.6] }]);
   });
 
   it('date du point = date réalisée (dueDate), pas la soumission (ADR-56)', async () => {
