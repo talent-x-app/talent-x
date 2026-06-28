@@ -1,4 +1,10 @@
-import { bestIndex, perfHeights, pointsInWindow, seriesTrend } from './progress-series';
+import {
+  bestIndex,
+  perfHeights,
+  pointsInWindow,
+  seriesTrend,
+  windowDelta,
+} from './progress-series';
 
 const NOW = new Date('2026-06-10T12:00:00.000Z');
 
@@ -74,6 +80,53 @@ describe('progress-series (A-06 — TLX-090)', () => {
         ),
       ).toEqual([0.5, 0.5]);
       expect(perfHeights([], 'min')).toEqual([]);
+    });
+  });
+
+  describe('windowDelta (delta net orienté performance, ADR-56)', () => {
+    it('chrono qui baisse → amélioration ; date de départ portée', () => {
+      const d = windowDelta(
+        [
+          { date: '2026-06-04', value: 7.82 },
+          { date: '2026-06-27', value: 7.46 },
+        ],
+        'min',
+      );
+      expect(d).toEqual({ magnitude: 0.36, improved: true, changed: true, fromDate: '2026-06-04' });
+    });
+
+    it('distance qui monte → amélioration ; sens max', () => {
+      const d = windowDelta(
+        [
+          { date: 'a', value: 6.5 },
+          { date: 'b', value: 6.84 },
+        ],
+        'max',
+      );
+      expect(d?.improved).toBe(true);
+      expect(d?.magnitude).toBe(0.34);
+    });
+
+    it('régression et égalité', () => {
+      expect(
+        windowDelta(
+          [
+            { date: 'a', value: 7.4 },
+            { date: 'b', value: 7.6 },
+          ],
+          'min',
+        )?.improved,
+      ).toBe(false);
+      expect(
+        windowDelta(
+          [
+            { date: 'a', value: 7.5 },
+            { date: 'b', value: 7.5 },
+          ],
+          'min',
+        )?.changed,
+      ).toBe(false);
+      expect(windowDelta([{ date: 'a', value: 7.5 }], 'min')).toBeNull();
     });
   });
 

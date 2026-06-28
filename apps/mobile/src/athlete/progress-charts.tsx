@@ -7,7 +7,8 @@ import {
 import { useTheme } from '@talent-x/design-tokens';
 import { Feather } from '@expo/vector-icons';
 import { useState } from 'react';
-import { type LayoutChangeEvent, Text, View } from 'react-native';
+import { type LayoutChangeEvent, Pressable, ScrollView, Text, View } from 'react-native';
+import Svg, { Circle, Defs, Line, LinearGradient, Path, Stop } from 'react-native-svg';
 import { Card, Chip } from '../components/ui';
 import { formatSessionDate } from './athlete-session-ui';
 import { formatRecordValue } from './perf-entry';
@@ -17,6 +18,7 @@ import {
   perfHeights,
   pointsInWindow,
   seriesTrend,
+  windowDelta,
   type ProgressWindow,
 } from './progress-series';
 
@@ -93,11 +95,17 @@ function Metric({ label, value }: { label: string; value: string }) {
   );
 }
 
-const CHART_HEIGHT = 72;
+const CHART_HEIGHT = 132;
+const CHART_PAD_Y = 16; // marge haut/bas pour les points extrêmes + la ligne PB.
 
 /** Date compacte « JJ/MM » à partir d'une clé `YYYY-MM-DD` (axe de la courbe). */
 function shortDate(date: string): string {
   return `${date.slice(8, 10)}/${date.slice(5, 7)}`;
+}
+
+/** Delta lisible (ampleur seule) — jamais de `mm:ss` (un delta reste petit). ADR-56. */
+function formatDelta(magnitude: number, unit: 's' | 'm'): string {
+  return `${magnitude} ${unit}`;
 }
 
 /** Carte d'épreuve : dernière marque, tendance et courbe des marques de la fenêtre (R9). */
@@ -112,6 +120,7 @@ export function ProgressSeriesCard({
   const points = pointsInWindow(series.points, window, new Date());
   const trend = seriesTrend(points, series.direction);
   const last = points[points.length - 1];
+  const delta = windowDelta(points, series.direction);
 
   return (
     <Card testID={`progress-series-${series.eventKey}`}>
@@ -165,6 +174,48 @@ export function ProgressSeriesCard({
           ) : null}
         </View>
 
+        {/* Bandeau progression (ADR-56) : delta net de la fenêtre, coloré par le sens. */}
+        {delta && delta.changed ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[2] }}>
+            <View
+              testID={`progress-delta-${series.eventKey}`}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: spacing[1],
+                paddingHorizontal: spacing[2],
+                paddingVertical: 2,
+                borderRadius: 999,
+                backgroundColor: delta.improved ? colors.successBg : colors.surfaceSunken,
+              }}
+            >
+              <Feather
+                name={delta.improved ? 'arrow-up-right' : 'arrow-down-right'}
+                size={13}
+                color={delta.improved ? colors.success : colors.textMuted}
+              />
+              <Text
+                style={{
+                  color: delta.improved ? colors.success : colors.textSecondary,
+                  fontFamily: typography.fontFamily.semibold,
+                  fontSize: typography.bodySm.fontSize,
+                }}
+              >
+                {formatDelta(delta.magnitude, series.unit)}
+              </Text>
+            </View>
+            <Text
+              style={{
+                color: colors.textMuted,
+                fontFamily: typography.fontFamily.regular,
+                fontSize: typography.caption.fontSize,
+              }}
+            >
+              depuis le {shortDate(delta.fromDate)}
+            </Text>
+          </View>
+        ) : null}
+
         {points.length === 0 ? (
           <Text
             testID={`progress-series-${series.eventKey}-empty`}
@@ -177,9 +228,10 @@ export function ProgressSeriesCard({
             Aucune marque sur cette période.
           </Text>
         ) : (
-          <ProgressSparkline
+          <ProgressTimeline
             points={points}
             direction={series.direction}
+            unit={series.unit}
             eventKey={series.eventKey}
           />
         )}
@@ -267,40 +319,49 @@ export function ProgressSeriesCard({
   );
 }
 
+/** Bornage. */
+function clamp(v: number, lo: number, hi: number): number {
+  return Math.max(lo, Math.min(hi, v));
+}
+
 /**
- * Courbe de progression (R9) — sparkline **ligne + points** dessinée en `View` (sans dépendance
- * SVG, rendu identique web/natif), calée sur le design system (`design/preview/comp-charts.html`) :
- * 3 lignes de grille, segments accent reliant les marques, **point culminant** (best) surligné d'un
- * anneau, point **final** plein, et dates **début → fin** sous l'axe. Orientée par la performance
- * (meilleure marque toujours plus haute, chrono inclus — corrige le bar-chart brut précédent).
+ * Frise de progression (ADR-56) — courbe SVG riche + **bandeau de marques**, pensée pour être
+ * **lisible** : chaque marque est sélectionnable (tap natif / clic web) → **tooltip** date·valeur·Δ,
+ * ligne-guide ; le bandeau liste toutes les perfs (le « journal »). Orientée performance,
+ * unité/sens-aware → toutes disciplines (temps `s`/`mm:ss` min, distance `m` max).
  *
- * Les **points** sont positionnés en pourcentage (donc rendus sans mesure de largeur — testables) ;
- * seuls les **segments** (rotation) requièrent la largeur mesurée via `onLayout`.
+ * Les colonnes de sélection et le bandeau sont rendus **sans mesure de largeur** (donc testables) ;
+ * seul le tracé SVG attend la largeur mesurée via `onLayout`.
  */
-function ProgressSparkline({
+function ProgressTimeline({
   points,
   direction,
+  unit,
   eventKey,
 }: {
   points: ProgressPoint[];
   direction: ProgressSeries['direction'];
+  unit: 's' | 'm';
   eventKey: string;
 }) {
   const { colors, spacing, typography } = useTheme();
   const [width, setWidth] = useState(0);
+  const lastIdx = points.length - 1;
+  const [selected, setSelected] = useState(lastIdx);
+  const sel = clamp(selected, 0, lastIdx); // borne si la fenêtre rétrécit
   const heights = perfHeights(points, direction);
   const best = bestIndex(points, direction);
-  const lastIdx = points.length - 1;
   const single = points.length === 1;
-  const DOT = 9;
-  const TH = 2.5;
 
-  const yOf = (i: number) => CHART_HEIGHT - heights[i] * CHART_HEIGHT;
-  // Coordonnées pixel (segments) — disponibles une fois la largeur connue.
-  const xy = heights.map((_, i) => ({
-    x: single ? width / 2 : (i / (lastIdx || 1)) * width,
-    y: yOf(i),
-  }));
+  const xOf = (i: number) => (single ? width / 2 : (i / (lastIdx || 1)) * width);
+  const selPoint = points[sel];
+  const prevDelta =
+    sel > 0 ? Math.round(Math.abs(points[sel].value - points[sel - 1].value) * 100) / 100 : 0;
+  const selImproved =
+    sel > 0 &&
+    (direction === 'min'
+      ? points[sel].value < points[sel - 1].value
+      : points[sel].value > points[sel - 1].value);
 
   const axisStyle = {
     color: colors.textMuted,
@@ -310,87 +371,274 @@ function ProgressSparkline({
 
   return (
     <View style={{ gap: spacing[2] }}>
+      {/* Zone graphe : tracé SVG (mesuré) + tooltip + colonnes de sélection (toujours rendues). */}
       <View
         onLayout={(e: LayoutChangeEvent) => setWidth(e.nativeEvent.layout.width)}
         style={{ height: CHART_HEIGHT, position: 'relative' }}
       >
-        {/* Lignes de grille horizontales. */}
-        {[0.25, 0.5, 0.75].map((g) => (
+        {width > 0 ? (
+          <ProgressChart
+            width={width}
+            heights={heights}
+            best={best}
+            selected={sel}
+            single={single}
+          />
+        ) : null}
+
+        {/* Tooltip du point sélectionné (date · valeur · Δ vs précédente). */}
+        {width > 0 && selPoint ? (
           <View
-            key={g}
+            testID={`progress-tooltip-${eventKey}`}
+            pointerEvents="none"
             style={{
               position: 'absolute',
-              left: 0,
-              right: 0,
-              top: CHART_HEIGHT * g,
-              height: 1,
-              backgroundColor: colors.border,
+              top: 0,
+              left: clamp(xOf(sel) - 56, 0, Math.max(0, width - 112)),
+              width: 112,
+              alignItems: 'center',
+              gap: 1,
+              paddingVertical: 4,
+              paddingHorizontal: spacing[2],
+              borderRadius: 10,
+              backgroundColor: colors.surfaceSunken,
+              borderWidth: 1,
+              borderColor: colors.border,
             }}
-          />
-        ))}
-
-        {/* Segments reliant les marques (centrés puis tournés ; origine par défaut = centre). */}
-        {width > 0
-          ? xy.slice(1).map((p1, i) => {
-              const p0 = xy[i];
-              const dx = p1.x - p0.x;
-              const dy = p1.y - p0.y;
-              const len = Math.hypot(dx, dy);
-              const angle = Math.atan2(dy, dx);
-              return (
-                <View
-                  key={`seg-${i}`}
-                  style={{
-                    position: 'absolute',
-                    left: (p0.x + p1.x) / 2 - len / 2,
-                    top: (p0.y + p1.y) / 2 - TH / 2,
-                    width: len,
-                    height: TH,
-                    borderRadius: TH,
-                    backgroundColor: colors.accent,
-                    transform: [{ rotateZ: `${angle}rad` }],
-                  }}
-                />
-              );
-            })
-          : null}
-
-        {/* Points (positionnés en %) : best surligné d'un anneau, final plein, autres en aplat doux. */}
-        {heights.map((_, i) => {
-          const isBest = i === best;
-          const isLast = i === lastIdx;
-          const size = isBest ? DOT + 4 : isLast ? DOT + 2 : DOT;
-          const pct = single ? 50 : (i / (lastIdx || 1)) * 100;
-          return (
-            <View
-              key={`${points[i].date}-${i}`}
-              testID={`progress-point-${eventKey}-${i}`}
+          >
+            <Text
               style={{
-                position: 'absolute',
-                left: `${pct}%`,
-                marginLeft: -size / 2,
-                top: yOf(i) - size / 2,
-                width: size,
-                height: size,
-                borderRadius: size / 2,
-                backgroundColor: isBest || isLast ? colors.accent : colors.accentSubtle,
-                borderWidth: isBest ? 2 : 0,
-                borderColor: colors.surface,
+                color: colors.textPrimary,
+                fontFamily: typography.fontFamily.bold,
+                fontSize: typography.bodySm.fontSize,
               }}
+            >
+              {formatRecordValue(selPoint.value, unit)}
+            </Text>
+            <Text style={axisStyle}>
+              {shortDate(selPoint.date)}
+              {prevDelta > 0 ? ` · ${selImproved ? '▲' : '▼'} ${formatDelta(prevDelta, unit)}` : ''}
+            </Text>
+          </View>
+        ) : null}
+
+        {/* Colonnes de sélection transparentes (1 par marque) — natif + web, testables sans mesure. */}
+        <View
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            flexDirection: 'row',
+          }}
+        >
+          {points.map((p, i) => (
+            <Pressable
+              key={`hit-${p.date}-${i}`}
+              testID={`progress-point-${eventKey}-${i}`}
+              accessibilityRole="button"
+              accessibilityLabel={`${shortDate(p.date)} ${formatRecordValue(p.value, unit)}`}
+              onPress={() => setSelected(i)}
+              style={{ flex: 1 }}
             />
-          );
-        })}
+          ))}
+        </View>
       </View>
 
-      {/* Axe : dates début → fin de la période. */}
+      {/* Axe dates début → fin. */}
       {!single ? (
         <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
           <Text style={axisStyle}>{shortDate(points[0].date)}</Text>
           <Text style={axisStyle}>{shortDate(points[lastIdx].date)}</Text>
         </View>
       ) : null}
+
+      {/* Bandeau de marques (le journal lisible) — puce date·valeur·Δ, tap synchronisé au point. */}
+      {!single ? (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ gap: spacing[2], paddingVertical: 2 }}
+        >
+          {points.map((p, i) => {
+            const isSel = i === sel;
+            const isBest = i === best;
+            const up =
+              i > 0 &&
+              (direction === 'min' ? p.value < points[i - 1].value : p.value > points[i - 1].value);
+            const down =
+              i > 0 &&
+              (direction === 'min' ? p.value > points[i - 1].value : p.value < points[i - 1].value);
+            return (
+              <Pressable
+                key={`mark-${p.date}-${i}`}
+                testID={`progress-mark-${eventKey}-${i}`}
+                onPress={() => setSelected(i)}
+                style={{
+                  paddingHorizontal: spacing[2],
+                  paddingVertical: spacing[1],
+                  borderRadius: 10,
+                  borderWidth: 1,
+                  borderColor: isSel ? colors.accent : colors.border,
+                  backgroundColor: isSel ? colors.accentSubtle : colors.surface,
+                  alignItems: 'center',
+                  minWidth: 64,
+                }}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+                  <Text
+                    style={{
+                      color: colors.textPrimary,
+                      fontFamily: typography.fontFamily.semibold,
+                      fontSize: typography.bodySm.fontSize,
+                    }}
+                  >
+                    {formatRecordValue(p.value, unit)}
+                  </Text>
+                  {up ? <Feather name="arrow-up-right" size={11} color={colors.success} /> : null}
+                  {down ? (
+                    <Feather name="arrow-down-right" size={11} color={colors.textMuted} />
+                  ) : null}
+                  {isBest ? <Feather name="award" size={11} color={colors.accentText} /> : null}
+                </View>
+                <Text style={axisStyle}>{shortDate(p.date)}</Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      ) : null}
     </View>
   );
+}
+
+/**
+ * Rendu SVG de la courbe (ADR-56) — aire dégradée + ligne **lissée** (Catmull-Rom → Bézier) +
+ * grille + **ligne PB** pointillée + **ligne-guide** du point sélectionné + pastilles. Pur
+ * présentationnel : reçoit les hauteurs normalisées (0..1, déjà orientées performance) + la largeur.
+ */
+function ProgressChart({
+  width,
+  heights,
+  best,
+  selected,
+  single,
+}: {
+  width: number;
+  heights: number[];
+  best: number;
+  selected: number;
+  single: boolean;
+}) {
+  const { colors } = useTheme();
+  const innerH = CHART_HEIGHT - CHART_PAD_Y * 2;
+  const n = heights.length;
+  const xOf = (i: number) => (single ? width / 2 : (i / (n - 1 || 1)) * width);
+  const yOf = (i: number) => CHART_PAD_Y + (1 - heights[i]) * innerH;
+  const pts = heights.map((_, i) => ({ x: xOf(i), y: yOf(i) }));
+
+  const linePath = smoothPath(pts);
+  const areaPath =
+    pts.length > 1
+      ? `${linePath} L ${pts[n - 1].x} ${CHART_HEIGHT} L ${pts[0].x} ${CHART_HEIGHT} Z`
+      : '';
+
+  return (
+    <Svg width={width} height={CHART_HEIGHT}>
+      <Defs>
+        <LinearGradient id="progressArea" x1="0" y1="0" x2="0" y2="1">
+          <Stop offset="0" stopColor={colors.accent} stopOpacity={0.22} />
+          <Stop offset="1" stopColor={colors.accent} stopOpacity={0} />
+        </LinearGradient>
+      </Defs>
+
+      {[0.25, 0.5, 0.75].map((g) => (
+        <Line
+          key={g}
+          x1={0}
+          y1={CHART_HEIGHT * g}
+          x2={width}
+          y2={CHART_HEIGHT * g}
+          stroke={colors.border}
+          strokeWidth={1}
+        />
+      ))}
+
+      {areaPath ? <Path d={areaPath} fill="url(#progressArea)" /> : null}
+      {pts.length > 1 ? (
+        <Path
+          d={linePath}
+          fill="none"
+          stroke={colors.accent}
+          strokeWidth={2.5}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      ) : null}
+
+      {/* Ligne PB (meilleure marque). */}
+      {pts[best] ? (
+        <Line
+          x1={0}
+          y1={pts[best].y}
+          x2={width}
+          y2={pts[best].y}
+          stroke={colors.accentText}
+          strokeWidth={1}
+          strokeDasharray="4 4"
+          opacity={0.5}
+        />
+      ) : null}
+
+      {/* Ligne-guide du point sélectionné. */}
+      {pts[selected] ? (
+        <Line
+          x1={pts[selected].x}
+          y1={CHART_PAD_Y}
+          x2={pts[selected].x}
+          y2={CHART_HEIGHT}
+          stroke={colors.accent}
+          strokeWidth={1}
+          opacity={0.35}
+        />
+      ) : null}
+
+      {pts.map((p, i) => {
+        const isBest = i === best;
+        const isSel = i === selected;
+        return (
+          <Circle
+            key={i}
+            cx={p.x}
+            cy={p.y}
+            r={isSel ? 5.5 : isBest ? 5 : 3.5}
+            fill={isSel || isBest ? colors.accent : colors.accentSubtle}
+            stroke={isBest ? colors.accentText : colors.surface}
+            strokeWidth={isBest ? 2 : 1}
+          />
+        );
+      })}
+    </Svg>
+  );
+}
+
+/** Lissage Catmull-Rom → Bézier cubique (ADR-56). 1 point → `M` ; `''` si vide. */
+function smoothPath(pts: { x: number; y: number }[]): string {
+  if (pts.length === 0) return '';
+  if (pts.length === 1) return `M ${pts[0].x} ${pts[0].y}`;
+  let d = `M ${pts[0].x} ${pts[0].y}`;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[i - 1] ?? pts[i];
+    const p1 = pts[i];
+    const p2 = pts[i + 1];
+    const p3 = pts[i + 2] ?? p2;
+    const cp1x = p1.x + (p2.x - p0.x) / 6;
+    const cp1y = p1.y + (p2.y - p0.y) / 6;
+    const cp2x = p2.x - (p3.x - p1.x) / 6;
+    const cp2y = p2.y - (p3.y - p1.y) / 6;
+    d += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${p2.x} ${p2.y}`;
+  }
+  return d;
 }
 
 /**

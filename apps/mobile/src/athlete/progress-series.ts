@@ -66,6 +66,29 @@ export function perfHeights(
   });
 }
 
+/**
+ * Delta net de la fenêtre (première → dernière marque), **orienté performance** (ADR-56) :
+ * `improved` vrai si on progresse au sens de l'épreuve (chrono qui baisse *ou* distance qui monte).
+ * `magnitude` = ampleur absolue du changement (arrondie). `null` à moins de deux points.
+ */
+export function windowDelta(
+  points: ProgressPoint[],
+  direction: ProgressSeries['direction'],
+): { magnitude: number; improved: boolean; changed: boolean; fromDate: string } | null {
+  if (points.length < 2) return null;
+  const first = points[0];
+  const last = points[points.length - 1];
+  const delta = last.value - first.value;
+  const changed = delta !== 0;
+  const improved = direction === 'min' ? delta < 0 : delta > 0;
+  return {
+    magnitude: Math.round(Math.abs(delta) * 100) / 100,
+    improved,
+    changed,
+    fromDate: first.date,
+  };
+}
+
 /** Index de la meilleure marque de la fenêtre (selon le sens de l'épreuve). `-1` si vide. */
 export function bestIndex(points: ProgressPoint[], direction: ProgressSeries['direction']): number {
   if (points.length === 0) return -1;

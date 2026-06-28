@@ -67,6 +67,7 @@ Chaque décision suit le format **ADR** : Statut, Date, Contexte, Décision, Con
 | ADR-53 | Onglet **« Séances » coach** (Liste ⇄ Calendrier) en remplacement de l'onglet Calendrier : liste de séances enfin disponible (À venir/Passées/Brouillons/Modèles, dates effectives TLX-195), Modèles rapatriés depuis l'onglet Athlètes — amende ADR-44/47, zéro backend | Accepté |
 | ADR-54 | **Entrée unifiée de création** séance/modèle : un modèle (`status:template`, ADR-29) passe désormais par le **même sélecteur de discipline** (assistants ADR-38) qu'une séance — `NewSessionScreen` paramétré par `asTemplate`, `newTemplateHref` pointe sur le picker, statut propagé jusqu'au builder (R17) — complète ADR-29/38, zéro backend | Accepté |
 | ADR-55 | **Notifications in-app nominatives** (push générique préservé) : le feed in-app affiche le **prénom** de l'acteur (`actor` résolu au read depuis un `actorId` capturé à l'émission), le **push reste générique** (ADR-10 pour FCM/APNS) — amende ADR-10/23, complète ADR-22 (R1) | Accepté |
+| ADR-56 | **react-native-svg pour les graphes riches** : refonte de la progression (courbe lissée + aire + **tooltip par point** + ligne PB + bandeau de marques + delta), lisible et toutes disciplines (unité/sens-aware) — rouvre le « sans dépendance » de TLX-212/R9 ; web immédiat, **device après rebuild dev-client** (TLX-141-bis) | Accepté |
 
 ---
 
@@ -698,6 +699,14 @@ Décision complète : [`docs/adr/ADR-54-entree-unifiee-creation-seance-modele.md
 Décision complète : [`docs/adr/ADR-55-notifications-in-app-nominatives.md`](adr/ADR-55-notifications-in-app-nominatives.md).
 
 **Statut : Accepté** (2026-06-28, validé). **Amende ADR-10/23** (signal minimal sans donnée métier) et **complète ADR-22**. Constat (R1) : les notifications sont génériques (« Un athlète a rejoint votre groupe ») car le nom n'existe **nulle part** dans la chaîne (payload de file, table `notification`, rendu) — par conception. ADR-10 vise surtout le **canal non maîtrisé** : le **push** (FCM/APNS, écran verrouillé) garde la minimisation ; le **feed in-app** est servi authentifié à un destinataire **déjà autorisé** à connaître le nom. **D1** séparer les canaux : push **inchangé/générique**, feed in-app **nominatif**. **D2** ajouter un `actorId` **optionnel** (file + table), capturé à l'émission (on stocke l'**id**, jamais le nom). **D3** résolution au **read** en batch → DTO `actor?: { id, displayName }` (prénom, minimisé ; optionnel → rétro-compatible). **D4** front : libellés paramétrés par `actor?.displayName` + **repli générique** (anciennes lignes, acteur supprimé). **D5** migration additive (nullable, pas de backfill), push strictement inchangé. Écartés : push nominatif (affaiblit ADR-10), résolution depuis `resourceId` seul (insuffisante pour group_update/kudos/reply), stocker le nom au repos, composer la phrase côté serveur (ADR-23 garde la compo client). Plan : schéma+migration · payload+émission · worker (persistance) · read+DTO+openapi · client régénéré · front+repli · tests unité+intégration.
+
+---
+
+## ADR-56 — react-native-svg pour les graphes riches (progression)
+
+Décision complète : [`docs/adr/ADR-56-react-native-svg-graphes-riches.md`](adr/ADR-56-react-native-svg-graphes-riches.md).
+
+**Statut : Accepté** (2026-06-28, validé). **Rouvre** la décision « courbe sans dépendance » de TLX-212/R9. Constat produit : le sparkline `View` ne se lit pas (seule la meilleure marque chiffrée). **D1** adopter `react-native-svg` (via `expo install`) pour les graphes riches ; 1er usage `ProgressChart` (aire dégradée + **courbe lissée bézier** + tooltip + ligne PB). **D2** web immédiat (react-native-web), **device après rebuild dev-client** (module natif absent de l'APK → crash sinon, cf. TLX-141) → ticket **TLX-141-bis**. **D3** dérivations **pures et testées** (`progress-series.ts` : delta net de fenêtre, delta point↔précédent, modèle de courbe) ; SVG = pur rendu ; **unité/sens-aware** (`formatRecordValue` + `direction`) → zéro cas par discipline. **D4** UX par divulgation progressive : bandeau **progression** (delta coloré par le sens) → courbe + **point sélectionnable** (tooltip date/valeur/Δ, ligne PB, repères) → **bandeau de marques** scrollable (journal lisible) → **adaptatif** (1 marque = grand chiffre, 2 = avant→après, 3+ = courbe). **D5** zéro backend ; cloisonnement coach (ADR-51/36) inchangé. Écartés : rester en View, lib de charts clé en main, rendu serveur.
 
 ---
 
