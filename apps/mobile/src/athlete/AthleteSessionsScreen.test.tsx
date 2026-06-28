@@ -70,26 +70,31 @@ const PAGE = {
 
 beforeEach(() => jest.clearAllMocks());
 
-describe('AthleteSessionsScreen (TLX-065 / A-02)', () => {
-  it('liste les séances affectées avec leur statut', async () => {
-    mockListAssignments.mockResolvedValue({ status: 200, data: PAGE });
-    render(<AthleteSessionsScreen />, { wrapper: Wrapper });
-
-    await waitFor(() => expect(screen.getByText('Haut du corps')).toBeOnTheScreen());
-    expect(screen.getByText('Cardio')).toBeOnTheScreen();
-    expect(screen.getByTestId('sessions-count')).toHaveTextContent('2 séances affectées');
-    expect(screen.getByTestId('assignment-status-assigned')).toHaveTextContent('À faire');
-    expect(screen.getByTestId('assignment-status-completed')).toHaveTextContent('Réalisée');
-  });
-
-  it('trie les séances à faire avant les terminées', async () => {
+describe('AthleteSessionsScreen (TLX-065 / A-02 — onglets ADR-53)', () => {
+  it('onglets À venir / Passées avec compteurs ; défaut = À venir', async () => {
     mockListAssignments.mockResolvedValue({ status: 200, data: PAGE });
     render(<AthleteSessionsScreen />, { wrapper: Wrapper });
 
     await waitFor(() => expect(screen.getByTestId('session-item-as-1')).toBeOnTheScreen());
-    const items = screen.getAllByTestId(/^session-item-/);
-    expect(items[0].props.testID).toBe('session-item-as-1'); // assigned avant completed
-    expect(items[1].props.testID).toBe('session-item-as-2');
+    // Compteurs par onglet (1 à venir, 1 passée).
+    expect(screen.getByTestId('sessions-filter-upcoming')).toHaveTextContent('À venir 1');
+    expect(screen.getByTestId('sessions-filter-past')).toHaveTextContent('Passées 1');
+    // Défaut À venir : la séance assignée est visible, la terminée non.
+    expect(screen.getByText('Haut du corps')).toBeOnTheScreen();
+    expect(screen.queryByTestId('session-item-as-2')).toBeNull();
+    expect(screen.getByTestId('assignment-status-assigned')).toHaveTextContent('À faire');
+  });
+
+  it('onglet Passées affiche les séances réalisées', async () => {
+    mockListAssignments.mockResolvedValue({ status: 200, data: PAGE });
+    render(<AthleteSessionsScreen />, { wrapper: Wrapper });
+    await waitFor(() => expect(screen.getByTestId('sessions-filter-past')).toBeOnTheScreen());
+
+    fireEvent.press(screen.getByTestId('sessions-filter-past'));
+    expect(screen.getByTestId('session-item-as-2')).toBeOnTheScreen();
+    expect(screen.getByText('Cardio')).toBeOnTheScreen();
+    expect(screen.queryByTestId('session-item-as-1')).toBeNull();
+    expect(screen.getByTestId('assignment-status-completed')).toHaveTextContent('Réalisée');
   });
 
   it('ouvre le détail au tap sur une séance', async () => {
@@ -122,15 +127,14 @@ describe('AthleteSessionsScreen (TLX-065 / A-02)', () => {
     await waitFor(() => expect(screen.getByText('Haut du corps')).toBeOnTheScreen());
   });
 
-  it('recherche : filtre par titre de séance + sans correspondance (TLX-117)', async () => {
+  it('recherche dans l’onglet courant + sans correspondance (TLX-117)', async () => {
     mockListAssignments.mockResolvedValue({ status: 200, data: PAGE });
     render(<AthleteSessionsScreen />, { wrapper: Wrapper });
     await waitFor(() => expect(screen.getByTestId('session-item-as-1')).toBeOnTheScreen());
 
-    fireEvent.changeText(screen.getByTestId('sessions-search'), 'cardio');
-    expect(screen.getByTestId('session-item-as-2')).toBeOnTheScreen();
-    expect(screen.queryByTestId('session-item-as-1')).toBeNull();
-
+    // Onglet À venir : « haut » matche as-1.
+    fireEvent.changeText(screen.getByTestId('sessions-search'), 'haut');
+    expect(screen.getByTestId('session-item-as-1')).toBeOnTheScreen();
     fireEvent.changeText(screen.getByTestId('sessions-search'), 'zzz');
     expect(screen.getByTestId('sessions-no-match')).toBeOnTheScreen();
   });
