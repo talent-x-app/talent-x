@@ -64,7 +64,9 @@ export function AthleteSessionsScreen({ embedded = false }: { embedded?: boolean
   const query = useQuery({
     queryKey: ['assignments'],
     queryFn: async (): Promise<Assignment[]> => {
-      const response = await listAssignments();
+      // `limit: 100` : la liste couvre tout l'historique d'affectations (pas seulement la 1re page
+      // de 20) — cohérent avec le hub coach. Au-delà, prévoir une pagination dédiée (TLX-217 suite).
+      const response = await listAssignments({ limit: 100 });
       if (response.status === 200) return response.data.data;
       throw response;
     },
