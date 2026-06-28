@@ -125,7 +125,7 @@ describe('SessionDetailScreen (TLX-065/071 — A-03/A-04)', () => {
     expect(screen.getByTestId('exercise-0')).toHaveTextContent(/Développé couché/);
     expect(screen.getByTestId('exercise-1')).toHaveTextContent(/Tractions/);
     // Lecture seule : CTA « Saisir ma performance », pas de bouton de soumission ni de RPE.
-    expect(screen.getByTestId('start-perf-entry')).toHaveTextContent(/Saisir ma performance/);
+    expect(screen.getByTestId('start-perf-entry')).toHaveTextContent(/Saisir ma perf/);
     expect(screen.queryByTestId('submit-performance')).toBeNull();
     expect(screen.queryByTestId('rpe-slider')).toBeNull();
 
@@ -481,7 +481,7 @@ describe('SessionDetailScreen (TLX-065/071 — A-03/A-04)', () => {
 
     await waitFor(() => expect(screen.getByTestId('session-detail-saved')).toBeOnTheScreen());
     // Lecture seule : le CTA invite à modifier la perf existante.
-    expect(screen.getByTestId('start-perf-entry')).toHaveTextContent(/Modifier ma performance/);
+    expect(screen.getByTestId('start-perf-entry')).toHaveTextContent(/Modifier ma perf/);
 
     await enterEntryMode();
     expect(screen.getByTestId('rpe-value')).toHaveTextContent('9/10');

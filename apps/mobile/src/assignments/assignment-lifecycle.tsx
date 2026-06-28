@@ -10,7 +10,7 @@ import {
 import { useTheme } from '@talent-x/design-tokens';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Feather } from '@expo/vector-icons';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Text, TextInput, View } from 'react-native';
 import { Button, Card, Chip } from '../components/ui';
 import { COACH_DASHBOARD_QUERY_KEY } from '../dashboard/dashboard-query';
@@ -47,7 +47,15 @@ function useLifecycleInvalidate(assignmentId: string): () => void {
  * signale une indisponibilité (`skipped` + motif) — la séance sort des retards du coach — et
  * peut revenir en arrière (`assigned`). Masquée sur une séance déjà réalisée (`completed`).
  */
-export function SkipSessionCard({ assignment }: { assignment: Assignment }) {
+export function SkipSessionCard({
+  assignment,
+  companion,
+}: {
+  assignment: Assignment;
+  /** CTA principal (« Saisir ma perf ») rendu en regard du déclencheur : côte à côte quand replié,
+   *  empilé au-dessus du sélecteur de motif quand déployé (TLX-219). */
+  companion?: ReactNode;
+}) {
   const { colors, typography, spacing } = useTheme();
   const toast = useToast();
   const queryClient = useQueryClient();
@@ -76,101 +84,118 @@ export function SkipSessionCard({ assignment }: { assignment: Assignment }) {
   });
 
   // Une séance réalisée ne se « saute » pas (la perf est enregistrée).
-  if (assignment.status === AssignmentStatus.completed) return null;
+  if (assignment.status === AssignmentStatus.completed) {
+    return companion ? <>{companion}</> : null;
+  }
 
   // Indispo déjà signalée : état + retour en arrière.
   if (assignment.status === AssignmentStatus.skipped) {
     const label = assignment.skipReason ? SKIP_REASON_LABELS[assignment.skipReason] : 'Indispo';
     return (
-      <Card testID="skip-card-signaled" style={{ backgroundColor: colors.surfaceSunken }}>
-        <View style={{ gap: spacing[3] }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[2] }}>
-            <Feather name="slash" size={18} color={colors.textSecondary} />
-            <Text
-              style={{
-                flex: 1,
-                color: colors.textSecondary,
-                fontFamily: typography.fontFamily.medium,
-                fontSize: typography.bodySm.fontSize,
-              }}
+      <View style={{ gap: spacing[3] }}>
+        {companion}
+        <Card testID="skip-card-signaled" style={{ backgroundColor: colors.surfaceSunken }}>
+          <View style={{ gap: spacing[3] }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[2] }}>
+              <Feather name="slash" size={18} color={colors.textSecondary} />
+              <Text
+                style={{
+                  flex: 1,
+                  color: colors.textSecondary,
+                  fontFamily: typography.fontFamily.medium,
+                  fontSize: typography.bodySm.fontSize,
+                }}
+              >
+                Indisponibilité signalée · {label}
+              </Text>
+            </View>
+            <Button
+              testID="skip-undo"
+              variant="ghost"
+              loading={mutation.isPending}
+              onPress={() => mutation.mutate({ status: AssignmentUpdateRequestStatus.assigned })}
             >
-              Indisponibilité signalée · {label}
-            </Text>
+              Finalement, je peux la faire
+            </Button>
           </View>
-          <Button
-            testID="skip-undo"
-            variant="ghost"
-            loading={mutation.isPending}
-            onPress={() => mutation.mutate({ status: AssignmentUpdateRequestStatus.assigned })}
-          >
-            Finalement, je peux la faire
-          </Button>
-        </View>
-      </Card>
+        </Card>
+      </View>
     );
   }
 
   if (!choosing) {
-    return (
+    const trigger = (
       <Button
         testID="skip-open"
-        variant="ghost"
+        variant="secondary"
         onPress={() => setChoosing(true)}
-        leftIcon={<Feather name="slash" size={18} color={colors.textSecondary} />}
+        leftIcon={<Feather name="slash" size={16} color={colors.textSecondary} />}
       >
-        Je ne peux pas faire cette séance
+        Indisponible
       </Button>
+    );
+    // Côte à côte avec le CTA quand un companion est fourni (TLX-219), sinon déclencheur seul.
+    return companion ? (
+      <View style={{ flexDirection: 'row', gap: spacing[2] }}>
+        <View style={{ flex: 1 }}>{companion}</View>
+        {trigger}
+      </View>
+    ) : (
+      trigger
     );
   }
 
   return (
-    <Card testID="skip-card">
-      <View style={{ gap: spacing[3] }}>
-        <Text
-          style={{
-            color: colors.textPrimary,
-            fontFamily: typography.fontFamily.medium,
-            fontSize: typography.body.fontSize,
-          }}
-        >
-          Pourquoi ne peux-tu pas faire cette séance ?
-        </Text>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] }}>
-          {SKIP_REASON_ORDER.map((r) => (
-            <Chip
-              key={r}
-              testID={`skip-reason-${r}`}
-              selected={reason === r}
-              onPress={() => setReason(r)}
-            >
-              {SKIP_REASON_LABELS[r]}
-            </Chip>
-          ))}
+    <View style={{ gap: spacing[3] }}>
+      {companion}
+      <Card testID="skip-card">
+        <View style={{ gap: spacing[3] }}>
+          <Text
+            style={{
+              color: colors.textPrimary,
+              fontFamily: typography.fontFamily.medium,
+              fontSize: typography.body.fontSize,
+            }}
+          >
+            Pourquoi ne peux-tu pas faire cette séance ?
+          </Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] }}>
+            {SKIP_REASON_ORDER.map((r) => (
+              <Chip
+                key={r}
+                testID={`skip-reason-${r}`}
+                selected={reason === r}
+                onPress={() => setReason(r)}
+              >
+                {SKIP_REASON_LABELS[r]}
+              </Chip>
+            ))}
+          </View>
+          <Button
+            testID="skip-confirm"
+            disabled={reason === null}
+            loading={mutation.isPending}
+            onPress={() =>
+              reason &&
+              mutation.mutate({ status: AssignmentUpdateRequestStatus.skipped, skipReason: reason })
+            }
+          >
+            Signaler mon indisponibilité
+          </Button>
+          <Button
+            testID="skip-cancel"
+            variant="ghost"
+            disabled={mutation.isPending}
+            onPress={() => {
+              setChoosing(false);
+              setReason(null);
+            }}
+          >
+            Annuler
+          </Button>
         </View>
-        <Button
-          testID="skip-confirm"
-          disabled={reason === null}
-          loading={mutation.isPending}
-          onPress={() =>
-            reason &&
-            mutation.mutate({ status: AssignmentUpdateRequestStatus.skipped, skipReason: reason })
-          }
-        >
-          Signaler mon indisponibilité
-        </Button>
-        <Button
-          testID="skip-cancel"
-          variant="ghost"
-          disabled={mutation.isPending}
-          onPress={() => {
-            setChoosing(false);
-            setReason(null);
-          }}
-        >
-          Annuler
-        </Button>
-      </View>
-    </Card>
+      </Card>
+    </View>
   );
 }
 

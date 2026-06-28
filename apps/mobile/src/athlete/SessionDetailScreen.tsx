@@ -450,18 +450,33 @@ export function SessionDetailScreen() {
                 showSummary={false}
               />
 
-              <Button
-                testID="start-perf-entry"
-                onPress={startEntry}
-                size="lg"
-                leftIcon={<Feather name="edit-3" size={18} color={colors.textOnAccent} />}
-              >
-                {alreadySaved ? 'Modifier ma performance' : 'Saisir ma performance'}
-              </Button>
-
-              {/* ADR-31 (TLX-108) : signaler une indisponibilité (skip réversible) tant que la
-                  perf n'est pas soumise — sort la séance des retards du coach. */}
-              {!alreadySaved ? <SkipSessionCard assignment={assignment.data} /> : null}
+              {/* CTA principal (taille md, compact). Tant que la perf n'est pas saisie, il est
+                  rendu côte à côte avec « Indisponible » (skip ADR-31/TLX-108) via le companion ;
+                  une fois saisie, il occupe toute la largeur (le skip n'a plus de sens). */}
+              {alreadySaved ? (
+                <Button
+                  testID="start-perf-entry"
+                  onPress={startEntry}
+                  fullWidth
+                  leftIcon={<Feather name="edit-3" size={16} color={colors.textOnAccent} />}
+                >
+                  Modifier ma perf
+                </Button>
+              ) : (
+                <SkipSessionCard
+                  assignment={assignment.data}
+                  companion={
+                    <Button
+                      testID="start-perf-entry"
+                      onPress={startEntry}
+                      fullWidth
+                      leftIcon={<Feather name="edit-3" size={16} color={colors.textOnAccent} />}
+                    >
+                      Saisir ma perf
+                    </Button>
+                  }
+                />
+              )}
 
               {/* Échange avec le coach : une fois la perf enregistrée, fil de feedback sur la
                   perf (A-09) ; avant, discussion pré-séance sur la séance (TLX-118) — l'athlète
