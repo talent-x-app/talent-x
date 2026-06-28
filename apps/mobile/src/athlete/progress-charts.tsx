@@ -9,7 +9,7 @@ import { Feather } from '@expo/vector-icons';
 import { useState } from 'react';
 import { type LayoutChangeEvent, Pressable, ScrollView, Text, View } from 'react-native';
 import Svg, { Circle, Defs, Line, LinearGradient, Path, Stop } from 'react-native-svg';
-import { Card, Chip } from '../components/ui';
+import { Card, Chip, SegmentedTabs } from '../components/ui';
 import { formatSessionDate } from './athlete-session-ui';
 import { formatRecordValue } from './perf-entry';
 import {
@@ -29,31 +29,6 @@ import {
  * que le coach voie exactement les mêmes graphes/records que l'athlète. Présentationnels
  * (aucune requête) : les écrans fournissent les données déjà chargées.
  */
-
-/** Sélecteur de fenêtre temporelle (Semaine / Mois / Année). */
-export function ProgressWindowChips({
-  window,
-  onChange,
-}: {
-  window: ProgressWindow;
-  onChange: (w: ProgressWindow) => void;
-}) {
-  const { spacing } = useTheme();
-  return (
-    <View style={{ flexDirection: 'row', gap: spacing[2] }}>
-      {PROGRESS_WINDOWS.map((w) => (
-        <Chip
-          key={w.value}
-          testID={`progress-window-${w.value}`}
-          selected={window === w.value}
-          onPress={() => onChange(w.value)}
-        >
-          {w.label}
-        </Chip>
-      ))}
-    </View>
-  );
-}
 
 /** Bandeau métriques (dérivations StatsMetrics — ADR-21). */
 export function ProgressMetricsRow({ progress }: { progress: Progress }) {
@@ -99,11 +74,20 @@ function Metric({ label, value }: { label: string; value: string }) {
 const CHART_HEIGHT = 132;
 const CHART_PAD_Y = 16; // marge haut/bas pour les points extrêmes + la ligne PB.
 const CHART_PAD_X = 10; // marge gauche/droite pour ne pas rogner les pastilles aux bords.
-const TOOLTIP_W = 150; // largeur de la bulle (assez pour « aussi : x · y »).
 
 /** Date compacte « JJ/MM » à partir d'une clé `YYYY-MM-DD` (axe de la courbe). */
 function shortDate(date: string): string {
   return `${date.slice(8, 10)}/${date.slice(5, 7)}`;
+}
+
+/** Date longue « mer. 10 juin » (UTC pour ne pas décaler). */
+function longDate(date: string): string {
+  return new Date(`${date}T00:00:00.000Z`).toLocaleDateString('fr-FR', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'long',
+    timeZone: 'UTC',
+  });
 }
 
 /** Delta lisible (ampleur seule) — jamais de `mm:ss` (un delta reste petit). ADR-56. */
@@ -165,7 +149,7 @@ export function ProgressExplorer({
   window: ProgressWindow;
   onWindow: (w: ProgressWindow) => void;
 }) {
-  const { spacing } = useTheme();
+  const { colors, spacing } = useTheme();
   const disciplines = [...new Set(series.map((s) => disciplineKeyOf(s.eventKey)))];
   const lastDateOf = (s: ProgressSeries) => s.points[s.points.length - 1]?.date ?? '';
   const mostRecent = [...series].sort((a, b) => lastDateOf(b).localeCompare(lastDateOf(a)))[0];
@@ -191,9 +175,15 @@ export function ProgressExplorer({
 
   return (
     <View style={{ gap: spacing[3] }}>
-      <ProgressWindowChips window={window} onChange={onWindow} />
+      {/* Période — contrôle segmenté (plus lisible qu'une rangée de chips). */}
+      <SegmentedTabs
+        testID="progress-window"
+        items={PROGRESS_WINDOWS.map((w) => ({ key: w.value, label: w.label }))}
+        activeKey={window}
+        onChange={(k) => onWindow(k as ProgressWindow)}
+      />
 
-      {/* Onglets discipline (pastille couleur + libellé). */}
+      {/* Onglets discipline (pastille couleur + libellé) — couleur = repère parlant. */}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -212,6 +202,16 @@ export function ProgressExplorer({
             testID={`progress-discipline-tab-${d}`}
             selected={discipline === d}
             onPress={() => selectDiscipline(d)}
+            leftIcon={
+              <View
+                style={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: 4,
+                  backgroundColor: disciplineColor(d, colors),
+                }}
+              />
+            }
           >
             {DISCIPLINE_LABELS[d] ?? d}
           </Chip>
@@ -445,7 +445,10 @@ export function ProgressSeriesCard({
                     {y.year}
                   </Text>
                   <Text
+                    numberOfLines={1}
                     style={{
+                      width: 76,
+                      textAlign: 'right',
                       color: colors.textPrimary,
                       fontFamily: typography.fontFamily.medium,
                       fontSize: typography.bodySm.fontSize,
@@ -454,8 +457,9 @@ export function ProgressSeriesCard({
                     {formatRecordValue(y.best, series.unit)}
                   </Text>
                   <Text
+                    numberOfLines={1}
                     style={{
-                      width: 64,
+                      width: 92,
                       textAlign: 'right',
                       color: colors.textMuted,
                       fontFamily: typography.fontFamily.regular,
@@ -511,7 +515,6 @@ function ProgressTimeline({
   const single = points.length === 1;
   const fracs = timeFractions(points); // X proportionnel au temps (ADR-56)
 
-  const xOf = (i: number) => CHART_PAD_X + fracs[i] * (width - 2 * CHART_PAD_X);
   // Largeurs des zones de tap, **proportionnelles au temps** (alignées sur l'espacement des points).
   const hitWeights = fracs.map((f, i) => {
     const left = i === 0 ? 0 : (fracs[i - 1] + f) / 2;
@@ -519,13 +522,8 @@ function ProgressTimeline({
     return Math.max(0.0001, right - left);
   });
   const selPoint = points[sel];
-  const prevDelta =
-    sel > 0 ? Math.round(Math.abs(points[sel].value - points[sel - 1].value) * 100) / 100 : 0;
-  const selImproved =
-    sel > 0 &&
-    (direction === 'min'
-      ? points[sel].value < points[sel - 1].value
-      : points[sel].value > points[sel - 1].value);
+  // Marques du jour sélectionné (la meilleure en tête, puis `others`) → panneau « Détail du jour ».
+  const dayMarks = selPoint ? [selPoint.value, ...(selPoint.others ?? [])] : [];
 
   const axisStyle = {
     color: colors.textMuted,
@@ -535,7 +533,8 @@ function ProgressTimeline({
 
   return (
     <View style={{ gap: spacing[2] }}>
-      {/* Zone graphe : tracé SVG (mesuré) + tooltip + colonnes de sélection (toujours rendues). */}
+      {/* Zone graphe : tracé SVG (mesuré) + colonnes de sélection (toujours rendues). Le détail du
+          jour sélectionné vit dans un panneau dédié sous le graphe (plus de bulle qui masque). */}
       <View
         onLayout={(e: LayoutChangeEvent) => setWidth(e.nativeEvent.layout.width)}
         style={{ height: CHART_HEIGHT, position: 'relative' }}
@@ -549,51 +548,6 @@ function ProgressTimeline({
             selected={sel}
             pbColor={pbColor}
           />
-        ) : null}
-
-        {/* Tooltip du point sélectionné (date · valeur · Δ vs précédente + autres marques du jour). */}
-        {width > 0 && selPoint ? (
-          <View
-            testID={`progress-tooltip-${eventKey}`}
-            pointerEvents="none"
-            style={{
-              position: 'absolute',
-              top: 0,
-              left: clamp(xOf(sel) - TOOLTIP_W / 2, 0, Math.max(0, width - TOOLTIP_W)),
-              width: TOOLTIP_W,
-              alignItems: 'center',
-              gap: 1,
-              paddingVertical: 4,
-              paddingHorizontal: spacing[2],
-              borderRadius: 10,
-              backgroundColor: colors.surfaceSunken,
-              borderWidth: 1,
-              borderColor: colors.border,
-            }}
-          >
-            <Text
-              style={{
-                color: colors.textPrimary,
-                fontFamily: typography.fontFamily.bold,
-                fontSize: typography.bodySm.fontSize,
-              }}
-            >
-              {formatRecordValue(selPoint.value, unit)}
-            </Text>
-            <Text style={axisStyle}>
-              {shortDate(selPoint.date)}
-              {prevDelta > 0 ? ` · ${selImproved ? '▲' : '▼'} ${formatDelta(prevDelta, unit)}` : ''}
-            </Text>
-            {/* Autres marques du même jour (ADR-56) : `value` est la meilleure ; on liste le reste. */}
-            {selPoint.others && selPoint.others.length > 0 ? (
-              <Text
-                testID={`progress-others-${eventKey}`}
-                style={{ ...axisStyle, textAlign: 'center' }}
-              >
-                aussi : {selPoint.others.map((o) => formatRecordValue(o, unit)).join(' · ')}
-              </Text>
-            ) : null}
-          </View>
         ) : null}
 
         {/* Colonnes de sélection transparentes (1 par marque) — natif + web, testables sans mesure. */}
@@ -681,6 +635,81 @@ function ProgressTimeline({
             );
           })}
         </ScrollView>
+      ) : null}
+
+      {/* Détail du jour sélectionné (ADR-56) : toutes les marques du jour (la meilleure + les
+          autres avec leur écart à la meilleure) — remplace la bulle flottante. */}
+      {selPoint ? (
+        <View
+          testID={`progress-day-detail-${eventKey}`}
+          style={{
+            gap: spacing[2],
+            borderTopWidth: 1,
+            borderTopColor: colors.border,
+            paddingTop: spacing[3],
+          }}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[2] }}>
+            <Text
+              style={{
+                flex: 1,
+                color: colors.textMuted,
+                fontFamily: typography.fontFamily.medium,
+                fontSize: typography.caption.fontSize,
+                textTransform: 'uppercase',
+                letterSpacing: 0.6,
+              }}
+            >
+              Détail · {longDate(selPoint.date)}
+            </Text>
+            <Text style={axisStyle}>
+              {dayMarks.length} marque{dayMarks.length > 1 ? 's' : ''}
+            </Text>
+          </View>
+          <View style={{ gap: spacing[1] }}>
+            {dayMarks.map((m, i) => {
+              const gap =
+                i === 0
+                  ? 0
+                  : Math.round(
+                      (direction === 'min' ? m - selPoint.value : selPoint.value - m) * 100,
+                    ) / 100;
+              return (
+                <View
+                  key={`${m}-${i}`}
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[2] }}
+                >
+                  <Text
+                    style={{
+                      width: 72,
+                      color: colors.textPrimary,
+                      fontFamily: typography.fontFamily.semibold,
+                      fontSize: typography.bodySm.fontSize,
+                    }}
+                  >
+                    {formatRecordValue(m, unit)}
+                  </Text>
+                  {i === 0 ? (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                      <Feather name="award" size={13} color={pbColor} />
+                      <Text
+                        style={{
+                          color: colors.textSecondary,
+                          fontFamily: typography.fontFamily.medium,
+                          fontSize: typography.caption.fontSize,
+                        }}
+                      >
+                        meilleure du jour
+                      </Text>
+                    </View>
+                  ) : (
+                    <Text style={axisStyle}>+{formatDelta(gap, unit)}</Text>
+                  )}
+                </View>
+              );
+            })}
+          </View>
+        </View>
       ) : null}
     </View>
   );
