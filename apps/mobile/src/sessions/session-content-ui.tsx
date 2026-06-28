@@ -350,10 +350,14 @@ export function SessionContent({
   exercises,
   brief,
   results,
+  showSummary = true,
 }: {
   exercises: ExerciseNode[];
   brief?: SessionBrief;
   results?: ExerciseResult[];
+  /** Affiche l'en-tête de synthèse interne (métriques + phrase/KPIs). L'écran athlète le passe
+   *  à `false` car il rend son propre hero + bandeau adaptatif au-dessus (TLX-219). */
+  showSummary?: boolean;
 }) {
   const { colors, typography, spacing } = useTheme();
   const { warmup, cooldown } = splitPhases(exercises);
@@ -368,8 +372,8 @@ export function SessionContent({
 
   return (
     <View style={{ gap: spacing[5] }}>
-      <BriefMetrics brief={brief} items={exercises} />
-      <SessionSummaryCard exercises={exercises} />
+      {showSummary ? <BriefMetrics brief={brief} items={exercises} /> : null}
+      {showSummary ? <SessionSummaryCard exercises={exercises} /> : null}
       {brief?.athleteIntent ? <AthleteIntentBanner text={brief.athleteIntent} /> : null}
 
       {warmup ? (

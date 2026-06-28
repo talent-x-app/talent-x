@@ -520,10 +520,11 @@ describe('SessionDetailScreen (TLX-065/071 — A-03/A-04)', () => {
     mockGetPerformance.mockResolvedValue({ status: 404, data: { error: 'NOT_FOUND' } });
     render(<SessionDetailScreen />, { wrapper: Wrapper });
 
-    await waitFor(() => expect(screen.getByTestId('brief-metrics')).toBeOnTheScreen());
-    expect(screen.getByTestId('brief-metric-duration-value')).toHaveTextContent('75 min');
-    expect(screen.getByTestId('brief-metric-exercises-value')).toHaveTextContent('2');
-    expect(screen.getByTestId('brief-metric-difficulty-value')).toHaveTextContent('7/10');
+    // Bandeau adaptatif (TLX-219) : n'affiche que les métriques renseignées.
+    await waitFor(() => expect(screen.getByTestId('session-stats')).toBeOnTheScreen());
+    expect(screen.getByTestId('session-stat-duration-value')).toHaveTextContent('75 min');
+    expect(screen.getByTestId('session-stat-exercices-value')).toHaveTextContent('2');
+    expect(screen.getByTestId('session-stat-difficulty-value')).toHaveTextContent('7/10');
     expect(screen.getByTestId('brief-athlete-intent')).toHaveTextContent(/Cours vite et relâché\./);
     expect(screen.getByTestId('brief-success')).toHaveTextContent(
       /Tenir les 16 efforts au même rythme\./,
@@ -531,14 +532,32 @@ describe('SessionDetailScreen (TLX-065/071 — A-03/A-04)', () => {
     expect(screen.getByTestId('brief-stop')).toHaveTextContent(/Ta foulée s'écrase\./);
   });
 
-  it('séance sans brief : métriques présentes, ni consigne ni carte Réussi/Stop (rétro-compat)', async () => {
+  it('séance sans brief : bandeau réduit aux métriques connues, ni consigne ni Réussi/Stop (rétro-compat)', async () => {
     mockGetAssignment.mockResolvedValue({ status: 200, data: ASSIGNMENT });
     mockGetPerformance.mockResolvedValue({ status: 404, data: { error: 'NOT_FOUND' } });
     render(<SessionDetailScreen />, { wrapper: Wrapper });
 
-    await waitFor(() => expect(screen.getByTestId('brief-metrics')).toBeOnTheScreen());
-    expect(screen.getByTestId('brief-metric-difficulty-value')).toHaveTextContent('—');
+    // Sans brief ni distance/durée exploitables : seul « Exercices » subsiste, pas de tuiles vides.
+    await waitFor(() =>
+      expect(screen.getByTestId('session-stat-exercices-value')).toHaveTextContent('2'),
+    );
+    expect(screen.queryByTestId('session-stat-difficulty')).toBeNull();
+    expect(screen.queryByTestId('session-stat-duration')).toBeNull();
     expect(screen.queryByTestId('brief-athlete-intent')).toBeNull();
     expect(screen.queryByTestId('brief-success-stop')).toBeNull();
+  });
+
+  it('hero : badge d’état + sous-titre (phrase ou description) (TLX-219)', async () => {
+    mockGetAssignment.mockResolvedValue({ status: 200, data: ASSIGNMENT });
+    mockGetPerformance.mockResolvedValue({ status: 404, data: { error: 'NOT_FOUND' } });
+    render(<SessionDetailScreen />, { wrapper: Wrapper });
+
+    await waitFor(() =>
+      expect(screen.getByTestId('session-detail-title')).toHaveTextContent('Haut du corps'),
+    );
+    // Badge d'état d'affectation dans le hero (statut « assigned » → « À faire »).
+    expect(screen.getByTestId('assignment-status-assigned')).toBeOnTheScreen();
+    // Sous-titre = phrase condensée dérivée des reps (ADR-38), prioritaire sur la description.
+    expect(screen.getByTestId('session-detail-subtitle')).toHaveTextContent('(8×·10×)');
   });
 });

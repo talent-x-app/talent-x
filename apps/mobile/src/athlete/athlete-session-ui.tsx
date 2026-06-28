@@ -151,6 +151,95 @@ function DisciplineInlineTag({ assignment }: { assignment: Pick<Assignment, 'ses
   );
 }
 
+/**
+ * Jour relatif lisible (« aujourd'hui », « demain », « hier », « dans 3 j », « il y a 2 j »).
+ * Comparaison sur les **jours calendaires** locaux (heures ignorées). `undefined` si date invalide.
+ */
+export function relativeDay(iso: string, now: Date = new Date()): string | undefined {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return undefined;
+  const day = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const diff = Math.round((day(d) - day(now)) / 86_400_000);
+  if (diff === 0) return "aujourd'hui";
+  if (diff === 1) return 'demain';
+  if (diff === -1) return 'hier';
+  return diff > 0 ? `dans ${diff} j` : `il y a ${-diff} j`;
+}
+
+/**
+ * En-tête éditorial du détail séance athlète (A-03, TLX-219) : liseré couleur-discipline (ADR-56),
+ * pastille de discipline + badge d'état d'affectation, titre, date + jour relatif. La couleur de
+ * discipline est **dérivée** des blocs typés (ADR-43 §2), `accent` par défaut si non typée.
+ */
+export function SessionHero({ assignment }: { assignment: Assignment }) {
+  const { colors, typography, spacing, radius } = useTheme();
+  const visual = disciplineVisual(sessionDiscipline(assignment.session?.exercises?.items));
+  const accent = visual ? (colors[visual.colorKey] as string) : colors.accent;
+  const date = assignment.session?.scheduledDate ?? assignment.dueDate;
+  const rel = date ? relativeDay(date) : undefined;
+  return (
+    <View style={{ flexDirection: 'row', gap: spacing[3] }}>
+      <View
+        style={{
+          width: 4,
+          borderRadius: radius.pill,
+          backgroundColor: accent,
+          alignSelf: 'stretch',
+        }}
+      />
+      <View style={{ flex: 1, gap: spacing[2] }}>
+        <View
+          style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[2], flexWrap: 'wrap' }}
+        >
+          {visual ? (
+            <View
+              testID={`session-discipline-${visual.key}`}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
+            >
+              <Feather name={visual.icon} size={13} color={accent} />
+              <Text
+                style={{
+                  color: accent,
+                  fontFamily: typography.fontFamily.medium,
+                  fontSize: typography.caption.fontSize,
+                  textTransform: 'uppercase',
+                  letterSpacing: 0.6,
+                }}
+              >
+                {visual.label}
+              </Text>
+            </View>
+          ) : null}
+          <AssignmentStatusBadge status={assignment.status} />
+        </View>
+        <Text
+          testID="session-detail-title"
+          style={{
+            color: colors.textPrimary,
+            fontFamily: typography.fontFamily.bold,
+            fontSize: typography.h2.fontSize,
+          }}
+        >
+          {sessionTitle(assignment)}
+        </Text>
+        {date ? (
+          <Text
+            testID="session-detail-date"
+            style={{
+              color: colors.textMuted,
+              fontFamily: typography.fontFamily.regular,
+              fontSize: typography.bodySm.fontSize,
+            }}
+          >
+            {formatSessionDate(date)}
+            {rel ? ` · ${rel}` : ''}
+          </Text>
+        ) : null}
+      </View>
+    </View>
+  );
+}
+
 /** Titre de la séance d'une affectation (fallback « Séance »). */
 export function sessionTitle(assignment: Pick<Assignment, 'session'>): string {
   const title = assignment.session?.title?.trim();

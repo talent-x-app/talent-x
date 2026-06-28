@@ -252,7 +252,8 @@ export function PresenceControl({
         <Text
           testID="presence-deadline"
           style={{
-            color: colors.warning,
+            // Sous-label discret (TLX-219) : l'échéance informe sans dramatiser (plus d'orange permanent).
+            color: colors.textMuted,
             fontFamily: typography.fontFamily.regular,
             fontSize: typography.caption.fontSize,
           }}

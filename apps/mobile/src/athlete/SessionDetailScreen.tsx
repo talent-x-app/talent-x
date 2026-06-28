@@ -52,9 +52,10 @@ import {
   SectionTitle,
   SessionContent,
 } from '../sessions/session-content-ui';
-import { formatSessionDate, sessionTitle } from './athlete-session-ui';
+import { formatSessionDate, SessionHero } from './athlete-session-ui';
+import { sessionPhrase } from '../sessions/session-summary';
 import { AttendanceSummaryView, PresenceControl, TeammatesKudosView } from '../groups/presence-ui';
-import { AthleteIntentBanner, BriefMetrics, SuccessStopCard } from './brief-ui';
+import { AthleteIntentBanner, SessionStatStrip, SuccessStopCard } from './brief-ui';
 import { perfConfirmationHref } from './navigation';
 import {
   ATTEMPTS_PER_BAR,
@@ -315,6 +316,10 @@ export function SessionDetailScreen() {
 
   const completedCount = entries.filter(entryIsCompleted).length;
 
+  // Sous-titre du hero (TLX-219) : la « phrase » condensée de la séance (ADR-38) si elle se
+  // dérive, sinon la description libre du coach.
+  const sessionSubtitle = sessionPhrase(exercises) || assignment.data?.session?.description || '';
+
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: colors.background }}
@@ -363,39 +368,21 @@ export function SessionDetailScreen() {
         </Card>
       ) : (
         <>
-          <View style={{ gap: spacing[2] }}>
-            <Text
-              testID="session-detail-title"
-              style={{
-                color: colors.textPrimary,
-                fontFamily: typography.fontFamily.bold,
-                fontSize: typography.h2.fontSize,
-              }}
-            >
-              {sessionTitle(assignment.data)}
-            </Text>
-            {assignment.data.session?.scheduledDate ? (
+          <View style={{ gap: spacing[3] }}>
+            <SessionHero assignment={assignment.data} />
+            {sessionSubtitle ? (
               <Text
-                style={{
-                  color: colors.textMuted,
-                  fontFamily: typography.fontFamily.regular,
-                  fontSize: typography.bodySm.fontSize,
-                }}
-              >
-                {formatSessionDate(assignment.data.session.scheduledDate)}
-              </Text>
-            ) : null}
-            {assignment.data.session?.description ? (
-              <Text
+                testID="session-detail-subtitle"
                 style={{
                   color: colors.textSecondary,
                   fontFamily: typography.fontFamily.regular,
                   fontSize: typography.body.fontSize,
                 }}
               >
-                {assignment.data.session.description}
+                {sessionSubtitle}
               </Text>
             ) : null}
+            <SessionStatStrip brief={assignment.data.session?.brief} items={exercises} />
           </View>
 
           {/* Présence (RSVP, ADR-43 §1) — déclarable tant que la séance est exécutable. La clé de
@@ -454,11 +441,13 @@ export function SessionDetailScreen() {
                 </Card>
               ) : null}
 
-              {/* A-03 : séance en lecture seule (brief + exercices + Réussi/Stop) — mode par défaut. */}
+              {/* A-03 : séance en lecture seule (exercices + Réussi/Stop) — mode par défaut. La
+                  synthèse (hero + bandeau adaptatif) est rendue au-dessus → `showSummary={false}`. */}
               <SessionContent
                 exercises={exercises}
                 brief={assignment.data.session?.brief}
                 results={existing.data?.results?.items}
+                showSummary={false}
               />
 
               <Button
@@ -496,8 +485,8 @@ export function SessionDetailScreen() {
             </>
           ) : (
             <>
-              {/* A-03 : en-tête éditorial (brief, ADR-28) — métriques + consigne « en une phrase ». */}
-              <BriefMetrics brief={assignment.data.session?.brief} items={exercises} />
+              {/* A-04 : la synthèse (hero + bandeau adaptatif) reste affichée au-dessus, hors mode ;
+                  ici on ne répète que la consigne « en une phrase » du brief (ADR-28). */}
               {assignment.data.session?.brief?.athleteIntent ? (
                 <AthleteIntentBanner text={assignment.data.session.brief.athleteIntent} />
               ) : null}

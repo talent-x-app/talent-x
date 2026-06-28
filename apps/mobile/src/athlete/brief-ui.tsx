@@ -4,6 +4,7 @@ import { Feather } from '@expo/vector-icons';
 import { StyleSheet, Text, View } from 'react-native';
 import { Card } from '../components/ui';
 import { countLeaves, isExerciseGroup, type ExerciseNode } from '../sessions/exercises-doc';
+import { formatDistanceVolume, sessionKpis } from '../sessions/session-summary';
 
 /**
  * Rendu athlète de la couche éditoriale `brief` (ADR-28) : en-tête de métriques
@@ -145,6 +146,94 @@ export function BriefMetrics({
         label="Difficulté"
         value={brief?.difficulty != null ? `${brief.difficulty}/10` : '—'}
       />
+    </View>
+  );
+}
+
+/**
+ * Bandeau de KPIs **adaptatif** (TLX-219) — n'affiche que les métriques renseignées
+ * (Exercices · Volume · Durée · Difficulté). Remplace les tuiles `BriefMetrics` fixes qui
+ * laissaient des « — » vides, et absorbe le volume (plus de bloc EFFORTS/VOLUME redondant).
+ * Rien si aucune métrique exploitable (dégradation propre).
+ */
+export function SessionStatStrip({
+  brief,
+  items,
+}: {
+  brief: SessionBrief | undefined;
+  items: ExerciseNode[];
+}) {
+  const { colors, typography, spacing, radius } = useTheme();
+  const exercises = countLeaves(items);
+  const volume = formatDistanceVolume(sessionKpis(items).distanceMeters);
+  const duration = durationMetric(brief, items);
+
+  const cells: { key: string; label: string; value: string; hint?: string }[] = [];
+  if (exercises > 0)
+    cells.push({
+      key: 'exercices',
+      label: exercises > 1 ? 'Exercices' : 'Exercice',
+      value: `${exercises}`,
+    });
+  if (volume) cells.push({ key: 'volume', label: 'Volume', value: volume });
+  if (duration.value !== '—')
+    cells.push({ key: 'duration', label: 'Durée', value: duration.value, hint: duration.hint });
+  if (brief?.difficulty != null)
+    cells.push({ key: 'difficulty', label: 'Difficulté', value: `${brief.difficulty}/10` });
+
+  if (cells.length === 0) return null;
+
+  return (
+    <View testID="session-stats" style={{ flexDirection: 'row', gap: spacing[2] }}>
+      {cells.map((c) => (
+        <View
+          key={c.key}
+          testID={`session-stat-${c.key}`}
+          style={{
+            flex: 1,
+            backgroundColor: colors.surfaceSunken,
+            borderRadius: radius.md,
+            paddingVertical: spacing[3],
+            paddingHorizontal: spacing[2],
+            alignItems: 'center',
+            gap: 2,
+          }}
+        >
+          <Text
+            testID={`session-stat-${c.key}-value`}
+            style={{
+              color: colors.textPrimary,
+              fontFamily: typography.fontFamily.bold,
+              fontSize: typography.h3.fontSize,
+            }}
+          >
+            {c.value}
+          </Text>
+          <Text
+            style={{
+              color: colors.textMuted,
+              fontFamily: typography.fontFamily.regular,
+              fontSize: typography.caption.fontSize,
+              textTransform: 'uppercase',
+              letterSpacing: 0.6,
+              textAlign: 'center',
+            }}
+          >
+            {c.label}
+          </Text>
+          {c.hint ? (
+            <Text
+              style={{
+                color: colors.textMuted,
+                fontFamily: typography.fontFamily.regular,
+                fontSize: typography.caption.fontSize,
+              }}
+            >
+              {c.hint}
+            </Text>
+          ) : null}
+        </View>
+      ))}
     </View>
   );
 }
