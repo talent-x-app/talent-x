@@ -35,14 +35,16 @@ function Wrapper({ children }: { children: ReactNode }) {
   );
 }
 
-/** Date du jour (UTC) moins `days` jours, au format date du contrat. */
+// Périodes calendaires déterministes : now fixé au dim. 28/06/2026 (semaine lun 22 → dim 28).
+const FIXED_NOW = new Date('2026-06-28T12:00:00.000Z');
+const YEAR = 2026;
+
+/** Date du jour (vrai now) moins `days` jours — pour l'assiduité (basée sur la date réelle). */
 function daysAgo(days: number): string {
   const d = new Date();
   d.setUTCDate(d.getUTCDate() - days);
   return d.toISOString().slice(0, 10);
 }
-
-const YEAR = new Date().getUTCFullYear();
 
 const PROGRESS = {
   athleteId: 'a-1',
@@ -60,10 +62,10 @@ const PROGRESS = {
       unit: 's',
       direction: 'min',
       points: [
-        { date: daysAgo(20), value: 7.6 },
-        { date: daysAgo(2), value: 7.45 },
+        { date: '2026-06-08', value: 7.6 }, // juin, hors semaine courante
+        { date: '2026-06-26', value: 7.45 }, // juin ET semaine courante (22→28)
       ],
-      seasonBest: { date: daysAgo(2), value: 7.45 },
+      seasonBest: { date: '2026-06-26', value: 7.45 },
       marksByYear: [{ year: YEAR, best: 7.45, count: 2 }],
     },
   ],
@@ -78,7 +80,7 @@ beforeEach(() => {
 describe('ProgressScreen (TLX-090 — A-06)', () => {
   it('affiche métriques, graphe par épreuve, dernière marque et tendance', async () => {
     mockGetMyProgress.mockResolvedValue({ status: 200, data: PROGRESS });
-    render(<ProgressScreen />, { wrapper: Wrapper });
+    render(<ProgressScreen now={FIXED_NOW} />, { wrapper: Wrapper });
 
     await waitFor(() => expect(screen.getByTestId('progress-series-sprint:60m')).toBeOnTheScreen());
     expect(screen.getByText('3/4')).toBeOnTheScreen();
@@ -93,7 +95,7 @@ describe('ProgressScreen (TLX-090 — A-06)', () => {
 
   it('affiche le SB de la saison et le tableau des marques par année (ADR-34)', async () => {
     mockGetMyProgress.mockResolvedValue({ status: 200, data: PROGRESS });
-    render(<ProgressScreen />, { wrapper: Wrapper });
+    render(<ProgressScreen now={FIXED_NOW} />, { wrapper: Wrapper });
 
     await waitFor(() => expect(screen.getByTestId('progress-sb-sprint:60m')).toBeOnTheScreen());
     expect(screen.getByTestId('progress-sb-sprint:60m')).toHaveTextContent(`7.45 s · ${YEAR}`);
@@ -105,7 +107,7 @@ describe('ProgressScreen (TLX-090 — A-06)', () => {
 
   it('la fenêtre Semaine exclut les marques plus anciennes', async () => {
     mockGetMyProgress.mockResolvedValue({ status: 200, data: PROGRESS });
-    render(<ProgressScreen />, { wrapper: Wrapper });
+    render(<ProgressScreen now={FIXED_NOW} />, { wrapper: Wrapper });
     await waitFor(() => expect(screen.getByTestId('progress-series-sprint:60m')).toBeOnTheScreen());
 
     fireEvent.press(screen.getByTestId('progress-window-week'));
@@ -120,7 +122,7 @@ describe('ProgressScreen (TLX-090 — A-06)', () => {
       status: 200,
       data: { ...PROGRESS, series: [] },
     });
-    render(<ProgressScreen />, { wrapper: Wrapper });
+    render(<ProgressScreen now={FIXED_NOW} />, { wrapper: Wrapper });
 
     await waitFor(() => expect(screen.getByTestId('progress-empty')).toBeOnTheScreen());
     await waitFor(() => expect(screen.getByTestId('records-empty')).toBeOnTheScreen());
@@ -132,7 +134,7 @@ describe('ProgressScreen (TLX-090 — A-06)', () => {
       status: 200,
       data: { data: [{ id: 's1', status: 'completed', dueDate: daysAgo(0), athleteId: 'a-1' }] },
     });
-    render(<ProgressScreen />, { wrapper: Wrapper });
+    render(<ProgressScreen now={FIXED_NOW} />, { wrapper: Wrapper });
 
     await waitFor(() => expect(screen.getByTestId('attendance-card')).toBeOnTheScreen());
     expect(screen.getByTestId('attendance-streak')).toHaveTextContent(/1 semaine d/);
@@ -140,7 +142,7 @@ describe('ProgressScreen (TLX-090 — A-06)', () => {
 
   it('message dédié quand le consentement manque', async () => {
     mockGetMyProgress.mockResolvedValue({ status: 403, data: { error: 'CONSENT_REQUIRED' } });
-    render(<ProgressScreen />, { wrapper: Wrapper });
+    render(<ProgressScreen now={FIXED_NOW} />, { wrapper: Wrapper });
 
     await waitFor(() => expect(screen.getByTestId('progress-consent')).toBeOnTheScreen());
   });

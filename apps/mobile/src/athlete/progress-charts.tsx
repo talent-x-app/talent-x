@@ -17,7 +17,9 @@ import {
   aggregateForWindow,
   bestIndex,
   perfHeights,
-  pointsInWindow,
+  periodLabel,
+  periodRange,
+  pointsInPeriod,
   seriesTrend,
   timeFractions,
   windowDelta,
@@ -154,17 +156,21 @@ function disciplineKeyOf(eventKey: string): string {
  */
 export function ProgressExplorer({
   series,
-  window,
-  onWindow,
+  now = new Date(),
 }: {
   series: ProgressSeries[];
-  window: ProgressWindow;
-  onWindow: (w: ProgressWindow) => void;
+  /** Référence « aujourd'hui » des périodes (injectable pour les tests). */
+  now?: Date;
 }) {
-  const { colors, spacing } = useTheme();
+  const { colors, spacing, typography } = useTheme();
   const disciplines = [...new Set(series.map((s) => disciplineKeyOf(s.eventKey)))];
   const lastDateOf = (s: ProgressSeries) => s.points[s.points.length - 1]?.date ?? '';
   const mostRecent = [...series].sort((a, b) => lastDateOf(b).localeCompare(lastDateOf(a)))[0];
+
+  // Période : type de fenêtre + décalage (0 = courante, −1 = précédente…). « Tout » ignore l'offset.
+  const [window, setWindow] = useState<ProgressWindow>('month');
+  const [offset, setOffset] = useState(0);
+  const range = periodRange(window, offset, now);
 
   const [discipline, setDiscipline] = useState<string>(
     mostRecent ? disciplineKeyOf(mostRecent.eventKey) : 'all',
@@ -187,13 +193,65 @@ export function ProgressExplorer({
 
   return (
     <View style={{ gap: spacing[3] }}>
-      {/* Période — contrôle segmenté (plus lisible qu'une rangée de chips). */}
+      {/* Période — contrôle segmenté (Semaine/Mois/Année/Tout). */}
       <SegmentedTabs
         testID="progress-window"
         items={PROGRESS_WINDOWS.map((w) => ({ key: w.value, label: w.label }))}
         activeKey={window}
-        onChange={(k) => onWindow(k as ProgressWindow)}
+        onChange={(k) => {
+          setWindow(k as ProgressWindow);
+          setOffset(0); // on revient à la période courante en changeant de granularité
+        }}
       />
+
+      {/* Navigation de période ‹ libellé › (sauf « Tout »). */}
+      {window !== 'all' ? (
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: spacing[3],
+          }}
+        >
+          <Pressable
+            testID="progress-period-prev"
+            onPress={() => setOffset((o) => o - 1)}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Période précédente"
+          >
+            <Feather name="chevron-left" size={20} color={colors.textSecondary} />
+          </Pressable>
+          <Text
+            testID="progress-period-label"
+            style={{
+              minWidth: 130,
+              textAlign: 'center',
+              color: colors.textPrimary,
+              fontFamily: typography.fontFamily.semibold,
+              fontSize: typography.bodySm.fontSize,
+              textTransform: 'capitalize',
+            }}
+          >
+            {periodLabel(window, offset, now)}
+          </Text>
+          <Pressable
+            testID="progress-period-next"
+            disabled={offset >= 0}
+            onPress={() => setOffset((o) => Math.min(0, o + 1))}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Période suivante"
+          >
+            <Feather
+              name="chevron-right"
+              size={20}
+              color={offset >= 0 ? colors.textMuted : colors.textSecondary}
+            />
+          </Pressable>
+        </View>
+      ) : null}
 
       {/* Onglets discipline (pastille couleur + libellé) — couleur = repère parlant. */}
       <ScrollView
@@ -258,27 +316,26 @@ export function ProgressExplorer({
       ) : null}
 
       {shown.map((s) => (
-        <ProgressSeriesCard key={s.eventKey} series={s} window={window} />
+        <ProgressSeriesCard key={s.eventKey} series={s} window={window} range={range} />
       ))}
     </View>
   );
 }
 
-/** Carte d'épreuve : dernière marque, tendance et courbe des marques de la fenêtre (R9). */
+/** Carte d'épreuve : dernière marque, tendance et courbe des marques de la période (R9/ADR-56). */
 export function ProgressSeriesCard({
   series,
   window,
+  range,
 }: {
   series: ProgressSeries;
   window: ProgressWindow;
+  /** Intervalle calendaire de la période (null = « Tout »). */
+  range: { start: Date; end: Date } | null;
 }) {
   const { colors, typography, spacing } = useTheme();
-  // Fenêtre temporelle puis agrégation d'affichage (Année → best/semaine, ADR-56 densité).
-  const points = aggregateForWindow(
-    pointsInWindow(series.points, window, new Date()),
-    window,
-    series.direction,
-  );
+  // Période calendaire puis agrégation d'affichage (Année/Tout → best/semaine, ADR-56 densité).
+  const points = aggregateForWindow(pointsInPeriod(series.points, range), window, series.direction);
   const trend = seriesTrend(points, series.direction);
   const last = points[points.length - 1];
   const delta = windowDelta(points, series.direction);

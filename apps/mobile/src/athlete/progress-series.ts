@@ -5,27 +5,74 @@ import type { ProgressPoint, ProgressSeries } from '@talent-x/api-client';
  * livre une série par épreuve (points datés, triés) ; le **découpage temporel** et la
  * mise à l'échelle des graphes se font côté client (ADR-21).
  */
-export type ProgressWindow = 'week' | 'month' | 'year';
+export type ProgressWindow = 'week' | 'month' | 'year' | 'all';
 
-export const PROGRESS_WINDOWS: { value: ProgressWindow; label: string; days: number }[] = [
-  { value: 'week', label: 'Semaine', days: 7 },
-  { value: 'month', label: 'Mois', days: 30 },
-  { value: 'year', label: 'Année', days: 365 },
+export const PROGRESS_WINDOWS: { value: ProgressWindow; label: string }[] = [
+  { value: 'week', label: 'Semaine' },
+  { value: 'month', label: 'Mois' },
+  { value: 'year', label: 'Année' },
+  { value: 'all', label: 'Tout' },
 ];
 
-/** Points de la fenêtre glissante (bornée à `now`, date du jour incluse). */
-export function pointsInWindow(
-  points: ProgressPoint[],
+/** Intervalle [start, end) d'une **période calendaire** (ADR-56) : semaine lun→dim, mois, année.
+ *  `offset` décale vers le passé (−1 = période précédente). `null` pour « Tout » (tout l'historique). */
+export function periodRange(
   window: ProgressWindow,
+  offset: number,
   now: Date,
+): { start: Date; end: Date } | null {
+  if (window === 'all') return null;
+  const y = now.getUTCFullYear();
+  const m = now.getUTCMonth();
+  const d = now.getUTCDate();
+  if (window === 'year') {
+    const year = y + offset;
+    return { start: new Date(Date.UTC(year, 0, 1)), end: new Date(Date.UTC(year + 1, 0, 1)) };
+  }
+  if (window === 'month') {
+    const start = new Date(Date.UTC(y, m + offset, 1));
+    return {
+      start,
+      end: new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + 1, 1)),
+    };
+  }
+  // Semaine : lundi → dimanche, décalée de `offset` semaines.
+  const dow = (new Date(Date.UTC(y, m, d)).getUTCDay() + 6) % 7; // lundi = 0
+  const monday = new Date(Date.UTC(y, m, d - dow + offset * 7));
+  return {
+    start: monday,
+    end: new Date(Date.UTC(monday.getUTCFullYear(), monday.getUTCMonth(), monday.getUTCDate() + 7)),
+  };
+}
+
+/** Points dans la période (intervalle `[start, end)`). `null` (« Tout ») → tous les points. */
+export function pointsInPeriod(
+  points: ProgressPoint[],
+  range: { start: Date; end: Date } | null,
 ): ProgressPoint[] {
-  const days = PROGRESS_WINDOWS.find((w) => w.value === window)?.days ?? 30;
-  const start = new Date(now);
-  start.setUTCDate(start.getUTCDate() - days);
+  if (!range) return points;
+  const s = range.start.getTime();
+  const e = range.end.getTime();
   return points.filter((p) => {
-    const d = new Date(`${p.date}T00:00:00.000Z`);
-    return !Number.isNaN(d.getTime()) && d >= start;
+    const t = Date.parse(`${p.date}T00:00:00.000Z`);
+    return !Number.isNaN(t) && t >= s && t < e;
   });
+}
+
+/** Libellé lisible d'une période : « 9–15 juin », « juin 2026 », « 2026 », « Tout ». */
+export function periodLabel(window: ProgressWindow, offset: number, now: Date): string {
+  const r = periodRange(window, offset, now);
+  if (!r) return 'Tout';
+  if (window === 'year') return String(r.start.getUTCFullYear());
+  if (window === 'month') {
+    return r.start.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+  }
+  const endIncl = new Date(r.end.getTime() - 86_400_000);
+  const dayMonth = { day: 'numeric', month: 'short', timeZone: 'UTC' } as const;
+  if (r.start.getUTCMonth() === endIncl.getUTCMonth()) {
+    return `${r.start.getUTCDate()}–${endIncl.toLocaleDateString('fr-FR', dayMonth)}`;
+  }
+  return `${r.start.toLocaleDateString('fr-FR', dayMonth)} – ${endIncl.toLocaleDateString('fr-FR', dayMonth)}`;
 }
 
 /**
@@ -67,17 +114,17 @@ export function perfHeights(
 }
 
 /**
- * Agrégation d'affichage selon la fenêtre (ADR-56, densité) : en **Année**, on condense en
- * **meilleure marque par semaine** (bucket de 7 jours depuis l'epoch) pour éviter la « soupe de
- * points » ; Semaine/Mois restent inchangés (déjà best/jour côté backend). Chaque point conservé
- * est un **vrai jour** (avec ses `others`) → le détail du jour reste exact.
+ * Agrégation d'affichage selon la fenêtre (ADR-56, densité) : en **Année** et **Tout**, on condense
+ * en **meilleure marque par semaine** pour éviter la « soupe de points » ; Semaine/Mois restent
+ * inchangés (déjà best/jour côté backend). Chaque point conservé est un **vrai jour** (avec ses
+ * `others`) → le détail du jour reste exact.
  */
 export function aggregateForWindow(
   points: ProgressPoint[],
   window: ProgressWindow,
   direction: ProgressSeries['direction'],
 ): ProgressPoint[] {
-  if (window !== 'year' || points.length === 0) return points;
+  if ((window !== 'year' && window !== 'all') || points.length === 0) return points;
   const WEEK_MS = 7 * 86_400_000;
   const at = (p: ProgressPoint) => Date.parse(`${p.date}T00:00:00.000Z`);
   // Semaines **relatives à la première marque** (prévisible, indépendant de l'ancrage epoch).

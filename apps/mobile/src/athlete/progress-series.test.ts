@@ -2,33 +2,50 @@ import {
   aggregateForWindow,
   bestIndex,
   perfHeights,
-  pointsInWindow,
+  periodLabel,
+  periodRange,
+  pointsInPeriod,
   seriesTrend,
   timeFractions,
   windowDelta,
 } from './progress-series';
 
+// 2026-06-10 = mercredi (semaine calendaire lun 08 → dim 14).
 const NOW = new Date('2026-06-10T12:00:00.000Z');
 
 describe('progress-series (A-06 — TLX-090)', () => {
-  describe('pointsInWindow', () => {
+  describe('périodes calendaires (ADR-56)', () => {
     const points = [
-      { date: '2025-05-01', value: 8 },
-      { date: '2026-05-20', value: 7.6 },
-      { date: '2026-06-08', value: 7.45 },
+      { date: '2025-05-01', value: 8 }, // 2025
+      { date: '2026-05-20', value: 7.6 }, // mai 2026
+      { date: '2026-06-09', value: 7.55 }, // semaine courante
+      { date: '2026-06-12', value: 7.45 }, // semaine courante
     ];
+    const inP = (w: 'week' | 'month' | 'year' | 'all', off = 0) =>
+      pointsInPeriod(points, periodRange(w, off, NOW)).map((p) => p.date);
 
-    it('filtre sur la fenêtre glissante', () => {
-      expect(pointsInWindow(points, 'week', NOW).map((p) => p.date)).toEqual(['2026-06-08']);
-      expect(pointsInWindow(points, 'month', NOW).map((p) => p.date)).toEqual([
-        '2026-05-20',
-        '2026-06-08',
-      ]);
-      expect(pointsInWindow(points, 'year', NOW)).toHaveLength(2);
+    it('semaine = lundi→dimanche courant', () => {
+      expect(inP('week')).toEqual(['2026-06-09', '2026-06-12']);
+      expect(inP('week', -1)).toEqual([]); // semaine précédente : aucune marque
     });
 
-    it('date invalide ignorée', () => {
-      expect(pointsInWindow([{ date: 'n/a', value: 1 }], 'month', NOW)).toEqual([]);
+    it('mois calendaire + navigation', () => {
+      expect(inP('month')).toEqual(['2026-06-09', '2026-06-12']); // juin
+      expect(inP('month', -1)).toEqual(['2026-05-20']); // mai
+    });
+
+    it('année civile + navigation ; « Tout » = tout', () => {
+      expect(inP('year')).toEqual(['2026-05-20', '2026-06-09', '2026-06-12']);
+      expect(inP('year', -1)).toEqual(['2025-05-01']);
+      expect(inP('all')).toHaveLength(4);
+    });
+
+    it('libellés de période', () => {
+      expect(periodLabel('year', 0, NOW)).toBe('2026');
+      expect(periodLabel('year', -1, NOW)).toBe('2025');
+      expect(periodLabel('month', 0, NOW)).toMatch(/juin 2026/);
+      expect(periodLabel('all', 0, NOW)).toBe('Tout');
+      expect(periodLabel('week', 0, NOW)).toMatch(/8.*14 juin/);
     });
   });
 

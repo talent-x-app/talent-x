@@ -13,11 +13,9 @@ import { useTheme } from '@talent-x/design-tokens';
 import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 import { Feather } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Button, Card } from '../components/ui';
 import { ProgressExplorer, ProgressMetricsRow, RecordRow } from '../athlete/progress-charts';
-import { type ProgressWindow } from '../athlete/progress-series';
 import { AthleteStatusBadge } from './athlete-ui';
 
 /** Réponse 403 dont le code métier indique un consentement manquant. */
@@ -299,7 +297,6 @@ function StatsSection({ stats }: { stats: UseQueryResult<Stats, unknown> }) {
  */
 function CoachProgressSection({ id }: { id: string }) {
   const { colors, typography, spacing } = useTheme();
-  const [window, setWindow] = useState<ProgressWindow>('month');
   const progress = useQuery({
     queryKey: ['athlete', id, 'progress'],
     queryFn: async (): Promise<Progress> => {
@@ -333,7 +330,7 @@ function CoachProgressSection({ id }: { id: string }) {
           </Text>
         </Card>
       ) : (
-        <ProgressExplorer series={data.series} window={window} onWindow={setWindow} />
+        <ProgressExplorer series={data.series} />
       )}
     </View>
   );

@@ -2,14 +2,12 @@ import { getMyProgress, type Progress } from '@talent-x/api-client';
 import { useTheme } from '@talent-x/design-tokens';
 import { useQuery } from '@tanstack/react-query';
 import { Feather } from '@expo/vector-icons';
-import { useState } from 'react';
 import { ActivityIndicator, ScrollView, Text, View } from 'react-native';
 import { Button, Card } from '../components/ui';
 import { AttendanceSection } from './AttendanceSection';
 import { FreeSessionLog } from './FreeSessionLog';
 import { PersonalRecordsSection } from './PersonalRecordsSection';
 import { ProgressExplorer, ProgressMetricsRow } from './progress-charts';
-import { type ProgressWindow } from './progress-series';
 
 /** Réponse 403 dont le code métier indique un consentement manquant. */
 function isConsentRequired(error: unknown): boolean {
@@ -22,9 +20,8 @@ function isConsentRequired(error: unknown): boolean {
  * par épreuve (`GET /athletes/me/progress`), fenêtre Semaine/Mois/Année côté client,
  * puis records personnels (A-07). États chargement / consentement / erreur / vide.
  */
-export function ProgressScreen() {
+export function ProgressScreen({ now }: { now?: Date }) {
   const { colors, typography, spacing } = useTheme();
-  const [window, setWindow] = useState<ProgressWindow>('month');
 
   const progress = useQuery({
     queryKey: ['progress', 'me'],
@@ -118,8 +115,8 @@ export function ProgressScreen() {
               </View>
             </Card>
           ) : (
-            /* Explorateur : discipline → épreuve → graphe en focus (ADR-56). */
-            <ProgressExplorer series={progress.data.series} window={window} onWindow={setWindow} />
+            /* Explorateur : période → discipline → épreuve → graphe en focus (ADR-56). */
+            <ProgressExplorer series={progress.data.series} now={now} />
           )}
 
           <PersonalRecordsSection />
