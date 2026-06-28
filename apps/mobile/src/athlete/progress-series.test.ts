@@ -1,4 +1,5 @@
 import {
+  aggregateForWindow,
   bestIndex,
   perfHeights,
   pointsInWindow,
@@ -128,6 +129,26 @@ describe('progress-series (A-06 — TLX-090)', () => {
         )?.changed,
       ).toBe(false);
       expect(windowDelta([{ date: 'a', value: 7.5 }], 'min')).toBeNull();
+    });
+  });
+
+  describe('aggregateForWindow (densité, ADR-56)', () => {
+    const pts = [
+      { date: '2026-06-01', value: 26.8 }, // semaine A
+      { date: '2026-06-03', value: 26.4 }, // semaine A (meilleure)
+      { date: '2026-06-10', value: 26.2 }, // semaine B
+      { date: '2026-06-12', value: 26.5 }, // semaine B
+    ];
+
+    it('Semaine / Mois : inchangé', () => {
+      expect(aggregateForWindow(pts, 'month', 'min')).toEqual(pts);
+      expect(aggregateForWindow(pts, 'week', 'min')).toEqual(pts);
+    });
+
+    it('Année : 1 point par semaine = la meilleure (sens de l’épreuve)', () => {
+      const agg = aggregateForWindow(pts, 'year', 'min');
+      expect(agg.map((p) => p.date)).toEqual(['2026-06-03', '2026-06-10']);
+      expect(agg.map((p) => p.value)).toEqual([26.4, 26.2]);
     });
   });
 

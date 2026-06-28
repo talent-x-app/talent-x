@@ -67,6 +67,33 @@ export function perfHeights(
 }
 
 /**
+ * Agrégation d'affichage selon la fenêtre (ADR-56, densité) : en **Année**, on condense en
+ * **meilleure marque par semaine** (bucket de 7 jours depuis l'epoch) pour éviter la « soupe de
+ * points » ; Semaine/Mois restent inchangés (déjà best/jour côté backend). Chaque point conservé
+ * est un **vrai jour** (avec ses `others`) → le détail du jour reste exact.
+ */
+export function aggregateForWindow(
+  points: ProgressPoint[],
+  window: ProgressWindow,
+  direction: ProgressSeries['direction'],
+): ProgressPoint[] {
+  if (window !== 'year' || points.length === 0) return points;
+  const WEEK_MS = 7 * 86_400_000;
+  const at = (p: ProgressPoint) => Date.parse(`${p.date}T00:00:00.000Z`);
+  // Semaines **relatives à la première marque** (prévisible, indépendant de l'ancrage epoch).
+  const t0 = Math.min(...points.map(at));
+  const best = new Map<number, ProgressPoint>();
+  for (const p of points) {
+    const week = Math.floor((at(p) - t0) / WEEK_MS);
+    const cur = best.get(week);
+    if (!cur || (direction === 'min' ? p.value < cur.value : p.value > cur.value)) {
+      best.set(week, p);
+    }
+  }
+  return [...best.values()].sort((a, b) => a.date.localeCompare(b.date));
+}
+
+/**
  * Fractions X (0..1) **proportionnelles au temps** des marques (ADR-56) : un grand écart de dates
  * occupe plus de largeur qu'un petit (axe honnête vs espacement par index). ≤ 1 point → centré ;
  * toutes les marques le même jour → espacement régulier (repli).

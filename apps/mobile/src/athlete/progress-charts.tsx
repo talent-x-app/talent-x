@@ -14,6 +14,7 @@ import { formatSessionDate } from './athlete-session-ui';
 import { formatRecordValue } from './perf-entry';
 import {
   PROGRESS_WINDOWS,
+  aggregateForWindow,
   bestIndex,
   perfHeights,
   pointsInWindow,
@@ -74,10 +75,21 @@ function Metric({ label, value }: { label: string; value: string }) {
 const CHART_HEIGHT = 132;
 const CHART_PAD_Y = 16; // marge haut/bas pour les points extrêmes + la ligne PB.
 const CHART_PAD_X = 10; // marge gauche/droite pour ne pas rogner les pastilles aux bords.
+const DENSE_DOTS_MAX = 14; // au-delà, on n'affiche que les pastilles clés (PB/dernier/sélection).
 
 /** Date compacte « JJ/MM » à partir d'une clé `YYYY-MM-DD` (axe de la courbe). */
 function shortDate(date: string): string {
   return `${date.slice(8, 10)}/${date.slice(5, 7)}`;
+}
+
+/** ~`n` repères de dates « JJ/MM » répartis **dans le temps** entre deux dates (axe, ADR-56). */
+function dateTicks(from: string, to: string, n: number): string[] {
+  const t0 = Date.parse(`${from}T00:00:00.000Z`);
+  const tN = Date.parse(`${to}T00:00:00.000Z`);
+  if (!(tN > t0)) return [shortDate(from)];
+  return Array.from({ length: n }, (_, k) =>
+    shortDate(new Date(t0 + (k / (n - 1)) * (tN - t0)).toISOString().slice(0, 10)),
+  );
 }
 
 /** Date longue « mer. 10 juin » (UTC pour ne pas décaler). */
@@ -261,7 +273,12 @@ export function ProgressSeriesCard({
   window: ProgressWindow;
 }) {
   const { colors, typography, spacing } = useTheme();
-  const points = pointsInWindow(series.points, window, new Date());
+  // Fenêtre temporelle puis agrégation d'affichage (Année → best/semaine, ADR-56 densité).
+  const points = aggregateForWindow(
+    pointsInWindow(series.points, window, new Date()),
+    window,
+    series.direction,
+  );
   const trend = seriesTrend(points, series.direction);
   const last = points[points.length - 1];
   const delta = windowDelta(points, series.direction);
@@ -514,13 +531,6 @@ function ProgressTimeline({
   const best = bestIndex(points, direction);
   const single = points.length === 1;
   const fracs = timeFractions(points); // X proportionnel au temps (ADR-56)
-
-  // Largeurs des zones de tap, **proportionnelles au temps** (alignées sur l'espacement des points).
-  const hitWeights = fracs.map((f, i) => {
-    const left = i === 0 ? 0 : (fracs[i - 1] + f) / 2;
-    const right = i === lastIdx ? 1 : (f + fracs[i + 1]) / 2;
-    return Math.max(0.0001, right - left);
-  });
   const selPoint = points[sel];
   // Marques du jour sélectionné (la meilleure en tête, puis `others`) → panneau « Détail du jour ».
   const dayMarks = selPoint ? [selPoint.value, ...(selPoint.others ?? [])] : [];
@@ -550,35 +560,54 @@ function ProgressTimeline({
           />
         ) : null}
 
-        {/* Colonnes de sélection transparentes (1 par marque) — natif + web, testables sans mesure. */}
-        <View
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            flexDirection: 'row',
+        {/* Sélection par **proximité** du tap (robuste en forte densité / clusters). */}
+        <Pressable
+          testID={`progress-hit-${eventKey}`}
+          accessibilityRole="adjustable"
+          accessibilityLabel="Sélectionner une marque"
+          onPress={(e) => {
+            if (width <= 0) return;
+            const x = e.nativeEvent.locationX;
+            let bi = 0;
+            let bd = Infinity;
+            for (let i = 0; i < fracs.length; i++) {
+              const px = CHART_PAD_X + fracs[i] * (width - 2 * CHART_PAD_X);
+              const d = Math.abs(px - x);
+              if (d < bd) {
+                bd = d;
+                bi = i;
+              }
+            }
+            setSelected(bi);
           }}
-        >
-          {points.map((p, i) => (
-            <Pressable
-              key={`hit-${p.date}-${i}`}
-              testID={`progress-point-${eventKey}-${i}`}
-              accessibilityRole="button"
-              accessibilityLabel={`${shortDate(p.date)} ${formatRecordValue(p.value, unit)}`}
-              onPress={() => setSelected(i)}
-              style={{ flex: hitWeights[i] }}
-            />
-          ))}
-        </View>
+          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+        />
+
+        {/* Ancres invisibles par marque (position en %, non interactives) — repères de position/test. */}
+        {points.map((p, i) => (
+          <View
+            key={`anchor-${p.date}-${i}`}
+            testID={`progress-point-${eventKey}-${i}`}
+            pointerEvents="none"
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: `${single ? 50 : fracs[i] * 100}%`,
+              width: 1,
+              height: 1,
+            }}
+          />
+        ))}
       </View>
 
-      {/* Axe dates début → fin. */}
+      {/* Axe : ~4 repères de dates répartis dans le temps (lisibilité en forte densité). */}
       {!single ? (
         <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-          <Text style={axisStyle}>{shortDate(points[0].date)}</Text>
-          <Text style={axisStyle}>{shortDate(points[lastIdx].date)}</Text>
+          {dateTicks(points[0].date, points[lastIdx].date, 4).map((d, i) => (
+            <Text key={`tick-${i}`} style={axisStyle}>
+              {d}
+            </Text>
+          ))}
         </View>
       ) : null}
 
@@ -822,10 +851,14 @@ function ProgressChart({
       ) : null}
 
       {/* Pastilles : remplies accent + **halo surface** pour décoller de l'aire/la ligne
-          (lisibilité, ADR-56) ; best cerné de la couleur de discipline ; sélection plus grosse. */}
+          (lisibilité, ADR-56) ; best cerné de la couleur de discipline ; sélection plus grosse.
+          **Densité** : au-delà du seuil, on ne garde que les pastilles clés (PB / dernier /
+          sélectionné) — la ligne suffit pour le reste (anti « soupe de points »). */}
       {pts.map((p, i) => {
         const isBest = i === best;
         const isSel = i === selected;
+        const isLast = i === n - 1;
+        if (n > DENSE_DOTS_MAX && !isBest && !isSel && !isLast) return null;
         return (
           <Circle
             key={i}
