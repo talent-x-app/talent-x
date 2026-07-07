@@ -6,12 +6,14 @@ import { type ReactNode, useState } from 'react';
 
 const mockListNotifications = jest.fn();
 const mockReadAllNotifications = jest.fn();
+const mockReadNotification = jest.fn();
 const mockPush = jest.fn();
 const mockBack = jest.fn();
 
 jest.mock('@talent-x/api-client', () => ({
   listNotifications: (...a: unknown[]) => mockListNotifications(...a),
   readAllNotifications: (...a: unknown[]) => mockReadAllNotifications(...a),
+  readNotification: (...a: unknown[]) => mockReadNotification(...a),
 }));
 jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush, back: mockBack }) }));
 jest.mock('../auth/SessionProvider', () => ({
@@ -71,10 +73,11 @@ const READ = {
 beforeEach(() => {
   jest.clearAllMocks();
   mockReadAllNotifications.mockResolvedValue({ status: 200, data: { updated: 1 } });
+  mockReadNotification.mockResolvedValue({ status: 200, data: {} });
 });
 
 describe('NotificationsScreen (TLX-111 — ADR-23)', () => {
-  it('affiche le feed (libellés par type, point non-lu) et marque tout lu à l’ouverture', async () => {
+  it('affiche le feed (libellés par type, point non-lu) SANS marquer tout lu à l’ouverture (TLX-189)', async () => {
     mockListNotifications.mockResolvedValue(page([UNREAD, READ], 1));
     render(<NotificationsScreen />, { wrapper: Wrapper });
 
@@ -83,7 +86,48 @@ describe('NotificationsScreen (TLX-111 — ADR-23)', () => {
     expect(screen.getByText('Nouveau feedback')).toBeOnTheScreen();
     expect(screen.getByTestId('notification-n-1-unread')).toBeOnTheScreen();
     expect(screen.queryByTestId('notification-n-2-unread')).toBeNull();
+    // Cœur de TLX-189 : ouvrir le centre n'efface plus le pouls des non-lues.
+    expect(mockReadAllNotifications).not.toHaveBeenCalled();
+  });
+
+  it('marque lue au tap (optimiste : point retiré) puis navigue (TLX-189)', async () => {
+    mockListNotifications.mockResolvedValue(page([UNREAD], 1));
+    render(<NotificationsScreen />, { wrapper: Wrapper });
+
+    await waitFor(() => expect(screen.getByTestId('notification-n-1-unread')).toBeOnTheScreen());
+    fireEvent.press(screen.getByTestId('notification-n-1'));
+    await waitFor(() => expect(mockReadNotification).toHaveBeenCalledWith('n-1'));
+    // Optimiste : le point non-lu disparaît sans attendre le serveur.
+    await waitFor(() => expect(screen.queryByTestId('notification-n-1-unread')).toBeNull());
+    expect(mockPush).toHaveBeenCalledWith(
+      expect.objectContaining({ pathname: '/(athlete)/session/[id]' }),
+    );
+  });
+
+  it('tap sur une notification déjà lue : pas d’appel de lecture unitaire', async () => {
+    mockListNotifications.mockResolvedValue(page([READ], 0));
+    render(<NotificationsScreen />, { wrapper: Wrapper });
+
+    await waitFor(() => expect(screen.getByTestId('notification-n-2')).toBeOnTheScreen());
+    fireEvent.press(screen.getByTestId('notification-n-2'));
+    expect(mockReadNotification).not.toHaveBeenCalled();
+  });
+
+  it('« Tout marquer lu » : action explicite, visible seulement avec des non-lues (TLX-189)', async () => {
+    mockListNotifications.mockResolvedValue(page([UNREAD], 1));
+    render(<NotificationsScreen />, { wrapper: Wrapper });
+
+    await waitFor(() => expect(screen.getByTestId('notifications-read-all')).toBeOnTheScreen());
+    fireEvent.press(screen.getByTestId('notifications-read-all'));
     await waitFor(() => expect(mockReadAllNotifications).toHaveBeenCalledTimes(1));
+  });
+
+  it('« Tout marquer lu » masqué sans non-lue', async () => {
+    mockListNotifications.mockResolvedValue(page([READ], 0));
+    render(<NotificationsScreen />, { wrapper: Wrapper });
+
+    await waitFor(() => expect(screen.getByTestId('notification-n-2')).toBeOnTheScreen());
+    expect(screen.queryByTestId('notifications-read-all')).toBeNull();
   });
 
   it('rend une description nominative quand l’acteur est résolu, générique sinon (ADR-55)', async () => {

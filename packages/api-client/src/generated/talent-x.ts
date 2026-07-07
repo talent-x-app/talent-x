@@ -74,6 +74,7 @@ import type {
   LoginRequest,
   ManualRecordRequest,
   NotFoundResponse,
+  Notification,
   NotificationPage,
   NotificationPreferences,
   Performance,
@@ -5879,6 +5880,75 @@ export const readAllNotifications = async ( options?: RequestInit): Promise<read
   {
     ...options,
     method: 'POST'
+
+
+  }
+);}
+
+
+
+export type readNotificationResponse200 = {
+  data: Notification
+  status: 200
+}
+
+export type readNotificationResponse400 = {
+  data: BadRequestResponse
+  status: 400
+}
+
+export type readNotificationResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type readNotificationResponse404 = {
+  data: NotFoundResponse
+  status: 404
+}
+
+export type readNotificationResponse422 = {
+  data: ValidationFailedResponse
+  status: 422
+}
+
+export type readNotificationResponse429 = {
+  data: TooManyRequestsResponse
+  status: 429
+}
+
+export type readNotificationResponse500 = {
+  data: ServerErrorResponse
+  status: 500
+}
+
+export type readNotificationResponseSuccess = (readNotificationResponse200) & {
+  headers: Headers;
+};
+export type readNotificationResponseError = (readNotificationResponse400 | readNotificationResponse401 | readNotificationResponse404 | readNotificationResponse422 | readNotificationResponse429 | readNotificationResponse500) & {
+  headers: Headers;
+};
+
+export type readNotificationResponse = (readNotificationResponseSuccess | readNotificationResponseError)
+
+export const getReadNotificationUrl = (id: string,) => {
+
+
+
+
+  return `/notifications/${id}/read`
+}
+
+/**
+ * Lecture unitaire (ADR-23, évolution additive anticipée — TLX-189). Idempotent — une notification déjà lue conserve son `readAt` d'origine.
+ * @summary Marquer une notification comme lue
+ */
+export const readNotification = async (id: string, options?: RequestInit): Promise<readNotificationResponse> => {
+
+  return customFetch<readNotificationResponse>(getReadNotificationUrl(id),
+  {
+    ...options,
+    method: 'PUT'
 
 
   }

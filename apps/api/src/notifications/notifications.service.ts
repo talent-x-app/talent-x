@@ -72,6 +72,31 @@ export class NotificationsService {
     };
   }
 
+  /**
+   * Lecture unitaire (TLX-189, évolution additive anticipée par l'ADR-23). Idempotente : une
+   * notification déjà lue conserve son `readAt` d'origine. Ownership : 404 anti-énumération si
+   * la notification n'existe pas ou appartient à un autre compte.
+   */
+  async readNotification(userId: string, id: string): Promise<NotificationDto> {
+    const existing = await this.prisma.notification.findFirst({ where: { id, userId } });
+    if (!existing) {
+      throw new NotFoundException('Notification introuvable.');
+    }
+    const row = existing.readAt
+      ? existing
+      : await this.prisma.notification.update({ where: { id }, data: { readAt: new Date() } });
+    // Résolution nominative (ADR-55) — même minimisation que le feed, pour un seul acteur.
+    let actorName: string | undefined;
+    if (row.actorId) {
+      const actor = await this.prisma.user.findUnique({
+        where: { id: row.actorId },
+        select: { id: true, firstName: true, lastName: true },
+      });
+      actorName = actor ? buildActorNames([actor]).get(actor.id) : undefined;
+    }
+    return toNotificationDto(row, actorName);
+  }
+
   /** Marque tout lu (appelé à l'ouverture du centre de notifications). */
   async readAll(userId: string): Promise<ReadAllResultDto> {
     const { count } = await this.prisma.notification.updateMany({

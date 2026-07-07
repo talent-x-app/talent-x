@@ -15,8 +15,17 @@ function prismaMock(): PrismaMock {
   return {
     deviceToken: { upsert: jest.fn(), updateMany: jest.fn() },
     notificationPreferences: { findUnique: jest.fn(), upsert: jest.fn() },
-    notification: { findMany: jest.fn(), count: jest.fn(), updateMany: jest.fn() },
-    user: { findMany: jest.fn().mockResolvedValue([]) },
+    notification: {
+      findMany: jest.fn(),
+      count: jest.fn(),
+      updateMany: jest.fn(),
+      findFirst: jest.fn(),
+      update: jest.fn(),
+    },
+    user: {
+      findMany: jest.fn().mockResolvedValue([]),
+      findUnique: jest.fn().mockResolvedValue(null),
+    },
     $transaction: jest.fn((ops: Promise<unknown>[]) => Promise.all(ops)),
   };
 }
@@ -274,6 +283,58 @@ describe('NotificationsService (TLX-110/111, ADR-22/23)', () => {
       expect(arg.update).toEqual({ performanceSubmitted: false });
       expect(arg.create).toEqual({ userId: 'u-1', performanceSubmitted: false });
       expect(res.performanceSubmitted).toBe(false);
+    });
+  });
+
+  describe('readNotification (lecture unitaire — TLX-189, ADR-23)', () => {
+    it('marque lue une notification non lue du titulaire', async () => {
+      const prisma = prismaMock();
+      prisma.notification.findFirst.mockResolvedValue(notifRow());
+      prisma.notification.update.mockResolvedValue(
+        notifRow({ readAt: new Date('2026-07-07T10:00:00.000Z') }),
+      );
+      const dto = await make(prisma).readNotification('u-1', 'n-1');
+      expect(prisma.notification.findFirst).toHaveBeenCalledWith({
+        where: { id: 'n-1', userId: 'u-1' },
+      });
+      expect(prisma.notification.update).toHaveBeenCalledWith({
+        where: { id: 'n-1' },
+        data: { readAt: expect.any(Date) },
+      });
+      expect(dto.readAt).toBe('2026-07-07T10:00:00.000Z');
+    });
+
+    it('idempotente : déjà lue → readAt d’origine conservé, aucune écriture', async () => {
+      const prisma = prismaMock();
+      prisma.notification.findFirst.mockResolvedValue(
+        notifRow({ readAt: new Date('2026-07-01T08:00:00.000Z') }),
+      );
+      const dto = await make(prisma).readNotification('u-1', 'n-1');
+      expect(prisma.notification.update).not.toHaveBeenCalled();
+      expect(dto.readAt).toBe('2026-07-01T08:00:00.000Z');
+    });
+
+    it('404 anti-énumération : inexistante ou appartenant à un autre compte', async () => {
+      const prisma = prismaMock();
+      prisma.notification.findFirst.mockResolvedValue(null);
+      await expect(make(prisma).readNotification('u-2', 'n-1')).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+      expect(prisma.notification.update).not.toHaveBeenCalled();
+    });
+
+    it('résout l’acteur (ADR-55) en prénom minimisé', async () => {
+      const prisma = prismaMock();
+      prisma.notification.findFirst.mockResolvedValue(
+        notifRow({ actorId: 'coach-1', readAt: new Date('2026-07-01T08:00:00.000Z') }),
+      );
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'coach-1',
+        firstName: 'Karim',
+        lastName: 'Benz',
+      });
+      const dto = await make(prisma).readNotification('u-1', 'n-1');
+      expect(dto.actor).toEqual({ id: 'coach-1', displayName: 'Karim' });
     });
   });
 });

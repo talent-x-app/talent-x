@@ -1,6 +1,7 @@
 import {
   listNotifications,
   readAllNotifications,
+  readNotification,
   type Notification,
   type NotificationPage,
 } from '@talent-x/api-client';
@@ -8,7 +9,6 @@ import { useTheme } from '@talent-x/design-tokens';
 import { Feather } from '@expo/vector-icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import { useEffect, useRef } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSession } from '../auth/SessionProvider';
 import { Button, Card } from '../components/ui';
@@ -23,9 +23,14 @@ import {
 export const NOTIFICATIONS_QUERY_KEY = ['notifications', 'me'] as const;
 
 /**
- * Centre de notifications (TLX-111, ADR-23) : feed in-app paginé, marquage
- * « tout lu » à l'ouverture (dès qu'une page avec des non-lues arrive), navigation
- * vers la ressource selon le type et le rôle. États chargement / erreur / vide.
+ * Centre de notifications (TLX-111, ADR-23) : feed in-app paginé, navigation vers la
+ * ressource selon le type et le rôle. États chargement / erreur / vide.
+ *
+ * Lecture **par item** (TLX-189, évolution additive anticipée par l'ADR-23) : ouvrir le centre
+ * ne marque plus tout lu d'un coup — les notifications sans filet d'état métier (annonces,
+ * réponses, kudos) gardaient sinon leur seul indice « non-lu » effacé sans avoir été vues.
+ * Une notification passe lue **au tap** (optimiste, avant navigation) ; « Tout marquer lu »
+ * reste disponible en action explicite.
  */
 export function NotificationsScreen() {
   const { colors, typography, spacing } = useTheme();
@@ -52,14 +57,29 @@ export function NotificationsScreen() {
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: NOTIFICATIONS_QUERY_KEY }),
   });
 
-  // « Tout lu » une seule fois par ouverture, quand le feed chargé contient des non-lues.
-  const marked = useRef(false);
-  useEffect(() => {
-    if (!marked.current && feed.data && feed.data.unreadCount > 0) {
-      marked.current = true;
-      readAll.mutate();
-    }
-  }, [feed.data, readAll]);
+  // Lecture unitaire au tap (TLX-189) : optimiste — l'item passe lu et le badge décrémente
+  // immédiatement (la navigation suit) ; best-effort, un échec réseau est réconcilié par la
+  // prochaine invalidation (le serveur reste la source de vérité).
+  const readOne = useMutation({
+    mutationFn: async (id: string): Promise<void> => {
+      const response = await readNotification(id);
+      if (response.status !== 200) throw response;
+    },
+    onMutate: (id: string) => {
+      queryClient.setQueryData<NotificationPage>(NOTIFICATIONS_QUERY_KEY, (page) => {
+        if (!page) return page;
+        const target = page.data.find((n) => n.id === id);
+        if (!target || target.readAt) return page;
+        return {
+          ...page,
+          data: page.data.map((n) =>
+            n.id === id ? { ...n, readAt: new Date().toISOString() } : n,
+          ),
+          unreadCount: Math.max(0, page.unreadCount - 1),
+        };
+      });
+    },
+  });
 
   return (
     <ScrollView
@@ -87,16 +107,38 @@ export function NotificationsScreen() {
         </Text>
       </Pressable>
 
-      <Text
-        testID="notifications-title"
-        style={{
-          color: colors.textPrimary,
-          fontFamily: typography.fontFamily.bold,
-          fontSize: typography.h2.fontSize,
-        }}
-      >
-        Notifications
-      </Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[3] }}>
+        <Text
+          testID="notifications-title"
+          style={{
+            flex: 1,
+            color: colors.textPrimary,
+            fontFamily: typography.fontFamily.bold,
+            fontSize: typography.h2.fontSize,
+          }}
+        >
+          Notifications
+        </Text>
+        {feed.data && feed.data.unreadCount > 0 ? (
+          <Pressable
+            testID="notifications-read-all"
+            onPress={() => readAll.mutate()}
+            accessibilityRole="button"
+            accessibilityLabel="Tout marquer comme lu"
+            hitSlop={8}
+          >
+            <Text
+              style={{
+                color: colors.accentText,
+                fontFamily: typography.fontFamily.medium,
+                fontSize: typography.bodySm.fontSize,
+              }}
+            >
+              Tout marquer lu
+            </Text>
+          </Pressable>
+        ) : null}
+      </View>
 
       {feed.isLoading ? (
         <View testID="notifications-loading" style={{ paddingVertical: spacing[6] }}>
@@ -144,6 +186,8 @@ export function NotificationsScreen() {
               notification={notification}
               onPress={() => {
                 if (!role) return;
+                // Lue au tap (TLX-189) — même sans cible navigable pour ce rôle.
+                if (!notification.readAt) readOne.mutate(notification.id);
                 const href = notificationHref(role, notification.type, notification.resourceId);
                 if (href) router.push(href as never);
               }}

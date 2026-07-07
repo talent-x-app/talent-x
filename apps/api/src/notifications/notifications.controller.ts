@@ -16,6 +16,7 @@ import { PaginationQueryDto } from '../common/pagination/pagination-query.dto';
 import {
   DeviceTokenCreateDto,
   DeviceTokenDto,
+  NotificationDto,
   NotificationPageDto,
   NotificationPreferencesDto,
   ReadAllResultDto,
@@ -37,6 +38,16 @@ export class NotificationsController {
     @Query() q: PaginationQueryDto,
   ): Promise<NotificationPageDto> {
     return this.notifications.listNotifications(userId, q);
+  }
+
+  @Put(':id/read')
+  @ApiOperation({ summary: 'Marquer une notification lue', operationId: 'readNotification' })
+  @ApiResponse({ status: 200, description: 'Notification marquée lue.', type: NotificationDto })
+  readNotification(
+    @CurrentUser('id') userId: string,
+    @Param('id', new ParseUUIDPipe()) id: string,
+  ): Promise<NotificationDto> {
+    return this.notifications.readNotification(userId, id);
   }
 
   @Post('read-all')

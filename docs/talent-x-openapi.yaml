@@ -2588,6 +2588,35 @@ paths:
           $ref: '#/components/responses/TooManyRequests'
         '500':
           $ref: '#/components/responses/ServerError'
+  /notifications/{id}/read:
+    put:
+      tags:
+      - Notifications
+      summary: Marquer une notification comme lue
+      description: Lecture unitaire (ADR-23, évolution additive anticipée — TLX-189).
+        Idempotent — une notification déjà lue conserve son `readAt` d'origine.
+      operationId: readNotification
+      parameters:
+      - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: Notification marquée lue (ou déjà lue).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Notification'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
   /notifications/devices:
     post:
       tags:
