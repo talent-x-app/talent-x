@@ -326,6 +326,29 @@ describe('SprintEffortCanvas', () => {
     expect((arg[0] as EditableBlock).notes).toBe('Test échauffement');
   });
 
+  it('largeur mobile : cellules rétrécissables (minWidth 0) + colonne récup fixe (TLX-191)', () => {
+    const nodes = [
+      makeWarmupBlock(),
+      makeSerie({
+        sprints: [
+          { distance: 30, intensity: 90, recovery: 180 },
+          { distance: 60, intensity: 95, recovery: 240 },
+        ],
+      }),
+      makeCooldownBlock(),
+    ];
+    render(<SprintEffortCanvas nodes={nodes} onChange={jest.fn()} />);
+    // Cœur du correctif : react-native-web donne aux items flex un `min-width: auto` (≈ largeur
+    // intrinsèque de l'<input>, ~150px) → sans `minWidth: 0`, les colonnes se chevauchent en
+    // largeur téléphone. Les inputs ET leurs en-têtes doivent pouvoir rétrécir.
+    expect(screen.getByTestId('series-card-0-sprint-0-dist')).toHaveStyle({ minWidth: 0, flex: 1 });
+    expect(screen.getByTestId('series-card-0-sprint-0-int')).toHaveStyle({ minWidth: 0, flex: 1 });
+    expect(screen.getByText('Distance')).toHaveStyle({ flex: 1, minWidth: 0 });
+    expect(screen.getByText('Intensité')).toHaveStyle({ flex: 1, minWidth: 0 });
+    // Colonne récup à largeur fixe (72) → la dernière ligne « → R » reste alignée.
+    expect(screen.getByText('Récup r')).toHaveStyle({ width: 72 });
+  });
+
   it('mode encart : séries + ajout rendus, en-tête KPI et barres écha/RAC masqués', () => {
     render(<SprintEffortCanvas nodes={defaultNodes()} onChange={jest.fn()} embedded />);
     expect(screen.getByTestId('series-card-0')).toBeTruthy();
