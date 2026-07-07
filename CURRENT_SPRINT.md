@@ -12,6 +12,35 @@ de débloquer les écrans coach C-01/C-02/C-03.
 - _(éditeurs typés terminés — TLX-054→061 livrés ↓)_
 - _(C-01 complet — TLX-081→085 livrés ↓)_
 
+## Terminés — Session 2026-07-07 : rafale backlog (TLX-191 · 148 · 202 · 151 · 161 · 189)
+
+- **TLX-191 (bug High, builder)** : le fix du chevauchement des cellules en largeur mobile
+  (`minWidth: 0` + colonne récup fixe 72) était déjà dans `main` sans garde → **test de
+  non-régression** ajouté (`sprint-effort-card.test.tsx`). Ticket fermé.
+- **TLX-148 (accueil athlète)** : module pur `home-highlights` + carte **« Ta progression »**
+  (dernier record + complétion réalisées/échues du mois, tap → onglet Progression) et carte
+  **« Dernier retour du coach »** dérivée du feed de notifications déjà chargé par la cloche
+  (option (a) du ticket — zéro requête ajoutée, pas d'ADR). Une seule requête légère assumée :
+  records (cache partagé A-07). Best-effort, jamais bloquant.
+- **TLX-202 (runbook dev)** : README « Runbook dev — worker, MinIO & pièges connus » (worker
+  BullMQ obligatoire pour notifs/emails/export, bloc S3 MinIO du `.env`, piège Metro `--clear`,
+  workers fantômes de `nest start --watch`) + skill `playwright-e2e` complété.
+- **TLX-151 (a11y, suite TLX-145)** : **sweep app-wide** — 101 usages `textMuted` → `textSecondary`
+  (41 fichiers) sur le texte porteur d'info < 18px ; conservés en muted : placeholders/hints,
+  échéance de présence (choix TLX-219), couleur de catégorie neutre de l'agrégat, icônes.
+  +3 tests de couleur en thème sombre (CalendarView, NotificationsScreen, FeedbackThread).
+- **TLX-161 (ADR-38/20)** : détail d'affectation — bascule **Vue athlète ⇄ Vue coach**. Module pur
+  `individualized-target` (clé d'épreuve canonique alignée `record-detection`, cible =
+  record/(intensité/100)) ; vue athlète = « ≈ 7.71 s », vue coach = « 95 % record », repli propre
+  sans record. `targetFor` substituable threadé dans `SessionContent`/`LeafEntry`.
+- **TLX-189 (ADR-23 additif)** : **lecture unitaire des notifications** — contrat
+  `PUT /notifications/{id}/read` + backend (ownership 404, idempotent, acteur ADR-55) + mobile :
+  plus de « tout lu » automatique à l'ouverture (le pouls des annonces/réponses/kudos n'est plus
+  effacé), lecture **au tap** (optimiste), bouton explicite « Tout marquer lu ». Suivi créé
+  **TLX-221** (intégration DB-backed + smoke live — pas de Docker dans l'env de session).
+- **Tests** : mobile **932/932**, API unit **659/659**, typecheck (api + api-client + mobile) +
+  ESLint + Prettier clean. Env : pas de Docker/Postgres → vérifs live différées (TLX-220/221).
+
 ## Terminés — ADR-47 Calendrier mois + calendrier de groupe (scopé au coach)
 
 - **ADR-47 accepté (2026-06-22)** — amende ADR-44. Deux manques de test : pas de **vue mois** (le
