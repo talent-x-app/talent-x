@@ -2,8 +2,12 @@ import {
   getMe,
   getMyGroups,
   listAssignments,
+  listMyRecords,
+  listNotifications,
   type AthleteGroup,
   type Assignment,
+  type NotificationPage,
+  type PersonalRecord,
   type User,
 } from '@talent-x/api-client';
 import { useTheme } from '@talent-x/design-tokens';
@@ -18,9 +22,19 @@ import { joinGroupHref } from '../groups/navigation';
 import { AssignmentListItem } from './athlete-session-ui';
 import { sessionDetailHref } from './navigation';
 import { countDueToday, selectPendingAssignments } from './home-model';
+import { latestCoachFeedback, latestRecord, monthCompletion } from './home-highlights';
 import { computeAttendance } from './attendance';
 import { StreakBadge } from './AttendanceSection';
+import { formatRecordValue } from './perf-entry';
+import { formatSessionDate } from './athlete-session-ui';
+import { MY_RECORDS_QUERY_KEY } from './records-query';
 import { NotificationsBell } from '../notifications/NotificationsBell';
+import { NOTIFICATIONS_QUERY_KEY } from '../notifications/NotificationsScreen';
+import {
+  formatRelativeDate,
+  notificationDescription,
+  notificationHref,
+} from '../notifications/notification-ui';
 
 /** Clé du profil courant — même chaîne que `ME_QUERY_KEY` (Profil), cache partagé sans import du graphe UI. */
 const ME_QUERY_KEY = ['me'] as const;
@@ -32,8 +46,11 @@ const MAX_TODO = 3;
  * Accueil athlète (A-01 — TLX-089). Première impression après login : salutation, séances
  * **à faire** (plus proche échéance d'abord) et raccourcis. Pendant athlète du tableau de bord
  * coach (C-01). **Aucun endpoint dédié** : dérive des données déjà en cache —
- * `['assignments']` (partagé A-02/calendrier), `['groups','mine']` (section Profil, ADR-26) et
- * `['me']` (Profil) — donc zéro fetch redondant. États chargement / erreur / vide ; pull-to-refresh.
+ * `['assignments']` (partagé A-02/calendrier), `['groups','mine']` (section Profil, ADR-26),
+ * `['me']` (Profil) et `['notifications','me']` (déjà tirée par la cloche sur cet écran) — plus
+ * **une seule requête légère assumée** (TLX-148) : `['records','me']`, cache partagé avec A-07.
+ * Les aperçus (progression, dernier retour coach) sont best-effort : jamais bloquants, masqués
+ * en chargement/erreur. États chargement / erreur / vide ; pull-to-refresh.
  */
 export function AthleteHomeScreen() {
   const { colors, typography, spacing } = useTheme();
@@ -69,6 +86,30 @@ export function AthleteHomeScreen() {
     retry: false,
   });
 
+  // Aperçu progression (TLX-148) : la seule requête légère ajoutée par l'accueil — cache
+  // `['records','me']` partagé avec A-07 (qu'elle réchauffe). Best-effort : jamais bloquant.
+  const recordsQuery = useQuery({
+    queryKey: MY_RECORDS_QUERY_KEY,
+    queryFn: async (): Promise<PersonalRecord[]> => {
+      const response = await listMyRecords();
+      if (response.status === 200) return response.data.items;
+      throw response;
+    },
+    retry: false,
+  });
+
+  // Dernier retour coach (TLX-148) : même requête que la cloche ci-dessous (clé partagée →
+  // dédupliquée par TanStack Query, zéro appel réseau supplémentaire sur cet écran).
+  const notificationsQuery = useQuery({
+    queryKey: NOTIFICATIONS_QUERY_KEY,
+    queryFn: async (): Promise<NotificationPage> => {
+      const response = await listNotifications({ page: 1, limit: 50 });
+      if (response.status === 200) return response.data;
+      throw response;
+    },
+    retry: false,
+  });
+
   const pending = useMemo(
     () => selectPendingAssignments(assignmentsQuery.data ?? []),
     [assignmentsQuery.data],
@@ -85,6 +126,20 @@ export function AthleteHomeScreen() {
 
   const hasAssignments = (assignmentsQuery.data?.length ?? 0) > 0;
   const noGroup = groupsQuery.isSuccess && (groupsQuery.data?.length ?? 0) === 0;
+
+  // Aperçus TLX-148 — dérivés purs. Records/notifications en échec ou en chargement → sections
+  // masquées (best-effort assumé : l'accueil ne bloque ni ne casse sur ses aperçus).
+  const personalRecord = useMemo(() => latestRecord(recordsQuery.data ?? []), [recordsQuery.data]);
+  const completion = useMemo(
+    () => monthCompletion(assignmentsQuery.data ?? [], new Date()),
+    [assignmentsQuery.data],
+  );
+  const lastFeedback = useMemo(
+    () => latestCoachFeedback(notificationsQuery.data?.data ?? []),
+    [notificationsQuery.data],
+  );
+  const showProgressPreview =
+    recordsQuery.isSuccess || personalRecord != null || completion != null;
 
   return (
     <ScrollView
@@ -242,6 +297,172 @@ export function AthleteHomeScreen() {
           </Card>
         )}
       </View>
+
+      {/* Aperçu progression (TLX-148) : dernier record + complétion du mois, cliquable → onglet
+          Progression. Masqué tant que les records ne sont pas chargés (best-effort, non bloquant). */}
+      {showProgressPreview ? (
+        <View style={{ gap: spacing[3] }}>
+          <SectionTitle>Ta progression</SectionTitle>
+          <Pressable
+            testID="home-progress-card"
+            onPress={() => router.push('/(athlete)/progress')}
+            accessibilityRole="button"
+            accessibilityLabel="Voir ma progression"
+          >
+            <Card>
+              {personalRecord || completion ? (
+                <View style={{ gap: spacing[3] }}>
+                  {personalRecord ? (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[3] }}>
+                      <View
+                        style={{
+                          width: 36,
+                          height: 36,
+                          borderRadius: 10,
+                          backgroundColor: colors.accentSubtle,
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        <Feather name="award" size={18} color={colors.accentText} />
+                      </View>
+                      <View style={{ flex: 1, gap: 2 }}>
+                        <Text
+                          testID="home-progress-record"
+                          style={{
+                            color: colors.textPrimary,
+                            fontFamily: typography.fontFamily.medium,
+                            fontSize: typography.body.fontSize,
+                          }}
+                        >
+                          {`Record · ${personalRecord.label}`}
+                        </Text>
+                        <Text
+                          style={{
+                            color: colors.textSecondary,
+                            fontFamily: typography.fontFamily.regular,
+                            fontSize: typography.bodySm.fontSize,
+                          }}
+                        >
+                          {formatSessionDate(personalRecord.achievedAt)}
+                        </Text>
+                      </View>
+                      <Text
+                        style={{
+                          color: colors.accentText,
+                          fontFamily: typography.fontFamily.bold,
+                          fontSize: typography.h3.fontSize,
+                        }}
+                      >
+                        {formatRecordValue(personalRecord.value, personalRecord.unit)}
+                      </Text>
+                    </View>
+                  ) : null}
+                  {completion ? (
+                    <Text
+                      testID="home-progress-completion"
+                      style={{
+                        color: colors.textSecondary,
+                        fontFamily: typography.fontFamily.regular,
+                        fontSize: typography.bodySm.fontSize,
+                      }}
+                    >
+                      {`${completion.completed} séance${completion.completed > 1 ? 's' : ''} réalisée${
+                        completion.completed > 1 ? 's' : ''
+                      } sur ${completion.total} ce mois-ci`}
+                    </Text>
+                  ) : null}
+                </View>
+              ) : (
+                <Text
+                  testID="home-progress-empty"
+                  style={{
+                    color: colors.textSecondary,
+                    fontFamily: typography.fontFamily.regular,
+                    fontSize: typography.bodySm.fontSize,
+                  }}
+                >
+                  Saisis tes premières perfs — tes records et ta progression apparaîtront ici.
+                </Text>
+              )}
+            </Card>
+          </Pressable>
+        </View>
+      ) : null}
+
+      {/* Dernier retour du coach (TLX-148) : dérivé du feed de notifications déjà chargé par la
+          cloche (option (a) du ticket — aucun endpoint agrégé, zéro requête ajoutée). */}
+      {notificationsQuery.isSuccess ? (
+        <View style={{ gap: spacing[3] }}>
+          <SectionTitle>Dernier retour du coach</SectionTitle>
+          {lastFeedback ? (
+            <Pressable
+              testID="home-last-feedback"
+              onPress={() => {
+                const href = notificationHref(
+                  'athlete',
+                  lastFeedback.type,
+                  lastFeedback.resourceId,
+                );
+                if (href) router.push(href as never);
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Voir le dernier retour de ton coach"
+            >
+              <Card>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[3] }}>
+                  <View
+                    style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: 10,
+                      backgroundColor: colors.accentSubtle,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <Feather name="message-circle" size={18} color={colors.accentText} />
+                  </View>
+                  <View style={{ flex: 1, gap: 2 }}>
+                    <Text
+                      testID="home-last-feedback-text"
+                      style={{
+                        color: colors.textPrimary,
+                        fontFamily: typography.fontFamily.medium,
+                        fontSize: typography.body.fontSize,
+                      }}
+                    >
+                      {notificationDescription(lastFeedback.type, lastFeedback.actor?.displayName)}
+                    </Text>
+                    <Text
+                      style={{
+                        color: colors.textSecondary,
+                        fontFamily: typography.fontFamily.regular,
+                        fontSize: typography.bodySm.fontSize,
+                      }}
+                    >
+                      {formatRelativeDate(lastFeedback.createdAt, new Date())}
+                    </Text>
+                  </View>
+                  <Feather name="chevron-right" size={20} color={colors.textMuted} />
+                </View>
+              </Card>
+            </Pressable>
+          ) : (
+            <Card testID="home-no-feedback">
+              <Text
+                style={{
+                  color: colors.textSecondary,
+                  fontFamily: typography.fontFamily.regular,
+                  fontSize: typography.bodySm.fontSize,
+                }}
+              >
+                Pas encore de retour — ton coach commentera tes performances ici.
+              </Text>
+            </Card>
+          )}
+        </View>
+      ) : null}
 
       {/* Raccourcis vers les onglets clés. */}
       <View style={{ gap: spacing[3] }}>

@@ -8,6 +8,7 @@ const mockGetMe = jest.fn();
 const mockGetMyGroups = jest.fn();
 const mockListAssignments = jest.fn();
 const mockListNotifications = jest.fn();
+const mockListMyRecords = jest.fn();
 const mockPush = jest.fn();
 
 jest.mock('@talent-x/api-client', () => ({
@@ -15,11 +16,27 @@ jest.mock('@talent-x/api-client', () => ({
   getMyGroups: (...a: unknown[]) => mockGetMyGroups(...a),
   listAssignments: (...a: unknown[]) => mockListAssignments(...a),
   listNotifications: (...a: unknown[]) => mockListNotifications(...a),
+  listMyRecords: (...a: unknown[]) => mockListMyRecords(...a),
   AssignmentStatus: {
     assigned: 'assigned',
     in_progress: 'in_progress',
     completed: 'completed',
     skipped: 'skipped',
+  },
+  // `perf-entry` (formatRecordValue) importe BlockType au niveau valeur.
+  BlockType: {
+    strength: 'strength',
+    interval: 'interval',
+    sprint: 'sprint',
+    endurance: 'endurance',
+    hurdles: 'hurdles',
+    jumps: 'jumps',
+    vertical_jumps: 'vertical_jumps',
+    throws: 'throws',
+    core: 'core',
+    warmup: 'warmup',
+    cooldown: 'cooldown',
+    custom: 'custom',
   },
 }));
 jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush }) }));
@@ -90,6 +107,7 @@ beforeEach(() => {
     status: 200,
     data: { data: [], unreadCount: 0, meta: { total: 0, page: 1, limit: 50 } },
   });
+  mockListMyRecords.mockResolvedValue({ status: 200, data: { items: [] } });
 });
 
 describe('AthleteHomeScreen (A-01, TLX-089)', () => {
@@ -236,6 +254,131 @@ describe('AthleteHomeScreen (A-01, TLX-089)', () => {
     expect(colorOf(within(screen.getByTestId('home-todo-s1')).getByText(/exercices?/))).toBe(
       darkColors.textSecondary,
     );
+  });
+
+  it('aperçu progression : dernier record + complétion du mois, tap → onglet Progression (TLX-148)', async () => {
+    mockListAssignments.mockResolvedValue({
+      status: 200,
+      data: {
+        data: [assignment('s1', 'completed', daysAgo(2)), assignment('s2', 'skipped', daysAgo(1))],
+      },
+    });
+    mockListMyRecords.mockResolvedValue({
+      status: 200,
+      data: {
+        items: [
+          {
+            id: 'r-old',
+            athleteId: 'u-1',
+            eventKey: 'sprint:100',
+            label: '100 m',
+            value: 11.5,
+            unit: 's',
+            direction: 'min',
+            achievedAt: '2026-05-01T00:00:00Z',
+          },
+          {
+            id: 'r-new',
+            athleteId: 'u-1',
+            eventKey: 'sprint:60',
+            label: '60 m',
+            value: 7.32,
+            unit: 's',
+            direction: 'min',
+            achievedAt: '2026-06-20T00:00:00Z',
+          },
+        ],
+      },
+    });
+    render(<AthleteHomeScreen />, { wrapper: Wrapper });
+
+    await waitFor(() => expect(screen.getByTestId('home-progress-card')).toBeOnTheScreen());
+    // Le record le plus récent (60 m), pas le premier de la liste.
+    expect(screen.getByTestId('home-progress-record')).toHaveTextContent('Record · 60 m');
+    // Complétion du mois : 1 réalisée / 2 échues.
+    expect(screen.getByTestId('home-progress-completion')).toHaveTextContent(
+      '1 séance réalisée sur 2 ce mois-ci',
+    );
+    fireEvent.press(screen.getByTestId('home-progress-card'));
+    expect(mockPush).toHaveBeenCalledWith('/(athlete)/progress');
+  });
+
+  it('aperçu progression : état vide accueillant sans record ni séance du mois (TLX-148)', async () => {
+    mockListAssignments.mockResolvedValue({ status: 200, data: { data: [] } });
+    render(<AthleteHomeScreen />, { wrapper: Wrapper });
+
+    await waitFor(() => expect(screen.getByTestId('home-progress-empty')).toBeOnTheScreen());
+    expect(screen.getByTestId('home-progress-empty')).toHaveTextContent(/premières perfs/);
+  });
+
+  it('aperçu progression masqué quand les records échouent et rien à dériver (TLX-148)', async () => {
+    mockListAssignments.mockResolvedValue({ status: 200, data: { data: [] } });
+    mockListMyRecords.mockResolvedValue({ status: 500, data: { error: 'INTERNAL_ERROR' } });
+    render(<AthleteHomeScreen />, { wrapper: Wrapper });
+
+    await waitFor(() => expect(screen.getByTestId('home-no-sessions')).toBeOnTheScreen());
+    expect(screen.queryByTestId('home-progress-card')).toBeNull();
+  });
+
+  it('dernier retour coach : notification performance_feedback la plus récente, tap → séance (TLX-148)', async () => {
+    mockListAssignments.mockResolvedValue({ status: 200, data: { data: [] } });
+    mockListNotifications.mockResolvedValue({
+      status: 200,
+      data: {
+        data: [
+          {
+            id: 'n-1',
+            type: 'session_assigned',
+            resourceId: 'as-9',
+            createdAt: '2026-07-06T10:00:00Z',
+          },
+          {
+            id: 'n-2',
+            type: 'performance_feedback',
+            resourceId: 'as-1',
+            actor: { displayName: 'Karim' },
+            createdAt: '2026-07-05T10:00:00Z',
+          },
+          {
+            id: 'n-3',
+            type: 'performance_feedback',
+            resourceId: 'as-2',
+            createdAt: '2026-07-01T10:00:00Z',
+          },
+        ],
+        unreadCount: 0,
+        meta: { total: 3, page: 1, limit: 50 },
+      },
+    });
+    render(<AthleteHomeScreen />, { wrapper: Wrapper });
+
+    await waitFor(() => expect(screen.getByTestId('home-last-feedback')).toBeOnTheScreen());
+    // Nominatif (ADR-55) + le plus récent des deux feedbacks (n-2, pas n-3).
+    expect(screen.getByTestId('home-last-feedback-text')).toHaveTextContent(
+      'Karim a commenté ta performance.',
+    );
+    fireEvent.press(screen.getByTestId('home-last-feedback'));
+    expect(mockPush).toHaveBeenCalledWith(
+      expect.objectContaining({ pathname: '/(athlete)/session/[id]', params: { id: 'as-1' } }),
+    );
+  });
+
+  it('dernier retour coach : état vide propre sans feedback (TLX-148)', async () => {
+    mockListAssignments.mockResolvedValue({ status: 200, data: { data: [] } });
+    render(<AthleteHomeScreen />, { wrapper: Wrapper });
+
+    await waitFor(() => expect(screen.getByTestId('home-no-feedback')).toBeOnTheScreen());
+    expect(screen.queryByTestId('home-last-feedback')).toBeNull();
+  });
+
+  it('section retour coach masquée quand le feed échoue (best-effort, TLX-148)', async () => {
+    mockListAssignments.mockResolvedValue({ status: 200, data: { data: [] } });
+    mockListNotifications.mockResolvedValue({ status: 500, data: { error: 'INTERNAL_ERROR' } });
+    render(<AthleteHomeScreen />, { wrapper: Wrapper });
+
+    await waitFor(() => expect(screen.getByTestId('home-no-sessions')).toBeOnTheScreen());
+    expect(screen.queryByTestId('home-no-feedback')).toBeNull();
+    expect(screen.queryByTestId('home-last-feedback')).toBeNull();
   });
 
   it('raccourcis vers calendrier et progression', async () => {
