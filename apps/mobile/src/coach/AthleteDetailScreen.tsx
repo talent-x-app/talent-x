@@ -121,7 +121,7 @@ export function AthleteDetailScreen() {
             {params.sport ? (
               <Text
                 style={{
-                  color: colors.textMuted,
+                  color: colors.textSecondary,
                   fontFamily: typography.fontFamily.regular,
                   fontSize: typography.bodySm.fontSize,
                 }}
@@ -186,7 +186,7 @@ function ReviewableSessions({
                 </Text>
                 <Text
                   style={{
-                    color: colors.textMuted,
+                    color: colors.textSecondary,
                     fontFamily: typography.fontFamily.regular,
                     fontSize: typography.bodySm.fontSize,
                   }}
@@ -320,7 +320,7 @@ function CoachProgressSection({ id }: { id: string }) {
         <Card testID="athlete-progress-empty">
           <Text
             style={{
-              color: colors.textMuted,
+              color: colors.textSecondary,
               fontFamily: typography.fontFamily.regular,
               fontSize: typography.bodySm.fontSize,
               textAlign: 'center',
@@ -385,7 +385,7 @@ function Metric({ label, value, testID }: { label: string; value: string; testID
         </Text>
         <Text
           style={{
-            color: colors.textMuted,
+            color: colors.textSecondary,
             fontFamily: typography.fontFamily.medium,
             fontSize: typography.bodySm.fontSize,
           }}

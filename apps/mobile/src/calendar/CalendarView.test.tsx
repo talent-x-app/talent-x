@@ -1,10 +1,16 @@
-import { ThemeProvider } from '@talent-x/design-tokens';
+import { ThemeProvider, darkColors, darkTheme } from '@talent-x/design-tokens';
 import { fireEvent, render, screen } from '@testing-library/react-native';
+import { StyleSheet } from 'react-native';
 import { CalendarView } from './CalendarView';
 import type { CalendarEntry } from './calendar-model';
 
 function Wrapper({ children }: { children: React.ReactNode }) {
   return <ThemeProvider>{children}</ThemeProvider>;
+}
+
+/** Thème sombre forcé — assertions de contraste (TLX-151). */
+function DarkWrapper({ children }: { children: React.ReactNode }) {
+  return <ThemeProvider theme={darkTheme}>{children}</ThemeProvider>;
 }
 
 const NOW = new Date('2026-05-14T09:00:00Z'); // jeudi 14 mai → jour sélectionné par défaut
@@ -154,5 +160,16 @@ describe('CalendarView (TLX-100 / ADR-47 — Mois ⇄ Semaine)', () => {
     // De retour sur le mois courant : le 14 mai et son entrée sont là.
     expect(screen.getByTestId('cal-cell-2026-05-14')).toBeOnTheScreen();
     expect(screen.getByText('Récupération')).toBeOnTheScreen();
+  });
+
+  it('en-têtes de jours en textSecondary — contraste AA (TLX-151)', () => {
+    render(
+      <CalendarView entries={ENTRIES} now={NOW} onPressEntry={jest.fn()} testIDPrefix="cal" />,
+      { wrapper: DarkWrapper },
+    );
+    const header = screen.getAllByText('L')[0];
+    expect((StyleSheet.flatten(header.props.style) as { color?: string }).color).toBe(
+      darkColors.textSecondary,
+    );
   });
 });

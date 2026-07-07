@@ -62,7 +62,7 @@ function Metric({ label, value }: { label: string; value: string }) {
         </Text>
         <Text
           style={{
-            color: colors.textMuted,
+            color: colors.textSecondary,
             fontFamily: typography.fontFamily.medium,
             fontSize: typography.caption.fontSize,
           }}
@@ -366,7 +366,7 @@ export function ProgressSeriesCard({
             </Text>
             <Text
               style={{
-                color: colors.textMuted,
+                color: colors.textSecondary,
                 fontFamily: typography.fontFamily.regular,
                 fontSize: typography.bodySm.fontSize,
               }}
@@ -434,7 +434,7 @@ export function ProgressSeriesCard({
             </View>
             <Text
               style={{
-                color: colors.textMuted,
+                color: colors.textSecondary,
                 fontFamily: typography.fontFamily.regular,
                 fontSize: typography.caption.fontSize,
               }}
@@ -448,7 +448,7 @@ export function ProgressSeriesCard({
           <Text
             testID={`progress-series-${series.eventKey}-empty`}
             style={{
-              color: colors.textMuted,
+              color: colors.textSecondary,
               fontFamily: typography.fontFamily.regular,
               fontSize: typography.bodySm.fontSize,
             }}
@@ -479,7 +479,7 @@ export function ProgressSeriesCard({
               <Text
                 style={{
                   flex: 1,
-                  color: colors.textMuted,
+                  color: colors.textSecondary,
                   fontFamily: typography.fontFamily.medium,
                   fontSize: typography.caption.fontSize,
                   textTransform: 'uppercase',
@@ -535,7 +535,7 @@ export function ProgressSeriesCard({
                     style={{
                       width: 92,
                       textAlign: 'right',
-                      color: colors.textMuted,
+                      color: colors.textSecondary,
                       fontFamily: typography.fontFamily.regular,
                       fontSize: typography.caption.fontSize,
                     }}
@@ -593,7 +593,7 @@ function ProgressTimeline({
   const dayMarks = selPoint ? [selPoint.value, ...(selPoint.others ?? [])] : [];
 
   const axisStyle = {
-    color: colors.textMuted,
+    color: colors.textSecondary,
     fontFamily: typography.fontFamily.regular,
     fontSize: typography.caption.fontSize,
   } as const;
@@ -739,7 +739,7 @@ function ProgressTimeline({
             <Text
               style={{
                 flex: 1,
-                color: colors.textMuted,
+                color: colors.textSecondary,
                 fontFamily: typography.fontFamily.medium,
                 fontSize: typography.caption.fontSize,
                 textTransform: 'uppercase',
@@ -991,7 +991,7 @@ export function RecordRow({
           </Text>
           <Text
             style={{
-              color: colors.textMuted,
+              color: colors.textSecondary,
               fontFamily: typography.fontFamily.regular,
               fontSize: typography.bodySm.fontSize,
             }}
@@ -1015,7 +1015,7 @@ export function RecordRow({
             <Text
               testID={`record-${record.eventKey}-sb`}
               style={{
-                color: colors.textMuted,
+                color: colors.textSecondary,
                 fontFamily: typography.fontFamily.medium,
                 fontSize: typography.caption.fontSize,
               }}

@@ -173,7 +173,7 @@ export function CompetitionListItem({
             <Text
               numberOfLines={1}
               style={{
-                color: colors.textMuted,
+                color: colors.textSecondary,
                 fontFamily: typography.fontFamily.regular,
                 fontSize: typography.bodySm.fontSize,
               }}

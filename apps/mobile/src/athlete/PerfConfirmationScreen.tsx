@@ -267,7 +267,7 @@ function RecapCard({ performance }: { performance: Performance }) {
         {performance.submittedAt ? (
           <Text
             style={{
-              color: colors.textMuted,
+              color: colors.textSecondary,
               fontFamily: typography.fontFamily.regular,
               fontSize: typography.bodySm.fontSize,
             }}
@@ -349,7 +349,7 @@ function Metric({ label, value }: { label: string; value: string }) {
       </Text>
       <Text
         style={{
-          color: colors.textMuted,
+          color: colors.textSecondary,
           fontFamily: typography.fontFamily.medium,
           fontSize: typography.bodySm.fontSize,
         }}

@@ -187,7 +187,7 @@ export function DatePicker({
                 style={{
                   flex: 1,
                   textAlign: 'center',
-                  color: colors.textMuted,
+                  color: colors.textSecondary,
                   fontFamily: typography.fontFamily.medium,
                   fontSize: typography.caption.fontSize,
                 }}

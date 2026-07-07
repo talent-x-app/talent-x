@@ -216,7 +216,7 @@ function ReplyRow({
         ) : reply.reportedByMe ? (
           <Text
             style={{
-              color: colors.textMuted,
+              color: colors.textSecondary,
               fontFamily: typography.fontFamily.regular,
               fontSize: typography.caption.fontSize,
             }}

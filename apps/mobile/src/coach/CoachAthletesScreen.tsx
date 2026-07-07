@@ -105,7 +105,7 @@ export function CoachAthletesScreen() {
         <Text
           testID="coach-athletes-count"
           style={{
-            color: colors.textMuted,
+            color: colors.textSecondary,
             fontFamily: typography.fontFamily.regular,
             fontSize: typography.bodySm.fontSize,
           }}
@@ -150,7 +150,7 @@ export function CoachAthletesScreen() {
             <Card testID="coach-athletes-no-match">
               <Text
                 style={{
-                  color: colors.textMuted,
+                  color: colors.textSecondary,
                   fontFamily: typography.fontFamily.regular,
                   fontSize: typography.body.fontSize,
                   textAlign: 'center',

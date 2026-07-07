@@ -83,7 +83,7 @@ function Metric({
       <Feather name={icon} size={16} color={colors.textMuted} />
       <Text
         style={{
-          color: colors.textMuted,
+          color: colors.textSecondary,
           fontFamily: typography.fontFamily.regular,
           fontSize: typography.caption.fontSize,
         }}
@@ -103,6 +103,7 @@ function Metric({
       {hint ? (
         <Text
           style={{
+            // Hint : décoratif → textMuted (règle TLX-145/151).
             color: colors.textMuted,
             fontFamily: typography.fontFamily.regular,
             fontSize: typography.caption.fontSize,
@@ -211,7 +212,7 @@ export function SessionStatStrip({
           </Text>
           <Text
             style={{
-              color: colors.textMuted,
+              color: colors.textSecondary,
               fontFamily: typography.fontFamily.regular,
               fontSize: typography.caption.fontSize,
               textTransform: 'uppercase',
@@ -224,6 +225,7 @@ export function SessionStatStrip({
           {c.hint ? (
             <Text
               style={{
+                // Hint : décoratif → textMuted (règle TLX-145/151).
                 color: colors.textMuted,
                 fontFamily: typography.fontFamily.regular,
                 fontSize: typography.caption.fontSize,

@@ -134,7 +134,7 @@ function PulseStat({
       </Text>
       <Text
         style={{
-          color: colors.textMuted,
+          color: colors.textSecondary,
           fontFamily: typography.fontFamily.regular,
           fontSize: typography.caption.fontSize,
         }}

@@ -1,6 +1,7 @@
-import { ThemeProvider } from '@talent-x/design-tokens';
+import { ThemeProvider, darkColors, darkTheme } from '@talent-x/design-tokens';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { StyleSheet } from 'react-native';
 import { type ReactNode, useState } from 'react';
 
 const mockListNotifications = jest.fn();
@@ -26,6 +27,18 @@ function Wrapper({ children }: { children: ReactNode }) {
   return (
     <QueryClientProvider client={client}>
       <ThemeProvider>{children}</ThemeProvider>
+    </QueryClientProvider>
+  );
+}
+
+/** Thème sombre forcé — assertions de contraste (TLX-151). */
+function DarkWrapper({ children }: { children: ReactNode }) {
+  const [client] = useState(
+    () => new QueryClient({ defaultOptions: { queries: { retry: false } } }),
+  );
+  return (
+    <QueryClientProvider client={client}>
+      <ThemeProvider theme={darkTheme}>{children}</ThemeProvider>
     </QueryClientProvider>
   );
 }
@@ -138,5 +151,15 @@ describe('NotificationsScreen (TLX-111 — ADR-23)', () => {
     mockListNotifications.mockResolvedValue({ status: 500, data: {} });
     render(<NotificationsScreen />, { wrapper: Wrapper });
     await waitFor(() => expect(screen.getByTestId('notifications-error')).toBeOnTheScreen());
+  });
+
+  it('description + date d’une notification en textSecondary — contraste AA (TLX-151)', async () => {
+    mockListNotifications.mockResolvedValue(page([READ], 0));
+    render(<NotificationsScreen />, { wrapper: DarkWrapper });
+    await waitFor(() => expect(screen.getByTestId('notification-n-2')).toBeOnTheScreen());
+    const meta = screen.getByText(/coach a commenté/);
+    expect((StyleSheet.flatten(meta.props.style) as { color?: string }).color).toBe(
+      darkColors.textSecondary,
+    );
   });
 });

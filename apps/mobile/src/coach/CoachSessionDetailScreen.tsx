@@ -171,7 +171,7 @@ export function CoachSessionDetailScreen() {
             {session.data.scheduledDate ? (
               <Text
                 style={{
-                  color: colors.textMuted,
+                  color: colors.textSecondary,
                   fontFamily: typography.fontFamily.regular,
                   fontSize: typography.bodySm.fontSize,
                 }}
@@ -366,7 +366,7 @@ function AssignedAthletes({ sessionId }: { sessionId: string }) {
         <Text
           testID="coach-session-assignees-empty"
           style={{
-            color: colors.textMuted,
+            color: colors.textSecondary,
             fontFamily: typography.fontFamily.regular,
             fontSize: typography.bodySm.fontSize,
           }}
@@ -474,7 +474,7 @@ function SessionBlocksSummary({ blocks }: { blocks: Segment[] }) {
               </Text>
               <Text
                 style={{
-                  color: colors.textMuted,
+                  color: colors.textSecondary,
                   fontFamily: typography.fontFamily.regular,
                   fontSize: typography.caption.fontSize,
                 }}

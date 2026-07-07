@@ -76,7 +76,7 @@ export function AthleteCompetitionsScreen() {
           <Text
             testID="competitions-count"
             style={{
-              color: colors.textMuted,
+              color: colors.textSecondary,
               fontFamily: typography.fontFamily.regular,
               fontSize: typography.bodySm.fontSize,
             }}
@@ -112,7 +112,7 @@ export function AthleteCompetitionsScreen() {
         <Card testID="competitions-empty">
           <Text
             style={{
-              color: colors.textMuted,
+              color: colors.textSecondary,
               fontFamily: typography.fontFamily.regular,
               fontSize: typography.body.fontSize,
               textAlign: 'center',

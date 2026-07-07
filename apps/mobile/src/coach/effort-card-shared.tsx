@@ -202,7 +202,7 @@ export function SeriesCardFrame({
         <View style={{ flex: 1 }}>
           <Text
             style={{
-              color: colors.textMuted,
+              color: colors.textSecondary,
               fontFamily: typography.fontFamily.medium,
               fontSize: typography.caption.fontSize,
               textTransform: 'uppercase',
@@ -330,7 +330,7 @@ export function EffortTable({
 
       {!hideColumnHeader && (
         <View style={{ flexDirection: 'row', gap: spacing[2], marginBottom: spacing[1] }}>
-          <Text style={[colHeaderStyle, { width: 20, color: colors.textMuted }]}>#</Text>
+          <Text style={[colHeaderStyle, { width: 20, color: colors.textSecondary }]}>#</Text>
           {columns.map((c, i) => (
             <Text
               key={i}
@@ -339,7 +339,7 @@ export function EffortTable({
                 // `minWidth: 0` pour suivre les cellules (qui se rétrécissent) et rester aligné en
                 // largeur étroite (TLX-191).
                 c.width != null ? { width: c.width } : { flex: c.flex ?? 1, minWidth: 0 },
-                { color: colors.textMuted },
+                { color: colors.textSecondary },
               ]}
             >
               {c.label}
@@ -385,7 +385,7 @@ export function EffortRowFrame({
         style={{
           width: 20,
           textAlign: 'center',
-          color: colors.textMuted,
+          color: colors.textSecondary,
           fontFamily: typography.fontFamily.regular,
           fontSize: typography.caption.fontSize,
         }}
@@ -476,7 +476,7 @@ export function WarmupCooldownBar({
             (subtitle ? (
               <Text
                 style={{
-                  color: colors.textMuted,
+                  color: colors.textSecondary,
                   fontFamily: typography.fontFamily.regular,
                   fontSize: typography.caption.fontSize,
                 }}
@@ -487,6 +487,7 @@ export function WarmupCooldownBar({
             ) : placeholder ? (
               <Text
                 style={{
+                  // Invite (placeholder) : décorative → textMuted (règle TLX-145/151).
                   color: colors.textMuted,
                   fontFamily: typography.fontFamily.regular,
                   fontSize: typography.caption.fontSize,
@@ -885,7 +886,7 @@ export function PresetPicker({
             style={{
               paddingHorizontal: spacing[3],
               paddingVertical: spacing[3],
-              color: colors.textMuted,
+              color: colors.textSecondary,
               fontFamily: typography.fontFamily.regular,
               fontSize: typography.bodySm.fontSize,
             }}
@@ -905,7 +906,7 @@ export function PresetPicker({
       >
         <Text
           style={{
-            color: colors.textMuted,
+            color: colors.textSecondary,
             fontFamily: typography.fontFamily.regular,
             fontSize: typography.bodySm.fontSize,
           }}
@@ -1008,7 +1009,7 @@ export function CellInput({
       {unit ? (
         <Text
           style={{
-            color: colors.textMuted,
+            color: colors.textSecondary,
             fontFamily: typography.fontFamily.regular,
             fontSize: typography.caption.fontSize,
             // Réserve d'unité **constante** : sinon des unités de largeurs min différentes
@@ -1076,7 +1077,7 @@ export function InlineNumberInput({
       />
       <Text
         style={{
-          color: colors.textMuted,
+          color: colors.textSecondary,
           fontFamily: typography.fontFamily.regular,
           fontSize: typography.caption.fontSize,
         }}

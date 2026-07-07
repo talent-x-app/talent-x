@@ -909,7 +909,7 @@ export function BlockCard({
           <Text
             style={{
               flex: 1,
-              color: colors.textMuted,
+              color: colors.textSecondary,
               fontFamily: typography.fontFamily.medium,
               fontSize: typography.bodySm.fontSize,
               textTransform: 'uppercase',

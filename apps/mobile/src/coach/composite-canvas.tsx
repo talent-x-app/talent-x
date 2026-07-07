@@ -404,7 +404,7 @@ function AddBlocPicker({ onAdd }: { onAdd: (choice: DisciplineKey | 'custom') =>
       >
         <Text
           style={{
-            color: colors.textMuted,
+            color: colors.textSecondary,
             fontFamily: typography.fontFamily.regular,
             fontSize: typography.bodySm.fontSize,
           }}

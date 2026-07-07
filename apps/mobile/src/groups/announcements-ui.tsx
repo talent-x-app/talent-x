@@ -98,7 +98,7 @@ export function AnnouncementsPane({
         <Card testID="announcements-empty">
           <Text
             style={{
-              color: colors.textMuted,
+              color: colors.textSecondary,
               fontFamily: typography.fontFamily.regular,
               fontSize: typography.body.fontSize,
               textAlign: 'center',
@@ -462,7 +462,7 @@ function AnnouncementFooter({
             <Text
               testID={`read-count-${announcement.id}`}
               style={{
-                color: colors.textMuted,
+                color: colors.textSecondary,
                 fontFamily: typography.fontFamily.regular,
                 fontSize: typography.caption.fontSize,
               }}
@@ -494,7 +494,7 @@ function AnnouncementFooter({
                     numberOfLines={1}
                     style={{
                       flex: 1,
-                      color: colors.textMuted,
+                      color: colors.textSecondary,
                       fontFamily: typography.fontFamily.regular,
                       fontSize: typography.caption.fontSize,
                     }}

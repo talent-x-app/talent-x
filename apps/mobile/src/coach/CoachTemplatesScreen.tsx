@@ -105,7 +105,7 @@ export function CoachTemplatesScreen() {
           <Text
             testID="templates-count"
             style={{
-              color: colors.textMuted,
+              color: colors.textSecondary,
               fontFamily: typography.fontFamily.regular,
               fontSize: typography.bodySm.fontSize,
             }}
@@ -150,7 +150,7 @@ export function CoachTemplatesScreen() {
         <Card testID="templates-empty">
           <Text
             style={{
-              color: colors.textMuted,
+              color: colors.textSecondary,
               fontFamily: typography.fontFamily.regular,
               fontSize: typography.body.fontSize,
               textAlign: 'center',
@@ -173,7 +173,7 @@ export function CoachTemplatesScreen() {
             <Card testID="templates-no-match">
               <Text
                 style={{
-                  color: colors.textMuted,
+                  color: colors.textSecondary,
                   fontFamily: typography.fontFamily.regular,
                   fontSize: typography.body.fontSize,
                   textAlign: 'center',
@@ -260,7 +260,7 @@ function TemplateListItem({
             </Text>
             <Text
               style={{
-                color: colors.textMuted,
+                color: colors.textSecondary,
                 fontFamily: typography.fontFamily.regular,
                 fontSize: typography.bodySm.fontSize,
               }}

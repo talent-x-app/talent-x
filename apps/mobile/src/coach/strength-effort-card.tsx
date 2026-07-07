@@ -905,7 +905,7 @@ function MuscuRow({
         <Text
           style={{
             fontSize: typography.caption.fontSize,
-            color: colors.textMuted,
+            color: colors.textSecondary,
             fontFamily: typography.fontFamily.regular,
           }}
         >

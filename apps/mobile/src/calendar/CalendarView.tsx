@@ -139,7 +139,7 @@ export function CalendarView({
             style={{
               flex: 1,
               textAlign: 'center',
-              color: colors.textMuted,
+              color: colors.textSecondary,
               fontFamily: typography.fontFamily.medium,
               fontSize: typography.caption.fontSize,
             }}
@@ -211,7 +211,7 @@ export function CalendarView({
           <Card testID={`${testIDPrefix}-day-empty`}>
             <Text
               style={{
-                color: colors.textMuted,
+                color: colors.textSecondary,
                 fontFamily: typography.fontFamily.regular,
                 fontSize: typography.body.fontSize,
                 textAlign: 'center',
@@ -457,7 +457,7 @@ function EntryCard({
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[2] }}>
             <Text
               style={{
-                color: colors.textMuted,
+                color: colors.textSecondary,
                 fontFamily: typography.fontFamily.regular,
                 fontSize: typography.caption.fontSize,
               }}

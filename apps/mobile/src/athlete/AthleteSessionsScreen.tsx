@@ -144,7 +144,7 @@ export function AthleteSessionsScreen({ embedded = false }: { embedded?: boolean
         <Card testID="sessions-empty">
           <Text
             style={{
-              color: colors.textMuted,
+              color: colors.textSecondary,
               fontFamily: typography.fontFamily.regular,
               fontSize: typography.body.fontSize,
               textAlign: 'center',
@@ -208,7 +208,7 @@ export function AthleteSessionsScreen({ embedded = false }: { embedded?: boolean
             <Card testID={search.trim() ? 'sessions-no-match' : 'sessions-empty-filter'}>
               <Text
                 style={{
-                  color: colors.textMuted,
+                  color: colors.textSecondary,
                   fontFamily: typography.fontFamily.regular,
                   fontSize: typography.body.fontSize,
                   textAlign: 'center',

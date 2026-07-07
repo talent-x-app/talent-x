@@ -137,11 +137,11 @@ function ConsentsCard({ role }: { role: string }) {
           Mes consentements
         </Text>
         {consents.isLoading ? (
-          <Text testID="privacy-consents-loading" style={mutedText(colors, typography)}>
+          <Text testID="privacy-consents-loading" style={helperText(colors, typography)}>
             Chargement…
           </Text>
         ) : consents.isError ? (
-          <Text testID="privacy-consents-error" style={mutedText(colors, typography)}>
+          <Text testID="privacy-consents-error" style={helperText(colors, typography)}>
             Consentements indisponibles pour le moment.
           </Text>
         ) : (
@@ -161,7 +161,7 @@ function ConsentsCard({ role }: { role: string }) {
                   >
                     {row.label}
                   </Text>
-                  <Text style={mutedText(colors, typography)}>{row.help}</Text>
+                  <Text style={helperText(colors, typography)}>{row.help}</Text>
                 </View>
                 <Switch
                   testID={`privacy-consent-${row.type}`}
@@ -231,7 +231,7 @@ function DataExportCard() {
           >
             Exporter mes données
           </Text>
-          <Text style={mutedText(colors, typography)}>
+          <Text style={helperText(colors, typography)}>
             Une archive de tes données, prête à télécharger via un lien temporaire.
           </Text>
         </View>
@@ -247,7 +247,7 @@ function DataExportCard() {
           </Button>
         ) : status === JobStatus.failed ? (
           <View style={{ gap: spacing[2] }}>
-            <Text testID="privacy-export-failed" style={mutedText(colors, typography)}>
+            <Text testID="privacy-export-failed" style={helperText(colors, typography)}>
               La préparation de l'export a échoué.
             </Text>
             <Button
@@ -312,7 +312,7 @@ function DeleteAccountCard() {
           >
             Supprimer mon compte
           </Text>
-          <Text style={mutedText(colors, typography)}>
+          <Text style={helperText(colors, typography)}>
             Action irréversible. Tes données sont supprimées immédiatement de l'app ; l'effacement
             définitif peut prendre jusqu'à 30 jours (sauvegardes).
           </Text>
@@ -365,12 +365,12 @@ function DeleteAccountCard() {
   );
 }
 
-function mutedText(
+function helperText(
   colors: ReturnType<typeof useTheme>['colors'],
   typography: ReturnType<typeof useTheme>['typography'],
 ) {
   return {
-    color: colors.textMuted,
+    color: colors.textSecondary,
     fontFamily: typography.fontFamily.regular,
     fontSize: typography.bodySm.fontSize,
   } as const;

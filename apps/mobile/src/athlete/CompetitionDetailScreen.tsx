@@ -178,7 +178,7 @@ export function CompetitionDetailScreen({ competitionId }: { competitionId: stri
             ) : (
               <Text
                 style={{
-                  color: colors.textMuted,
+                  color: colors.textSecondary,
                   fontFamily: typography.fontFamily.regular,
                   fontSize: typography.bodySm.fontSize,
                 }}
@@ -210,7 +210,7 @@ function DetailRow({
       <View style={{ flex: 1, gap: 2 }}>
         <Text
           style={{
-            color: colors.textMuted,
+            color: colors.textSecondary,
             fontFamily: typography.fontFamily.regular,
             fontSize: typography.caption.fontSize,
           }}

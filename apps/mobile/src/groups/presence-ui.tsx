@@ -299,6 +299,7 @@ export function AttendanceSummaryView({ assignmentId }: { assignmentId: string }
     {
       key: 'noResponse',
       label: `${s.noResponse} sans réponse`,
+      // Couleur de catégorie (jeu success/danger/warning/neutre), pas une hiérarchie de texte.
       color: colors.textMuted,
     },
   ];

@@ -226,7 +226,7 @@ export function SessionHero({ assignment }: { assignment: Assignment }) {
           <Text
             testID="session-detail-date"
             style={{
-              color: colors.textMuted,
+              color: colors.textSecondary,
               fontFamily: typography.fontFamily.regular,
               fontSize: typography.bodySm.fontSize,
             }}

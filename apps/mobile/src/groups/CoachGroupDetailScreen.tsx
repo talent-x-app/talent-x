@@ -329,7 +329,7 @@ function MembersTab({
           <Card testID="group-members-empty">
             <Text
               style={{
-                color: colors.textMuted,
+                color: colors.textSecondary,
                 fontFamily: typography.fontFamily.regular,
                 fontSize: typography.body.fontSize,
                 textAlign: 'center',
@@ -342,7 +342,7 @@ function MembersTab({
           <Card testID="group-members-no-match">
             <Text
               style={{
-                color: colors.textMuted,
+                color: colors.textSecondary,
                 fontFamily: typography.fontFamily.regular,
                 fontSize: typography.body.fontSize,
                 textAlign: 'center',
@@ -474,7 +474,7 @@ function InviteCodeCard({ groupId, group }: { groupId: string; group: Group }) {
             </View>
             <Text
               style={{
-                color: colors.textMuted,
+                color: colors.textSecondary,
                 fontFamily: typography.fontFamily.regular,
                 fontSize: typography.bodySm.fontSize,
                 textAlign: 'center',
@@ -537,7 +537,7 @@ function InviteCodeCard({ groupId, group }: { groupId: string; group: Group }) {
                 <QrCode value={code} size={184} testID="group-invite-qr" />
                 <Text
                   style={{
-                    color: colors.textMuted,
+                    color: colors.textSecondary,
                     fontFamily: typography.fontFamily.regular,
                     fontSize: typography.caption.fontSize,
                     textAlign: 'center',
@@ -854,7 +854,7 @@ function MemberRow({ groupId, member }: { groupId: string; member: GroupMember }
             {member.athlete?.sport ? (
               <Text
                 style={{
-                  color: colors.textMuted,
+                  color: colors.textSecondary,
                   fontFamily: typography.fontFamily.regular,
                   fontSize: typography.bodySm.fontSize,
                 }}

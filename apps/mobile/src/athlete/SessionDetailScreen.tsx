@@ -520,7 +520,7 @@ export function SessionDetailScreen() {
                   <Card>
                     <Text
                       style={{
-                        color: colors.textMuted,
+                        color: colors.textSecondary,
                         fontFamily: typography.fontFamily.regular,
                         fontSize: typography.body.fontSize,
                       }}
@@ -686,7 +686,7 @@ function LeafEntry({
       <Text
         testID={`exercise-${i}-target`}
         style={{
-          color: colors.textMuted,
+          color: colors.textSecondary,
           fontFamily: typography.fontFamily.regular,
           fontSize: typography.bodySm.fontSize,
         }}
@@ -812,7 +812,7 @@ function LeafEntry({
       <Text
         testID={`exercise-${i}-target`}
         style={{
-          color: colors.textMuted,
+          color: colors.textSecondary,
           fontFamily: typography.fontFamily.regular,
           fontSize: typography.bodySm.fontSize,
         }}
@@ -841,7 +841,7 @@ function TimeEntryRows({
           <Text
             style={{
               width: 56,
-              color: colors.textMuted,
+              color: colors.textSecondary,
               fontFamily: typography.fontFamily.regular,
               fontSize: typography.bodySm.fontSize,
             }}
@@ -898,7 +898,7 @@ function DistanceEntryRows({
           <Text
             style={{
               width: 56,
-              color: colors.textMuted,
+              color: colors.textSecondary,
               fontFamily: typography.fontFamily.regular,
               fontSize: typography.bodySm.fontSize,
             }}
@@ -991,7 +991,7 @@ function BarsEntryGrid({
     <View style={{ gap: spacing[2] }}>
       <Text
         style={{
-          color: colors.textMuted,
+          color: colors.textSecondary,
           fontFamily: typography.fontFamily.regular,
           fontSize: typography.bodySm.fontSize,
         }}

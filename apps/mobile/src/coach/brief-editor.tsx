@@ -360,7 +360,7 @@ export function BriefEditor({
                 <Feather name="lock" size={12} color={colors.textMuted} />
                 <Text
                   style={{
-                    color: colors.textMuted,
+                    color: colors.textSecondary,
                     fontFamily: typography.fontFamily.medium,
                     fontSize: typography.caption.fontSize,
                   }}

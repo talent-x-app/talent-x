@@ -105,7 +105,7 @@ export function CoachGroupsScreen() {
           <Text
             testID="groups-count"
             style={{
-              color: colors.textMuted,
+              color: colors.textSecondary,
               fontFamily: typography.fontFamily.regular,
               fontSize: typography.bodySm.fontSize,
             }}
@@ -189,7 +189,7 @@ export function CoachGroupsScreen() {
         <Card testID="groups-empty">
           <Text
             style={{
-              color: colors.textMuted,
+              color: colors.textSecondary,
               fontFamily: typography.fontFamily.regular,
               fontSize: typography.body.fontSize,
               textAlign: 'center',
@@ -246,7 +246,7 @@ function GroupListItem({ group, onPress }: { group: Group; onPress: () => void }
           </Text>
           <Text
             style={{
-              color: colors.textMuted,
+              color: colors.textSecondary,
               fontFamily: typography.fontFamily.regular,
               fontSize: typography.bodySm.fontSize,
             }}

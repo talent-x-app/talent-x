@@ -72,7 +72,7 @@ export function AttendanceCard({ attendance }: { attendance: Attendance }) {
             </Text>
             <Text
               style={{
-                color: colors.textMuted,
+                color: colors.textSecondary,
                 fontFamily: typography.fontFamily.regular,
                 fontSize: typography.bodySm.fontSize,
               }}

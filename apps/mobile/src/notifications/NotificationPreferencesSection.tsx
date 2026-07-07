@@ -86,7 +86,7 @@ export function NotificationPreferencesSection() {
           <Text
             testID="notification-preferences-loading"
             style={{
-              color: colors.textMuted,
+              color: colors.textSecondary,
               fontFamily: typography.fontFamily.regular,
               fontSize: typography.bodySm.fontSize,
             }}
@@ -97,7 +97,7 @@ export function NotificationPreferencesSection() {
           <Text
             testID="notification-preferences-error"
             style={{
-              color: colors.textMuted,
+              color: colors.textSecondary,
               fontFamily: typography.fontFamily.regular,
               fontSize: typography.bodySm.fontSize,
             }}

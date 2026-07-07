@@ -1,6 +1,7 @@
-import { ThemeProvider } from '@talent-x/design-tokens';
+import { ThemeProvider, darkColors, darkTheme } from '@talent-x/design-tokens';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { StyleSheet } from 'react-native';
 import { type ReactNode, useState } from 'react';
 
 const mockListComments = jest.fn();
@@ -24,6 +25,18 @@ function Wrapper({ children }: { children: ReactNode }) {
   return (
     <QueryClientProvider client={client}>
       <ThemeProvider>{children}</ThemeProvider>
+    </QueryClientProvider>
+  );
+}
+
+/** Thème sombre forcé — assertions de contraste (TLX-151). */
+function DarkWrapper({ children }: { children: ReactNode }) {
+  const [client] = useState(
+    () => new QueryClient({ defaultOptions: { queries: { retry: false } } }),
+  );
+  return (
+    <QueryClientProvider client={client}>
+      <ThemeProvider theme={darkTheme}>{children}</ThemeProvider>
     </QueryClientProvider>
   );
 }
@@ -151,5 +164,37 @@ describe('FeedbackThread — cible séance (TLX-118)', () => {
       sessionId: 'sess-1',
       body: 'Quel échauffement ?',
     });
+  });
+
+  it('date d’un commentaire en textSecondary — contraste AA (TLX-151)', async () => {
+    mockListComments.mockResolvedValue({
+      status: 200,
+      data: {
+        data: [
+          {
+            id: 'cm-9',
+            authorId: 'c-1',
+            performanceId: 'perf-1',
+            body: 'Beau chrono',
+            createdAt: '2026-06-09T11:00:00.000Z',
+          },
+        ],
+        meta: {},
+      },
+    });
+    render(
+      <FeedbackThread
+        performanceId="perf-1"
+        composerPlaceholder="Répondre…"
+        sendLabel="Envoyer"
+        emptyHint="Pas encore de retour."
+      />,
+      { wrapper: DarkWrapper },
+    );
+    await waitFor(() => expect(screen.getByText('Beau chrono')).toBeOnTheScreen());
+    const date = screen.getByText(/9 juin/);
+    expect((StyleSheet.flatten(date.props.style) as { color?: string }).color).toBe(
+      darkColors.textSecondary,
+    );
   });
 });

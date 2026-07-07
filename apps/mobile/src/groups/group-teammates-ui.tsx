@@ -118,7 +118,7 @@ export function TeammatesPane({
           <Card testID="athlete-group-teammates-empty">
             <Text
               style={{
-                color: colors.textMuted,
+                color: colors.textSecondary,
                 fontFamily: typography.fontFamily.regular,
                 fontSize: typography.body.fontSize,
                 textAlign: 'center',

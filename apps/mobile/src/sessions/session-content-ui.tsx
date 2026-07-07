@@ -88,7 +88,7 @@ export function GroupHeader({
         <Text
           testID={testID ? `${testID}-rounds` : undefined}
           style={{
-            color: colors.textMuted,
+            color: colors.textSecondary,
             fontFamily: typography.fontFamily.regular,
             fontSize: typography.bodySm.fontSize,
           }}
@@ -101,7 +101,7 @@ export function GroupHeader({
         <Text
           testID={testID ? `${testID}-notes` : undefined}
           style={{
-            color: colors.textMuted,
+            color: colors.textSecondary,
             fontFamily: typography.fontFamily.regular,
             fontSize: typography.caption.fontSize,
           }}
@@ -174,7 +174,7 @@ function ReadOnlyLeafRow({
           <Text
             testID={`exercise-${row.leafIndex}-target`}
             style={{
-              color: colors.textMuted,
+              color: colors.textSecondary,
               fontFamily: typography.fontFamily.regular,
               fontSize: typography.bodySm.fontSize,
             }}
@@ -388,7 +388,7 @@ export function SessionContent({
           <Card>
             <Text
               style={{
-                color: colors.textMuted,
+                color: colors.textSecondary,
                 fontFamily: typography.fontFamily.regular,
                 fontSize: typography.body.fontSize,
               }}

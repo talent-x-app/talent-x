@@ -123,7 +123,7 @@ export function FeedbackThread({
                 {c.createdAt ? (
                   <Text
                     style={{
-                      color: colors.textMuted,
+                      color: colors.textSecondary,
                       fontFamily: typography.fontFamily.regular,
                       fontSize: typography.caption.fontSize,
                     }}
@@ -139,7 +139,7 @@ export function FeedbackThread({
         <Text
           testID="feedback-empty"
           style={{
-            color: colors.textMuted,
+            color: colors.textSecondary,
             fontFamily: typography.fontFamily.regular,
             fontSize: typography.bodySm.fontSize,
           }}

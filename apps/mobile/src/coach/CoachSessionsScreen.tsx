@@ -146,7 +146,7 @@ export function CoachSessionsScreen() {
           <Card testID="coach-sessions-empty">
             <Text
               style={{
-                color: colors.textMuted,
+                color: colors.textSecondary,
                 fontFamily: typography.fontFamily.regular,
                 fontSize: typography.body.fontSize,
                 textAlign: 'center',
@@ -192,7 +192,7 @@ export function CoachSessionsScreen() {
               <Card testID="coach-sessions-no-match">
                 <Text
                   style={{
-                    color: colors.textMuted,
+                    color: colors.textSecondary,
                     fontFamily: typography.fontFamily.regular,
                     fontSize: typography.body.fontSize,
                     textAlign: 'center',
@@ -270,7 +270,7 @@ function SessionRow({
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[2] }}>
             <Text
               style={{
-                color: colors.textMuted,
+                color: colors.textSecondary,
                 fontFamily: typography.fontFamily.regular,
                 fontSize: typography.bodySm.fontSize,
               }}

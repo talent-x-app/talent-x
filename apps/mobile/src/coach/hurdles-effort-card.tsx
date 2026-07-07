@@ -718,7 +718,7 @@ function HurdlePassRow({
         <View style={{ width: 72, height: 38, alignItems: 'center', justifyContent: 'center' }}>
           <Text
             style={{
-              color: colors.textMuted,
+              color: colors.textSecondary,
               fontFamily: typography.fontFamily.medium,
               fontSize: typography.bodySm.fontSize,
             }}
