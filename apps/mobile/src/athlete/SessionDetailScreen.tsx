@@ -8,6 +8,9 @@ import {
   type Performance,
   type PerformanceCreate,
   type ResultsDoc,
+  listMyRecords,
+  type Exercise,
+  type PersonalRecord,
 } from '@talent-x/api-client';
 import { useTheme } from '@talent-x/design-tokens';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -23,7 +26,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { Button, Card, Chip, Slider } from '../components/ui';
+import { Button, Card, Chip, SegmentedTabs, Slider } from '../components/ui';
 import { SkipSessionCard } from '../assignments/assignment-lifecycle';
 import { useNetworkStatus, useToast } from '../feedback';
 import {
@@ -39,6 +42,12 @@ import {
 } from '../offline';
 import { FeedbackThread } from '../comments/FeedbackThread';
 import { formatExerciseTarget } from '../sessions/exercise-target';
+import {
+  formatTargetForView,
+  hasPercentRecordTargets,
+  type SessionView,
+} from '../sessions/individualized-target';
+import { MY_RECORDS_QUERY_KEY } from './records-query';
 import {
   exerciseRenderRows,
   leafRounds,
@@ -148,6 +157,27 @@ export function SessionDetailScreen() {
     () => rows.filter((r): r is Extract<ExerciseRenderRow, { type: 'leaf' }> => r.type === 'leaf'),
     [rows],
   );
+
+  // TLX-161 : bascule Vue coach / Vue athlète — cibles « % record » individualisées à partir des
+  // records personnels (dérivation de lecture pure, ADR-20/38). La bascule n'apparaît (et les
+  // records ne sont chargés) que si au moins un exercice porte une intensité « % record ».
+  const [view, setView] = useState<SessionView>('athlete');
+  const showViewToggle = useMemo(
+    () => hasPercentRecordTargets(leafRows.map((r) => r.exercise)),
+    [leafRows],
+  );
+  const recordsQuery = useQuery({
+    queryKey: MY_RECORDS_QUERY_KEY,
+    enabled: showViewToggle,
+    queryFn: async (): Promise<PersonalRecord[]> => {
+      const response = await listMyRecords();
+      if (response.status === 200) return response.data.items;
+      throw response;
+    },
+    retry: false,
+  });
+  const records = recordsQuery.data ?? [];
+  const targetFor = (ex: Exercise) => formatTargetForView(ex, view, records);
   // Phases (échauffement / RAC) : présentées en encart, hors saisie de perf (TLX-171).
   const phases = useMemo(() => splitPhases(exercises), [exercises]);
 
@@ -443,11 +473,23 @@ export function SessionDetailScreen() {
 
               {/* A-03 : séance en lecture seule (exercices + Réussi/Stop) — mode par défaut. La
                   synthèse (hero + bandeau adaptatif) est rendue au-dessus → `showSummary={false}`. */}
+              {showViewToggle ? (
+                <SegmentedTabs
+                  testID="session-view-toggle"
+                  items={[
+                    { key: 'athlete', label: 'Vue athlète' },
+                    { key: 'coach', label: 'Vue coach' },
+                  ]}
+                  activeKey={view}
+                  onChange={(k) => setView(k as SessionView)}
+                />
+              ) : null}
               <SessionContent
                 exercises={exercises}
                 brief={assignment.data.session?.brief}
                 results={existing.data?.results?.items}
                 showSummary={false}
+                targetFor={targetFor}
               />
 
               {/* CTA principal (taille md, compact). Tant que la perf n'est pas saisie, il est
@@ -545,6 +587,7 @@ export function SessionDetailScreen() {
                           entry={entries[row.leafIndex]}
                           onChange={(updater) => updateEntry(row.leafIndex, updater)}
                           divider={ri > 0 && !row.firstInGroup}
+                          targetFor={targetFor}
                         />
                       ),
                     )}
@@ -657,11 +700,14 @@ function LeafEntry({
   entry,
   onChange,
   divider,
+  targetFor = formatExerciseTarget,
 }: {
   row: Extract<ExerciseRenderRow, { type: 'leaf' }>;
   entry: ExerciseEntry | undefined;
   onChange: (updater: (entry: ExerciseEntry) => ExerciseEntry) => void;
   divider: boolean;
+  /** Rendu de cible substituable — vue coach/athlète individualisée (TLX-161). */
+  targetFor?: (ex: Exercise) => string;
 }) {
   const { colors, typography, spacing } = useTheme();
   const i = row.leafIndex;
@@ -691,7 +737,7 @@ function LeafEntry({
           fontSize: typography.bodySm.fontSize,
         }}
       >
-        {formatExerciseTarget(ex)}
+        {targetFor(ex)}
       </Text>
     </View>
   );
@@ -817,7 +863,7 @@ function LeafEntry({
           fontSize: typography.bodySm.fontSize,
         }}
       >
-        {formatExerciseTarget(ex)}
+        {targetFor(ex)}
       </Text>
     </Pressable>
   );

@@ -133,17 +133,20 @@ function ReadOnlyLeafRow({
   row,
   result,
   divider,
+  targetFor = formatExerciseTarget,
 }: {
   row: Extract<ExerciseRenderRow, { type: 'leaf' }>;
   result: ExerciseResult | undefined;
   divider: boolean;
+  /** Rendu de cible substituable — vue coach/athlète individualisée (TLX-161). */
+  targetFor?: (ex: Exercise) => string;
 }) {
   const { colors, typography, spacing } = useTheme();
   const ex = row.exercise;
   const superset = row.group?.groupType === 'superset';
   const name = superset && row.memberLabel ? `${row.memberLabel} · ${ex.name}` : ex.name;
   const paddingLeft = 14 + (row.group ? spacing[4] : 0);
-  const target = formatExerciseTarget(ex);
+  const target = targetFor(ex);
   const realized = realizedLabel(result);
   const realizedDone = !!result?.setResults?.some((s) => s.completed);
 
@@ -351,6 +354,7 @@ export function SessionContent({
   brief,
   results,
   showSummary = true,
+  targetFor,
 }: {
   exercises: ExerciseNode[];
   brief?: SessionBrief;
@@ -358,6 +362,8 @@ export function SessionContent({
   /** Affiche l'en-tête de synthèse interne (métriques + phrase/KPIs). L'écran athlète le passe
    *  à `false` car il rend son propre hero + bandeau adaptatif au-dessus (TLX-219). */
   showSummary?: boolean;
+  /** Rendu de cible substituable — vue coach/athlète individualisée (TLX-161). */
+  targetFor?: (ex: Exercise) => string;
 }) {
   const { colors, typography, spacing } = useTheme();
   const { warmup, cooldown } = splitPhases(exercises);
@@ -407,6 +413,7 @@ export function SessionContent({
                   row={row}
                   result={results ? resultForLeaf(results, row.exercise) : undefined}
                   divider={ri > 0 && !row.firstInGroup}
+                  targetFor={targetFor}
                 />
               ),
             )}

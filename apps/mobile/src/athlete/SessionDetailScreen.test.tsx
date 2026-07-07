@@ -8,6 +8,7 @@ const mockGetPerformance = jest.fn();
 const mockSubmitPerformance = jest.fn();
 const mockUpdatePerformance = jest.fn();
 const mockListComments = jest.fn();
+const mockListMyRecords = jest.fn();
 const mockBack = jest.fn();
 const mockReplace = jest.fn();
 const mockShow = jest.fn();
@@ -18,6 +19,7 @@ jest.mock('@talent-x/api-client', () => ({
   submitPerformance: (...a: unknown[]) => mockSubmitPerformance(...a),
   updatePerformance: (...a: unknown[]) => mockUpdatePerformance(...a),
   listComments: (...a: unknown[]) => mockListComments(...a),
+  listMyRecords: (...a: unknown[]) => mockListMyRecords(...a),
   createComment: jest.fn(),
   getCoachDashboard: jest.fn(),
   updateAssignment: jest.fn(),
@@ -106,6 +108,7 @@ const ASSIGNMENT = {
 beforeEach(() => {
   jest.clearAllMocks();
   mockListComments.mockResolvedValue({ status: 200, data: { data: [], meta: {} } });
+  mockListMyRecords.mockResolvedValue({ status: 200, data: { items: [] } });
 });
 
 describe('SessionDetailScreen (TLX-065/071 — A-03/A-04)', () => {
@@ -559,5 +562,77 @@ describe('SessionDetailScreen (TLX-065/071 — A-03/A-04)', () => {
     expect(screen.getByTestId('assignment-status-assigned')).toBeOnTheScreen();
     // Sous-titre = phrase condensée dérivée des reps (ADR-38), prioritaire sur la description.
     expect(screen.getByTestId('session-detail-subtitle')).toHaveTextContent('(8×·10×)');
+  });
+
+  describe('bascule Vue coach / Vue athlète (TLX-161)', () => {
+    const PR_ASSIGNMENT = {
+      ...ASSIGNMENT,
+      session: {
+        ...ASSIGNMENT.session,
+        exercises: {
+          schemaVersion: 3,
+          items: [
+            {
+              name: '60 m',
+              order: 1,
+              type: 'sprint',
+              params: { distanceMeters: 60, intensityMode: 'percent_record', intensityValue: 95 },
+            },
+          ],
+        },
+      },
+    };
+
+    it('bascule affichée + cible individualisée par défaut (vue athlète), repli en vue coach', async () => {
+      mockGetAssignment.mockResolvedValue({ status: 200, data: PR_ASSIGNMENT });
+      mockGetPerformance.mockResolvedValue({ status: 404, data: { error: 'NOT_FOUND' } });
+      mockListMyRecords.mockResolvedValue({
+        status: 200,
+        data: {
+          items: [
+            {
+              id: 'r-1',
+              athleteId: 'me',
+              eventKey: 'sprint:60m',
+              label: '60 m',
+              value: 7.32,
+              unit: 's',
+              direction: 'min',
+              achievedAt: '2026-06-01T00:00:00Z',
+            },
+          ],
+        },
+      });
+      render(<SessionDetailScreen />, { wrapper: Wrapper });
+
+      await waitFor(() => expect(screen.getByTestId('session-view-toggle')).toBeOnTheScreen());
+      // Vue athlète (défaut) : cible dérivée du record (7,32 / 0,95 ≈ 7,71 s).
+      await waitFor(() =>
+        expect(screen.getByTestId('exercise-0-target')).toHaveTextContent(/≈ 7\.71 s/),
+      );
+      // Bascule → vue coach : prescription brute.
+      fireEvent.press(screen.getByText('Vue coach'));
+      expect(screen.getByTestId('exercise-0-target')).toHaveTextContent(/95 % record/);
+      expect(screen.queryByText(/≈ 7.71/)).toBeNull();
+    });
+
+    it('sans record pour l’épreuve : vue athlète replie sur la prescription (pas d’erreur)', async () => {
+      mockGetAssignment.mockResolvedValue({ status: 200, data: PR_ASSIGNMENT });
+      mockGetPerformance.mockResolvedValue({ status: 404, data: { error: 'NOT_FOUND' } });
+      render(<SessionDetailScreen />, { wrapper: Wrapper });
+
+      await waitFor(() => expect(screen.getByTestId('session-view-toggle')).toBeOnTheScreen());
+      expect(screen.getByTestId('exercise-0-target')).toHaveTextContent(/95 % record/);
+    });
+
+    it('sans intensité % record : pas de bascule ni de requête records', async () => {
+      mockGetAssignment.mockResolvedValue({ status: 200, data: ASSIGNMENT });
+      mockGetPerformance.mockResolvedValue({ status: 404, data: { error: 'NOT_FOUND' } });
+      render(<SessionDetailScreen />, { wrapper: Wrapper });
+
+      await waitFor(() => expect(screen.getByTestId('session-detail-title')).toBeOnTheScreen());
+      expect(screen.queryByTestId('session-view-toggle')).toBeNull();
+      expect(mockListMyRecords).not.toHaveBeenCalled();
+    });
   });
 });
