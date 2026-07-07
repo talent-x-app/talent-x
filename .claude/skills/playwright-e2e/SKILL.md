@@ -38,6 +38,14 @@ Un test E2E réaliste a besoin de **trois choses** vivantes en local :
    `apps/api/.env`, gitignoré). `docker compose up -d`.
 3. **Expo web** sur `:8081` — `pnpm --filter @talent-x/mobile exec expo start --web --port 8081`.
    Le **premier bundle Metro prend ~15-20 s** : prévoir des timeouts généreux.
+   ⚠️ Après un rebuild de `@talent-x/api-client`, Metro peut servir un **bundle en cache
+   obsolète** (symptôme : `groups.map is not a function`) : tuer le serveur web (le process
+   détaché garde le port) puis relancer avec `--clear`.
+
+Si le scénario touche aux **notifications in-app** ou à l'**export RGPD**, il faut en plus
+le **worker BullMQ** (`pnpm --filter @talent-x/api worker:dev`) — et MinIO configuré pour
+l'export (bloc S3 de `apps/api/.env`) ; voir « Runbook dev » du README racine (pièges :
+workers fantômes laissés par `nest start --watch`).
 
 Les comptes **seedés en base ne sont pas connectables** (hash placeholder). On crée donc le
 scénario de test **via l'API REST** au démarrage (voir seed plus bas).

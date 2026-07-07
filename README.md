@@ -15,17 +15,53 @@ Application mobile d'athlétisme reliant coachs et athlètes.
 
 ```
 pnpm install
-docker compose up -d                                 # PostgreSQL + Redis (dev)
+docker compose up -d                                 # PostgreSQL + Redis + MinIO (dev)
 cp apps/api/.env.example apps/api/.env               # config locale (non versionnée)
 pnpm --filter @talent-x/api prisma migrate deploy    # applique les migrations (voir apps/api/prisma/README.md)
 pnpm --filter @talent-x/api seed                      # données de dev (talent-x-sample-data.json)
 pnpm --filter @talent-x/api dev
+pnpm --filter @talent-x/api worker:dev               # worker BullMQ (voir « Runbook dev » ↓)
 pnpm --filter @talent-x/mobile start
 ```
 
 > Migrations : utiliser `migrate deploy`, **jamais `migrate dev`** — voir
 > `apps/api/prisma/README.md` (le schéma Prisma ne couvre pas les index partiels,
 > CHECK et triggers, que `migrate dev` supprimerait).
+
+## Runbook dev — worker, MinIO & pièges connus
+
+Deux fonctionnalités sont **cassées en local par défaut** si l'on ne lance que l'API
+(constat du test manuel coach, `apps/mobile/e2e/RAPPORT_TEST_MANUEL_COACH.md` R8/R14) :
+
+**1. Worker BullMQ (notifications in-app, emails, export RGPD).** L'API ne fait
+qu'**enfiler** les jobs ; sans worker, rien ne les consomme (aucune notification, export
+bloqué en `pending`). Lancer, en plus de l'API :
+
+```
+pnpm --filter @talent-x/api worker:dev
+```
+
+**2. MinIO (export RGPD).** L'export a besoin d'un stockage objet S3. MinIO est déjà dans
+`docker-compose.yml` (console `:9001`, API `:9000`, bucket `talentx-exports` créé par le
+service `minio-createbucket`), mais le **bloc S3 de `apps/api/.env` est commenté par
+défaut** → le worker échoue avec `Configuration stockage objet absente : S3_ENDPOINT requis`.
+Décommenter le bloc MinIO dev de `.env` (`S3_ENDPOINT=http://localhost:9000`, bucket
+`talentx-exports`, clés `talentx`/`talentx-dev-secret` — défauts non secrets du Compose),
+puis redémarrer **API et worker**.
+
+### Pièges connus
+
+- **Bundle Metro obsolète après rebuild de `@talent-x/api-client`** : Metro sert un bundle
+  en cache même si `dist/` est frais (symptôme vu : crash `groups.map is not a function`).
+  Un `dist/` reconstruit ne suffit pas si Metro tournait déjà : **tuer le serveur web**
+  (le process Metro détaché garde le port 8081) puis relancer avec
+  `expo start --web --clear`.
+- **Workers fantômes** : `nest start --watch` lance un **process applicatif enfant**
+  distinct du watcher ; arrêter le watcher laisse l'enfant vivant. Plusieurs relances = N
+  workers consommant la même file BullMQ, certains avec une vieille config → jobs en échec
+  aléatoire. Avant de relancer, vérifier qu'aucun process `dist/worker` ne tourne encore
+  (ex. `ps aux | grep dist/worker`, `wmic process` sous Windows) et tout tuer pour ne
+  garder **qu'un seul** worker.
 
 ## Environnements & secrets
 
