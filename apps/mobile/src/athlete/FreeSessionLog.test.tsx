@@ -8,6 +8,22 @@ const mockShow = jest.fn();
 
 jest.mock('@talent-x/api-client', () => ({
   logTrainingSession: (...a: unknown[]) => mockLogTrainingSession(...a),
+  // Le mode détaillé (TLX-162) tire les canvas d'effort coach → imports valeur BlockType/LoadUnit.
+  BlockType: {
+    strength: 'strength',
+    interval: 'interval',
+    sprint: 'sprint',
+    endurance: 'endurance',
+    hurdles: 'hurdles',
+    jumps: 'jumps',
+    vertical_jumps: 'vertical_jumps',
+    throws: 'throws',
+    core: 'core',
+    warmup: 'warmup',
+    cooldown: 'cooldown',
+    custom: 'custom',
+  },
+  LoadUnit: { kg: 'kg', lb: 'lb', percent_1rm: 'percent_1rm', bodyweight: 'bodyweight' },
 }));
 jest.mock('../feedback', () => ({ useToast: () => ({ show: mockShow, dismiss: jest.fn() }) }));
 
@@ -98,5 +114,62 @@ describe('FreeSessionLog (TLX-111 — A, ADR-36)', () => {
     // Rien rempli → bouton désactivé (pas d'appel API au press).
     fireEvent.press(screen.getByTestId('free-submit'));
     expect(mockLogTrainingSession).not.toHaveBeenCalled();
+  });
+
+  describe('mode assistant détaillé (TLX-162, ADR-38)', () => {
+    it('bascule vers le canvas multi-séries : marque masquée, canvas sprint amorcé', () => {
+      render(<FreeSessionLog />, { wrapper: Wrapper });
+      fireEvent.press(screen.getByTestId('free-session-open'));
+      fireEvent.press(screen.getByTestId('free-mode-detailed'));
+
+      expect(screen.getByTestId('free-detailed-canvas')).toBeOnTheScreen();
+      expect(screen.getByTestId('sprint-effort-canvas')).toBeOnTheScreen();
+      // Champs du mode rapide masqués (marque / famille).
+      expect(screen.queryByTestId('free-mark')).toBeNull();
+      expect(screen.queryByTestId('free-family-endurance')).toBeNull();
+    });
+
+    it('changer de discipline ré-amorce le canvas correspondant', () => {
+      render(<FreeSessionLog />, { wrapper: Wrapper });
+      fireEvent.press(screen.getByTestId('free-session-open'));
+      fireEvent.press(screen.getByTestId('free-mode-detailed'));
+      fireEvent.press(screen.getByTestId('free-canvas-strength'));
+      expect(screen.getByTestId('strength-effort-canvas')).toBeOnTheScreen();
+      expect(screen.queryByTestId('sprint-effort-canvas')).toBeNull();
+    });
+
+    it('poste une séance multi-séries : exercises v3 (groupe) + feuilles réalisées (ADR-36)', async () => {
+      mockLogTrainingSession.mockResolvedValue({ status: 201, data: { id: 'perf-1' } });
+      render(<FreeSessionLog />, { wrapper: Wrapper });
+      fireEvent.press(screen.getByTestId('free-session-open'));
+      fireEvent.changeText(screen.getByTestId('free-session-title'), 'Sprint du soir');
+      fireEvent.changeText(screen.getByTestId('free-session-date'), '2026-07-07');
+      fireEvent.press(screen.getByTestId('free-mode-detailed'));
+
+      fireEvent.press(screen.getByTestId('free-submit'));
+      await waitFor(() => expect(mockLogTrainingSession).toHaveBeenCalledTimes(1));
+      const body = mockLogTrainingSession.mock.calls[0][0];
+      expect(body).toMatchObject({ title: 'Sprint du soir', date: '2026-07-07' });
+      // Doc v3 : le seed sprint porte au moins un groupe de série.
+      expect(body.exercises.schemaVersion).toBe(3);
+      const hasGroup = body.exercises.items.some(
+        (i: { items?: unknown[] }) => Array.isArray(i.items) && i.items.length > 0,
+      );
+      expect(hasGroup).toBe(true);
+      // Résultats requis par le contrat : chaque feuille marquée réalisée.
+      expect(body.results.schemaVersion).toBe(2);
+      expect(body.results.items.length).toBeGreaterThan(0);
+      for (const item of body.results.items) {
+        expect(item.setResults).toEqual([{ set: 1, completed: true }]);
+      }
+    });
+
+    it('soumission désactivée sans date en mode détaillé', () => {
+      render(<FreeSessionLog />, { wrapper: Wrapper });
+      fireEvent.press(screen.getByTestId('free-session-open'));
+      fireEvent.press(screen.getByTestId('free-mode-detailed'));
+      fireEvent.press(screen.getByTestId('free-submit'));
+      expect(mockLogTrainingSession).not.toHaveBeenCalled();
+    });
   });
 });

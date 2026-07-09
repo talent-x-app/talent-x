@@ -7,6 +7,10 @@ import { Text, TextInput, View } from 'react-native';
 import { Button, Card, Chip } from '../components/ui';
 import { useToast } from '../feedback';
 import { EXERCISES_SCHEMA_VERSION } from '../sessions/exercises-doc';
+import { DISCIPLINE_CANVAS } from '../coach/discipline-canvas';
+import { DISCIPLINES, type DisciplineKey } from '../coach/discipline-assistants';
+import type { EditableNode } from '../coach/session-builder-ui';
+import { buildDetailedTrainingLog, detailedSeed } from './free-session-detailed';
 import { MY_RECORDS_QUERY_KEY } from './records-query';
 
 type ParamKind = 'distance' | 'throws' | 'discipline' | 'none';
@@ -40,6 +44,11 @@ const FAMILIES: {
  * Le composant construit un bloc typé + un résultat mesuré et `POST /athletes/me/training-log` —
  * le serveur crée séance `self_logged` + affectation `completed` + perf. Alimente progression/
  * records/assiduité (invalidation des caches partagés). Repliable, calqué sur `ManualRecordEditor`.
+ *
+ * **Deux modes** (TLX-162, ADR-38) : « Saisie rapide » (un exercice + une marque — inchangé) et
+ * « Assistant détaillé » qui réutilise les canvas d'effort par discipline (ADR-39) pour consigner
+ * une séance **multi-séries** — même endpoint, feuilles marquées réalisées (les marques mesurées
+ * s'ajoutent ensuite via « Modifier ma performance » sur la séance créée).
  */
 export function FreeSessionLog() {
   const { colors, typography, spacing } = useTheme();
@@ -55,8 +64,13 @@ export function FreeSessionLog() {
   const [mark, setMark] = useState('');
   const [rpe, setRpe] = useState('');
   const [notes, setNotes] = useState('');
+  // Mode assistant détaillé (TLX-162) : discipline + canvas multi-séries.
+  const [logMode, setLogMode] = useState<'quick' | 'detailed'>('quick');
+  const [canvasDiscipline, setCanvasDiscipline] = useState<DisciplineKey>('sprint');
+  const [nodes, setNodes] = useState<EditableNode[]>(() => detailedSeed('sprint'));
 
   const spec = FAMILIES.find((f) => f.value === family)!;
+  const disciplineCfg = DISCIPLINES.find((d) => d.key === canvasDiscipline);
 
   const reset = () => {
     setOpen(false);
@@ -67,10 +81,33 @@ export function FreeSessionLog() {
     setMark('');
     setRpe('');
     setNotes('');
+    setLogMode('quick');
+    setCanvasDiscipline('sprint');
+    setNodes(detailedSeed('sprint'));
+  };
+
+  /** Changer de discipline ré-amorce le canvas (les séries appartiennent à la discipline). */
+  const pickDiscipline = (key: DisciplineKey) => {
+    setCanvasDiscipline(key);
+    setNodes(detailedSeed(key));
   };
 
   const mutation = useMutation({
     mutationFn: async (): Promise<void> => {
+      if (logMode === 'detailed') {
+        const body = buildDetailedTrainingLog({
+          title,
+          date,
+          nodes,
+          fallbackTitle: `Séance ${disciplineCfg?.label ?? 'libre'}`,
+          rpe,
+          notes,
+        });
+        if (!body) throw new Error('empty-canvas');
+        const res = await logTrainingSession(body);
+        if (res.status === 201) return;
+        throw res;
+      }
       const params: Record<string, number | string> = {};
       if (spec.param === 'distance') params.distanceMeters = Number(distance);
       if (spec.param === 'throws') params.implementKg = Number(implementKg.replace(',', '.'));
@@ -118,14 +155,19 @@ export function FreeSessionLog() {
       }),
   });
 
-  // Validité minimale : date + marque > 0 + paramètre requis renseigné.
+  // Validité minimale : date + marque > 0 + paramètre requis renseigné (mode rapide) ;
+  // date + au moins une feuille dans le canvas (mode détaillé).
   const markValue = Number(mark.replace(',', '.'));
   const paramOk =
     spec.param === 'none' ||
     spec.param === 'discipline' ||
     (spec.param === 'distance' && Number(distance) > 0) ||
     (spec.param === 'throws' && Number(implementKg.replace(',', '.')) > 0);
-  const canSubmit = date.trim().length > 0 && markValue > 0 && paramOk;
+  const canSubmit =
+    logMode === 'detailed'
+      ? date.trim().length > 0 &&
+        buildDetailedTrainingLog({ title, date, nodes, fallbackTitle: 'x' }) != null
+      : date.trim().length > 0 && markValue > 0 && paramOk;
 
   if (!open) {
     return (
@@ -183,22 +225,74 @@ export function FreeSessionLog() {
           style={inputStyle}
         />
 
-        {/* Famille d'épreuve. */}
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] }}>
-          {FAMILIES.map((f) => (
-            <Chip
-              key={f.value}
-              testID={`free-family-${f.value}`}
-              selected={family === f.value}
-              onPress={() => setFamily(f.value)}
-            >
-              {f.label}
-            </Chip>
-          ))}
+        {/* Mode de consignation (TLX-162) : rapide (1 exercice) ou assistant multi-séries. */}
+        <View style={{ flexDirection: 'row', gap: spacing[2] }}>
+          <Chip
+            testID="free-mode-quick"
+            selected={logMode === 'quick'}
+            onPress={() => setLogMode('quick')}
+          >
+            Saisie rapide
+          </Chip>
+          <Chip
+            testID="free-mode-detailed"
+            selected={logMode === 'detailed'}
+            onPress={() => setLogMode('detailed')}
+          >
+            Assistant détaillé
+          </Chip>
         </View>
 
-        {/* Paramètre contextuel selon la famille. */}
-        {spec.param === 'distance' ? (
+        {logMode === 'quick' ? (
+          <>
+            {/* Famille d'épreuve. */}
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] }}>
+              {FAMILIES.map((f) => (
+                <Chip
+                  key={f.value}
+                  testID={`free-family-${f.value}`}
+                  selected={family === f.value}
+                  onPress={() => setFamily(f.value)}
+                >
+                  {f.label}
+                </Chip>
+              ))}
+            </View>
+          </>
+        ) : (
+          <>
+            {/* Discipline du canvas (ADR-39). */}
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] }}>
+              {DISCIPLINES.map((d) => (
+                <Chip
+                  key={d.key}
+                  testID={`free-canvas-${d.key}`}
+                  selected={canvasDiscipline === d.key}
+                  onPress={() => pickDiscipline(d.key)}
+                >
+                  {d.label}
+                </Chip>
+              ))}
+            </View>
+            {/* Canvas multi-séries de la discipline, en mode encart (sans écha/RAC ni KPI). */}
+            <View testID="free-detailed-canvas">
+              {DISCIPLINE_CANVAS[canvasDiscipline]({ nodes, setNodes, embedded: true })}
+            </View>
+            <Text
+              style={{
+                color: colors.textSecondary,
+                fontFamily: typography.fontFamily.regular,
+                fontSize: typography.caption.fontSize,
+              }}
+            >
+              Les exercices seront enregistrés comme réalisés — tu pourras saisir tes marques
+              ensuite depuis la séance.
+            </Text>
+          </>
+        )}
+
+        {/* Paramètre contextuel selon la famille (mode rapide). */}
+        {logMode === 'detailed' ? null : spec.param === 'distance' ? (
           <TextInput
             testID="free-distance"
             value={distance}
@@ -237,16 +331,18 @@ export function FreeSessionLog() {
           </View>
         ) : null}
 
-        {/* Marque mesurée + RPE + notes. */}
-        <TextInput
-          testID="free-mark"
-          value={mark}
-          onChangeText={setMark}
-          placeholder={spec.unit === 's' ? 'Temps (s) — ex. 1500' : 'Marque (m) — ex. 6.42'}
-          placeholderTextColor={colors.textMuted}
-          keyboardType="numeric"
-          style={inputStyle}
-        />
+        {/* Marque mesurée (mode rapide) + RPE + notes. */}
+        {logMode === 'quick' ? (
+          <TextInput
+            testID="free-mark"
+            value={mark}
+            onChangeText={setMark}
+            placeholder={spec.unit === 's' ? 'Temps (s) — ex. 1500' : 'Marque (m) — ex. 6.42'}
+            placeholderTextColor={colors.textMuted}
+            keyboardType="numeric"
+            style={inputStyle}
+          />
+        ) : null}
         <TextInput
           testID="free-rpe"
           value={rpe}
