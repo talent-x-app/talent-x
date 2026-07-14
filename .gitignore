@@ -36,3 +36,4 @@ docker-compose.override.yml
 
 # NE PAS ignorer les specs et le design :
 # docs/ et design/ sont versionnés.
+__pycache__/
