@@ -1,0 +1,97 @@
+# Workflow one-shot : installe maxwatch/standalone/ dans le dépôt privé
+# idrissa73/trajet-sncf (le sandbox Claude n'a pas accès réseau à GitHub-cible,
+# et le token de session ne couvre que ce repo — d'où ce relais via Actions).
+#
+# Nécessite le secret MAXWATCH_PUSH_TOKEN : un PAT fine-grained limité au repo
+# idrissa73/trajet-sncf avec permissions Contents (RW) + Actions (RW).
+# Tant que le secret est absent, le job sort en avertissement sans rien faire.
+# À supprimer une fois la migration terminée.
+name: maxwatch-bootstrap
+
+on:
+  push:
+    branches: [claude/tgv-max-jeune-monitor-4pxos5]
+    paths:
+      - 'maxwatch/standalone/**'
+      - '.github/workflows/maxwatch-bootstrap.yml'
+
+concurrency:
+  group: maxwatch-bootstrap
+  cancel-in-progress: false
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      TARGET: idrissa73/trajet-sncf
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Vérifier la présence du secret
+        env:
+          TOKEN: ${{ secrets.MAXWATCH_PUSH_TOKEN }}
+        run: |
+          if [ -z "$TOKEN" ]; then
+            echo "::warning::Secret MAXWATCH_PUSH_TOKEN absent — bootstrap sauté. Ajouter le secret (Settings > Secrets > Actions) puis relancer via un nouveau push."
+            echo "skip=true" >> "$GITHUB_ENV"
+          fi
+
+      - uses: actions/setup-python@v5
+        if: env.skip != 'true'
+        with:
+          python-version: '3.12'
+
+      - name: Dry-run local de contrôle
+        if: env.skip != 'true'
+        run: |
+          pip install --quiet requests
+          python maxwatch/standalone/maxwatch.py --dry-run
+
+      - name: Pousser les fichiers vers le dépôt cible
+        if: env.skip != 'true'
+        env:
+          TOKEN: ${{ secrets.MAXWATCH_PUSH_TOKEN }}
+        run: |
+          git clone "https://x-access-token:${TOKEN}@github.com/${TARGET}.git" /tmp/target
+          rsync -a --exclude .git maxwatch/standalone/ /tmp/target/
+          cd /tmp/target
+          git add -A
+          if git diff --cached --quiet; then
+            echo "dépôt cible déjà à jour"
+          else
+            git config user.name "maxwatch-bootstrap"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git commit -m "feat: installation maxwatch — veille TGV Max Jeune Paris <> Nancy"
+            git push -u origin HEAD
+          fi
+
+      - name: Déclencher un dry-run sur le dépôt cible et rapporter le résultat
+        if: env.skip != 'true'
+        env:
+          TOKEN: ${{ secrets.MAXWATCH_PUSH_TOKEN }}
+        run: |
+          sleep 5
+          curl -sf -X POST \
+            -H "Authorization: Bearer $TOKEN" -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${TARGET}/actions/workflows/maxwatch.yml/dispatches" \
+            -d '{"ref":"main","inputs":{"dry_run":"true"}}'
+          echo "workflow_dispatch envoyé, attente du run…"
+          sleep 15
+          RUN_ID=$(curl -sf -H "Authorization: Bearer $TOKEN" \
+            "https://api.github.com/repos/${TARGET}/actions/workflows/maxwatch.yml/runs?per_page=1" \
+            | python3 -c "import json,sys;print(json.load(sys.stdin)['workflow_runs'][0]['id'])")
+          echo "run cible : https://github.com/${TARGET}/actions/runs/${RUN_ID}"
+          for i in $(seq 1 30); do
+            STATUS=$(curl -sf -H "Authorization: Bearer $TOKEN" \
+              "https://api.github.com/repos/${TARGET}/actions/runs/${RUN_ID}" \
+              | python3 -c "import json,sys;r=json.load(sys.stdin);print(r['status'],r.get('conclusion') or '')")
+            echo "  état : $STATUS"
+            case "$STATUS" in completed*) break;; esac
+            sleep 10
+          done
+          echo "=== EXTRAIT DES LOGS DU RUN CIBLE ==="
+          curl -sfL -H "Authorization: Bearer $TOKEN" \
+            "https://api.github.com/repos/${TARGET}/actions/runs/${RUN_ID}/logs" -o /tmp/logs.zip \
+            && unzip -p /tmp/logs.zip | grep -a -E "maxwatch —|trajets :|jours :|dispo\(s\)|bilan|DRY-RUN|WARNING|\+ 20" | head -80 \
+            || echo "(logs non récupérables — voir le lien du run ci-dessus)"

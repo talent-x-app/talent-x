@@ -1,0 +1,30 @@
+# Outil manuel : liste les noms EXACTS de gares de l'Open Data SNCF (dataset
+# tgvmax) + lance un dry-run du script. À lancer depuis l'onglet Actions
+# quand on veut ajouter/modifier un trajet dans maxwatch.py.
+name: gares
+
+on:
+  workflow_dispatch:
+
+jobs:
+  gares:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Liste des gares (champ origine)
+        run: |
+          for off in 0 100 200; do
+            curl -sS --fail "https://ressources.data.sncf.com/api/explore/v2.1/catalog/datasets/tgvmax/records?select=origine&group_by=origine&limit=100&offset=$off" | python3 -c "import json,sys; [print(r['origine']) for r in json.load(sys.stdin)['results']]"
+          done | sort -u
+
+  dry-run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install --quiet requests
+      - name: maxwatch.py --dry-run
+        run: python maxwatch.py --dry-run
