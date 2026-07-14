@@ -6,7 +6,9 @@ name: maxwatch-discovery
 on:
   push:
     branches: [claude/tgv-max-jeune-monitor-4pxos5]
-    paths: ['.github/workflows/maxwatch-discovery.yml']
+    paths:
+      - '.github/workflows/maxwatch-discovery.yml'
+      - 'maxwatch/**'
   workflow_dispatch:
 
 jobs:
@@ -37,3 +39,15 @@ jobs:
           curl -sS --fail --get "https://ressources.data.sncf.com/api/explore/v2.1/catalog/datasets/tgvmax/records" \
             --data-urlencode 'where=search(origine,"PARIS") and search(destination,"LYON")' \
             --data-urlencode 'limit=5' | jq .
+
+  dry-run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install --quiet requests
+      - name: maxwatch.py --dry-run (sortie réelle)
+        run: python maxwatch/maxwatch.py --dry-run

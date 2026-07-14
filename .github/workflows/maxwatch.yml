@@ -1,0 +1,61 @@
+# Veille TGV Max Jeune — voir maxwatch/README.md
+#
+# ⚠️ Le cron GitHub ne s'exécute que sur la branche PAR DÉFAUT (main) : ce
+# workflow ne tourne en automatique qu'une fois la branche mergée dans main.
+# NB : les crons GitHub sont "best effort" — un pas de 15 min tourne en
+# pratique toutes les 15 à 30 min selon la charge de la plateforme.
+name: maxwatch
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry-run : affiche le résultat, n'envoie rien, ne modifie pas state.json"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: maxwatch
+  cancel-in-progress: false
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Installer requests
+        run: pip install --quiet requests
+
+      - name: Lancer la veille
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+        run: |
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            python maxwatch/maxwatch.py --dry-run
+          else
+            python maxwatch/maxwatch.py
+          fi
+
+      - name: Committer state.json s'il a changé
+        run: |
+          if [ -n "$(git status --porcelain -- maxwatch/state.json)" ]; then
+            git config user.name "maxwatch-bot"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add maxwatch/state.json
+            git commit -m "chore(maxwatch): mise à jour de l'état des dispos [skip ci]"
+            git pull --rebase origin "$GITHUB_REF_NAME"
+            git push
+          else
+            echo "state.json inchangé, rien à committer"
+          fi
