@@ -32,8 +32,8 @@ import requests
 #   "NANTES"  "RENNES"  "MONTPELLIER SAINT ROCH"      "AIX EN PROVENCE TGV"
 # Pour la liste complète : run "maxwatch-discovery" dans l'onglet Actions.
 TRAJETS = [
-    ("PARIS (intramuros)", "LYON (intramuros)"),
-    ("LYON (intramuros)", "PARIS (intramuros)"),
+    ("PARIS (intramuros)", "NANCY"),
+    ("NANCY", "PARIS (intramuros)"),
 ]
 
 # Jours de départ surveillés, en toutes lettres et en minuscules.
