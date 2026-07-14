@@ -1,0 +1,39 @@
+# Workflow temporaire de découverte du schéma de l'API Open Data SNCF (dataset tgvmax).
+# Sert uniquement à vérifier les champs exacts et l'orthographe des noms de gares
+# avant d'écrire le script de veille. Peut être supprimé ensuite.
+name: maxwatch-discovery
+
+on:
+  push:
+    branches: [claude/tgv-max-jeune-monitor-4pxos5]
+    paths: ['.github/workflows/maxwatch-discovery.yml']
+  workflow_dispatch:
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Schéma — un enregistrement brut
+        run: |
+          echo "=== SAMPLE RECORD (limit=1) ==="
+          curl -sS --fail "https://ressources.data.sncf.com/api/explore/v2.1/catalog/datasets/tgvmax/records?limit=1" | jq .
+
+      - name: Liste des origines (group_by=origine)
+        run: |
+          echo "=== ORIGINES (3 pages de 100) ==="
+          for off in 0 100 200; do
+            curl -sS --fail "https://ressources.data.sncf.com/api/explore/v2.1/catalog/datasets/tgvmax/records?select=origine&group_by=origine&limit=100&offset=$off" | jq -r '.results[].origine'
+          done | sort -u
+
+      - name: Origines contenant PARIS ou LYON
+        run: |
+          echo "=== FILTRE PARIS/LYON côté origine ==="
+          curl -sS --fail "https://ressources.data.sncf.com/api/explore/v2.1/catalog/datasets/tgvmax/records?select=origine&group_by=origine&limit=100&where=search(origine,%22PARIS%22)%20or%20search(origine,%22LYON%22)" | jq -r '.results[].origine' || true
+
+      - name: Échantillon Paris -> Lyon avec od_happy_card
+        run: |
+          echo "=== SAMPLE OD PARIS->LYON ==="
+          curl -sS --fail --get "https://ressources.data.sncf.com/api/explore/v2.1/catalog/datasets/tgvmax/records" \
+            --data-urlencode 'where=search(origine,"PARIS") and search(destination,"LYON")' \
+            --data-urlencode 'limit=5' | jq .
