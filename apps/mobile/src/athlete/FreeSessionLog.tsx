@@ -4,7 +4,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Feather } from '@expo/vector-icons';
 import { useState } from 'react';
 import { Text, TextInput, View } from 'react-native';
-import { Button, Card, Chip } from '../components/ui';
+import { Button, Card, Chip, Stepper } from '../components/ui';
 import { useToast } from '../feedback';
 import { EXERCISES_SCHEMA_VERSION } from '../sessions/exercises-doc';
 import { MY_RECORDS_QUERY_KEY } from './records-query';
@@ -40,6 +40,10 @@ const FAMILIES: {
  * Le composant construit un bloc typé + un résultat mesuré et `POST /athletes/me/training-log` —
  * le serveur crée séance `self_logged` + affectation `completed` + perf. Alimente progression/
  * records/assiduité (invalidation des caches partagés). Repliable, calqué sur `ManualRecordEditor`.
+ *
+ * TLX-162 (ADR-38) : mode **multi-séries** optionnel — même grammaire que les assistants coach
+ * (« N × D », `params.reps`, primitive `Stepper`), une marque PAR série dans `setResults`. Le mode
+ * simple (une marque) reste le défaut ; même endpoint `POST /athletes/me/training-log` (ADR-36).
  */
 export function FreeSessionLog() {
   const { colors, typography, spacing } = useTheme();
@@ -53,6 +57,8 @@ export function FreeSessionLog() {
   const [implementKg, setImplementKg] = useState('');
   const [discipline, setDiscipline] = useState<'high' | 'pole'>('high');
   const [mark, setMark] = useState('');
+  const [multi, setMulti] = useState(false);
+  const [seriesMarks, setSeriesMarks] = useState<string[]>(['', '', '']);
   const [rpe, setRpe] = useState('');
   const [notes, setNotes] = useState('');
 
@@ -65,8 +71,15 @@ export function FreeSessionLog() {
     setDistance('');
     setImplementKg('');
     setMark('');
+    setMulti(false);
+    setSeriesMarks(['', '', '']);
     setRpe('');
     setNotes('');
+  };
+
+  /** Ajuste le nombre de séries en préservant les marques déjà saisies. */
+  const resizeSeries = (count: number) => {
+    setSeriesMarks((prev) => Array.from({ length: count }, (_, index) => prev[index] ?? ''));
   };
 
   const mutation = useMutation({
@@ -76,11 +89,16 @@ export function FreeSessionLog() {
       if (spec.param === 'throws') params.implementKg = Number(implementKg.replace(',', '.'));
       if (spec.param === 'discipline') params.discipline = discipline;
 
-      const markValue = Number(mark.replace(',', '.'));
-      const setResult =
-        spec.unit === 's'
-          ? { set: 1, timeSeconds: markValue, completed: true }
-          : { set: 1, distanceMeters: markValue, completed: true };
+      // Multi-séries (TLX-162) : `reps` = grammaire « N × D » des assistants (ADR-38/52) ;
+      // une marque par série dans `setResults` (set 1..N). Mode simple : une seule marque.
+      const marks = multi ? seriesMarks : [mark];
+      if (multi) params.reps = marks.length;
+      const setResults = marks.map((m, index) => {
+        const value = Number(m.replace(',', '.'));
+        return spec.unit === 's'
+          ? { set: index + 1, timeSeconds: value, completed: true }
+          : { set: index + 1, distanceMeters: value, completed: true };
+      });
       const exerciseName = title.trim() || spec.label;
 
       const body: TrainingLogRequest = {
@@ -92,7 +110,7 @@ export function FreeSessionLog() {
         } as TrainingLogRequest['exercises'],
         results: {
           schemaVersion: 2,
-          items: [{ exerciseName, order: 0, setResults: [setResult] }],
+          items: [{ exerciseName, order: 0, setResults }],
         } as TrainingLogRequest['results'],
       };
       if (rpe.trim()) body.rpe = Number(rpe);
@@ -118,14 +136,16 @@ export function FreeSessionLog() {
       }),
   });
 
-  // Validité minimale : date + marque > 0 + paramètre requis renseigné.
-  const markValue = Number(mark.replace(',', '.'));
+  // Validité minimale : date + marque(s) > 0 + paramètre requis renseigné.
+  const marksOk = multi
+    ? seriesMarks.every((m) => Number(m.replace(',', '.')) > 0)
+    : Number(mark.replace(',', '.')) > 0;
   const paramOk =
     spec.param === 'none' ||
     spec.param === 'discipline' ||
     (spec.param === 'distance' && Number(distance) > 0) ||
     (spec.param === 'throws' && Number(implementKg.replace(',', '.')) > 0);
-  const canSubmit = date.trim().length > 0 && markValue > 0 && paramOk;
+  const canSubmit = date.trim().length > 0 && marksOk && paramOk;
 
   if (!open) {
     return (
@@ -237,16 +257,68 @@ export function FreeSessionLog() {
           </View>
         ) : null}
 
-        {/* Marque mesurée + RPE + notes. */}
-        <TextInput
-          testID="free-mark"
-          value={mark}
-          onChangeText={setMark}
-          placeholder={spec.unit === 's' ? 'Temps (s) — ex. 1500' : 'Marque (m) — ex. 6.42'}
-          placeholderTextColor={colors.textMuted}
-          keyboardType="numeric"
-          style={inputStyle}
-        />
+        {/* Mode de saisie : une marque (défaut) ou multi-séries (TLX-162, ADR-38). */}
+        <View style={{ flexDirection: 'row', gap: spacing[2] }}>
+          <Chip testID="free-mode-simple" selected={!multi} onPress={() => setMulti(false)}>
+            Une marque
+          </Chip>
+          <Chip testID="free-mode-multi" selected={multi} onPress={() => setMulti(true)}>
+            Multi-séries
+          </Chip>
+        </View>
+
+        {multi ? (
+          <View style={{ gap: spacing[3] }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[3] }}>
+              <Text
+                style={{
+                  flex: 1,
+                  color: colors.textSecondary,
+                  fontFamily: typography.fontFamily.medium,
+                  fontSize: typography.bodySm.fontSize,
+                }}
+              >
+                Séries
+              </Text>
+              <Stepper
+                testID="free-series-count"
+                accessibilityLabel="Nombre de séries"
+                value={seriesMarks.length}
+                onValueChange={resizeSeries}
+                min={2}
+                max={12}
+              />
+            </View>
+            {seriesMarks.map((value, index) => (
+              <TextInput
+                key={index}
+                testID={`free-series-mark-${index + 1}`}
+                value={value}
+                onChangeText={(t) =>
+                  setSeriesMarks((prev) => prev.map((p, i) => (i === index ? t : p)))
+                }
+                placeholder={
+                  spec.unit === 's'
+                    ? `Série ${index + 1} — temps (s)`
+                    : `Série ${index + 1} — marque (m)`
+                }
+                placeholderTextColor={colors.textMuted}
+                keyboardType="numeric"
+                style={inputStyle}
+              />
+            ))}
+          </View>
+        ) : (
+          <TextInput
+            testID="free-mark"
+            value={mark}
+            onChangeText={setMark}
+            placeholder={spec.unit === 's' ? 'Temps (s) — ex. 1500' : 'Marque (m) — ex. 6.42'}
+            placeholderTextColor={colors.textMuted}
+            keyboardType="numeric"
+            style={inputStyle}
+          />
+        )}
         <TextInput
           testID="free-rpe"
           value={rpe}

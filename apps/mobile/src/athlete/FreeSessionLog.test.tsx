@@ -100,3 +100,80 @@ describe('FreeSessionLog (TLX-111 — A, ADR-36)', () => {
     expect(mockLogTrainingSession).not.toHaveBeenCalled();
   });
 });
+
+describe('FreeSessionLog — mode multi-séries (TLX-162, ADR-38)', () => {
+  it('bascule multi-séries : 3 séries par défaut, le Stepper en ajoute en préservant la saisie', () => {
+    render(<FreeSessionLog />, { wrapper: Wrapper });
+    fireEvent.press(screen.getByTestId('free-session-open'));
+
+    fireEvent.press(screen.getByTestId('free-mode-multi'));
+    expect(screen.getByTestId('free-series-mark-1')).toBeOnTheScreen();
+    expect(screen.getByTestId('free-series-mark-3')).toBeOnTheScreen();
+    expect(screen.queryByTestId('free-mark')).toBeNull();
+
+    fireEvent.changeText(screen.getByTestId('free-series-mark-1'), '7.42');
+    fireEvent.press(screen.getByTestId('free-series-count-inc'));
+    expect(screen.getByTestId('free-series-mark-4')).toBeOnTheScreen();
+    // La marque déjà saisie survit au redimensionnement.
+    expect(screen.getByTestId('free-series-mark-1').props.value).toBe('7.42');
+  });
+
+  it('sérialise « N × D » : params.reps + une marque par série dans setResults', async () => {
+    mockLogTrainingSession.mockResolvedValue({ status: 201, data: { id: 'perf-3' } });
+    render(<FreeSessionLog />, { wrapper: Wrapper });
+    fireEvent.press(screen.getByTestId('free-session-open'));
+
+    fireEvent.changeText(screen.getByTestId('free-session-date'), '2026-07-01');
+    fireEvent.changeText(screen.getByTestId('free-distance'), '60');
+    fireEvent.press(screen.getByTestId('free-mode-multi'));
+    fireEvent.changeText(screen.getByTestId('free-series-mark-1'), '7.42');
+    fireEvent.changeText(screen.getByTestId('free-series-mark-2'), '7.38');
+    fireEvent.changeText(screen.getByTestId('free-series-mark-3'), '7.51');
+    fireEvent.press(screen.getByTestId('free-submit'));
+
+    await waitFor(() => expect(mockLogTrainingSession).toHaveBeenCalledTimes(1));
+    const body = mockLogTrainingSession.mock.calls[0][0];
+    // Grammaire assistants (ADR-38/52) : 3 × 60 m — reps porté par params.
+    expect(body.exercises.items[0]).toMatchObject({
+      type: 'sprint',
+      params: { distanceMeters: 60, reps: 3 },
+    });
+    expect(body.results.items[0].setResults).toEqual([
+      { set: 1, timeSeconds: 7.42, completed: true },
+      { set: 2, timeSeconds: 7.38, completed: true },
+      { set: 3, timeSeconds: 7.51, completed: true },
+    ]);
+  });
+
+  it('multi-séries : soumission bloquée tant que chaque série n’a pas sa marque', () => {
+    render(<FreeSessionLog />, { wrapper: Wrapper });
+    fireEvent.press(screen.getByTestId('free-session-open'));
+
+    fireEvent.changeText(screen.getByTestId('free-session-date'), '2026-07-01');
+    fireEvent.changeText(screen.getByTestId('free-distance'), '60');
+    fireEvent.press(screen.getByTestId('free-mode-multi'));
+    fireEvent.changeText(screen.getByTestId('free-series-mark-1'), '7.42');
+    // Séries 2 et 3 vides → pas d'appel API.
+    fireEvent.press(screen.getByTestId('free-submit'));
+    expect(mockLogTrainingSession).not.toHaveBeenCalled();
+  });
+
+  it('revenir au mode simple ne régresse pas la saisie une-marque', async () => {
+    mockLogTrainingSession.mockResolvedValue({ status: 201, data: { id: 'perf-4' } });
+    render(<FreeSessionLog />, { wrapper: Wrapper });
+    fireEvent.press(screen.getByTestId('free-session-open'));
+
+    fireEvent.changeText(screen.getByTestId('free-session-date'), '2026-07-02');
+    fireEvent.press(screen.getByTestId('free-mode-multi'));
+    fireEvent.press(screen.getByTestId('free-mode-simple'));
+    fireEvent.press(screen.getByTestId('free-family-jumps'));
+    fireEvent.changeText(screen.getByTestId('free-mark'), '6.10');
+    fireEvent.press(screen.getByTestId('free-submit'));
+
+    await waitFor(() => expect(mockLogTrainingSession).toHaveBeenCalledTimes(1));
+    const body = mockLogTrainingSession.mock.calls[0][0];
+    // Pas de reps en mode simple ; une seule marque.
+    expect(body.exercises.items[0].params).toEqual({});
+    expect(body.results.items[0].setResults).toHaveLength(1);
+  });
+});
