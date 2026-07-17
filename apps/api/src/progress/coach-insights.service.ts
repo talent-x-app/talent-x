@@ -72,7 +72,7 @@ export class CoachInsightsService {
     ]);
 
     const athleteIds = links.map((l) => l.athleteId);
-    const consentByAthlete = await this.coachAccessByAthlete(athleteIds);
+    const consentByAthlete = await this.coachAccessByAthlete(athleteIds, coachId);
 
     const { todayStart, tomorrowStart } = dayBounds();
     const now = new Date();
@@ -148,7 +148,7 @@ export class CoachInsightsService {
   /** Stats d'un athlète lié — consent-gated (coach_access) + lien actif requis. */
   async getAthleteStats(coachId: string, athleteId: string): Promise<StatsDto> {
     await this.ownership.assertCoachLinkedToAthlete(coachId, athleteId);
-    await this.consent.assertActiveConsent(athleteId, 'coach_access');
+    await this.consent.assertActiveConsent(athleteId, 'coach_access', coachId);
 
     const assignments = await this.prisma.sessionAssignment.findMany({
       where: { athleteId, deletedAt: null, session: { coachId, deletedAt: null } },
@@ -198,12 +198,22 @@ export class CoachInsightsService {
     };
   }
 
-  /** État du consentement coach_access (dernière ligne) par athlète. */
-  private async coachAccessByAthlete(athleteIds: string[]): Promise<Map<string, boolean>> {
+  /**
+   * État du consentement coach_access par athlète, **pour ce coach** (ADR-51 §D2a) :
+   * dernière ligne applicable = scopée à ce coach OU globale (coach_id NULL).
+   */
+  private async coachAccessByAthlete(
+    athleteIds: string[],
+    coachId: string,
+  ): Promise<Map<string, boolean>> {
     const map = new Map<string, boolean>();
     if (athleteIds.length === 0) return map;
     const rows = await this.prisma.consent.findMany({
-      where: { userId: { in: athleteIds }, type: 'coach_access' },
+      where: {
+        userId: { in: athleteIds },
+        type: 'coach_access',
+        OR: [{ coachId }, { coachId: null }],
+      },
       orderBy: { createdAt: 'desc' },
       select: { userId: true, granted: true },
     });

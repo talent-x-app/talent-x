@@ -42,6 +42,7 @@ model User {
   deletedAt        DateTime? @map("deleted_at") @db.Timestamptz(6)
 
   consents                Consent[]
+  scopedConsents          Consent[]                @relation("ConsentCoach")
   refreshTokens           RefreshToken[]
   passwordResetTokens     PasswordResetToken[]
   deviceTokens            DeviceToken[]
@@ -81,13 +82,17 @@ model Consent {
   type        String
   granted     Boolean
   textVersion String    @map("text_version")
+  /// ADR-51 §D2a : coach visé par un `coach_access` scopé ; NULL = consentement global.
+  coachId     String?   @map("coach_id") @db.Uuid
   grantedAt   DateTime? @map("granted_at") @db.Timestamptz(6)
   revokedAt   DateTime? @map("revoked_at") @db.Timestamptz(6)
   createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  coach User? @relation("ConsentCoach", fields: [coachId], references: [id], onDelete: Cascade)
 
   @@index([userId, type], map: "ix_consents_user_type")
+  @@index([userId, type, coachId], map: "ix_consents_user_type_coach")
   @@map("consents")
 }
 

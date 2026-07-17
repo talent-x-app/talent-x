@@ -3522,6 +3522,12 @@ components:
           type: boolean
         textVersion:
           type: string
+        coachId:
+          type: string
+          format: uuid
+          description: >-
+            Coach visé par un consentement coach_access scopé (ADR-51 §D2).
+            Absent = consentement global (tous les coachs liés).
         updatedAt:
           type: string
           format: date-time
@@ -3537,6 +3543,12 @@ components:
           type: boolean
         textVersion:
           type: string
+        coachId:
+          type: string
+          format: uuid
+          description: >-
+            Scope la décision à ce coach (ADR-51 §D2) — coach_access uniquement.
+            Absent = décision globale (tous les coachs liés).
       required:
       - type
       - granted

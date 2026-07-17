@@ -208,7 +208,7 @@ describe('CoachInsightsService', () => {
       const consent = consentMock();
       await service(prisma, ownership, consent).getAthleteStats(COACH, 'a-1');
       expect(ownership.assertCoachLinkedToAthlete).toHaveBeenCalledWith(COACH, 'a-1');
-      expect(consent.assertActiveConsent).toHaveBeenCalledWith('a-1', 'coach_access');
+      expect(consent.assertActiveConsent).toHaveBeenCalledWith('a-1', 'coach_access', 'c-1');
     });
 
     it('403 si consentement coach_access absent', async () => {

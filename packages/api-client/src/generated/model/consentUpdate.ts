@@ -13,4 +13,6 @@ export interface ConsentUpdate {
   type: ConsentType;
   granted: boolean;
   textVersion?: string;
+  /** Scope la décision à ce coach (ADR-51 §D2) — coach_access uniquement. Absent = décision globale (tous les coachs liés). */
+  coachId?: string;
 }

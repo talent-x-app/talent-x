@@ -103,7 +103,7 @@ describe('CommentsService (TLX-086)', () => {
       });
 
       expect(ownership.assertCoachLinkedToAthlete).toHaveBeenCalledWith('c-1', 'a-1');
-      expect(consent.assertActiveConsent).toHaveBeenCalledWith('a-1', 'coach_access');
+      expect(consent.assertActiveConsent).toHaveBeenCalledWith('a-1', 'coach_access', 'c-1');
       expect(prisma.comment.create).toHaveBeenCalledWith({
         data: {
           authorId: 'c-1',

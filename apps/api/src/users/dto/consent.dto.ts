@@ -15,6 +15,13 @@ export class ConsentDto {
   @ApiPropertyOptional()
   textVersion?: string;
 
+  @ApiPropertyOptional({
+    format: 'uuid',
+    description:
+      'Coach visé par un consentement `coach_access` scopé (ADR-51 §D2). Absent = consentement global (tous les coachs liés).',
+  })
+  coachId?: string;
+
   @ApiPropertyOptional({ format: 'date-time' })
   updatedAt?: string;
 }

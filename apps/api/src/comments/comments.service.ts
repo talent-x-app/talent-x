@@ -140,7 +140,7 @@ export class CommentsService {
         throw new ForbiddenException('Cette performance ne vous est pas accessible.');
       }
       await this.ownership.assertCoachLinkedToAthlete(user.id, performance.athleteId);
-      await this.consent.assertActiveConsent(performance.athleteId, 'coach_access');
+      await this.consent.assertActiveConsent(performance.athleteId, 'coach_access', user.id);
     } else if (performance.athleteId !== user.id) {
       throw new ForbiddenException('Cette performance ne vous appartient pas.');
     }

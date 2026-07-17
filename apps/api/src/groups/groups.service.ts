@@ -265,6 +265,13 @@ export class GroupsService {
       return { member: row, created: !existing, newAssignmentIds };
     });
 
+    // ADR-51 §D2 (TLX-187) : le geste d'adhésion vaut consentement coach_access à CE
+    // coach — historisé (append-only) seulement si aucun consentement actif ne couvre
+    // déjà ce coach (scopé ou global). Best-effort après la transaction d'adhésion.
+    if (created) {
+      await this.recordJoinConsent(athleteId, group.coachId);
+    }
+
     // Nouvelle adhésion → notifie le coach propriétaire (ADR-22 : group_update)…
     if (created) {
       await this.notificationQueue.enqueue(
@@ -293,6 +300,30 @@ export class GroupsService {
       }
     }
     return toGroupMemberDto(member);
+  }
+
+  /**
+   * Consentement `coach_access` scopé au coach, déposé par l'adhésion (ADR-51 §D2).
+   * N'écrit rien si un consentement actif (scopé à ce coach ou global) couvre déjà
+   * l'accès — l'historique append-only ne s'encombre pas de lignes redondantes.
+   */
+  private async recordJoinConsent(athleteId: string, coachId: string): Promise<void> {
+    const current = await this.prisma.consent.findFirst({
+      where: { userId: athleteId, type: 'coach_access', OR: [{ coachId }, { coachId: null }] },
+      orderBy: { createdAt: 'desc' },
+      select: { granted: true },
+    });
+    if (current?.granted === true) return;
+    await this.prisma.consent.create({
+      data: {
+        userId: athleteId,
+        type: 'coach_access',
+        granted: true,
+        coachId,
+        textVersion: this.config.get<string>('CONSENT_TEXT_VERSION') ?? '',
+        grantedAt: new Date(),
+      },
+    });
   }
 
   /** Athlète quitte un groupe. 404 s'il n'en est pas membre actif. */

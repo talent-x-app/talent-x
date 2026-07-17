@@ -9,6 +9,7 @@ const mockUpdateConsent = jest.fn();
 const mockRequestExport = jest.fn();
 const mockGetExport = jest.fn();
 const mockDeleteMe = jest.fn();
+const mockGetMyGroups = jest.fn();
 const mockReplace = jest.fn();
 const mockSignOut = jest.fn();
 const mockShow = jest.fn();
@@ -19,6 +20,7 @@ jest.mock('@talent-x/api-client', () => ({
   requestExport: (...args: unknown[]) => mockRequestExport(...args),
   getExport: (...args: unknown[]) => mockGetExport(...args),
   deleteMe: (...args: unknown[]) => mockDeleteMe(...args),
+  getMyGroups: (...args: unknown[]) => mockGetMyGroups(...args),
   ConsentType: {
     data_processing: 'data_processing',
     coach_access: 'coach_access',
@@ -56,12 +58,22 @@ function Wrapper({ children }: { children: ReactNode }) {
   );
 }
 
+/** Groupe factice pour la liste des coachs (ADR-51 §D2). */
+function group(id: string, coach: { id: string; firstName?: string; lastName?: string }) {
+  return { id, name: `G-${id}`, memberCount: 3, joinedAt: '2026-01-01T00:00:00.000Z', coach };
+}
+
 beforeEach(() => {
   jest.clearAllMocks();
   mockSignOut.mockResolvedValue(undefined);
   mockGetConsents.mockResolvedValue({
     status: 200,
     data: { data: [{ type: 'data_processing', granted: true }] },
+  });
+  // Mono-coach par défaut : pas d'interrupteurs par coach (comportement historique).
+  mockGetMyGroups.mockResolvedValue({
+    status: 200,
+    data: { data: [group('g-1', { id: 'c-1', firstName: 'Carl', lastName: 'Lewis' })] },
   });
 });
 
@@ -132,6 +144,71 @@ describe('PrivacySection — consentements (TLX-106)', () => {
     render(<PrivacySection role="athlete" />, { wrapper: Wrapper });
 
     await waitFor(() => expect(screen.getByTestId('privacy-consents-error')).toBeOnTheScreen());
+  });
+
+  it('mono-coach : aucun interrupteur par coach (comportement historique intact)', async () => {
+    render(<PrivacySection role="athlete" />, { wrapper: Wrapper });
+
+    await waitFor(() =>
+      expect(screen.getByTestId('privacy-consent-coach_access')).toBeOnTheScreen(),
+    );
+    expect(screen.queryByTestId('privacy-consent-coach-c-1')).toBeNull();
+  });
+
+  it('multi-coach (ADR-51 §D2) : un interrupteur par coach, scopé sinon repli global', async () => {
+    mockGetMyGroups.mockResolvedValue({
+      status: 200,
+      data: {
+        data: [
+          group('g-1', { id: 'c-1', firstName: 'Carl', lastName: 'Lewis' }),
+          group('g-2', { id: 'c-2', firstName: 'Flo', lastName: 'Jo' }),
+        ],
+      },
+    });
+    mockGetConsents.mockResolvedValue({
+      status: 200,
+      data: {
+        data: [
+          // Global accordé + révocation scopée à c-2 : c-1 hérite du global, c-2 est révoqué.
+          { type: 'coach_access', granted: true },
+          { type: 'coach_access', granted: false, coachId: 'c-2' },
+        ],
+      },
+    });
+    render(<PrivacySection role="athlete" />, { wrapper: Wrapper });
+
+    await waitFor(() => expect(screen.getByTestId('privacy-consent-coach-c-1')).toBeOnTheScreen());
+    expect(screen.getByText('Carl Lewis')).toBeOnTheScreen();
+    expect(screen.getByText('Flo Jo')).toBeOnTheScreen();
+    expect(screen.getByTestId('privacy-consent-coach-c-1').props.value).toBe(true);
+    expect(screen.getByTestId('privacy-consent-coach-c-2').props.value).toBe(false);
+    // L'interrupteur global reflète la dernière décision globale, pas les lignes scopées.
+    expect(screen.getByTestId('privacy-consent-coach_access').props.value).toBe(true);
+  });
+
+  it('multi-coach : basculer un coach appelle updateConsent {type, granted, coachId}', async () => {
+    mockUpdateConsent.mockResolvedValue({ status: 200, data: {} });
+    mockGetMyGroups.mockResolvedValue({
+      status: 200,
+      data: {
+        data: [
+          group('g-1', { id: 'c-1', firstName: 'Carl', lastName: 'Lewis' }),
+          group('g-2', { id: 'c-2', firstName: 'Flo', lastName: 'Jo' }),
+        ],
+      },
+    });
+    render(<PrivacySection role="athlete" />, { wrapper: Wrapper });
+
+    await waitFor(() => expect(screen.getByTestId('privacy-consent-coach-c-2')).toBeOnTheScreen());
+    fireEvent(screen.getByTestId('privacy-consent-coach-c-2'), 'valueChange', true);
+
+    await waitFor(() =>
+      expect(mockUpdateConsent).toHaveBeenCalledWith({
+        type: 'coach_access',
+        granted: true,
+        coachId: 'c-2',
+      }),
+    );
   });
 });
 

@@ -93,7 +93,7 @@ describe('RecordsService (TLX-076, ADR-20)', () => {
       const res = await service(prisma, ownership, consent).listForCoach('c-1', 'a-1');
 
       expect(ownership.assertCoachLinkedToAthlete).toHaveBeenCalledWith('c-1', 'a-1');
-      expect(consent.assertActiveConsent).toHaveBeenCalledWith('a-1', 'coach_access');
+      expect(consent.assertActiveConsent).toHaveBeenCalledWith('a-1', 'coach_access', 'c-1');
       expect(res.items[0]).toMatchObject({ eventKey: 'sprint:60m', value: 7.62, unit: 's' });
     });
 

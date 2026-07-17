@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnprocessableEntityException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { type Consent } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -23,12 +23,16 @@ export class ConsentsService {
     private readonly config: ConfigService,
   ) {}
 
-  /** État courant des consentements du titulaire (dernière ligne par type). */
+  /**
+   * État courant des consentements du titulaire : dernière ligne par (type, coach).
+   * ADR-51 §D2 : un `coach_access` scopé apparaît comme une entrée distincte de
+   * l'entrée globale — le client compose la vue par coach (scopé sinon global).
+   */
   async list(userId: string): Promise<ConsentListDto> {
     const latest = await this.prisma.consent.findMany({
       where: { userId },
       orderBy: { createdAt: 'desc' },
-      distinct: ['type'],
+      distinct: ['type', 'coachId'],
     });
     return { data: latest.map(toConsentDto) };
   }
@@ -36,8 +40,15 @@ export class ConsentsService {
   /**
    * Donne ou retire un consentement : insère une nouvelle ligne historisée.
    * `granted_at`/`revoked_at` reflètent l'action ; renvoie l'état courant créé.
+   * `coachId` (ADR-51 §D2) scope la décision à un coach — `coach_access` seulement.
    */
   async update(userId: string, dto: ConsentUpdateDto): Promise<ConsentDto> {
+    if (dto.coachId != null && dto.type !== 'coach_access') {
+      throw new UnprocessableEntityException({
+        error: 'CONSENT_COACH_SCOPE_INVALID',
+        message: 'Seul le consentement coach_access peut être scopé à un coach.',
+      });
+    }
     const now = new Date();
     const textVersion = dto.textVersion ?? this.config.get<string>('CONSENT_TEXT_VERSION') ?? '';
 
@@ -47,6 +58,7 @@ export class ConsentsService {
         type: dto.type,
         granted: dto.granted,
         textVersion,
+        coachId: dto.coachId ?? null,
         grantedAt: dto.granted ? now : null,
         revokedAt: dto.granted ? null : now,
       },
@@ -61,6 +73,7 @@ function toConsentDto(consent: Consent): ConsentDto {
     type: consent.type as ConsentType,
     granted: consent.granted,
     textVersion: consent.textVersion,
+    ...(consent.coachId != null ? { coachId: consent.coachId } : {}),
     updatedAt: consent.createdAt.toISOString(),
   };
 }

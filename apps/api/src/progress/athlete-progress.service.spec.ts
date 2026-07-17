@@ -53,7 +53,7 @@ describe('AthleteProgressService (TLX-090, ADR-21)', () => {
     const ownership = ownershipMock();
     const res = await service([], consent, ownership).getForCoach('c-1', 'a-1');
     expect(ownership.assertCoachLinkedToAthlete).toHaveBeenCalledWith('c-1', 'a-1');
-    expect(consent.assertActiveConsent).toHaveBeenCalledWith('a-1', 'coach_access');
+    expect(consent.assertActiveConsent).toHaveBeenCalledWith('a-1', 'coach_access', 'c-1');
     expect(res.athleteId).toBe('a-1');
     expect(res.series).toEqual([]);
   });

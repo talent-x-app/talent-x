@@ -38,6 +38,7 @@ type PrismaMock = {
   coachAthleteLink: Record<string, jest.Mock>;
   groupAssignment: Record<string, jest.Mock>;
   sessionAssignment: Record<string, jest.Mock>;
+  consent: Record<string, jest.Mock>;
   $transaction: jest.Mock;
 };
 
@@ -61,6 +62,8 @@ function prismaMock(): PrismaMock {
     coachAthleteLink: { findFirst: jest.fn(), create: jest.fn(), updateMany: jest.fn() },
     // Réconciliation ADR-30 : aucune affectation de groupe par défaut (no-op).
     groupAssignment: { findMany: jest.fn().mockResolvedValue([]) },
+    // ADR-51 §D2 : aucun consentement préexistant par défaut → l'adhésion en dépose un.
+    consent: { findFirst: jest.fn().mockResolvedValue(null), create: jest.fn() },
     sessionAssignment: {
       findFirst: jest.fn().mockResolvedValue(null),
       create: jest.fn(),
@@ -369,6 +372,50 @@ describe('GroupsService', () => {
         { type: 'group_update', recipientUserId: 'c-1', resourceId: 'g-1', actorId: 'a-2' },
         'group_update--gm-1',
       );
+    });
+
+    it('nouvelle adhésion → dépose un consentement coach_access scopé au coach (ADR-51 §D2)', async () => {
+      const prisma = prismaMock();
+      prisma.group.findFirst.mockResolvedValue({ id: 'g-1', coachId: 'c-1' });
+      prisma.groupMember.findFirst.mockResolvedValue(null);
+      prisma.groupMember.create.mockResolvedValue({
+        id: 'gm-1',
+        athleteId: 'a-2',
+        groupId: 'g-1',
+        joinedAt: new Date('2026-01-02T00:00:00.000Z'),
+        athlete: { id: 'a-2', firstName: 'Bo', lastName: 'M', sport: null },
+      });
+      prisma.coachAthleteLink.findFirst.mockResolvedValue(null);
+
+      await service(prisma).joinGroup('a-2', 'ABCD2345');
+
+      const arg = prisma.consent.create.mock.calls[0][0].data;
+      expect(arg).toMatchObject({
+        userId: 'a-2',
+        type: 'coach_access',
+        granted: true,
+        coachId: 'c-1',
+      });
+      expect(arg.grantedAt).toBeInstanceOf(Date);
+    });
+
+    it('adhésion avec consentement déjà actif (scopé ou global) → aucune ligne redondante', async () => {
+      const prisma = prismaMock();
+      prisma.group.findFirst.mockResolvedValue({ id: 'g-1', coachId: 'c-1' });
+      prisma.groupMember.findFirst.mockResolvedValue(null);
+      prisma.groupMember.create.mockResolvedValue({
+        id: 'gm-1',
+        athleteId: 'a-2',
+        groupId: 'g-1',
+        joinedAt: new Date('2026-01-02T00:00:00.000Z'),
+        athlete: { id: 'a-2', firstName: 'Bo', lastName: 'M', sport: null },
+      });
+      prisma.coachAthleteLink.findFirst.mockResolvedValue(null);
+      prisma.consent.findFirst.mockResolvedValue({ granted: true });
+
+      await service(prisma).joinGroup('a-2', 'ABCD2345');
+
+      expect(prisma.consent.create).not.toHaveBeenCalled();
     });
 
     it('nouveau membre → crée l’appartenance ET le lien coach↔athlète', async () => {

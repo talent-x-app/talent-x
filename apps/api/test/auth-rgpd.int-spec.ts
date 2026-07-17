@@ -243,6 +243,86 @@ describe('Auth & RGPD (intégration DB)', () => {
         response: { error: 'CONSENT_REQUIRED' },
       });
     });
+
+    it('TLX-187 (ADR-51 §D2) — deux coachs : révoquer l’un sans toucher l’autre', async () => {
+      const athlete = await createUser('athlete');
+      const coachA = await createUser('coach');
+      const coachB = await createUser('coach');
+      const base = Date.now() - 3_000;
+      // t0 : grant GLOBAL (historique) → couvre A et B.
+      await prisma.consent.create({
+        data: {
+          userId: athlete,
+          type: 'coach_access',
+          granted: true,
+          textVersion: '2026-01',
+          createdAt: new Date(base),
+        },
+      });
+      await expect(consentGate.hasActiveConsent(athlete, 'coach_access', coachA)).resolves.toBe(
+        true,
+      );
+      await expect(consentGate.hasActiveConsent(athlete, 'coach_access', coachB)).resolves.toBe(
+        true,
+      );
+
+      // t1 : révocation SCOPÉE à A → A perd l'accès, B le garde.
+      await prisma.consent.create({
+        data: {
+          userId: athlete,
+          type: 'coach_access',
+          granted: false,
+          coachId: coachA,
+          textVersion: '2026-01',
+          createdAt: new Date(base + 1_000),
+        },
+      });
+      await expect(consentGate.hasActiveConsent(athlete, 'coach_access', coachA)).resolves.toBe(
+        false,
+      );
+      await expect(consentGate.hasActiveConsent(athlete, 'coach_access', coachB)).resolves.toBe(
+        true,
+      );
+
+      // t2 : révocation GLOBALE plus récente → l'emporte partout (B compris).
+      await prisma.consent.create({
+        data: {
+          userId: athlete,
+          type: 'coach_access',
+          granted: false,
+          textVersion: '2026-01',
+          createdAt: new Date(base + 2_000),
+        },
+      });
+      await expect(consentGate.hasActiveConsent(athlete, 'coach_access', coachB)).resolves.toBe(
+        false,
+      );
+    });
+
+    it('TLX-187 — l’adhésion par code dépose un consentement scopé au coach du groupe', async () => {
+      const reg = await register('athlete');
+      const athleteId = reg.body.user.id;
+      const coach = await createUser('coach');
+      const group = await prisma.group.create({
+        data: { coachId: coach, name: 'G-consent', inviteCode: randomUUID().slice(0, 12) },
+      });
+
+      await request(app.getHttpServer())
+        .post('/api/v1/groups/join')
+        .set({ Authorization: `Bearer ${reg.body.accessToken}` })
+        .send({ inviteCode: group.inviteCode })
+        .expect(200);
+
+      const row = await prisma.consent.findFirst({
+        where: { userId: athleteId, type: 'coach_access', coachId: coach },
+        orderBy: { createdAt: 'desc' },
+      });
+      expect(row).not.toBeNull();
+      expect(row!.granted).toBe(true);
+      await expect(consentGate.hasActiveConsent(athleteId, 'coach_access', coach)).resolves.toBe(
+        true,
+      );
+    });
   });
 
   describe('TLX-024 — OwnershipService (appartenance & ownership)', () => {

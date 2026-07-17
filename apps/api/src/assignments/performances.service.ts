@@ -135,7 +135,7 @@ export class PerformancesService {
         throw new ForbiddenException('Cette performance ne vous est pas accessible.');
       }
       await this.ownership.assertCoachLinkedToAthlete(user.id, assignment.athleteId);
-      await this.consent.assertActiveConsent(assignment.athleteId, 'coach_access');
+      await this.consent.assertActiveConsent(assignment.athleteId, 'coach_access', user.id);
     } else if (assignment.athleteId !== user.id) {
       throw new ForbiddenException('Cette performance ne vous appartient pas.');
     }

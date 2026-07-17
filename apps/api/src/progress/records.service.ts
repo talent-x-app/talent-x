@@ -51,7 +51,7 @@ export class RecordsService {
    */
   async listForCoach(coachId: string, athleteId: string): Promise<PersonalRecordListDto> {
     await this.ownership.assertCoachLinkedToAthlete(coachId, athleteId);
-    await this.consent.assertActiveConsent(athleteId, 'coach_access');
+    await this.consent.assertActiveConsent(athleteId, 'coach_access', coachId);
     const records = await this.prisma.personalRecord.findMany({
       where: { athleteId, performance: { assignment: { session: { coachId } } } },
       orderBy: { label: 'asc' },

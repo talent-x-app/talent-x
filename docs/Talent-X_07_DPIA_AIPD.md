@@ -384,6 +384,32 @@ de présence non sensible, cercle déjà partagé \(même groupe, même coach\)\
 kudos \(table/route isolées\) → retour aux réactions nominatives \(§5\.5\) puis au Palier 1, sans
 régression\.
 
+## 5\.7 Consentement `coach_access` par coach \(multi\-coach, ADR\-51 §D2\)
+
+*\(Ajout TLX\-187 / ADR\-51 — note versée à l'AIPD le 17/07/2026\.\)*
+
+__Évolution\. __L'appartenance **multi\-coach** \(ADR\-51\) fait passer le consentement `coach_access`
+d'un réglage **global** \(un seul interrupteur couvrant tous les coachs liés\) à un consentement
+**scopé au coach** : l'athlète peut consentir à l'accès d'un coach **sans** consentir aux autres, et
+révoquer **un seul** coach\. Mise en œuvre additive : colonne `coach_id` nullable sur la table
+append\-only `consents` \(NULL = décision globale historique\) ; l'état courant pour un coach = la
+**dernière ligne applicable** \(scopée à ce coach ou globale\), une décision globale plus récente
+l'emportant dans les deux sens\.
+
+__Portes couvertes\. __Les six lectures coach consent\-gated \(détail de perf, feedback, progression,
+stats, records, charge d'entraînement du dashboard\) passent désormais le `coachId` appelant — en
+complément du **cloisonnement** des lectures par coach \(ADR\-51 §D3, déjà livré\)\.
+
+__Geste d'adhésion\. __Rejoindre un groupe par code d'invitation **vaut consentement** `coach_access`
+au coach de ce groupe \(ligne scopée historisée, art\. 7 : trace de l'acte positif\) ; aucune ligne
+redondante si un consentement actif couvre déjà ce coach\. Le retrait reste **aussi simple que
+l'octroi** \(RB\-05\) : interrupteur par coach dans Profil → Confidentialité\.
+
+__Effet sur les risques\. __Réduction du risque « accès du coach sans consentement » \(§4\) : le
+périmètre du consentement épouse désormais la relation réelle coach↔athlète \(granularité, art\. 7\(2\)
+- minimisation\)\. Aucune donnée nouvelle n'est collectée ; `coach_id` est une méta\-donnée de
+consentement\. Rétrocompatibilité mono\-coach : comportement inchangé \(NULL = global\)\.
+
 # 6\. Plan d'action et risques résiduels
 
 __Action__

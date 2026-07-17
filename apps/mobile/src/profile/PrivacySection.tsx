@@ -2,14 +2,17 @@ import {
   deleteMe,
   getConsents,
   getExport,
+  getMyGroups,
   requestExport,
   updateConsent,
   ConsentType,
   JobStatus,
+  type AthleteGroupList,
   type ConsentList,
   type ConsentUpdate,
   type ExportJob,
   type Job,
+  type UserSummary,
 } from '@talent-x/api-client';
 import { useTheme } from '@talent-x/design-tokens';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -19,6 +22,7 @@ import { Linking, Switch, Text, View } from 'react-native';
 import { useSession } from '../auth/SessionProvider';
 import { Button, Card } from '../components/ui';
 import { toUserMessage, useToast } from '../feedback';
+import { MY_GROUPS_QUERY_KEY } from '../groups/groups-query';
 
 /** Clé de cache de l'état courant des consentements RGPD. */
 export const CONSENTS_QUERY_KEY = ['consents'] as const;
@@ -96,8 +100,33 @@ function ConsentsCard({ role }: { role: string }) {
     retry: false,
   });
 
+  // ADR-51 §D2 (TLX-187) : les coachs de l'athlète (via ses groupes, cache partagé
+  // ADR-26) alimentent des interrupteurs `coach_access` PAR COACH dès qu'il y en a
+  // plusieurs — en mono-coach, l'interrupteur global suffit (aucun changement).
+  const groups = useQuery({
+    queryKey: MY_GROUPS_QUERY_KEY,
+    enabled: role === 'athlete',
+    queryFn: async (): Promise<AthleteGroupList> => {
+      const response = await getMyGroups();
+      if (response.status === 200) return response.data;
+      throw response;
+    },
+    retry: false,
+  });
+  const coaches: UserSummary[] = [];
+  for (const group of groups.data?.data ?? []) {
+    if (!coaches.some((c) => c.id === group.coach.id)) coaches.push(group.coach);
+  }
+  const multiCoach = role === 'athlete' && coaches.length > 1;
+
+  // État global d'un type = dernière ligne NON scopée (les entrées par coach sont à part).
   const grantedFor = (type: ConsentType): boolean =>
-    consents.data?.data?.find((c) => c.type === type)?.granted ?? false;
+    consents.data?.data?.find((c) => c.type === type && c.coachId == null)?.granted ?? false;
+
+  // État effectif pour un coach : sa ligne scopée si elle existe, sinon l'état global.
+  const coachAccessFor = (coachId: string): boolean =>
+    consents.data?.data?.find((c) => c.type === ConsentType.coach_access && c.coachId === coachId)
+      ?.granted ?? grantedFor(ConsentType.coach_access);
 
   const save = useMutation({
     mutationFn: async (change: ConsentUpdate): Promise<void> => {
@@ -108,9 +137,18 @@ function ConsentsCard({ role }: { role: string }) {
     onMutate: async (change) => {
       await queryClient.cancelQueries({ queryKey: CONSENTS_QUERY_KEY });
       const previous = queryClient.getQueryData<ConsentList>(CONSENTS_QUERY_KEY);
-      const others = (previous?.data ?? []).filter((c) => c.type !== change.type);
+      const others = (previous?.data ?? []).filter(
+        (c) => c.type !== change.type || (c.coachId ?? null) !== (change.coachId ?? null),
+      );
       queryClient.setQueryData<ConsentList>(CONSENTS_QUERY_KEY, {
-        data: [...others, { type: change.type, granted: change.granted }],
+        data: [
+          ...others,
+          {
+            type: change.type,
+            granted: change.granted,
+            ...(change.coachId != null ? { coachId: change.coachId } : {}),
+          },
+        ],
       });
       return { previous };
     },
@@ -147,29 +185,77 @@ function ConsentsCard({ role }: { role: string }) {
         ) : (
           <View style={{ gap: spacing[4], marginTop: spacing[2] }}>
             {rows.map((row) => (
-              <View
-                key={row.type}
-                style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[3] }}
-              >
-                <View style={{ flex: 1, gap: 2 }}>
-                  <Text
+              <View key={row.type} style={{ gap: spacing[3] }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[3] }}>
+                  <View style={{ flex: 1, gap: 2 }}>
+                    <Text
+                      style={{
+                        color: colors.textPrimary,
+                        fontFamily: typography.fontFamily.medium,
+                        fontSize: typography.body.fontSize,
+                      }}
+                    >
+                      {multiCoach && row.type === ConsentType.coach_access
+                        ? 'Accès de mes coachs'
+                        : row.label}
+                    </Text>
+                    <Text style={helperText(colors, typography)}>
+                      {multiCoach && row.type === ConsentType.coach_access
+                        ? 'Réglage global — affine coach par coach ci-dessous (ADR-51).'
+                        : row.help}
+                    </Text>
+                  </View>
+                  <Switch
+                    testID={`privacy-consent-${row.type}`}
+                    value={grantedFor(row.type)}
+                    onValueChange={(granted) => save.mutate({ type: row.type, granted })}
+                    trackColor={{ false: colors.border, true: colors.accent }}
+                    thumbColor={colors.surface}
+                  />
+                </View>
+
+                {/* ADR-51 §D2 : un interrupteur par coach — consentir/révoquer l'un sans l'autre. */}
+                {multiCoach && row.type === ConsentType.coach_access ? (
+                  <View
                     style={{
-                      color: colors.textPrimary,
-                      fontFamily: typography.fontFamily.medium,
-                      fontSize: typography.body.fontSize,
+                      gap: spacing[3],
+                      paddingLeft: spacing[4],
+                      borderLeftWidth: 2,
+                      borderLeftColor: colors.border,
                     }}
                   >
-                    {row.label}
-                  </Text>
-                  <Text style={helperText(colors, typography)}>{row.help}</Text>
-                </View>
-                <Switch
-                  testID={`privacy-consent-${row.type}`}
-                  value={grantedFor(row.type)}
-                  onValueChange={(granted) => save.mutate({ type: row.type, granted })}
-                  trackColor={{ false: colors.border, true: colors.accent }}
-                  thumbColor={colors.surface}
-                />
+                    {coaches.map((coach) => (
+                      <View
+                        key={coach.id}
+                        style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[3] }}
+                      >
+                        <Text
+                          style={{
+                            flex: 1,
+                            color: colors.textPrimary,
+                            fontFamily: typography.fontFamily.regular,
+                            fontSize: typography.body.fontSize,
+                          }}
+                        >
+                          {coachDisplayName(coach)}
+                        </Text>
+                        <Switch
+                          testID={`privacy-consent-coach-${coach.id}`}
+                          value={coachAccessFor(coach.id)}
+                          onValueChange={(granted) =>
+                            save.mutate({
+                              type: ConsentType.coach_access,
+                              granted,
+                              coachId: coach.id,
+                            })
+                          }
+                          trackColor={{ false: colors.border, true: colors.accent }}
+                          thumbColor={colors.surface}
+                        />
+                      </View>
+                    ))}
+                  </View>
+                ) : null}
               </View>
             ))}
           </View>
@@ -363,6 +449,12 @@ function DeleteAccountCard() {
       </View>
     </Card>
   );
+}
+
+/** Nom affichable d'un coach (UserSummary minimisé — repli neutre sans nom). */
+function coachDisplayName(coach: UserSummary): string {
+  const name = [coach.firstName, coach.lastName].filter(Boolean).join(' ');
+  return name === '' ? 'Coach' : name;
 }
 
 function helperText(

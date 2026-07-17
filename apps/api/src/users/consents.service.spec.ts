@@ -38,12 +38,38 @@ describe('ConsentsService (TLX-031)', () => {
           },
         ],
       });
-      // distinct par type, plus récent d'abord → état courant.
+      // distinct par (type, coach), plus récent d'abord → état courant, y compris scopé (ADR-51 §D2).
       expect(prisma.consent.findMany).toHaveBeenCalledWith({
         where: { userId: 'u1' },
         orderBy: { createdAt: 'desc' },
-        distinct: ['type'],
+        distinct: ['type', 'coachId'],
       });
+    });
+
+    it('expose les entrées coach_access scopées à côté de l’entrée globale (ADR-51 §D2)', async () => {
+      const { service, prisma } = makeService();
+      prisma.consent.findMany.mockResolvedValue([
+        {
+          type: 'coach_access',
+          granted: false,
+          textVersion: '2026-01',
+          coachId: 'c1',
+          createdAt: new Date('2026-03-02T00:00:00.000Z'),
+        },
+        {
+          type: 'coach_access',
+          granted: true,
+          textVersion: '2026-01',
+          coachId: null,
+          createdAt: new Date('2026-02-01T10:00:00.000Z'),
+        },
+      ]);
+
+      const res = await service.list('u1');
+      expect(res.data).toEqual([
+        expect.objectContaining({ type: 'coach_access', granted: false, coachId: 'c1' }),
+        expect.not.objectContaining({ coachId: expect.anything() }),
+      ]);
     });
 
     it('renvoie une liste vide si aucun consentement', async () => {
@@ -101,6 +127,43 @@ describe('ConsentsService (TLX-031)', () => {
       expect(config.get).toHaveBeenCalledWith('CONSENT_TEXT_VERSION');
       expect(prisma.consent.create.mock.calls[0][0].data.textVersion).toBe('2027-05');
       expect(result.textVersion).toBe('2027-05');
+    });
+
+    it('coach_access scopé : écrit coach_id et le renvoie dans le DTO (ADR-51 §D2)', async () => {
+      const { service, prisma } = makeService();
+      prisma.consent.create.mockImplementation(({ data }: { data: Record<string, unknown> }) =>
+        Promise.resolve({ ...data, createdAt: new Date('2026-03-03T00:00:00.000Z') }),
+      );
+
+      const result = await service.update('u1', {
+        type: 'coach_access',
+        granted: false,
+        coachId: 'c1',
+      });
+
+      expect(prisma.consent.create.mock.calls[0][0].data.coachId).toBe('c1');
+      expect(result).toMatchObject({ type: 'coach_access', granted: false, coachId: 'c1' });
+    });
+
+    it('coachId sur un autre type que coach_access → 422 CONSENT_COACH_SCOPE_INVALID', async () => {
+      const { service, prisma } = makeService();
+
+      await expect(
+        service.update('u1', { type: 'marketing', granted: true, coachId: 'c1' }),
+      ).rejects.toMatchObject({ response: { error: 'CONSENT_COACH_SCOPE_INVALID' } });
+      expect(prisma.consent.create).not.toHaveBeenCalled();
+    });
+
+    it('sans coachId : écrit une décision globale (coach_id NULL, rétrocompat)', async () => {
+      const { service, prisma } = makeService();
+      prisma.consent.create.mockImplementation(({ data }: { data: Record<string, unknown> }) =>
+        Promise.resolve({ ...data, createdAt: new Date('2026-03-04T00:00:00.000Z') }),
+      );
+
+      const result = await service.update('u1', { type: 'coach_access', granted: true });
+
+      expect(prisma.consent.create.mock.calls[0][0].data.coachId).toBeNull();
+      expect(result).not.toHaveProperty('coachId');
     });
   });
 });

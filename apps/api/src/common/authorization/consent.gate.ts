@@ -12,19 +12,31 @@ import { type ConsentType } from '../../users/dto/consent.dto';
  * append-only `consents` (cf. ConsentsService, TLX-031). Actif = cette dernière
  * ligne a `granted = true`.
  *
+ * TLX-187 (ADR-51 §D2a) — dimension coach : `coach_access` peut être scopé à un
+ * coach (`coach_id`). Pour une porte coach, l'état courant = **dernière ligne
+ * applicable** parmi les lignes scopées à ce coach OU globales (`coach_id` NULL,
+ * historique) — une décision globale plus récente l'emporte, dans les deux sens.
+ * Sans `coachId` (portes `data_processing` du titulaire), seules les lignes
+ * globales comptent : comportement historique inchangé.
+ *
  * Usages prévus (endpoints livrés par leurs tickets) :
  *  - `POST /performances` → consentement `data_processing` de l'athlète (TLX-070) ;
  *  - `GET /athletes/:id/stats` & lecture perf côté coach → `coach_access` de
- *    l'athlète ciblé, en plus du lien coach↔athlète actif (TLX-080/086).
+ *    l'athlète ciblé **pour ce coach**, en plus du lien coach↔athlète actif
+ *    (TLX-080/086, ADR-51).
  */
 @Injectable()
 export class ConsentGate {
   constructor(private readonly prisma: PrismaService) {}
 
-  /** Le consentement `type` de `userId` est-il actuellement actif (dernière ligne accordée) ? */
-  async hasActiveConsent(userId: string, type: ConsentType): Promise<boolean> {
+  /** Le consentement `type` de `userId` est-il actif (pour `coachId` s'il est fourni) ? */
+  async hasActiveConsent(userId: string, type: ConsentType, coachId?: string): Promise<boolean> {
     const current = await this.prisma.consent.findFirst({
-      where: { userId, type },
+      where: {
+        userId,
+        type,
+        ...(coachId != null ? { OR: [{ coachId }, { coachId: null }] } : { coachId: null }),
+      },
       orderBy: { createdAt: 'desc' },
       select: { granted: true },
     });
@@ -35,8 +47,8 @@ export class ConsentGate {
    * Bloque l'action si le consentement requis n'est pas actif.
    * Lève 403 `CONSENT_REQUIRED` (code stable conservé par AllExceptionsFilter).
    */
-  async assertActiveConsent(userId: string, type: ConsentType): Promise<void> {
-    if (!(await this.hasActiveConsent(userId, type))) {
+  async assertActiveConsent(userId: string, type: ConsentType, coachId?: string): Promise<void> {
+    if (!(await this.hasActiveConsent(userId, type, coachId))) {
       throw new ForbiddenException({
         error: 'CONSENT_REQUIRED',
         message: 'Consentement requis pour cette action.',

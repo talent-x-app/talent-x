@@ -19,9 +19,9 @@ describe('ConsentGate (TLX-032)', () => {
       prisma.consent.findFirst.mockResolvedValue({ granted: true });
 
       await expect(gate.hasActiveConsent('a1', 'data_processing')).resolves.toBe(true);
-      // dernière ligne par (user, type) = état courant.
+      // Sans coachId : dernière ligne GLOBALE par (user, type) = état courant historique.
       expect(prisma.consent.findFirst).toHaveBeenCalledWith({
-        where: { userId: 'a1', type: 'data_processing' },
+        where: { userId: 'a1', type: 'data_processing', coachId: null },
         orderBy: { createdAt: 'desc' },
         select: { granted: true },
       });
@@ -37,6 +37,39 @@ describe('ConsentGate (TLX-032)', () => {
       const { gate, prisma } = makeGate();
       prisma.consent.findFirst.mockResolvedValue(null);
       await expect(gate.hasActiveConsent('a1', 'coach_access')).resolves.toBe(false);
+    });
+
+    it('avec coachId (ADR-51 §D2) : dernière ligne applicable = scopée à ce coach OU globale', async () => {
+      const { gate, prisma } = makeGate();
+      prisma.consent.findFirst.mockResolvedValue({ granted: true });
+
+      await expect(gate.hasActiveConsent('a1', 'coach_access', 'c1')).resolves.toBe(true);
+      // La requête fusionne les lignes scopées à c1 et les lignes globales (NULL) :
+      // la plus récente tranche — une révocation scopée à c1 postérieure à un grant
+      // global ne révoque que c1 ; une décision globale plus récente l'emporte partout.
+      expect(prisma.consent.findFirst).toHaveBeenCalledWith({
+        where: {
+          userId: 'a1',
+          type: 'coach_access',
+          OR: [{ coachId: 'c1' }, { coachId: null }],
+        },
+        orderBy: { createdAt: 'desc' },
+        select: { granted: true },
+      });
+    });
+
+    it('deux coachs : révoquer c1 ne touche pas c2 (la ligne applicable diffère)', async () => {
+      const { gate, prisma } = makeGate();
+      // c1 : dernière ligne applicable = révocation scopée ; c2 : grant global plus ancien.
+      prisma.consent.findFirst.mockImplementation(
+        (args: { where: { OR: { coachId: string | null }[] } }) =>
+          Promise.resolve(
+            args.where.OR.some((c) => c.coachId === 'c1') ? { granted: false } : { granted: true },
+          ),
+      );
+
+      await expect(gate.hasActiveConsent('a1', 'coach_access', 'c1')).resolves.toBe(false);
+      await expect(gate.hasActiveConsent('a1', 'coach_access', 'c2')).resolves.toBe(true);
     });
   });
 

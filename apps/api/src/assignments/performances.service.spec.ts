@@ -336,7 +336,7 @@ describe('PerformancesService', () => {
       });
       await service(prisma, ownership, consent).getPerformance(COACH, 'asg-1');
       expect(ownership.assertCoachLinkedToAthlete).toHaveBeenCalledWith('c-1', 'a-1');
-      expect(consent.assertActiveConsent).toHaveBeenCalledWith('a-1', 'coach_access');
+      expect(consent.assertActiveConsent).toHaveBeenCalledWith('a-1', 'coach_access', 'c-1');
     });
 
     it('coach d’une autre séance : 403', async () => {

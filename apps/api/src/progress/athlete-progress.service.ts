@@ -40,7 +40,7 @@ export class AthleteProgressService {
    */
   async getForCoach(coachId: string, athleteId: string): Promise<ProgressDto> {
     await this.ownership.assertCoachLinkedToAthlete(coachId, athleteId);
-    await this.consent.assertActiveConsent(athleteId, 'coach_access');
+    await this.consent.assertActiveConsent(athleteId, 'coach_access', coachId);
     return this.derive(athleteId, coachId);
   }
 
