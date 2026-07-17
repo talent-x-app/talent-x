@@ -4,10 +4,12 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import { Button, Card, Input } from '../components/ui';
 import { useToast } from '../feedback';
 import { MY_GROUPS_QUERY_KEY } from './groups-query';
+import { extractInviteCode } from './qr-scan';
+import { QrScannerSection, qrScanAvailable } from './QrScannerSection';
 
 /** Statut HTTP éventuellement porté par l'erreur rejetée du client généré. */
 function statusOf(error: unknown): number | undefined {
@@ -20,6 +22,8 @@ function statusOf(error: unknown): number | undefined {
  * « Rejoindre un groupe » athlète (TLX-88). Saisie d'un code → `POST /groups/join`.
  * Idempotent côté backend (déjà membre → 200). Gère le 404 (code invalide ou révoqué)
  * par un message inline. Au succès, invalide `['groups','mine']` et revient en arrière.
+ * TLX-188 : sur mobile, le code peut aussi être lu en scannant le QR du coach
+ * (préremplit le champ et soumet) ; sur web, la saisie manuelle reste la seule voie.
  */
 export function JoinGroupScreen() {
   const { colors, typography, spacing } = useTheme();
@@ -29,10 +33,13 @@ export function JoinGroupScreen() {
 
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [scanOpen, setScanOpen] = useState(false);
 
   const join = useMutation({
-    mutationFn: async (): Promise<GroupMember> => {
-      const body: JoinGroupRequest = { inviteCode: code.trim() };
+    // Le code est passé en argument (et non lu depuis l'état) : au scan, la soumission
+    // part dans le même tick que le remplissage du champ — l'état n'est pas encore posé.
+    mutationFn: async (inviteCode: string): Promise<GroupMember> => {
+      const body: JoinGroupRequest = { inviteCode };
       const response = await joinGroup(body);
       if (response.status === 200) return response.data;
       throw response;
@@ -57,7 +64,20 @@ export function JoinGroupScreen() {
       setError('Saisis le code communiqué par ton coach.');
       return;
     }
-    join.mutate();
+    join.mutate(code.trim());
+  }
+
+  /** Premier QR lu par la caméra : code reconnu → préremplit et soumet ; sinon message. */
+  function onScanned(payload: string) {
+    setScanOpen(false);
+    const scanned = extractInviteCode(payload);
+    if (scanned == null) {
+      setError('QR non reconnu. Saisis le code manuellement.');
+      return;
+    }
+    setError(null);
+    setCode(scanned);
+    join.mutate(scanned);
   }
 
   return (
@@ -131,6 +151,33 @@ export function JoinGroupScreen() {
           >
             Rejoindre
           </Button>
+
+          {qrScanAvailable() ? (
+            <View style={{ gap: spacing[4] }}>
+              <Button
+                testID="join-group-scan-toggle"
+                variant="secondary"
+                fullWidth
+                leftIcon={<Feather name="camera" size={18} color={colors.textPrimary} />}
+                disabled={join.isPending}
+                onPress={() => setScanOpen((o) => !o)}
+              >
+                {scanOpen ? 'Fermer le scanner' : 'Scanner le QR du coach'}
+              </Button>
+              {scanOpen ? <QrScannerSection onScanned={onScanned} /> : null}
+            </View>
+          ) : Platform.OS === 'web' ? (
+            <Text
+              testID="join-group-scan-hint"
+              style={{
+                color: colors.textMuted,
+                fontFamily: typography.fontFamily.regular,
+                fontSize: typography.bodySm.fontSize,
+              }}
+            >
+              Le scan du QR est disponible sur l'application mobile.
+            </Text>
+          ) : null}
         </View>
       </Card>
     </ScrollView>

@@ -15,7 +15,17 @@
     "ios": {
       "bundleIdentifier": "com.talentx.app"
     },
-    "plugins": ["expo-router", "expo-font", "expo-secure-store"],
+    "plugins": [
+      "expo-router",
+      "expo-font",
+      "expo-secure-store",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Autorise Talent-X à utiliser la caméra pour scanner le QR d'invitation d'un groupe."
+        }
+      ]
+    ],
     "experiments": {
       "typedRoutes": true
     },
