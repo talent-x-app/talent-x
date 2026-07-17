@@ -12,6 +12,37 @@ de débloquer les écrans coach C-01/C-02/C-03.
 - _(éditeurs typés terminés — TLX-054→061 livrés ↓)_
 - _(C-01 complet — TLX-081→085 livrés ↓)_
 
+## Terminés — Session 2026-07-17 : rafale backlog « sans mise en prod » (TLX-187 · 162 · 138 · 85 · 78 · 77 · 84 · 188 · 141/218 · 167)
+
+- **TLX-187 (ADR-51 §D2a)** : consentement `coach_access` **par coach** — migration additive
+  `coach_id` nullable sur `consents` (NULL = global, appliquée :5433), `ConsentGate(coachId?)`
+  (dernière ligne applicable scopée-ou-globale), les 6 portes coach passent le coach appelant,
+  **join par code = consentement scopé** au coach, contrat + client régénérés, UI par coach
+  (`PrivacySection`, multi-coach seulement), note AIPD §5.7. Int DB-backed 18/18 (deux coachs).
+- **TLX-162 (ADR-38)** : journal libre — mode **multi-séries** optionnel (`Stepper` 2-12,
+  une marque/série, `params.reps` + `setResults` 1..N), mode simple intact. RTL 8/8.
+- **TLX-138** : campagne de charge locale via le harnais committé — SLO p95 < 1 s **tenu
+  jusqu'à ~200 conns** sur `/coach/dashboard` (842 ms), saturation à 400 (1,55 s, exit 1
+  vérifié), 0 erreur sur ~60 k req. Rapport à jour ; résidu prod-like documenté.
+- **TLX-85** : parcours **coach compétitions** vérifié en réel (Playwright vert,
+  `tlx-85-coach-competitions.spec.ts`) : création → engagement 2 athlètes → confirmation →
+  entrée calendrier → édition hydratée → suppression. **Constat → TLX-222** : calque
+  pointer-events fantôme après `router.replace` (RN-web) — contourné par `goto('/')`.
+- **TLX-78** : `docs/user/` — guides coach & athlète + `support.md` (canal, FAQ, checklist
+  ops boîte support). **TLX-77** : `store/` — fiches stores prêtes à coller + checklist
+  publication (bloquants : comptes, visuels, **TLX-142 avant build prod**) ; reste In Progress.
+- **TLX-84** : adaptateurs déjà livrés ; `scripts/push-smoke.ts` committé + **sonde auth
+  réelle ✅ APNs / ✅ FCM** (creds du .env valides → rotation TLX-142 d'autant plus urgente).
+- **TLX-188** : **scan QR d'invitation** (expo-camera lazy, jamais sur web) — module pur
+  `extractInviteCode` (rejette les QR étrangers), préremplit + soumet, repli web. 14/14.
+- **TLX-141/218** : **rebuild dev-client EAS terminé** (`bbc4ac61`) incluant image-picker +
+  svg + camera ; APK dans `Downloads\talentx-devclient-20260717.apk` — **reste** adb install
+  - smoke device (téléphone non branché). **TLX-167** : fermé, déjà livré (6 cartes d'effort).
+- **Divers** : reliquat précédent commité (`replyCount` annonces ADR-48/50 + fix KPI
+  `sessionKpis` reps) ; fix compte GitHub actif (`gh auth switch talent-x-app`).
+- **Tests** : API unit 667/667 + int 18/18 ; mobile suites touchées vertes (QR 14, Privacy 26,
+  FreeSessionLog 8) ; typecheck + lint clean ; E2E TLX-85 vert en réel.
+
 ## Terminés — Session 2026-07-07 : rafale backlog (TLX-191 · 148 · 202 · 151 · 161 · 189)
 
 - **TLX-191 (bug High, builder)** : le fix du chevauchement des cellules en largeur mobile
