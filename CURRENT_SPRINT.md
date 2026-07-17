@@ -36,8 +36,12 @@ de débloquer les écrans coach C-01/C-02/C-03.
 - **TLX-188** : **scan QR d'invitation** (expo-camera lazy, jamais sur web) — module pur
   `extractInviteCode` (rejette les QR étrangers), préremplit + soumet, repli web. 14/14.
 - **TLX-141/218** : **rebuild dev-client EAS terminé** (`bbc4ac61`) incluant image-picker +
-  svg + camera ; APK dans `Downloads\talentx-devclient-20260717.apk` — **reste** adb install
-  - smoke device (téléphone non branché). **TLX-167** : fermé, déjà livré (6 cartes d'effort).
+  svg + camera ; **installé et validé sur le S20 FE** (même session) : boot **sans red box**
+  (crash `ExponentImagePicker` au boot résolu), login + accueil athlète OK sur l'API LAN.
+  **TLX-188 validé en réel sur device** : bouton scan → permission caméra (dialogue système)
+  → `CameraView` live → **scan du QR coach affiché sur le PC → adhésion au groupe confirmée**
+  (API `GET /groups/mine` + carte « Rejoins ton coach » disparue de l'accueil). `.env` mobile
+  remis sur localhost après le test. **TLX-167** : fermé, déjà livré (6 cartes d'effort).
 - **Divers** : reliquat précédent commité (`replyCount` annonces ADR-48/50 + fix KPI
   `sessionKpis` reps) ; fix compte GitHub actif (`gh auth switch talent-x-app`).
 - **Tests** : API unit 667/667 + int 18/18 ; mobile suites touchées vertes (QR 14, Privacy 26,
