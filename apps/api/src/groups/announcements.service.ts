@@ -31,7 +31,8 @@ type AnnouncementWithAuthor = GroupAnnouncement & {
 type ReactionView = Pick<GroupAnnouncementDto, 'reactions' | 'myReactions'>;
 
 /** Méta d'une annonce pour le DTO : réactions agrégées + accusé de lecture agrégé (jamais d'identité). */
-type AnnouncementMeta = ReactionView & Pick<GroupAnnouncementDto, 'readCount' | 'memberCount'>;
+type AnnouncementMeta = ReactionView &
+  Pick<GroupAnnouncementDto, 'readCount' | 'memberCount' | 'replyCount'>;
 
 const AUTHOR_SELECT = {
   author: { select: { id: true, firstName: true, lastName: true, sport: true } },
@@ -71,9 +72,10 @@ export class AnnouncementsService {
     const ids = rows.map((r) => r.id);
 
     // Agrégats en une passe (anti N+1), tous au patron ADR-45 : compteurs, jamais d'identité.
-    const [reactions, readCounts, memberCount] = await Promise.all([
+    const [reactions, readCounts, replyCounts, memberCount] = await Promise.all([
       this.reactionViews(ids, user.id, groupId),
       this.readCounts(ids),
+      this.replyCounts(ids),
       ids.length > 0 ? this.activeMemberCount(groupId) : Promise.resolve(0),
     ]);
 
@@ -83,6 +85,7 @@ export class AnnouncementsService {
           ...(reactions.get(row.id) ?? emptyReactions()),
           readCount: readCounts.get(row.id) ?? 0,
           memberCount,
+          replyCount: replyCounts.get(row.id) ?? 0,
         }),
       ),
     };
@@ -181,11 +184,12 @@ export class AnnouncementsService {
         `group_announcement--${created.id}--${athleteId}`,
       );
     }
-    // Annonce fraîche : aucune réaction ni lecture ; memberCount = membres notifiés (= actifs).
+    // Annonce fraîche : aucune réaction, lecture ni réponse ; memberCount = membres notifiés (= actifs).
     return toAnnouncementDto(created, {
       ...emptyReactions(),
       readCount: 0,
       memberCount: members.length,
+      replyCount: 0,
     });
   }
 
@@ -340,6 +344,19 @@ export class AnnouncementsService {
     return counts;
   }
 
+  /** Compteurs de réponses non supprimées par annonce (anti N+1) — entiers seuls (ADR-48/50). */
+  private async replyCounts(announcementIds: string[]): Promise<Map<string, number>> {
+    const counts = new Map<string, number>();
+    if (announcementIds.length === 0) return counts;
+    const grouped = await this.prisma.announcementReply.groupBy({
+      by: ['announcementId'],
+      where: { announcementId: { in: announcementIds }, deletedAt: null },
+      _count: { id: true },
+    });
+    for (const row of grouped) counts.set(row.announcementId, row._count.id);
+    return counts;
+  }
+
   /** Nombre de membres actifs du groupe (dénominateur de l'accusé de lecture). */
   private activeMemberCount(groupId: string): Promise<number> {
     return this.prisma.groupMember.count({ where: { groupId, leftAt: null } });
@@ -407,5 +424,6 @@ function toAnnouncementDto(
     myReactions: meta.myReactions,
     readCount: meta.readCount,
     memberCount: meta.memberCount,
+    replyCount: meta.replyCount,
   };
 }

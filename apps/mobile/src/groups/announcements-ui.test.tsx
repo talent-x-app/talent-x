@@ -50,6 +50,7 @@ function ann(id: string, body: string, extra?: Partial<GroupAnnouncement>): Grou
     myReactions: [],
     readCount: 0,
     memberCount: 0,
+    replyCount: 0,
     ...extra,
   } as GroupAnnouncement;
 }
@@ -103,6 +104,23 @@ describe('AnnouncementsPane (ADR-46)', () => {
   it('état vide', async () => {
     renderPane(false);
     await waitFor(() => expect(screen.getByTestId('announcements-empty')).toBeOnTheScreen());
+  });
+
+  it('compteur de réponses : « N réponses » quand replyCount > 0, « Répondre » sinon', async () => {
+    mockList.mockResolvedValue({
+      status: 200,
+      data: {
+        data: [
+          ann('a-rep', 'Fil actif', { replyCount: 3 }),
+          ann('a-norep', 'Pas de réponse', { replyCount: 0 }),
+        ],
+      },
+    });
+    renderPane(false);
+    await waitFor(() => expect(screen.getByTestId('announcement-a-rep')).toBeOnTheScreen());
+    // Le fil actif annonce ses 3 réponses ; l'annonce sans réponse garde l'appel à répondre.
+    expect(screen.getByText('3 réponses')).toBeOnTheScreen();
+    expect(screen.getByText('Répondre')).toBeOnTheScreen();
   });
 
   it('coach (canManage) : publie une annonce', async () => {

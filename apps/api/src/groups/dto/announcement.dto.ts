@@ -97,6 +97,12 @@ export class GroupAnnouncementDto {
 
   @ApiProperty({ minimum: 0, description: 'Membres actifs du groupe.' })
   memberCount!: number;
+
+  @ApiProperty({
+    minimum: 0,
+    description: 'Réponses non supprimées au fil (agrégat ADR-48/50) — jamais le contenu.',
+  })
+  replyCount!: number;
 }
 
 /** Liste d'annonces — schéma `GroupAnnouncementList`. */

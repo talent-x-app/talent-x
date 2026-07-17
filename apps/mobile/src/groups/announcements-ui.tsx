@@ -213,6 +213,15 @@ function AnnouncementCard({
   const queryClient = useQueryClient();
   const [showReplies, setShowReplies] = useState(false);
 
+  // Aperçu du fil (TLX-148 suite) : nombre de réponses replié, pour signaler un échange actif
+  // sans déplier — le compteur vient de l'agrégat serveur (`replyCount`, ADR-48/50).
+  const replyCount = announcement.replyCount ?? 0;
+  const repliesLabel = showReplies
+    ? 'Masquer le fil'
+    : replyCount > 0
+      ? `${replyCount} réponse${replyCount > 1 ? 's' : ''}`
+      : 'Répondre';
+
   const remove = useMutation({
     mutationFn: async (): Promise<void> => {
       const response = await deleteAnnouncement(groupId, announcement.id);
@@ -294,7 +303,13 @@ function AnnouncementCard({
           onPress={() => setShowReplies((o) => !o)}
           accessibilityRole="button"
           accessibilityState={{ expanded: showReplies }}
-          accessibilityLabel={showReplies ? 'Masquer le fil' : 'Répondre'}
+          accessibilityLabel={
+            showReplies
+              ? 'Masquer le fil'
+              : replyCount > 0
+                ? `Voir le fil, ${replyCount} réponse${replyCount > 1 ? 's' : ''}`
+                : 'Répondre'
+          }
           style={{
             flexDirection: 'row',
             alignItems: 'center',
@@ -314,7 +329,7 @@ function AnnouncementCard({
               fontSize: typography.bodySm.fontSize,
             }}
           >
-            {showReplies ? 'Masquer le fil' : 'Répondre'}
+            {repliesLabel}
           </Text>
         </Pressable>
 

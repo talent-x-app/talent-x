@@ -3316,6 +3316,10 @@ components:
           type: integer
           minimum: 0
           description: Membres actifs du groupe.
+        replyCount:
+          type: integer
+          minimum: 0
+          description: Réponses non supprimées au fil (agrégat ADR-48/50) — jamais le contenu.
       required:
       - id
       - groupId
@@ -3326,6 +3330,7 @@ components:
       - myReactions
       - readCount
       - memberCount
+      - replyCount
     TeamPulse:
       type: object
       description: >-

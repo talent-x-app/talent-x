@@ -34,4 +34,9 @@ export interface GroupAnnouncement {
      * @minimum 0
      */
   memberCount: number;
+  /**
+     * Réponses non supprimées au fil (agrégat ADR-48/50) — jamais le contenu.
+     * @minimum 0
+     */
+  replyCount: number;
 }

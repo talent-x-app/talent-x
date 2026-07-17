@@ -44,6 +44,9 @@ type PrismaMock = {
     count: jest.Mock;
     upsert: jest.Mock;
   };
+  announcementReply: {
+    groupBy: jest.Mock;
+  };
 };
 
 function prismaMock(): PrismaMock {
@@ -70,6 +73,9 @@ function prismaMock(): PrismaMock {
       groupBy: jest.fn().mockResolvedValue([]),
       count: jest.fn().mockResolvedValue(0),
       upsert: jest.fn().mockResolvedValue(undefined),
+    },
+    announcementReply: {
+      groupBy: jest.fn().mockResolvedValue([]),
     },
   };
 }
@@ -203,6 +209,9 @@ describe('AnnouncementsService (ADR-46)', () => {
       prisma.announcementRead.groupBy.mockResolvedValue([
         { announcementId: 'ann-1', _count: { userId: 9 } },
       ]);
+      prisma.announcementReply.groupBy.mockResolvedValue([
+        { announcementId: 'ann-1', _count: { id: 3 } },
+      ]);
       prisma.groupMember.count.mockResolvedValue(12);
 
       const res = await service(prisma).listAnnouncements(COACH, 'g-1');
@@ -215,6 +224,8 @@ describe('AnnouncementsService (ADR-46)', () => {
       // Accusé de lecture agrégé : « 9/12 ont lu » — deux entiers, jamais la liste.
       expect(res.data[0].readCount).toBe(9);
       expect(res.data[0].memberCount).toBe(12);
+      // Compteur de réponses agrégé (ADR-48/50) — entier seul, jamais le contenu.
+      expect(res.data[0].replyCount).toBe(3);
     });
 
     it('athlète non-membre → 404', async () => {
