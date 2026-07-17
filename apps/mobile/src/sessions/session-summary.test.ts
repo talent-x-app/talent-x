@@ -100,6 +100,15 @@ describe('sessionKpis (TLX-160)', () => {
       distanceMeters: 0,
     });
   });
+
+  it('feuille de premier niveau avec reps : efforts et volume suivent la cible « N × D »', () => {
+    // « 3 × 60m » affiché par formatExerciseTarget → 3 efforts, 180 m (et non 1 effort / 60 m).
+    const kpis = sessionKpis([
+      { name: '60 m', order: 0, type: 'sprint', params: { distanceMeters: 60, reps: 3 } },
+    ]);
+    expect(kpis.efforts).toBe(3);
+    expect(kpis.distanceMeters).toBe(180);
+  });
 });
 
 describe('formatDistanceVolume (TLX-160)', () => {

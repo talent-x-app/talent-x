@@ -30,6 +30,17 @@ function groupRounds(rounds: number | undefined): number {
 }
 
 /**
+ * Répétitions d'une feuille (`params.reps`), défaut 1. Cohérence avec la cible affichée
+ * « N × D » (`formatExerciseTarget`) : une feuille portant `reps` doit peser autant dans les
+ * KPIs (efforts / volume) que ce que l'athlète lit. En données canoniques du constructeur, la
+ * multiplicité passe par les tours de groupe (`reps` de feuille = 1) → ce facteur est neutre.
+ */
+function leafReps(params: Exercise['params']): number {
+  const r = num(params, 'reps');
+  return r != null && r > 0 ? Math.floor(r) : 1;
+}
+
+/**
  * Segment de phrase pour une liste de feuilles répétées `rounds` fois. Factorise l'unité quand
  * toutes les feuilles la partagent (« 30·40·50 m ») ; sinon garde l'unité par valeur. `rounds`
  * n'est préfixé que s'il est > 1.
@@ -89,12 +100,14 @@ export function sessionKpis(items: readonly ExerciseNode[] | undefined): Session
     if (isExerciseGroup(node)) {
       const rounds = groupRounds(node.rounds);
       for (const leaf of node.items ?? []) {
-        efforts += rounds;
-        distanceMeters += (num(leaf.params, 'distanceMeters') ?? 0) * rounds;
+        const reps = leafReps(leaf.params);
+        efforts += rounds * reps;
+        distanceMeters += (num(leaf.params, 'distanceMeters') ?? 0) * reps * rounds;
       }
     } else if (node != null && !isPhaseBlock(node)) {
-      efforts += 1;
-      distanceMeters += num(node.params, 'distanceMeters') ?? 0;
+      const reps = leafReps(node.params);
+      efforts += reps;
+      distanceMeters += (num(node.params, 'distanceMeters') ?? 0) * reps;
     }
   }
   return { efforts, distanceMeters: Math.round(distanceMeters) };
