@@ -63,6 +63,34 @@ histogram_quantile(0.95,
   sum by (le) (rate(talentx_http_request_duration_seconds_bucket{method="GET"}[5m]))) > 1
 ```
 
+## Campagne 2026-07-17 — harnais committé (`perf/load-test.ts`), paliers + saturation
+
+Rejouée avec le **harnais reproductible** (plus d'autocannon) contre la stack locale complète
+(API `nest start` mono-nœud, Postgres :5433, Redis :6379). Coach dédié fraîchement créé (dashboard
+léger → coût de chemin). Croisé serveur `/metrics` activé (`--metrics-url`).
+
+| Scénario                        | Conns | Durée | req/s | p50     | p95         | p99     | max     | non-2xx | err |
+| ------------------------------- | ----- | ----- | ----- | ------- | ----------- | ------- | ------- | ------- | --- |
+| `/health` (baseline sans DB)    | 10    | 10 s  | 1158  | 8 ms    | 16 ms       | 24 ms   | 128 ms  | 0       | 0   |
+| `/health`                       | 50    | 10 s  | 1604  | 29 ms   | 49 ms       | 69 ms   | 110 ms  | 0       | 0   |
+| `/health`                       | 100   | 10 s  | 1569  | 61 ms   | 94 ms       | 122 ms  | 166 ms  | 0       | 0   |
+| `/coach/dashboard` (lecture DB) | 10    | 10 s  | 252   | 36 ms   | **66 ms**   | 92 ms   | 287 ms  | 0       | 0   |
+| `/coach/dashboard`              | 50    | 10 s  | 328   | 137 ms  | **246 ms**  | 339 ms  | 427 ms  | 0       | 0   |
+| `/coach/dashboard`              | 100   | 10 s  | 364   | 261 ms  | **409 ms**  | 487 ms  | 570 ms  | 0       | 0   |
+| `/coach/dashboard` (saturation) | 200   | 10 s  | 317   | 624 ms  | **842 ms**  | 949 ms  | 1012 ms | 0       | 0   |
+| `/coach/dashboard` (saturation) | 400   | 10 s  | 387   | 1023 ms | **1553 ms** | 2710 ms | 3138 ms | 0       | 0   |
+
+**Lecture.**
+
+- **SLO p95 < 1 s tenu jusqu'à 200 connexions** sur la lecture DB la plus lourde (842 ms) ;
+  **dépassé à 400** (1,55 s — le harnais sort bien en **code 1**, verdict automatique vérifié).
+- **Taux d'erreur strictement 0** (aucun 4xx/5xx, aucun timeout) sur ~60 000 requêtes cumulées,
+  y compris au-delà de la saturation : l'API **dégrade en latence, pas en erreurs**.
+- **Point de saturation confirmé** : débit dashboard plafonné **~320–390 req/s** dès 50 connexions
+  (mono-process dev) — au-delà, la concurrence ne paie qu'en latence. `/health` plafonne ~1 600 req/s.
+- **Croisé serveur cohérent** : `/metrics` → p95 GET 0,164 s (paliers 10–100 confondus), 0 % 5xx —
+  la chaîne `histogram_quantile` de `slo.ts` recoupe la mesure client.
+
 ## Reste à faire (hors périmètre de ce poste — environnement requis)
 
 1. **Charge prod-like** : rejouer les paliers (via `perf/load-test.ts`) contre l'environnement cible dimensionné (TX-OPS-004 §6 — valider p95 + capacité **avant chaque palier**), avec un **jeu de données réaliste** (centaines d'athlètes/séances) pour mesurer le **coût volumétrique** du dashboard (agrégations), pas seulement le coût de chemin.
