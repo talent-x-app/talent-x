@@ -84,11 +84,12 @@ test('parcours coach : création → engagement multi-athlètes → calendrier �
   await expect(listItem.getByTestId('competition-status-published')).toBeVisible();
 
   // --- 5. Entrée « Compétition » dans le calendrier coach (tonalité dédiée) → ouvre l'édition. ---
-  // Rechargement complet d'abord : l'écran du constructeur (retiré du stack par `replace`)
-  // laisse un calque pointer-events au-dessus du DOM (quirk react-native-web) qui intercepte
-  // tous les clics suivants. Un `goto('/')` = l'utilisateur rouvre l'app (session persistée).
-  await page.goto('/');
-  await expect(page.getByTestId('coach-dashboard-subtitle')).toBeVisible({ timeout: 20_000 });
+  // TLX-222 corrigé : `enableScreens()` gèle désormais correctement les onglets masqués côté web
+  // (display:none plutôt qu'un pointerEvents contournable par les boutons enfants) → plus de
+  // calque fantôme cliquable, plus besoin du rechargement complet. Les onglets déjà visités
+  // (ex. le constructeur en mode création) restent montés-gelés en arrière-plan (comportement
+  // natif normal) : les sélecteurs ci-dessous filtrent donc sur `visible: true` quand un même
+  // testID existe aussi, gelé, dans un autre onglet déjà visité.
   await page.getByRole('tab', { name: 'Séances' }).click();
   await page.getByRole('tab', { name: 'Calendrier' }).click();
   await expect(page.getByTestId(`calendar-entry-${competitionId}`)).toBeVisible({
@@ -98,10 +99,15 @@ test('parcours coach : création → engagement multi-athlètes → calendrier �
   await page.getByTestId(`calendar-entry-${competitionId}`).click();
 
   // --- 6. Édition : formulaire hydraté → renommage → enregistrer. ---
-  await expect(page.getByTestId('competition-builder-title')).toBeVisible({ timeout: 15_000 });
-  await expect(page.getByTestId('competition-field-name')).toHaveValue('Meeting E2E de juillet');
-  await page.getByTestId('competition-field-name').fill('Meeting E2E renommé');
-  await page.getByTestId('competition-save').click();
+  // `.filter({ visible: true })` : le constructeur en mode création (étape 2) reste monté-gelé
+  // sous l'onglet `competition/new`, et partage les mêmes testID que l'écran d'édition courant.
+  const editTitle = page.getByTestId('competition-builder-title').filter({ visible: true });
+  await expect(editTitle).toBeVisible({ timeout: 15_000 });
+  await expect(editTitle).toHaveText('Modifier la compétition');
+  const editName = page.getByTestId('competition-field-name').filter({ visible: true });
+  await expect(editName).toHaveValue('Meeting E2E de juillet');
+  await editName.fill('Meeting E2E renommé');
+  await page.getByTestId('competition-save').filter({ visible: true }).click();
 
   // Retour calendrier (provenance), puis liste : le nouveau nom est visible.
   await expect(page.getByTestId('calendar-competitions-link')).toBeVisible({ timeout: 15_000 });
@@ -113,7 +119,9 @@ test('parcours coach : création → engagement multi-athlètes → calendrier �
 
   // --- 7. Suppression (soft-delete) depuis l'édition → liste vide. ---
   await page.getByTestId(`competition-item-${competitionId}`).click();
-  await expect(page.getByTestId('competition-builder-title')).toBeVisible({ timeout: 15_000 });
-  await page.getByTestId('competition-delete').click();
+  await expect(page.getByTestId('competition-builder-title').filter({ visible: true })).toBeVisible(
+    { timeout: 15_000 },
+  );
+  await page.getByTestId('competition-delete').filter({ visible: true }).click();
   await expect(page.getByTestId('competitions-empty')).toBeVisible({ timeout: 20_000 });
 });

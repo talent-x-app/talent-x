@@ -50,8 +50,17 @@ test.describe('TLX-130 layout adaptatif coach', () => {
 
       for (const s of screens) {
         await s.go();
-        await expect(page.getByTestId(s.ready).first()).toBeVisible({ timeout: 20_000 });
-        const content = page.getByTestId('coach-responsive-content').first();
+        // `.filter({ visible: true })` (TLX-222) : les testID de ces écrans partagés
+        // (`ResponsiveContent`) restent aussi présents, gelés (`display:none`), sous les
+        // onglets déjà visités plus tôt dans la boucle — `.first()` ne garantit plus l'instance
+        // active depuis qu'`enableScreens()` gèle réellement les onglets inactifs sur web.
+        await expect(page.getByTestId(s.ready).filter({ visible: true }).first()).toBeVisible({
+          timeout: 20_000,
+        });
+        const content = page
+          .getByTestId('coach-responsive-content')
+          .filter({ visible: true })
+          .first();
         await expect(content).toBeVisible();
         const box = await content.boundingBox();
         expect(box, `boundingBox absent (${s.tag})`).not.toBeNull();

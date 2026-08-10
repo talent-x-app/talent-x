@@ -7,6 +7,7 @@ const mockGetCoachDashboard = jest.fn();
 const mockGetCompetition = jest.fn();
 const mockEngageAthletes = jest.fn();
 const mockBack = jest.fn();
+const mockReplace = jest.fn();
 const mockShow = jest.fn();
 
 jest.mock('@talent-x/api-client', () => ({
@@ -15,7 +16,9 @@ jest.mock('@talent-x/api-client', () => ({
   engageAthletes: (...a: unknown[]) => mockEngageAthletes(...a),
   AthleteStatus: { up_to_date: 'up_to_date', late: 'late', pending_review: 'pending_review' },
 }));
-jest.mock('expo-router', () => ({ useRouter: () => ({ back: mockBack }) }));
+jest.mock('expo-router', () => ({
+  useRouter: () => ({ back: mockBack, replace: mockReplace }),
+}));
 jest.mock('../feedback', () => ({ useToast: () => ({ show: mockShow, dismiss: jest.fn() }) }));
 
 import { CompetitionEngageScreen } from './CompetitionEngageScreen';
@@ -106,6 +109,12 @@ describe('CompetitionEngageScreen (TLX-101)', () => {
     expect(body).toMatchObject({ athleteIds: ['a-1', 'a-2'], eventLabel: '100m' });
     expect(options.headers['Idempotency-Key']).toBe('engage-k-1-a-1-a-2');
     await waitFor(() => expect(screen.getByTestId('engage-confirmation')).toBeOnTheScreen());
+
+    // TLX-222 : « Terminé » vise explicitement la liste (pas back()) — l'historique de
+    // navigation issu du `replace()` post-création n'y ramène pas fiablement.
+    fireEvent.press(screen.getByTestId('engage-done'));
+    expect(mockReplace).toHaveBeenCalledWith('/(coach)/competitions');
+    expect(mockBack).not.toHaveBeenCalled();
   });
 
   it('toast d’erreur si l’engagement échoue', async () => {

@@ -8,6 +8,7 @@ import {
 import { ThemeProvider } from '@talent-x/design-tokens';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
+import { enableScreens } from 'react-native-screens';
 import { useEffect } from 'react';
 import { SessionProvider } from '../src/auth/SessionProvider';
 import { QueryProvider } from '../src/data/QueryProvider';
@@ -17,6 +18,13 @@ import { WebFocusStyle } from '../src/web/web-focus-style';
 
 // Garde le splash visible tant que les polices ne sont pas chargées.
 void SplashScreen.preventAutoHideAsync();
+
+// TLX-222 : sans cet appel, react-native-screens désactive son mécanisme de gel
+// (`display: none` sur les écrans d'onglet inactifs) sur **web** — les onglets masqués
+// (formulaires/détails routés en `Tabs.Screen` hors barre) retombent sur un simple
+// `pointerEvents` que les boutons enfants (Pressable) réactivent explicitement,
+// laissant un calque fantôme intercepter les clics après un `router.replace`.
+enableScreens();
 
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({

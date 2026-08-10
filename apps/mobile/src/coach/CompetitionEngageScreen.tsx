@@ -21,6 +21,7 @@ import {
   COMPETITIONS_QUERY_KEY,
   competitionEntriesQueryKey,
 } from '../competitions/competitions-query';
+import { coachCompetitionsHref } from '../competitions/navigation';
 
 /**
  * Engagement d'athlètes à une compétition (TLX-101, ADR-24 — miroir de `CoachAssignScreen`).
@@ -126,7 +127,11 @@ export function CompetitionEngageScreen({ competitionId }: { competitionId: stri
         <ConfirmationView
           competitionName={competition.data?.name}
           names={confirmedNames}
-          onDone={() => router.back()}
+          // Cible explicite (pas `back()`, TLX-222) : cet écran est enchaîné après création
+          // via `replace()` dans un navigateur d'onglets (routes masquées), dont l'historique
+          // de « retour » ne pointe pas fiablement vers la liste. « Terminé » vise donc
+          // directement la liste plutôt que de dépendre de l'historique de navigation.
+          onDone={() => router.replace(coachCompetitionsHref())}
         />
       ) : (
         <>
