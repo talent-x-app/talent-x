@@ -85,8 +85,14 @@ export function initialRowCount(ex: Exercise, rounds?: number): number {
   return 1;
 }
 
-/** Nombre de barres pré-remplies par défaut quand le coach fixe départ + montée (ADR-25). */
+/** Nombre de barres pré-remplies quand le coach fixe départ + montée sans planifier (ADR-25). */
 const DEFAULT_BAR_COUNT = 5;
+
+/**
+ * Plafond de barres pré-remplies. `bars` est un `param` **libre** (conteneur ouvert, ADR-18) :
+ * une valeur aberrante ne doit pas produire une grille ingérable côté athlète.
+ */
+const MAX_BAR_COUNT = 30;
 
 /** Une barre vide (hauteur libre + essais non tentés). */
 export function makeEmptyBar(height = ''): BarRow {
@@ -97,12 +103,21 @@ export function makeEmptyBar(height = ''): BarRow {
  * Grille de barres initiale (ADR-25) — pré-remplie depuis les params du coach
  * (`startHeightCm` + `incrementCm`, en cm → m). Sans barre de départ, une seule barre vide
  * que l'athlète renseigne. Calcul en cm entiers pour éviter le bruit flottant.
+ *
+ * Le **nombre de barres** suit `params.bars` quand le coach l'a planifié dans la carte Sauts
+ * (champ « Nb de barres », ADR-38/39 — son modèle « Hauteur » en propose 6). Sans lui, on
+ * retombe sur `DEFAULT_BAR_COUNT`. Auparavant ce défaut s'appliquait **toujours** : le coach
+ * prévisualisait 6 barres (165→190 cm) et l'athlète en recevait 5 (165→185 cm), sans que
+ * l'écart soit signalé nulle part (TLX-223). ADR-25 ne fixe pas de nombre de barres — seuls
+ * les **3 essais par barre** relèvent de la règle d'athlétisme (cf. `ATTEMPTS_PER_BAR`).
  */
 export function initialBars(ex: Exercise): BarRow[] {
   const startCm = param(ex, 'startHeightCm');
   if (startCm == null) return [makeEmptyBar()];
   const incrementCm = param(ex, 'incrementCm') ?? 0;
-  return Array.from({ length: DEFAULT_BAR_COUNT }, (_unused, i) =>
+  const planned = param(ex, 'bars');
+  const count = planned != null ? Math.min(Math.floor(planned), MAX_BAR_COUNT) : DEFAULT_BAR_COUNT;
+  return Array.from({ length: count }, (_unused, i) =>
     makeEmptyBar(String((startCm + i * incrementCm) / 100)),
   );
 }

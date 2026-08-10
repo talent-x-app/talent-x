@@ -77,6 +77,32 @@ describe('grille de barres (mode bars, ADR-25)', () => {
     expect(bars[0].attempts).toHaveLength(ATTEMPTS_PER_BAR);
   });
 
+  it('initialBars : le nombre de barres suit `bars` planifié par le coach (TLX-223)', () => {
+    // Le modèle « Hauteur » de la carte Sauts amorce 6 barres : l'athlète doit en recevoir 6,
+    // pas les 5 du défaut historique (le coach prévisualisait 165→190, l'athlète avait 165→185).
+    const bars = initialBars(
+      ex({
+        type: BlockType.vertical_jumps,
+        params: { startHeightCm: 165, incrementCm: 5, bars: 6 },
+      }),
+    );
+    expect(bars.map((b) => b.height)).toEqual(['1.65', '1.7', '1.75', '1.8', '1.85', '1.9']);
+  });
+
+  it('initialBars : `bars` aberrant est borné, `bars` absent garde le défaut', () => {
+    const huge = initialBars(
+      ex({
+        type: BlockType.vertical_jumps,
+        params: { startHeightCm: 165, incrementCm: 5, bars: 5000 },
+      }),
+    );
+    expect(huge).toHaveLength(30); // MAX_BAR_COUNT — param libre, lecture défensive (ADR-18)
+    const noPlan = initialBars(
+      ex({ type: BlockType.vertical_jumps, params: { startHeightCm: 165, incrementCm: 5 } }),
+    );
+    expect(noPlan).toHaveLength(5);
+  });
+
   it('initialBars : sans barre de départ → une seule barre vide', () => {
     expect(initialBars(ex({ type: BlockType.vertical_jumps }))).toEqual([
       { height: '', attempts: ['none', 'none', 'none'] },

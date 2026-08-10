@@ -4,11 +4,11 @@ import { test, expect } from './fixtures';
  * TLX-86 — Vérification live Expo : grille de barres (sauts verticaux, ADR-25 / TLX-075).
  * Parcours bout-en-bout contre la **vraie** base (enum `vertical_jumps`, RS256, seed REST) :
  *
- *  1. Le **coach construit via l'UI** une séance Hauteur (départ 165 cm, +5 cm, 5 barres)
+ *  1. Le **coach construit via l'UI** une séance Hauteur (départ 165 cm, +5 cm, 6 barres)
  *     → relecture API : `params {discipline, startHeightCm, incrementCm, bars}`, doc typé (≥ v2).
  *  2. Affectation à l'athlète (API).
- *  3. Athlète : détail séance → **grille pré-remplie** 1.65→1.85 → cycle d'essais (O/X) →
- *     soumission → `setResults` v2 exacts relus en base.
+ *  3. Athlète : détail séance → **grille pré-remplie** 1.65→1.90, dimensionnée sur les barres
+ *     planifiées (TLX-223) → cycle d'essais (O/X) → `setResults` v2 exacts relus en base.
  *  4. **Record** : confirmation `vertical:high` (max franchi = 1.80 m) ; perche → `vertical:pole`
  *     **distinct**, **aucune collision** avec une longueur (`jumps:*`).
  *  5. Revue coach (C-08) : mesures lisibles, dont la barre manquée « 1.85 m ✗ ».
@@ -50,12 +50,11 @@ test('grille de barres : coach Hauteur → athlète saisie → record vertical:h
   await expect(page.getByTestId('series-card-0-startHeight')).toHaveValue('165');
   await expect(page.getByTestId('series-card-0-increment')).toHaveValue('5');
 
-  // 5 barres (le modèle en propose 6) : la grille prévisualisée par le coach colle alors
-  // exactement à celle pré-remplie côté athlète (1,65 → 1,85).
-  await page.getByTestId('series-card-0-bars').fill('5');
+  // Le modèle planifie 6 barres : la grille prévisualisée par le coach va de 165 à 190 cm.
+  await expect(page.getByTestId('series-card-0-bars')).toHaveValue('6');
   await expect(page.getByTestId('series-card-0-bar-0')).toContainText('165 cm');
-  await expect(page.getByTestId('series-card-0-bar-4')).toContainText('185 cm');
-  await expect(page.getByTestId('series-card-0-bar-5')).toHaveCount(0);
+  await expect(page.getByTestId('series-card-0-bar-5')).toContainText('190 cm');
+  await expect(page.getByTestId('series-card-0-bar-6')).toHaveCount(0);
   await page.screenshot({ path: 'e2e/__screens__/tlx-86-coach-bar-grid.png', fullPage: true });
 
   await page.getByTestId('session-field-title').fill('Saut en hauteur');
@@ -74,7 +73,7 @@ test('grille de barres : coach Hauteur → athlète saisie → record vertical:h
     discipline: 'high',
     startHeightCm: 165,
     incrementCm: 5,
-    bars: 5,
+    bars: 6,
   });
 
   // --- 2. Affectation à l'athlète (API) --------------------------------------------------
@@ -88,9 +87,13 @@ test('grille de barres : coach Hauteur → athlète saisie → record vertical:h
   await apiSeed.gotoAuthed(page, `/session/${assignment.id}`, 'session-detail-title');
   await page.getByTestId('start-perf-entry').click();
 
-  // Grille pré-remplie depuis départ 165 + montée 5 (5 barres : 1.65 → 1.85).
+  // Grille pré-remplie depuis départ 165 + montée 5, dimensionnée sur les **6 barres**
+  // planifiées par le coach (TLX-223 : `params.bars` était ignoré, l'athlète en recevait
+  // toujours 5 — le coach voyait 165→190, l'athlète 165→185).
   await expect(page.getByTestId('exercise-0-bar-0-height')).toHaveValue('1.65');
   await expect(page.getByTestId('exercise-0-bar-4-height')).toHaveValue('1.85');
+  await expect(page.getByTestId('exercise-0-bar-5-height')).toHaveValue('1.9');
+  await expect(page.getByTestId('exercise-0-bar-6-height')).toHaveCount(0);
 
   // Cycle d'essai au tap : – → O (franchi) → X (échec). On franchit 1.65→1.80, on manque 1.85.
   for (const j of [0, 1, 2, 3]) {
