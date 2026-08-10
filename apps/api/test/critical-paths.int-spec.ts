@@ -414,10 +414,22 @@ describe('Parcours critiques (E2E DB) — TLX-120', () => {
       await http().get(`/api/v1/sessions/${randomUUID()}`).set(bearer(intruder.token)).expect(404);
     });
 
-    it('bloque la lecture des stats sans coach_access → 403 CONSENT_REQUIRED', async () => {
+    it('gate coach_access par coach (ADR-51 §D2a) : lien sans consentement → 403, join par code → scopé accordé, révocation globale → 403', async () => {
       const coach = await register('coach');
       const athlete = await register('athlete');
       await grantConsent(athlete.token, 'data_processing'); // mais PAS coach_access
+
+      // Lien direct sans aucun consentement coach_access → stats bloquées.
+      await prisma.coachAthleteLink.create({
+        data: { coachId: coach.id, athleteId: athlete.id, source: 'direct' },
+      });
+      const blocked = await http()
+        .get(`/api/v1/athletes/${athlete.id}/stats`)
+        .set(bearer(coach.token));
+      expect(blocked.status).toBe(403);
+      expect(blocked.body.error).toBe('CONSENT_REQUIRED');
+
+      // TLX-187 : l'adhésion par code dépose un consentement coach_access **scopé** au coach → 200.
       const group = await http()
         .post('/api/v1/groups')
         .set(bearer(coach.token))
@@ -428,10 +440,15 @@ describe('Parcours critiques (E2E DB) — TLX-120', () => {
         .set(bearer(athlete.token))
         .send({ inviteCode: group.body.inviteCode })
         .expect(200);
+      await http().get(`/api/v1/athletes/${athlete.id}/stats`).set(bearer(coach.token)).expect(200);
 
-      const res = await http().get(`/api/v1/athletes/${athlete.id}/stats`).set(bearer(coach.token));
-      expect(res.status).toBe(403);
-      expect(res.body.error).toBe('CONSENT_REQUIRED');
+      // Une révocation **globale** plus récente l'emporte sur la ligne scopée → 403 à nouveau.
+      await grantConsent(athlete.token, 'coach_access', false);
+      const revoked = await http()
+        .get(`/api/v1/athletes/${athlete.id}/stats`)
+        .set(bearer(coach.token));
+      expect(revoked.status).toBe(403);
+      expect(revoked.body.error).toBe('CONSENT_REQUIRED');
     });
 
     it('rejette toute route protégée sans jeton → 401', async () => {
@@ -899,7 +916,7 @@ describe('Parcours critiques (E2E DB) — TLX-120', () => {
   });
 
   describe('Journal d’entraînement — POST /athletes/me/training-log (TLX-111 / ADR-36)', () => {
-    it('séance libre : alimente progression/records, exclue du dashboard coach, visible en progress coach consenti', async () => {
+    it('séance libre : alimente progression/records, exclue du dashboard coach et du progress coach (cloisonnement ADR-51 §D3)', async () => {
       const coach = await register('coach');
       const athlete = await register('athlete');
       await grantConsent(athlete.token, 'data_processing');
@@ -987,7 +1004,9 @@ describe('Parcours critiques (E2E DB) — TLX-120', () => {
       const row = dash.body.athletes.find((a: { id: string }) => a.id === athlete.id);
       expect(row.toReviewCount).toBe(0);
 
-      // Progression coach (consent-gated coach_access) : la marque libre EST visible (athleteId-scopé).
+      // Progression coach (consent-gated coach_access) : depuis ADR-51 §D3, la vue coach est
+      // **cloisonnée à ses propres séances** → la marque du journal libre (self_logged, possédée
+      // par l'athlète) n'y apparaît PAS. Elle reste visible côté athlète (assertion ci-dessus).
       const coachProgress = await http()
         .get(`/api/v1/athletes/${athlete.id}/progress`)
         .set(bearer(coach.token))
@@ -996,7 +1015,7 @@ describe('Parcours critiques (E2E DB) — TLX-120', () => {
         coachProgress.body.series.some(
           (s: { eventKey: string }) => s.eventKey === 'endurance:5000m',
         ),
-      ).toBe(true);
+      ).toBe(false);
     });
   });
 
