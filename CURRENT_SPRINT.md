@@ -12,6 +12,41 @@ de débloquer les écrans coach C-01/C-02/C-03.
 - _(éditeurs typés terminés — TLX-054→061 livrés ↓)_
 - _(C-01 complet — TLX-081→085 livrés ↓)_
 
+## Terminés — Session 2026-08-10 : remise au vert de la suite E2E (8 rouges → 0)
+
+- **Verdict du triage** : aucun des 8 échecs n'était un bug produit. C'étaient huit tests
+  décrivant un état de l'app **antérieur à un changement déjà livré** — dette de tests, pas
+  dette de code.
+- **6 corrigés à la volée** : auto-marquage « tout lu » à l'ouverture du centre de notifs
+  (supprimé par TLX-189 → `coach-misc`, `tlx-135`) ; accès notifications retiré du Profil +
+  onglet Calendrier retiré (ADR-44 → `tlx-135`) ; coach voyant les marques du journal libre
+  (supprimé par ADR-51 §D3 → `tlx-131`, `tlx-132`) ; échéances **figées** en juin 2026 dans un
+  DatePicker qui n'avance que vers le futur (`tlx-133`) ; « Supprimer la photo » migré dans le
+  mode édition du Profil (`tlx-134`).
+- **2 réécrits** (`tlx-86`, `tlx-166`) : ils pilotaient l'**éditeur de blocs plat**
+  (`block-0-type-*`, `effort-0-0-*`) que **ADR-39** (+ TLX-167) a remplacé par un **canevas à
+  cartes d'effort** — 1 carte = 1 série, efforts en lignes de tableau. Modèle d'interaction
+  différent, pas un renommage de testID. `tlx-86` : le saut en hauteur passe par l'assistant
+  **Sauts**, dont le **Modèle « Hauteur »** bascule la carte en éditeur vertical (la discipline
+  est portée par le Modèle, plus de sélecteur séparé) ; relecture API **group-aware** (doc v3).
+  `tlx-166` : édition de la carte de série (reset d'intensité au changement de référentiel
+  ADR-39 §5, steppers, récup r/R, départ partagé) **+ la vérification qui manquait au ticket**
+  (ADR-39 plan §4) — relecture du document sérialisé, série `kind: group` encadrée
+  échauffement/RAC, params partagés portés par chaque sprint (invariant ADR-38 §2).
+- **Suite E2E : 30/30 verts** (était 20/28). Typecheck + ESLint + Prettier clean.
+- **Linear** : TLX-222 · 221 · 220 basculés en **Done** (le reliquat de la session précédente).
+- **Découvert au passage** → **TLX-223** : la carte Sauts expose « Nb de barres » et
+  « Essais / barre », les sérialise et les prévisualise, mais la saisie athlète les **ignore**
+  (`initialBars` force `DEFAULT_BAR_COUNT = 5`, `ATTEMPTS_PER_BAR = 3` est une constante). Le
+  modèle « Hauteur » amorce 6 barres : le coach voit 165→190 cm, l'athlète reçoit 165→185 cm.
+- **Deux enseignements** : (1) ADR-51 §D3 a laissé **3 tests** derrière lui (1 intégration +
+  2 E2E) — un ADR structurant mérite sa passe de mise à jour des tests dans le même lot ;
+  (2) toute **date en dur** dans un spec finit hors du domaine atteignable du DatePicker —
+  `tlx-133` était le dernier à ne pas utiliser une date relative.
+- **Résidus mineurs notés** : `NotificationsLink` est un composant **orphelin** (monté nulle
+  part) ; `AthleteHomeScreen.test.tsx` est **flaky** en suite complète ; la carte Sprint ne
+  rend pas la bascule récup **passive/active** (`recoveryType`) pourtant portée par ADR-39 §5/§6.
+
 ## Terminés — Session 2026-08-03 : dette de vérification (TLX-222 · 221 · 220)
 
 - **TLX-222 (bug web, RN-web)** : **cause racine trouvée** — `enableScreens()` n'était jamais
