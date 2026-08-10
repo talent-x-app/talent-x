@@ -12,6 +12,42 @@ de débloquer les écrans coach C-01/C-02/C-03.
 - _(éditeurs typés terminés — TLX-054→061 livrés ↓)_
 - _(C-01 complet — TLX-081→085 livrés ↓)_
 
+## Terminés — Session 2026-08-03 : dette de vérification (TLX-222 · 221 · 220)
+
+- **TLX-222 (bug web, RN-web)** : **cause racine trouvée** — `enableScreens()` n'était jamais
+  appelé. Sans lui, react-native-screens **désactive son gel sur web** (`display:none` sur les
+  écrans d'onglet inactifs) et retombe sur un `pointerEvents` que les `Pressable` enfants
+  réactivent → l'écran quitté par `router.replace` restait **cliquable au-dessus du DOM** et
+  interceptait tous les clics. Ces routes (constructeur/détail/engagement) sont des
+  `Tabs.Screen` **masquées**, pas un `Stack` : elles restent montées, d'où l'importance du gel.
+  Fix = `enableScreens()` dans `app/_layout.tsx` + « Terminé » de l'engagement qui **vise
+  explicitement la liste** (`replace(coachCompetitionsHref())`) au lieu de `back()` (l'historique
+  d'un `replace()` dans un Tabs ne ramène pas fiablement à la liste). Le contournement
+  `goto('/')` de l'E2E TLX-85 est **retiré**. Conséquence assumée : les onglets déjà visités
+  restant montés-gelés, les E2E qui partagent un testID entre onglets filtrent sur
+  `visible: true` (TLX-85, TLX-130).
+- **TLX-221** : `test/notification-read.int-spec.ts` (DB-backed, :5433) — round-trip
+  `PUT /notifications/{id}/read` : `readAt` posé + acteur ADR-55, **idempotence** vérifiée
+  jusqu'en base, **404 anti-énumération** (la notif étrangère reste intacte), `unreadCount`
+  décrémenté, « Tout marquer lu » sans écraser un `readAt` existant. **+ smoke live**
+  (`e2e/tlx-221-notification-read.spec.ts`) : ouvrir le centre **ne remet plus le badge à
+  zéro** (cœur de TLX-189), tap → pastille retirée + badge décrémenté, « Tout marquer lu » → 0.
+- **TLX-220** : vérif live de la refonte TLX-219 (`e2e/tlx-220-session-detail.spec.ts`) — hero
+  (discipline dérivée, badge d'état, « dans N j »), **bandeau adaptatif** prouvé sur deux
+  séances : « 100 m » sans brief → **ni Durée ni Difficulté** et **plus de bloc EFFORTS/VOLUME
+  redondant** ; brief complet → **4 cellules** pleines ; CTA « Saisir ma perf » → « Modifier ma
+  perf » après saisie. Helper `createSession({ brief })` ajouté aux fixtures.
+- **Divers** : deux assertions de `critical-paths.int-spec.ts` **périmées** corrigées (elles
+  décrivaient l'avant-ADR-51) — gate `coach_access` **par coach** (§D2a : lien seul → 403,
+  join par code → scopé → 200, révocation globale → 403) et progression coach **cloisonnée**
+  (§D3 : la marque d'une séance libre n'apparaît pas côté coach).
+- **Tests** : API intégration **46/46**, mobile Jest **951/952** (1 flaky isolé revert vert),
+  typecheck + ESLint + Prettier clean. **E2E** : baseline avant/après comparée — 8 échecs
+  **préexistants** (coach-misc, 131, 132, 133, 134, 135, 166, 86), **aucune régression
+  introduite** ; TLX-85, TLX-130, TLX-220 et TLX-221 verts en réel.
+- **Reste** : bascule Linear de TLX-222/221/220 en Done **non faite** (connecteur déconnecté
+  en cours de session).
+
 ## Terminés — Session 2026-07-17 : rafale backlog « sans mise en prod » (TLX-187 · 162 · 138 · 85 · 78 · 77 · 84 · 188 · 141/218 · 167)
 
 - **TLX-187 (ADR-51 §D2a)** : consentement `coach_access` **par coach** — migration additive
