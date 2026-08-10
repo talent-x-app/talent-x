@@ -2,9 +2,12 @@ import { test, expect } from './fixtures';
 
 /**
  * TLX-135 — Finitions UX athlète (suivi TLX-92) :
- *  1. Cloche de notifications : badge de non-lues sur l'accueil (athlète & coach) ; tap → centre ;
- *     badge à zéro après ouverture (mark-all-read partagé).
- *  2. Retour de navigation : Profil → centre de notifications → « Retour » revient sur Profil.
+ *  1. Cloche de notifications : badge de non-lues sur l'accueil (athlète & coach) ; tap → centre.
+ *     Depuis TLX-189 l'ouverture ne marque plus tout lu : le badge survit à un aller-retour et
+ *     ne tombe que sur le geste explicite « Tout marquer lu ».
+ *  2. Retour de navigation (`backBehavior="history"`) : revenir d'une route hors tab bar ramène
+ *     sur le dernier onglet visité, pas sur Accueil. Vérifié via la route « compétitions »
+ *     (le parcours d'origine passait par le centre de notifications du Profil, accès retiré).
  *  3. Badge d'engagement compétition : liste athlète = statut d'engagement (viewerEntryStatus) ;
  *     liste coach = statut de la compétition.
  */
