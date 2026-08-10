@@ -39,12 +39,16 @@ test('SB + marques par année, côté athlète puis coach', async ({ page, apiSe
   await expect(page.getByTestId(`progress-year-${EVENT}-2026`)).toBeVisible();
   await page.screenshot({ path: 'e2e/__screens__/tlx-131-athlete-progress.png', fullPage: true });
 
-  // --- Coach : miroir C-03 (détail athlète) ---
+  // --- Coach : miroir C-03 (détail athlète) — cloisonnement ADR-51 §D3 ---
+  // Ces marques viennent du **journal libre** (`logTraining` → séances `self_logged` possédées
+  // par l'athlète). Depuis ADR-51 §D3 la progression vue par un coach est **cloisonnée à ses
+  // propres séances** : elles n'y apparaissent donc pas, même avec `coach_access` accordé.
+  // (Le spec asseyait l'inverse, d'avant ADR-51 — cf. même correction dans
+  // `apps/api/test/critical-paths.int-spec.ts`.)
   await apiSeed.loginAs(page, coach);
   await page.goto(`/athlete/${athlete.id}`);
   await expect(page.getByTestId('athlete-detail-name')).toBeVisible({ timeout: 20_000 });
-  await expect(page.getByTestId(`progress-series-${EVENT}`)).toBeVisible();
-  await expect(page.getByTestId(`progress-sb-${EVENT}`)).toBeVisible();
-  await expect(page.getByTestId(`progress-year-${EVENT}-2026`)).toBeVisible();
+  await expect(page.getByTestId(`progress-series-${EVENT}`)).toHaveCount(0);
+  await expect(page.getByTestId(`progress-sb-${EVENT}`)).toHaveCount(0);
   await page.screenshot({ path: 'e2e/__screens__/tlx-131-coach-c03.png', fullPage: true });
 });

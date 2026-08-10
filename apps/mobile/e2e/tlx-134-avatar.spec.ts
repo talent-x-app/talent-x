@@ -72,6 +72,9 @@ test('avatar : picker web → upload présigné → affichage photo → suppress
   ).toBeGreaterThan(0);
 
   // --- Suppression → retour aux initiales ---
+  // La refonte Profil a déplacé « Supprimer la photo » dans le **mode édition** (bandeau
+  // d'identité désencombré) : il faut d'abord ouvrir l'édition via le crayon.
+  await page.getByTestId('profile-edit').click();
   await page.getByTestId('profile-avatar-remove').click();
   await expect(page.getByTestId('profile-initials')).toBeVisible({ timeout: 20_000 });
   await expect(page.getByTestId('profile-photo')).toHaveCount(0);

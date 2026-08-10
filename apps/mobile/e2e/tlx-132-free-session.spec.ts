@@ -42,13 +42,16 @@ test('saisie séance libre → progression alimentée, absente du dashboard coac
   await expect(page.getByTestId(`progress-year-${EVENT}-2026`)).toBeVisible();
   await page.screenshot({ path: 'e2e/__screens__/tlx-132-athlete-progress.png', fullPage: true });
 
-  // Coach : la marque est visible en progression de l'athlète…
+  // Coach : la séance libre reste **invisible** de son côté (cloisonnement ADR-51 §D3) — sa vue
+  // de progression est limitée à ses propres séances, et une séance `self_logged` appartient à
+  // l'athlète. Le spec asseyait l'inverse, d'avant ADR-51 (même correction que dans
+  // `apps/api/test/critical-paths.int-spec.ts`).
   await apiSeed.loginAs(page, coach);
   await page.goto(`/athlete/${athlete.id}`);
   await expect(page.getByTestId('athlete-detail-name')).toBeVisible({ timeout: 20_000 });
-  await expect(page.getByTestId(`progress-series-${EVENT}`)).toBeVisible();
+  await expect(page.getByTestId(`progress-series-${EVENT}`)).toHaveCount(0);
 
-  // …mais la séance libre (self_logged) n'alimente PAS le tableau de bord coach :
+  // …et elle n'alimente pas davantage le tableau de bord coach :
   // aucune entrée « à revoir » pour cet athlète (la perf self_logged est exclue).
   await page.goto('/');
   await expect(page.getByTestId('coach-dashboard-subtitle')).toBeVisible({ timeout: 20_000 });

@@ -20,10 +20,28 @@ async function pickDate(page: Page, testID: string, iso: string) {
   await cell.click();
 }
 
-// 2026-06-16 = mardi ; jusqu'au 2026-07-07 (mardi) inclus → 16, 23, 30 juin + 7 juil. = 4 occurrences.
-const DUE = '2026-06-16';
-const UNTIL = '2026-07-07';
+/** Prochain mardi **strictement** après aujourd'hui, en ISO local. */
+function nextTuesday(): Date {
+  const d = new Date();
+  d.setHours(12, 0, 0, 0);
+  do {
+    d.setDate(d.getDate() + 1);
+  } while (d.getDay() !== 2); // 2 = mardi
+  return d;
+}
+
+function isoOf(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+// Dates **relatives à aujourd'hui** : le `DatePicker` n'avance que vers le futur, donc des dates
+// en dur finissent immanquablement par sortir du domaine atteignable (ce spec était figé sur juin
+// 2026). Premier mardi à venir, puis 3 semaines plus tard inclus → 4 occurrences hebdomadaires.
 const OCCURRENCES = 4;
+const DUE_DATE = nextTuesday();
+const DUE = isoOf(DUE_DATE);
+const UNTIL = isoOf(new Date(DUE_DATE.getTime() + (OCCURRENCES - 1) * 7 * 24 * 60 * 60 * 1000));
 
 test('assignation récurrente → N occurrences + confirmation « répétée N fois »', async ({
   page,
