@@ -9,10 +9,11 @@ import { NOTIFICATIONS_QUERY_KEY } from './NotificationsScreen';
 
 /**
  * Cloche de notifications persistante (TLX-92) — pour les en-têtes d'écran. Comble un défaut de
- * découvrabilité : le centre n'était accessible que via une entrée enfouie du Profil
- * (`NotificationsLink`). Partage le même cache (`NOTIFICATIONS_QUERY_KEY`) que le Profil et le
- * centre — l'ouverture du centre remet le badge à zéro (mark-all-read). Navigue vers le centre du
- * groupe de routes courant selon le rôle.
+ * découvrabilité : le centre n'était accessible que via une entrée enfouie du Profil, retirée
+ * depuis (la cloche est le **seul** accès). Partage le même cache (`NOTIFICATIONS_QUERY_KEY`) que
+ * le centre : le badge suit les lectures **unitaires** (tap sur une notif) et « Tout marquer lu » —
+ * l'ouverture du centre ne le remet plus à zéro (TLX-189). Navigue vers le centre du groupe de
+ * routes courant selon le rôle.
  */
 export function NotificationsBell() {
   const { colors, typography } = useTheme();

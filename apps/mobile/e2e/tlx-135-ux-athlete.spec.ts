@@ -69,7 +69,7 @@ test('cloche notifs (athlète + coach), retour de nav, badge engagement', async 
   // --- 2. Badge d'engagement athlète + retour de nav (TLX-92, `backBehavior="history"`) ---
   // Le parcours d'origine de cette section (Profil → « Centre de notifications » → retour)
   // n'existe plus : la refonte Profil a retiré cet accès au profit de la seule cloche
-  // (`NotificationsLink` n'est plus monté nulle part). La règle TLX-92 — revenir d'une route
+  // (le composant `NotificationsLink`, resté orphelin, a été supprimé). La règle TLX-92 — revenir d'une route
   // HORS tab bar ramène sur le DERNIER onglet visité, pas sur Accueil — reste vérifiable ici,
   // via la route « compétitions ». Depuis ADR-44 le calendrier n'est plus un onglet de la tab
   // bar athlète (Accueil · Séances · Progression · Groupe · Profil) : il est une vue de
