@@ -4,8 +4,8 @@ import { test, expect } from './fixtures';
  * TLX-86 — Vérification live Expo : grille de barres (sauts verticaux, ADR-25 / TLX-075).
  * Parcours bout-en-bout contre la **vraie** base (enum `vertical_jumps`, RS256, seed REST) :
  *
- *  1. Le **coach construit via l'UI** une séance Hauteur (discipline=high, départ 165 cm, +5 cm)
- *     → relecture API : `params {discipline, startHeightCm, incrementCm}`, `schemaVersion 2`.
+ *  1. Le **coach construit via l'UI** une séance Hauteur (départ 165 cm, +5 cm, 5 barres)
+ *     → relecture API : `params {discipline, startHeightCm, incrementCm, bars}`, doc typé (≥ v2).
  *  2. Affectation à l'athlète (API).
  *  3. Athlète : détail séance → **grille pré-remplie** 1.65→1.85 → cycle d'essais (O/X) →
  *     soumission → `setResults` v2 exacts relus en base.
@@ -13,7 +13,18 @@ import { test, expect } from './fixtures';
  *     **distinct**, **aucune collision** avec une longueur (`jumps:*`).
  *  5. Revue coach (C-08) : mesures lisibles, dont la barre manquée « 1.85 m ✗ ».
  *  6. Réhydratation : ré-ouverture de la saisie → grille regroupée par hauteur (essais restaurés).
+ *
+ * Côté coach, le parcours suit le **canevas à cartes d'effort** (ADR-39, généralisé aux 6
+ * disciplines par TLX-167) : l'ancien éditeur de blocs plat (`block-0-type-*`) n'existe plus
+ * en création. Le saut en hauteur s'atteint par l'assistant **Sauts**, dont le **Modèle**
+ * « Hauteur » bascule la carte en éditeur vertical — il n'y a volontairement plus de sélecteur
+ * de discipline séparé (`jumps-effort-card.tsx` : « la discipline est portée par le Modèle »).
  */
+
+/** Feuilles d'un doc `exercises` v3, groupes traversés (ADR-27) — le canevas sérialise en séries. */
+function leaves(items: any[]): any[] {
+  return (items ?? []).flatMap((n) => (Array.isArray(n?.items) ? n.items : [n]));
+}
 
 test('grille de barres : coach Hauteur → athlète saisie → record vertical:high → revue coach', async ({
   page,
@@ -26,34 +37,45 @@ test('grille de barres : coach Hauteur → athlète saisie → record vertical:h
   await apiSeed.grantConsent(athlete.token, 'data_processing');
   await apiSeed.grantConsent(athlete.token, 'coach_access');
 
-  // --- 1. Le coach construit la séance Hauteur via le constructeur (UI) -------------------
+  // --- 1. Le coach construit la séance Hauteur via l'assistant Sauts (UI) -----------------
   await apiSeed.loginAs(page, coach);
-  // `/session/new` affiche désormais le choix de discipline (ADR-38) ; `mode=custom` va
-  // directement au constructeur générique (option « Personnalisé »).
-  await page.goto('/session/new?mode=custom');
-  await expect(page.getByTestId('session-builder-title')).toBeVisible({ timeout: 20_000 });
+  await apiSeed.gotoAuthed(page, '/session/new', 'new-session-title');
+  await page.getByTestId('new-session-discipline-jumps').click();
+  await expect(page.getByTestId('jumps-effort-canvas')).toBeVisible({ timeout: 20_000 });
+
+  // Modèle « Hauteur » → la carte quitte l'éditeur horizontal (élan/essais) pour l'éditeur
+  // vertical (barre de départ / montée / nb de barres), pré-rempli à 165 cm + 5 cm.
+  await page.getByTestId('series-card-0-preset').click();
+  await page.getByTestId('series-card-0-preset-high').click();
+  await expect(page.getByTestId('series-card-0-startHeight')).toHaveValue('165');
+  await expect(page.getByTestId('series-card-0-increment')).toHaveValue('5');
+
+  // 5 barres (le modèle en propose 6) : la grille prévisualisée par le coach colle alors
+  // exactement à celle pré-remplie côté athlète (1,65 → 1,85).
+  await page.getByTestId('series-card-0-bars').fill('5');
+  await expect(page.getByTestId('series-card-0-bar-0')).toContainText('165 cm');
+  await expect(page.getByTestId('series-card-0-bar-4')).toContainText('185 cm');
+  await expect(page.getByTestId('series-card-0-bar-5')).toHaveCount(0);
+  await page.screenshot({ path: 'e2e/__screens__/tlx-86-coach-bar-grid.png', fullPage: true });
 
   await page.getByTestId('session-field-title').fill('Saut en hauteur');
   await page.getByTestId('session-status-published').click();
-  // Le bloc 0 existe déjà (formulaire vierge) : on lui donne le type sauts verticaux.
-  await page.getByTestId('block-0-type-vertical_jumps').click();
-  await expect(page.getByTestId('block-0-params')).toBeVisible();
-  await page.getByTestId('block-0-name').fill('Hauteur');
-  await page.getByTestId('block-0-param-discipline-high').click();
-  await page.getByTestId('block-0-param-startHeightCm').fill('165');
-  await page.getByTestId('block-0-param-incrementCm').fill('5');
-
   await page.getByTestId('session-save').click();
   // Création d'une séance → enchaîne sur l'assignation (C-06) : l'URL porte le nouvel id.
   await page.waitForURL(/\/assign\//, { timeout: 20_000 });
   const sessionId = decodeURIComponent(page.url().match(/\/assign\/([^/?]+)/)![1]);
 
-  // Relecture API : params persistés en v2 (le builder a bien sérialisé discipline + barres).
+  // Relecture API : params persistés (la carte a bien sérialisé discipline + barres).
   const session = await apiSeed.getSession(coach.token, sessionId);
   expect(session.exercises.schemaVersion).toBeGreaterThanOrEqual(2); // doc exercises typé (≥ v2)
-  const block = session.exercises.items[0];
-  expect(block.type).toBe('vertical_jumps');
-  expect(block.params).toMatchObject({ discipline: 'high', startHeightCm: 165, incrementCm: 5 });
+  const block = leaves(session.exercises.items).find((b) => b.type === 'vertical_jumps');
+  expect(block, 'aucune feuille vertical_jumps sérialisée').toBeTruthy();
+  expect(block.params).toMatchObject({
+    discipline: 'high',
+    startHeightCm: 165,
+    incrementCm: 5,
+    bars: 5,
+  });
 
   // --- 2. Affectation à l'athlète (API) --------------------------------------------------
   const [assignment] = await apiSeed.assign(coach.token, sessionId, {
