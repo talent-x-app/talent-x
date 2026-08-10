@@ -6,7 +6,8 @@ import { failApi, stubNotifications } from './helpers/network';
  * notifications côté coach. Profondeur §3.1 :
  *  - Layout : N (4 onglets + nav) + P (athlète redirigé par RoleGuard).
  *  - Dashboard : N (KPIs + section « à revoir ») + ∅ (premier usage).
- *  - Notifications : N (auto-marquage « tout lu » à l'ouverture + badge), ∅, E (smoke).
+ *  - Notifications : N (l'ouverture ne marque plus tout lu — TLX-189 ; geste explicite
+ *    « Tout marquer lu » + badge), ∅, E (smoke).
  *
  * Hors périmètre ici (couvert ailleurs) : le deep-link notif → revue C-08 et l'attente
  * worker sont déjà testés par `tlx-140` ; le layout adaptatif (largeurs) par `tlx-130`.
@@ -75,11 +76,11 @@ test.describe('coach-misc — layout, dashboard, notifications', () => {
 
   // ---------- Notifications ----------
 
-  test('notifications coach — auto-marquage « tout lu » à l’ouverture (badge → 0)', async ({
+  test('notifications coach — l’ouverture ne marque plus tout lu ; « Tout marquer lu » le fait (TLX-189)', async ({
     page,
     apiSeed,
   }) => {
-    // Feed stubbé (le worker async n'est pas requis ici ; round-trip réel = tlx-140).
+    // Feed stubbé (le worker async n'est pas requis ici ; round-trip réel = tlx-140/tlx-221).
     const coach = await apiSeed.register('coach', 'Coach', 'StubNotif');
     const probe = await stubNotifications(page, { type: 'performance_submitted' });
 
@@ -94,11 +95,17 @@ test.describe('coach-misc — layout, dashboard, notifications', () => {
     await expect(page.getByTestId('notifications-title')).toBeVisible({ timeout: 20_000 });
     await expect(page.getByTestId('notification-stub-notif-1')).toBeVisible();
 
-    // Auto-marquage « tout lu » → read-all appelé + pastille non-lue disparue.
+    // TLX-189 : la simple ouverture ne marque PLUS tout lu — la pastille non-lue subsiste et
+    // aucun `read-all` n'est émis (le pouls des annonces/réponses/kudos n'est plus effacé).
+    await expect(page.getByTestId('notification-stub-notif-1-unread')).toBeVisible();
+    await page.waitForTimeout(2_000);
+    expect(probe.wasReadAllCalled()).toBe(false);
+
+    // Le geste explicite, lui, marque tout lu → pastille retirée, badge à zéro au retour.
+    await page.getByTestId('notifications-read-all').click();
     await expect.poll(() => probe.wasReadAllCalled(), { timeout: 15_000 }).toBe(true);
     await expect(page.locator('[data-testid$="-unread"]')).toHaveCount(0, { timeout: 15_000 });
 
-    // Retour dashboard → le badge de la cloche est tombé à zéro.
     await page.getByTestId('notifications-back').click();
     await expect(page.getByTestId('notifications-bell-badge')).toBeHidden({ timeout: 15_000 });
   });

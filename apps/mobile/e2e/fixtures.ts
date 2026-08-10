@@ -238,12 +238,19 @@ class ApiSeed {
   /** Séance coach minimale (titre + 1 bloc sprint typé). Renvoie l'id. */
   async createSession(
     coachToken: string,
-    opts: { title?: string; status?: 'draft' | 'published'; distanceMeters?: number } = {},
+    opts: {
+      title?: string;
+      status?: 'draft' | 'published';
+      distanceMeters?: number;
+      /** Brief de séance (ADR-28) — `durationMinutes`/`difficulty` alimentent le bandeau TLX-219. */
+      brief?: Record<string, unknown>;
+    } = {},
   ): Promise<string> {
     const distance = opts.distanceMeters ?? 100;
     const s = await this.postOk(coachToken, '/sessions', {
       title: opts.title ?? 'Seance E2E',
       status: opts.status ?? 'published',
+      ...(opts.brief ? { brief: opts.brief } : {}),
       exercises: {
         schemaVersion: 1,
         items: [

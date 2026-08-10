@@ -91,8 +91,9 @@ export async function restoreApi(page: Page): Promise<void> {
 export async function stubNotifications(
   page: Page,
   opts: { type?: string; resourceId?: string; id?: string } = {},
-): Promise<{ wasReadAllCalled: () => boolean }> {
+): Promise<{ wasReadAllCalled: () => boolean; wasItemReadCalled: () => boolean }> {
   let readAll = false;
+  let itemRead = false;
   const id = opts.id ?? 'stub-notif-1';
   const type = opts.type ?? 'performance_submitted';
   const resourceId = opts.resourceId ?? 'stub-resource';
@@ -109,20 +110,30 @@ export async function stubNotifications(
         body: JSON.stringify({ data: { updated: 1 } }),
       });
     }
+    // Lecture unitaire (TLX-189) : `PUT /notifications/{id}/read`.
+    if (req.method() === 'PUT' && /\/notifications\/[^/]+\/read(\?|$)/.test(url)) {
+      itemRead = true;
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ id, type, resourceId, createdAt: now(), readAt: now() }),
+      });
+    }
     // Feed : `/notifications` ou `/notifications?...` (pas les sous-ressources).
     if (req.method() === 'GET' && /\/notifications(\?|$)/.test(url)) {
+      const read = readAll || itemRead;
       return route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
-          data: [{ id, type, resourceId, createdAt: now(), ...(readAll ? { readAt: now() } : {}) }],
+          data: [{ id, type, resourceId, createdAt: now(), ...(read ? { readAt: now() } : {}) }],
           meta: { total: 1, page: 1, limit: 50, hasNext: false },
-          unreadCount: readAll ? 0 : 1,
+          unreadCount: read ? 0 : 1,
         }),
       });
     }
     return route.continue();
   });
 
-  return { wasReadAllCalled: () => readAll };
+  return { wasReadAllCalled: () => readAll, wasItemReadCalled: () => itemRead };
 }
