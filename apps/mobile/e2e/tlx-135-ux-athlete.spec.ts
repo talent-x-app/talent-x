@@ -47,8 +47,9 @@ test('cloche notifs (athlète + coach), retour de nav, badge engagement', async 
   await apiSeed.loginAs(page, athlete);
   await expect(page.getByTestId('home-greeting')).toBeVisible({ timeout: 20_000 });
 
-  // --- 1a. Cloche athlète : badge visible → ouverture → badge tombé (mark-all-read) ---
-  // (à faire AVANT toute autre ouverture du centre, qui marque tout comme lu).
+  // --- 1a. Cloche athlète : badge visible → ouverture (sans read-all) → « Tout marquer lu » ---
+  // TLX-189 : la simple ouverture du centre ne marque PLUS tout lu ; seul le geste explicite
+  // le fait. Le badge doit donc survivre à un aller-retour, puis tomber sur « Tout marquer lu ».
   await expect(page.getByTestId('notifications-bell-badge')).toBeVisible();
   await page.screenshot({ path: 'e2e/__screens__/tlx-135-athlete-badge.png' });
   await page.getByTestId('notifications-bell').click();
@@ -56,29 +57,43 @@ test('cloche notifs (athlète + coach), retour de nav, badge engagement', async 
   await expect(page.locator('[data-testid^="notification-"]').first()).toBeVisible();
   await page.getByTestId('notifications-back').click();
   await expect(page.getByTestId('home-greeting')).toBeVisible();
-  await expect(page.getByTestId('notifications-bell-badge')).toHaveCount(0);
+  await expect(page.getByTestId('notifications-bell-badge')).toBeVisible();
 
-  // --- 2. Retour de navigation : Profil → notifications → retour sur Profil (pas Accueil) ---
-  await page.getByRole('tab', { name: 'Profil' }).click();
-  await expect(page.getByTestId('profile-name')).toBeVisible({ timeout: 15_000 });
-  await page.getByTestId('profile-notifications-link').click();
-  await expect(page.getByTestId('notifications-title')).toBeVisible({ timeout: 15_000 });
+  // Geste explicite → badge à zéro (et le centre reste consultable ensuite).
+  await page.getByTestId('notifications-bell').click();
+  await page.getByTestId('notifications-read-all').click();
   await page.getByTestId('notifications-back').click();
-  await expect(page.getByTestId('profile-name')).toBeVisible();
-  // Les écrans d'onglets restent montés (react-native-web) → onglet actif prouvé via aria-selected.
-  await expect(page.getByRole('tab', { name: 'Profil' })).toHaveAttribute('aria-selected', 'true');
-  await expect(page.getByRole('tab', { name: 'Accueil' })).toHaveAttribute(
-    'aria-selected',
-    'false',
-  );
+  await expect(page.getByTestId('home-greeting')).toBeVisible();
+  await expect(page.getByTestId('notifications-bell-badge')).toHaveCount(0, { timeout: 15_000 });
 
-  // --- 3. Badge d'engagement athlète (statut d'engagement, via lien client-side) ---
+  // --- 2. Badge d'engagement athlète + retour de nav (TLX-92, `backBehavior="history"`) ---
+  // Le parcours d'origine de cette section (Profil → « Centre de notifications » → retour)
+  // n'existe plus : la refonte Profil a retiré cet accès au profit de la seule cloche
+  // (`NotificationsLink` n'est plus monté nulle part). La règle TLX-92 — revenir d'une route
+  // HORS tab bar ramène sur le DERNIER onglet visité, pas sur Accueil — reste vérifiable ici,
+  // via la route « compétitions ». Depuis ADR-44 le calendrier n'est plus un onglet de la tab
+  // bar athlète (Accueil · Séances · Progression · Groupe · Profil) : il est une vue de
+  // l'onglet Séances, d'où le passage par le sous-onglet « Calendrier ».
+  await page.getByRole('tab', { name: 'Séances' }).click();
   await page.getByRole('tab', { name: 'Calendrier' }).click();
   await page.getByTestId('calendar-competitions-link').click();
   await expect(page.getByTestId('entry-status-engaged').first()).toBeVisible({ timeout: 20_000 });
   await page.screenshot({ path: 'e2e/__screens__/tlx-135-athlete-engagement.png', fullPage: true });
 
-  // --- 1b. Cloche coach : badge visible → ouverture → badge tombé ---
+  // Retour depuis la route hors tab bar → on revient sur Séances (dernier onglet visité).
+  await page.getByTestId('competitions-back').click();
+  // Les écrans d'onglets restent montés (react-native-web) → onglet actif prouvé via aria-selected.
+  await expect(page.getByRole('tab', { name: 'Séances' })).toHaveAttribute(
+    'aria-selected',
+    'true',
+    { timeout: 15_000 },
+  );
+  await expect(page.getByRole('tab', { name: 'Accueil' })).toHaveAttribute(
+    'aria-selected',
+    'false',
+  );
+
+  // --- 1b. Cloche coach : badge visible → ouverture (sans read-all) → « Tout marquer lu » ---
   await apiSeed.loginAs(page, coach);
   await expect(page.getByTestId('coach-dashboard-subtitle')).toBeVisible({ timeout: 20_000 });
   await expect(page.getByTestId('notifications-bell-badge')).toBeVisible();
@@ -86,7 +101,13 @@ test('cloche notifs (athlète + coach), retour de nav, badge engagement', async 
   await expect(page.getByTestId('notifications-title')).toBeVisible({ timeout: 15_000 });
   await page.getByTestId('notifications-back').click();
   await expect(page.getByTestId('coach-dashboard-subtitle')).toBeVisible();
-  await expect(page.getByTestId('notifications-bell-badge')).toHaveCount(0);
+  // TLX-189 : l'ouverture seule ne marque plus tout lu — le badge survit.
+  await expect(page.getByTestId('notifications-bell-badge')).toBeVisible();
+  await page.getByTestId('notifications-bell').click();
+  await page.getByTestId('notifications-read-all').click();
+  await page.getByTestId('notifications-back').click();
+  await expect(page.getByTestId('coach-dashboard-subtitle')).toBeVisible();
+  await expect(page.getByTestId('notifications-bell-badge')).toHaveCount(0, { timeout: 15_000 });
 
   // --- 3b. Liste coach : statut de la compétition (publiée), pas d'engagement ---
   // ADR-53 : le calendrier coach est désormais sous l'onglet Séances (sous-onglet Calendrier).
