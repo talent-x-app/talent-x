@@ -26,6 +26,7 @@ import {
   InfoNote,
   InlineNumberInput,
   PresetPicker,
+  RECOVERY_TYPES,
   SegmentedControl,
   SeriesCardFrame,
   SwitchToggle,
@@ -70,6 +71,10 @@ function serieProps(group: EditableGroup) {
     intensityMode: first?.params.intensityMode ?? 'percent_record',
     startType: first?.params.startType ?? 'blocks',
     flyingZone: first?.params.flyingZone === 'true',
+    // ADR-39 §6 — récup r active/passive. Défaut `passive` (maquette) : une série héritée d'avant
+    // la bascule (param absent) s'affiche donc « Passive », ce que la valeur posée à la création
+    // rend cohérent pour toute série produite par la carte.
+    recoveryType: first?.params.recoveryType ?? 'passive',
     rounds: Math.max(1, Number(group.rounds) || 1),
     restR: Math.max(0, Number(group.restBetweenRoundsSeconds) || 0),
   };
@@ -125,6 +130,7 @@ function makeSprintBlock(opts: {
   intensityMode: string;
   startType: string;
   flyingZone: boolean;
+  recoveryType: string;
 }): EditableBlock {
   const d = opts.distance ?? 60;
   return makeBlock({
@@ -134,6 +140,7 @@ function makeSprintBlock(opts: {
       reps: '1',
       distanceMeters: String(d),
       recoverySeconds: String(opts.recovery ?? 240),
+      recoveryType: opts.recoveryType,
       intensityMode: opts.intensityMode,
       intensityValue: String(opts.intensity ?? 95),
       startType: opts.startType,
@@ -212,7 +219,7 @@ export function SprintEffortCanvas({
     commit(
       series.map((g, i) => {
         if (i !== gi) return g;
-        const { intensityMode, startType, flyingZone } = serieProps(g);
+        const { intensityMode, startType, flyingZone, recoveryType } = serieProps(g);
         const last = g.items[g.items.length - 1];
         const newSprint = makeSprintBlock({
           distance: Number(last?.params.distanceMeters) || 60,
@@ -221,6 +228,7 @@ export function SprintEffortCanvas({
           intensityMode,
           startType,
           flyingZone,
+          recoveryType,
         });
         return { ...g, items: [...g.items, newSprint] };
       }),
@@ -259,6 +267,7 @@ export function SprintEffortCanvas({
               intensityMode: 'percent_record',
               startType: 'blocks',
               flyingZone: false,
+              recoveryType: 'passive',
             }),
           ],
         }),
@@ -389,7 +398,7 @@ function SeriesCard({
   const [selectedPresetKey, setSelectedPresetKey] = useState(() => matchPresetKey(group));
   const { colors, typography, spacing } = useTheme();
   const tid = `series-card-${index}`;
-  const { intensityMode, startType, flyingZone, rounds, restR } = serieProps(group);
+  const { intensityMode, startType, flyingZone, recoveryType, rounds, restR } = serieProps(group);
 
   return (
     <SeriesCardFrame
@@ -469,6 +478,25 @@ function SeriesCard({
           />
         ))}
       </EffortTable>
+
+      {/* Type de récup r — qualifie la colonne « Récup r » du tableau ci-dessus (ADR-39 §5 :
+          « Récup r — chips + bascule passive/active »). Propriété partagée de la série, portée
+          par les params de chaque sprint du groupe comme départ / référentiel d'intensité. */}
+      <View style={{ gap: spacing[2] }}>
+        <FieldLabel>Type de récup. r</FieldLabel>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] }}>
+          {RECOVERY_TYPES.map((r) => (
+            <Chip
+              key={r.value}
+              testID={`${tid}-rectype-${r.value}`}
+              selected={recoveryType === r.value}
+              onPress={() => onPatchSerieParam({ recoveryType: r.value })}
+            >
+              {r.label}
+            </Chip>
+          ))}
+        </View>
+      </View>
 
       {/* Référentiel d'intensité */}
       <View style={{ gap: spacing[2] }}>

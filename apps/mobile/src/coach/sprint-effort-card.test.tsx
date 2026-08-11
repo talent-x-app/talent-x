@@ -309,6 +309,76 @@ describe('SprintEffortCanvas', () => {
     expect(arg[1].items[0].params.flyingZone).toBe('true');
   });
 
+  // --- Type de récup r (ADR-39 §5/§6, TLX-224) ---------------------------------------------
+
+  it('récup r : chips rendues, « Passive » sélectionnée par défaut (param absent)', () => {
+    // `makeSerie` ne pose pas `recoveryType` → cas d'une série héritée d'avant la bascule.
+    render(<SprintEffortCanvas nodes={defaultNodes()} onChange={jest.fn()} />);
+    expect(
+      screen.getByTestId('series-card-0-rectype-passive').props.accessibilityState.selected,
+    ).toBe(true);
+    expect(
+      screen.getByTestId('series-card-0-rectype-active').props.accessibilityState.selected,
+    ).toBe(false);
+  });
+
+  it('récup r : bascule sur Active → posée sur TOUS les sprints de la série', () => {
+    const onChange = jest.fn();
+    const nodes = [
+      makeWarmupBlock(),
+      makeSerie({
+        sprints: [
+          { distance: 30, intensity: 90, recovery: 180 },
+          { distance: 60, intensity: 95, recovery: 240 },
+        ],
+      }),
+      makeCooldownBlock(),
+    ];
+    render(<SprintEffortCanvas nodes={nodes} onChange={onChange} />);
+    act(() => {
+      fireEvent.press(screen.getByTestId('series-card-0-rectype-active'));
+    });
+    const [arg] = onChange.mock.calls[onChange.mock.calls.length - 1];
+    // Propriété partagée de la série : portée par chaque feuille pour le round-trip C-05.
+    expect(arg[1].items.map((b: EditableBlock) => b.params.recoveryType)).toEqual([
+      'active',
+      'active',
+    ]);
+  });
+
+  it('récup r : un sprint ajouté hérite du type de récup de la série', () => {
+    const onChange = jest.fn();
+    const serie = makeSerie();
+    (serie as { items: EditableBlock[] }).items[0].params.recoveryType = 'active';
+    render(
+      <SprintEffortCanvas
+        nodes={[makeWarmupBlock(), serie, makeCooldownBlock()]}
+        onChange={onChange}
+      />,
+    );
+    act(() => {
+      fireEvent.press(screen.getByTestId('series-card-0-add-sprint'));
+    });
+    const [arg] = onChange.mock.calls[onChange.mock.calls.length - 1];
+    expect(arg[1].items[1].params.recoveryType).toBe('active');
+  });
+
+  it('récup r : un preset pose recoveryType (le document dit ce que la carte affiche)', () => {
+    const onChange = jest.fn();
+    render(<SprintEffortCanvas nodes={defaultNodes()} onChange={onChange} />);
+    act(() => {
+      fireEvent.press(screen.getByTestId('series-card-0-preset'));
+    });
+    act(() => {
+      fireEvent.press(screen.getByText('Vitesse max'));
+    });
+    const [arg] = onChange.mock.calls[onChange.mock.calls.length - 1];
+    // Sans ça, la carte afficherait « Passive » (défaut de lecture) sur un document muet.
+    for (const block of arg[1].items as EditableBlock[]) {
+      expect(block.params.recoveryType).toBe('passive');
+    }
+  });
+
   it("édite la description de l'échauffement", () => {
     const onChange = jest.fn();
     render(<SprintEffortCanvas nodes={defaultNodes()} onChange={onChange} />);

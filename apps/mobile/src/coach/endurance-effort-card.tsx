@@ -24,6 +24,7 @@ import {
   InfoNote,
   InlineNumberInput,
   PresetPicker,
+  RECOVERY_TYPES,
   SegmentedControl,
   SeriesCardFrame,
   formatMinutes,
@@ -50,11 +51,6 @@ const INTENSITY_MODES = [
   { value: 'pace', label: 'Allure s/km' },
   { value: 'spec_pace', label: 'Allure spécifique' },
   { value: 'zone', label: 'Zone cardio' },
-];
-
-const RECOVERY_TYPES = [
-  { value: 'active', label: 'Active' },
-  { value: 'passive', label: 'Passive' },
 ];
 
 /** Distances de référence pour le mode « allure spécifique » (sélecteur de chips). */

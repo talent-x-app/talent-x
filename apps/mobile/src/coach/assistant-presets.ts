@@ -23,7 +23,9 @@ function sprintEffort(
   distanceMeters: number,
   intensityValue: number,
   recoverySeconds: number,
-  opts: { startType: string; flyingZone?: boolean } = { startType: 'blocks' },
+  opts: { startType: string; flyingZone?: boolean; recoveryType?: string } = {
+    startType: 'blocks',
+  },
 ): EditableBlock {
   return makeBlock({
     type: BlockType.sprint,
@@ -32,6 +34,10 @@ function sprintEffort(
       reps: '1',
       distanceMeters: String(distanceMeters),
       recoverySeconds: String(recoverySeconds),
+      // ADR-39 §6 — récup r passive par défaut en sprint (maquette `sprint-card.html`) : la valeur
+      // est **posée** ici, pas seulement affichée, pour que le document sérialisé dise la même
+      // chose que la carte (l'endurance, elle, part sur `active`).
+      recoveryType: opts.recoveryType ?? 'passive',
       intensityMode: 'percent_record',
       intensityValue: String(intensityValue),
       startType: opts.startType,

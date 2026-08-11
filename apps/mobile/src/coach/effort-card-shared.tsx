@@ -20,6 +20,19 @@ import {
  * Aucun changement de contrat : tout est sérialisé via `nodesToItems` comme le constructeur C-05.
  */
 
+// ---------- Référence données partagée --------------------------------------------------------
+
+/**
+ * Type de récupération (`recoveryType`, ADR-39 §6) — clé additive de `params`, partagée par les
+ * canvas qui l'exposent (Sprint : récup r ; Endurance : récup entre efforts). Le **défaut diffère
+ * par discipline** et reste porté par chaque canvas : `passive` en sprint (maquette
+ * `sprint-card.html`), `active` en endurance.
+ */
+export const RECOVERY_TYPES = [
+  { value: 'active', label: 'Active' },
+  { value: 'passive', label: 'Passive' },
+];
+
 // ---------- Helpers de manipulation des séries ----------------------------------------------
 
 /** Sépare un canvas en échauffement / séries / retour au calme, avec valeurs par défaut. */
