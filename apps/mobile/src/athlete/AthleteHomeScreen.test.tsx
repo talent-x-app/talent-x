@@ -99,7 +99,43 @@ function daysAgo(days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
+/**
+ * Horloge gelée (TLX-225). L'écran dérive trois choses de `new Date()` — séances du jour, série
+ * d'assiduité, complétion du mois — et les fixtures ci-dessous fabriquent leurs dates en relatif
+ * (`daysAgo`). Sans gel, le verdict dépendait du **jour où la suite tournait** : au 1er du mois,
+ * `daysAgo(1)`/`daysAgo(2)` tombent dans le mois précédent, `monthCompletion` renvoie `null` et
+ * la carte de complétion n'est plus rendue (au 2, le total passe de 2 à 1). Deux jours sur trente
+ * où la suite échouait sans qu'aucun code n'ait changé — ce qui se lit comme un test « flaky ».
+ *
+ * Date choisie **en milieu de mois** : `daysAgo(0…14)` reste dans le même mois calendaire, et
+ * toutes les dates en dur du fichier (juin / début juillet 2026) restent dans le passé.
+ */
+const FROZEN_NOW = new Date('2026-07-15T09:00:00Z');
+
+/** Tout sauf `Date` reste réel : faker les timers casserait `waitFor` de RNTL. */
+const DO_NOT_FAKE = [
+  'hrtime',
+  'nextTick',
+  'performance',
+  'queueMicrotask',
+  'requestAnimationFrame',
+  'cancelAnimationFrame',
+  'requestIdleCallback',
+  'cancelIdleCallback',
+  'setImmediate',
+  'clearImmediate',
+  'setInterval',
+  'clearInterval',
+  'setTimeout',
+  'clearTimeout',
+] as const;
+
+afterEach(() => {
+  jest.useRealTimers();
+});
+
 beforeEach(() => {
+  jest.useFakeTimers({ now: FROZEN_NOW, doNotFake: [...DO_NOT_FAKE] });
   jest.clearAllMocks();
   mockGetMe.mockResolvedValue({ status: 200, data: ME });
   mockGetMyGroups.mockResolvedValue(HAS_GROUP);
