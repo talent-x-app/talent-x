@@ -13,6 +13,7 @@ import { useEffect } from 'react';
 import { SessionProvider } from '../src/auth/SessionProvider';
 import { QueryProvider } from '../src/data/QueryProvider';
 import { ErrorBoundary, OfflineBanner, ToastProvider } from '../src/feedback';
+import { PushRegistration } from '../src/notifications/PushRegistration';
 import { OfflineSync } from '../src/offline';
 import { WebFocusStyle } from '../src/web/web-focus-style';
 
@@ -59,6 +60,8 @@ export default function RootLayout() {
               <OfflineBanner />
               {/* Rejoue la file d'écriture des perfs à la reconnexion (TLX-077). */}
               <OfflineSync />
+              {/* Enregistre le jeton push une fois connecté + route les taps (TLX-226). */}
+              <PushRegistration />
             </SessionProvider>
           </ToastProvider>
         </ErrorBoundary>

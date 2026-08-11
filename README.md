@@ -63,6 +63,18 @@ puis redémarrer **API et worker**.
   (ex. `ps aux | grep dist/worker`, `wmic process` sous Windows) et tout tuer pour ne
   garder **qu'un seul** worker.
 
+- **Push inactif sur un dev client périmé** (TLX-226) : `expo-notifications` est un **module
+  natif** — un APK construit avant son ajout ne l'embarque pas. Le module est chargé
+  **paresseusement** (`src/notifications/push-registration.ts`) : l'app démarre normalement, mais
+  aucun jeton n'est enregistré et rien n'est reçu. Symptôme : `ensureDeviceRegistered` renvoie
+  `unavailable`. Remède : rebuild du dev client (même famille que TLX-141 / TLX-218).
+- **Push Android sans `google-services.json`** : FCM exige le fichier du projet Firebase
+  (`tracknfield-5efa0`, Paramètres du projet → Général → « Télécharger google-services.json »)
+  et l'entrée `googleServicesFile` dans `apps/mobile/app.json`. **Fichier hors dépôt** (identifiants
+  de projet, même traitement que les autres secrets). Sans lui, `getDevicePushTokenAsync()` échoue
+  et l'enregistrement retombe silencieusement en `unavailable`. Le compte de service doit par
+  ailleurs porter `roles/cloudmessaging.messagesPublisher` (cf. `apps/api/.env.example`).
+
 ## Environnements & secrets
 
 Trois environnements (cf. `docs/Talent-X_04_Deploiement_exploitation_v2.md` §2) :

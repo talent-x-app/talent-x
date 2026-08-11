@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { revokeRegisteredDevice } from '../notifications/push-registration';
 import { setupApiClient } from '../data/setup';
 import { restoreSession } from './auth';
 import { clearRole, setRole, type UserRole } from './session-store';
@@ -41,6 +42,11 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signOut = useCallback(async () => {
+    // Révocation du device token push AVANT la purge des jetons d'auth (TLX-226) :
+    // `DELETE /notifications/devices/{id}` est authentifié, l'appeler après partirait en 401 et
+    // laisserait le serveur pousser vers un appareil déconnecté. Ne lève jamais → ne peut pas
+    // bloquer une déconnexion.
+    await revokeRegisteredDevice();
     await Promise.all([clearTokens(), clearRole()]);
     setRoleState(null);
   }, []);
