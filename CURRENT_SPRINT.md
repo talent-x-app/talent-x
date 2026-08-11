@@ -54,9 +54,24 @@ de débloquer les écrans coach C-01/C-02/C-03.
   création (défaut `passive`, maquette `sprint-card.html`), `RECOVERY_TYPES` mutualisée dans
   `effort-card-shared`. **Mobile 958/958** (108 suites), typecheck + ESLint + Prettier clean.
 
-- **TLX-225 (nouveau, Low)** : `AthleteHomeScreen.test.tsx` **flaky** en suite complète. Le commit
-  `4b1086d` n'a relevé que le `testTimeout` — symptôme générique traité, cause propre à la suite jamais
-  cherchée. Ticket explicite : **ne pas clore en rerelevant le timeout**.
+- **TLX-225 (nouveau, Low) — une cause réelle éliminée, ticket laissé ouvert.** Le commit `4b1086d`
+  n'avait relevé que le `testTimeout` : symptôme générique traité, cause propre à la suite jamais
+  cherchée. Trouvé ici : le test « aperçu progression » échoue les **1er et 2 de chaque mois**, quel que
+  soit le nombre de workers — l'écran dérive trois valeurs de `new Date()` et le spec fabrique ses
+  fixtures en relatif (`daysAgo`), si bien qu'au 1er du mois `daysAgo(1)`/`daysAgo(2)` tombent dans le
+  mois précédent, `monthCompletion` renvoie `null` et la carte disparaît. **Prouvé avant de corriger**
+  (horloge gelée au 2026-09-01 → 1 échec ; en milieu de mois → 19/19). Correctif : `useFakeTimers` qui
+  gèle **uniquement `Date`** (faker les timers casserait le `waitFor` de RNTL). Le module pur
+  `home-highlights` testait déjà `monthCompletion` avec un `NOW` figé — seul le test d'écran consommait
+  l'horloge réelle.
+- **Ce que TLX-225 garde ouvert** : le symptôme d'origine (échec en suite complète, vert en `runInBand`)
+  **n'a pas été reproduit** — 958/958 sur trois exécutions dont une à `--maxWorkers=100%`. Pistes
+  écartées, à ne pas refaire : `ToastProvider` nettoie bien ses timers au démontage, et le premier test
+  mesuré à 4576 ms était un **artefact de `--detectOpenHandles`** (vrai chiffre ~370 ms). L'avertissement
+  « worker process failed to exit gracefully », présent même sur un run vert, ne vient pas du code
+  applicatif (piste : polices d'icônes `@expo/vector-icons`). Prochaine passe : le `waitFor` de RNTL a un
+  timeout **propre de 1 s** (`asyncUtilTimeout`), indépendant du `testTimeout` — c'est probablement lui
+  qui expire sous contention réelle (API + Metro à côté), et le relever serait encore un masque.
 
 - **Reste** : TLX-84 (réception réelle sur device — Android faisable, iOS suspendu au compte Apple
   Developer ; + doc du transfert hors UE) et TLX-77 (comptes stores, politique de confidentialité en
