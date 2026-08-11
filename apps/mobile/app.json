@@ -10,7 +10,8 @@
     "newArchEnabled": true,
     "platforms": ["ios", "android", "web"],
     "android": {
-      "package": "com.talentx.app"
+      "package": "com.talentx.app",
+      "googleServicesFile": "./google-services.json"
     },
     "ios": {
       "bundleIdentifier": "com.talentx.app"

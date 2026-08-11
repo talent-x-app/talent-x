@@ -10,6 +10,10 @@ coverage/
 .env.*
 !.env.example
 *.pem
+# Credentials des fournisseurs push (TLX-226) : identifiants du projet Firebase et clés
+# d'API client. Fournis par la console, jamais versionnés — même règle que le .p8 APNs.
+google-services.json
+GoogleService-Info.plist
 
 # Expo / RN
 .expo/

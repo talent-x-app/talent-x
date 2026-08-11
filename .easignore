@@ -1,0 +1,50 @@
+# Exclusions pour l'archive envoyée à EAS Build (TLX-226).
+#
+# Quand ce fichier existe, EAS l'utilise **à la place** de `.gitignore` pour décider quoi
+# téléverser. Il en reprend donc le contenu, à une exception près : `google-services.json`
+# **doit** monter chez EAS (le build Android en a besoin) alors qu'il reste hors du dépôt
+# (identifiants du projet Firebase — cf. `.gitignore`, README § Pièges connus).
+#
+# Conséquence : toute nouvelle exclusion ajoutée à `.gitignore` doit être répercutée ici,
+# sinon elle sera téléversée.
+
+# deps & builds
+node_modules/
+dist/
+build/
+coverage/
+*.log
+
+# env & secrets — le .p8 APNs et les .env n'ont rien à faire dans un build
+.env
+.env.*
+!.env.example
+*.pem
+
+# Expo / RN
+.expo/
+.expo-shared/
+*.jks
+*.keystore
+ios/Pods/
+android/.gradle/
+android/app/build/
+
+# Docker — override local machine-spécifique
+docker-compose.override.yml
+
+# Claude — config locale
+.claude/launch.json
+.claude/settings.local.json
+
+# OS / IDE
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Tests & specs : inutiles au build de l'app
+e2e/
+**/*.test.ts
+**/*.test.tsx
+**/*.spec.ts
