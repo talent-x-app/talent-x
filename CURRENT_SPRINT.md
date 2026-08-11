@@ -12,6 +12,56 @@ de débloquer les écrans coach C-01/C-02/C-03.
 - _(éditeurs typés terminés — TLX-054→061 livrés ↓)_
 - _(C-01 complet — TLX-081→085 livrés ↓)_
 
+## Terminés — Session 2026-08-11 : rotation des secrets push (TLX-142) + TLX-224
+
+- **Dépôt local resynchronisé** : `main` avait **94 commits** de retard (fast-forward → `482667e`),
+  `pnpm install` (lockfile bougé : `expo-camera`, `react-native-svg`), **rebuild `@talent-x/api-client`**
+  (le bundle charge `dist/`, pas `src/`) et **`prisma generate`** — sans quoi le typecheck API échouait
+  sur `actorId` / `coachId`, types des deux migrations arrivées avec le pull. La branche
+  `fix/sprint-builder-polish` était entièrement absorbée par main ; son seul reste non commité (import
+  dynamique d'`expo-image-picker` dans le Profil) a été **écarté** : contournement rendu obsolète par
+  **TLX-141/218** (rebuild du dev client), il cassait 2 tests et exigeait un `eslint-disable`.
+
+- **TLX-142 (Urgent) — clos.** Clé de service Firebase et clé APNs `.p8` **révoquées et régénérées**.
+  **Hygiène vérifiée, pas supposée** : aucun des deux identifiants exposés n'apparaît dans l'historique
+  git (`git log --all -S`, toutes branches) ; aucun `.env` suivi ; les seules occurrences de
+  `BEGIN PRIVATE KEY` sont des placeholders d'`.env.example` et des fixtures. **La fuite est restée
+  circonscrite à l'historique de conversation.** Vérification par sonde (`scripts/push-smoke.ts`, sans
+  device) : APNs sandbox → `400 BadDeviceToken`, FCM → `OAuth 200` puis `400 INVALID_ARGUMENT`.
+
+- **Écart trouvé en route (→ TLX-84)** : le premier `messages:send` renvoyait **403 PERMISSION_DENIED**
+  malgré un OAuth 200 — le compte de service `firebase-adminsdk-fbsvc@` **n'avait aucun rôle FCM**.
+  Ce n'est pas la rotation : l'envoi FCM n'avait tout simplement jamais fonctionné. Réparé avec
+  **`roles/cloudmessaging.messagesPublisher`** et **non** le rôle par défaut
+  `roles/firebase.sdkAdminServiceAgent`, bien plus large (Auth, Storage, Database) — le code n'utilise
+  ce compte que pour `messages:send`. Moindre privilège, cohérent TX-SEC-003. **Prérequis désormais
+  documenté** dans `.env.example` (rôle IAM + activation de `fcm.googleapis.com`), il ne l'était nulle part.
+
+- **`scripts/push-smoke.ts` — deux défauts corrigés.** (1) Une plateforme **non configurée** renvoyait
+  `true` et s'affichait « OK » : un `.env` vide annonçait « APNs OK | FCM OK » et sortait en 0 — faux
+  positif sur l'outil censé valider une rotation de secrets. Troisième état **`IGNORÉ (non configuré)`**,
+  distinct de OK et d'ÉCHEC ; le code de sortie reste 0 (sans credentials l'app retombe légitimement
+  sur `LoggingPushProvider`). (2) `error.message` était **jeté** au profit du seul `error.status` — or
+  seul le message distingue « API non activée » d'un rôle IAM manquant. C'est ce qui a coûté un
+  aller-retour de diagnostic sur le 403. Les deux branches d'échec impriment désormais le détail.
+
+- **TLX-224 (nouveau) — carte Sprint : bascule récup r passive/active.** ADR-39 §5 la spécifiait et §6
+  avait étendu `recoveryType` à `sprint` ; le champ existait partout (OpenAPI, client généré, DTO Zod,
+  `BLOCK_TYPE_SPECS` de C-05, carte Endurance) **sauf sur la carte Sprint**, pourtant l'implémentation
+  de référence d'ADR-39. Un coach créant via l'assistant ne pouvait pas le choisir. **La bascule seule
+  n'aurait pas suffi** : les presets ne posaient pas la clé, un simple défaut de lecture aurait affiché
+  « Passive » sur un document muet — l'UI aurait menti sur le sérialisé. Valeur donc **posée** à la
+  création (défaut `passive`, maquette `sprint-card.html`), `RECOVERY_TYPES` mutualisée dans
+  `effort-card-shared`. **Mobile 958/958** (108 suites), typecheck + ESLint + Prettier clean.
+
+- **TLX-225 (nouveau, Low)** : `AthleteHomeScreen.test.tsx` **flaky** en suite complète. Le commit
+  `4b1086d` n'a relevé que le `testTimeout` — symptôme générique traité, cause propre à la suite jamais
+  cherchée. Ticket explicite : **ne pas clore en rerelevant le timeout**.
+
+- **Reste** : TLX-84 (réception réelle sur device — Android faisable, iOS suspendu au compte Apple
+  Developer ; + doc du transfert hors UE) et TLX-77 (comptes stores, politique de confidentialité en
+  URL publique, tous les visuels).
+
 ## Terminés — Session 2026-08-10 : remise au vert de la suite E2E (8 rouges → 0)
 
 - **Verdict du triage** : aucun des 8 échecs n'était un bug produit. C'étaient huit tests

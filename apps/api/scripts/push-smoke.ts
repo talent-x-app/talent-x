@@ -67,11 +67,39 @@ const MESSAGE: PushMessage = {
 /** Token volontairement invalide pour la sonde d'authentification (aucune livraison). */
 const PROBE_TOKEN = '00'.repeat(32);
 
-async function checkApns(): Promise<boolean> {
+/**
+ * Verdict par plateforme. `skipped` (plateforme non configurée) est **distinct** de `ok` :
+ * une plateforme non testée ne doit pas se lire « OK » dans le résumé — sur un script qui sert
+ * à valider une rotation de secrets, ce serait un faux positif (un `.env` vide affichait
+ * « APNs OK | FCM OK »). Il ne compte pas non plus comme un échec : sans credentials, l'app
+ * retombe légitimement sur `LoggingPushProvider` (dev/CI), le code de sortie reste 0.
+ */
+type CheckResult = 'ok' | 'failed' | 'skipped';
+
+/**
+ * Message d'erreur détaillé du fournisseur. Les codes seuls (`PERMISSION_DENIED`, `reason`) ne
+ * disent pas **laquelle** des causes possibles s'applique — un 403 FCM peut être une API non
+ * activée sur le projet **ou** un rôle IAM manquant, et seul `error.message` tranche. Sans lui,
+ * le diagnostic se fait par élimination côté console.
+ */
+function details(body: string): string {
+  try {
+    const parsed = JSON.parse(body) as { error?: { message?: string }; reason?: string };
+    const message = parsed.error?.message ?? parsed.reason;
+    if (message) return message;
+  } catch {
+    // corps non-JSON : on retombe sur le brut ci-dessous
+  }
+  const raw = body.trim();
+  if (!raw) return '(corps de réponse vide)';
+  return raw.length > 500 ? `${raw.slice(0, 500)}…` : raw;
+}
+
+async function checkApns(): Promise<CheckResult> {
   const { apns } = parsePushConfig((k) => process.env[k]);
   if (!apns) {
     console.log('APNs : non configuré (variables APNS_* absentes) — ignoré.');
-    return true;
+    return 'skipped';
   }
   const realToken = argOf('--apns') ?? process.env.APNS_TEST_TOKEN;
   const token = realToken ?? PROBE_TOKEN;
@@ -111,29 +139,31 @@ async function checkApns(): Promise<boolean> {
       '  ✅ 200 — notification acceptée par Apple' +
         (probe ? ' (inattendu pour un token bidon)' : ' et livrée.'),
     );
-    return true;
+    return 'ok';
   }
   if (probe && ['BadDeviceToken', 'DeviceTokenNotForTopic', 'Unregistered'].includes(reason)) {
     console.log(
       `  ✅ ${last.status} ${reason} — AUTH OK (creds valides ; échec attendu sur token bidon).`,
     );
-    return true;
+    return 'ok';
   }
   if ([401, 403].includes(last.status)) {
     console.log(
       `  ❌ ${last.status} ${reason} — CREDS INVALIDES (Key ID / Team ID / .p8 / topic à vérifier).`,
     );
-    return false;
+    console.log(`     ↳ ${details(last.body)}`);
+    return 'failed';
   }
   console.log(`  ⚠️  ${last.status} ${reason || '(sans raison)'} — voir réponse Apple.`);
-  return !probe; // en envoi réel, tout sauf 200 est un échec
+  console.log(`     ↳ ${details(last.body)}`);
+  return probe ? 'ok' : 'failed'; // en envoi réel, tout sauf 200 est un échec
 }
 
-async function checkFcm(): Promise<boolean> {
+async function checkFcm(): Promise<CheckResult> {
   const { fcm } = parsePushConfig((k) => process.env[k]);
   if (!fcm) {
     console.log('FCM : non configuré (variables FCM_* absentes) — ignoré.');
-    return true;
+    return 'skipped';
   }
   const realToken = argOf('--fcm') ?? process.env.FCM_TEST_TOKEN;
   const token = realToken ?? PROBE_TOKEN;
@@ -170,7 +200,7 @@ async function checkFcm(): Promise<boolean> {
     console.log(
       `  ❌ OAuth ${tokenStatus || '(aucune réponse)'} — compte de service invalide (client_email / private_key / projet).`,
     );
-    return false;
+    return 'failed';
   }
   console.log('  ✅ OAuth 200 — compte de service Google valide.');
 
@@ -188,31 +218,43 @@ async function checkFcm(): Promise<boolean> {
       '  ✅ 200 — notification acceptée par FCM' +
         (probe ? ' (inattendu pour un token bidon).' : ' et livrée.'),
     );
-    return true;
+    return 'ok';
   }
   if (probe && ['INVALID_ARGUMENT', 'NOT_FOUND', 'UNREGISTERED'].includes(code)) {
     console.log(
       `  ✅ ${sendStatus} ${code} — AUTH OK (creds valides ; échec attendu sur token bidon).`,
     );
-    return true;
+    return 'ok';
   }
   if ([401, 403].includes(sendStatus)) {
     console.log(
-      `  ❌ ${sendStatus} ${code} — permissions FCM insuffisantes pour ce compte de service.`,
+      `  ❌ ${sendStatus} ${code} — envoi refusé. Causes usuelles : rôle IAM manquant sur le ` +
+        `compte de service (roles/cloudmessaging.messagesPublisher) ou API fcm.googleapis.com ` +
+        `non activée sur le projet.`,
     );
-    return false;
+    console.log(`     ↳ ${details(sendBody)}`);
+    return 'failed';
   }
   console.log(`  ⚠️  ${sendStatus} ${code || '(sans code)'} — voir réponse FCM.`);
-  return !probe;
+  console.log(`     ↳ ${details(sendBody)}`);
+  return probe ? 'ok' : 'failed';
+}
+
+/** Libellé de résumé — « IGNORÉ » n'est ni un succès ni un échec (cf. `CheckResult`). */
+function label(result: CheckResult): string {
+  return result === 'ok' ? 'OK' : result === 'failed' ? 'ÉCHEC' : 'IGNORÉ (non configuré)';
 }
 
 async function main(): Promise<void> {
   loadEnv();
   console.log('=== Smoke test push réel (TLX-84) ===');
-  const apnsOk = await checkApns();
-  const fcmOk = await checkFcm();
-  console.log(`\nRésultat : APNs ${apnsOk ? 'OK' : 'ÉCHEC'} | FCM ${fcmOk ? 'OK' : 'ÉCHEC'}`);
-  process.exit(apnsOk && fcmOk ? 0 : 1);
+  const apns = await checkApns();
+  const fcm = await checkFcm();
+  console.log(`\nRésultat : APNs ${label(apns)} | FCM ${label(fcm)}`);
+  if (apns === 'skipped' && fcm === 'skipped') {
+    console.log('Aucune plateforme configurée — rien n’a été vérifié.');
+  }
+  process.exit(apns === 'failed' || fcm === 'failed' ? 1 : 0);
 }
 
 void main();
