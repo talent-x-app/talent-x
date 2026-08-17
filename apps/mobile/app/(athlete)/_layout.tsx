@@ -2,9 +2,11 @@ import { useTheme } from '@talent-x/design-tokens';
 import { Feather } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 import { RoleGuard } from '../../src/auth/RoleGuard';
+import { useScreenSceneStyle } from '../../src/responsive/screen-inset';
 
 export default function AthleteLayout() {
   const { colors } = useTheme();
+  const sceneStyle = useScreenSceneStyle();
 
   return (
     <RoleGuard role="athlete">
@@ -14,6 +16,9 @@ export default function AthleteLayout() {
         backBehavior="history"
         screenOptions={{
           headerShown: false,
+          // Sans en-tête, rien ne réserve la barre d'état : l'inset est posé ici, une fois
+          // pour tous les écrans de l'onglet (cf. `useScreenSceneStyle`).
+          sceneStyle,
           tabBarStyle: {
             backgroundColor: colors.surface,
             borderTopColor: colors.border,
