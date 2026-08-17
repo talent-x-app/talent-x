@@ -1,250 +1,324 @@
 # Staging Talent-X — mise en service
 
-Runbook de la première mise en service d'un VPS OVH nu jusqu'à une API joignable
-en HTTPS. Cible : TX-DEPLOY-004 §2 (environnement « Staging ») et §4.1.
+Runbook de la première mise en service d'un VPS OVHcloud nu jusqu'à une API
+joignable en HTTPS. Cible : TX-OPS-004 §2 (environnement « Staging ») et §4.1.
 
-Les commandes préfixées `[local]` se lancent sur ton poste, les autres sur le VPS.
+Convention : **`[PC]`** = sur le poste de travail (PowerShell), **`[VPS]`** = dans
+la session SSH. Tout ce qui est entre `<chevrons>` est à remplacer.
 
-> **Ordre non négociable.** Le durcissement SSH (§2) doit précéder l'ouverture du
-> pare-feu (§3), et le DNS (§5) doit précéder l'émission du certificat (§8) — une
-> résolution publique est nécessaire au défi ACME.
-
----
-
-## 1. Première connexion et mise à jour
-
-OVH envoie une adresse IP et un accès `root` (mot de passe ou clé, selon l'option
-retenue à la commande).
-
-```bash
-[local] ssh root@<IP_DU_VPS>
-```
-
-```bash
-apt update && apt upgrade -y
-cat /etc/os-release          # confirmer Debian 12 ou Ubuntu LTS
-```
-
-Un redémarrage est parfois demandé après la mise à jour du noyau (`reboot`).
+> **Deux ordres non négociables.** La clé SSH doit être installée **et vérifiée**
+> avant de couper l'authentification par mot de passe. Et le DNS doit résoudre
+> avant d'émettre le certificat — Let's Encrypt valide en résolvant le nom
+> publiquement.
 
 ---
 
-## 2. Utilisateur non-root et durcissement SSH
+## 1. Première connexion
 
-Travailler en `root` au quotidien est à proscrire, et l'accès SSH par mot de
-passe est la première porte que les robots essaient.
+OVHcloud **ne donne pas d'accès root**. Un utilisateur est créé au nom du système
+choisi — `ubuntu` pour Ubuntu, `debian` pour Debian, `rocky` pour Rocky Linux —
+et le mot de passe temporaire arrive par lien sécurisé dans le mail de livraison.
+
+```powershell
+[PC] ssh ubuntu@<IP_DU_VPS>
+```
+
+Un changement de mot de passe est imposé à la première connexion, puis la session
+se ferme. Reconnecte-toi avec le nouveau.
 
 ```bash
-adduser talentx
-usermod -aG sudo talentx
-mkdir -p /home/talentx/.ssh && chmod 700 /home/talentx/.ssh
+[VPS] sudo apt update && sudo apt upgrade -y
+[VPS] cat /etc/os-release
 ```
 
-Depuis ton poste, dépose ta clé publique :
+L'utilisateur par défaut a déjà les privilèges — à vérifier plutôt qu'à supposer,
+car `groups` ne les montre pas : OVH les accorde par `/etc/sudoers.d/`.
 
 ```bash
-[local] ssh-copy-id talentx@<IP_DU_VPS>
+[VPS] sudo -l -U ubuntu | tail -3      # attendu : (ALL) NOPASSWD: ALL
 ```
 
-> **Vérifie AVANT de couper quoi que ce soit.** Ouvre une **seconde** session
-> `ssh talentx@<IP>` et confirme qu'elle fonctionne. Tant que cette session est
-> ouverte, une erreur de configuration reste réparable.
+> Inutile de créer un autre utilisateur. Celui d'OVH a tout ce qu'il faut.
+
+---
+
+## 2. Clé SSH
+
+L'ordre compte : **déposer, vérifier, puis seulement durcir.** L'inverse coûte
+l'accès au serveur.
+
+```powershell
+[PC] Get-ChildItem $env:USERPROFILE\.ssh\*.pub
+```
+
+Si rien ne sort, générer — **avec un chemin explicite**, c'est la question à
+laquelle on répond par défaut sans y penser :
+
+```powershell
+[PC] ssh-keygen -t ed25519 -C "talentx-staging" -f "$env:USERPROFILE\.ssh\talentx-staging-key"
+```
+
+Déposer la clé publique. `ssh-copy-id` **n'existe pas sur Windows** ; cette forme
+en est l'équivalent, et évite le collage manuel — une clé publique tient sur une
+seule ligne très longue, qu'un retour à la ligne parasite rend invalide :
+
+```powershell
+[PC] Get-Content $env:USERPROFILE\.ssh\talentx-staging-key.pub | ssh ubuntu@<IP_DU_VPS> "mkdir -p ~/.ssh && chmod 700 ~/.ssh && cat >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys && echo DEPOSEE"
+```
+
+Déclarer un alias — un nom de clé non standard n'est **pas** essayé
+automatiquement par SSH :
+
+```powershell
+[PC] Add-Content $env:USERPROFILE\.ssh\config @"
+
+Host talentx-staging
+    HostName <IP_DU_VPS>
+    User ubuntu
+    IdentityFile ~/.ssh/talentx-staging-key
+    IdentitiesOnly yes
+"@
+```
+
+Vérifier ce que SSH **applique**, et non ce que le fichier contient — `-G` résout
+tout, y compris les blocs `Host` en double, où la première valeur l'emporte :
+
+```powershell
+[PC] ssh -G talentx-staging | Select-String "^hostname|^user|^identityfile"
+[PC] ssh talentx-staging
+```
+
+La connexion doit passer sans mot de passe. Une passphrase de clé demandée n'est
+pas la même chose.
+
+---
+
+## 3. Durcissement SSH
+
+Sur Ubuntu, `/etc/ssh/sshd_config` **n'a pas le dernier mot** : il inclut
+`/etc/ssh/sshd_config.d/*.conf` en tête, et sshd retient la **première** valeur
+rencontrée. Les images cloud y déposent un `50-cloud-init.conf` portant
+`PasswordAuthentication yes` — c'est lui qui commande.
+
+Éditer le fichier principal n'aurait donc aucun effet, et supprimer le `50`
+couperait l'accès documenté par OVH. On pose un fichier qui **trie avant**, et qui
+survit à une réécriture de cloud-init :
 
 ```bash
-sudo nano /etc/ssh/sshd_config
-```
-
-```
-PermitRootLogin no
+[VPS] sudo tee /etc/ssh/sshd_config.d/10-talentx-hardening.conf > /dev/null <<'EOF'
 PasswordAuthentication no
-PubkeyAuthentication yes
+KbdInteractiveAuthentication no
+PermitRootLogin prohibit-password
+EOF
 ```
 
+Contrôler **avant** de redémarrer — un fichier invalide empêcherait le service de
+repartir, et la session en cours serait la dernière :
+
 ```bash
-sudo systemctl restart ssh
+[VPS] sudo sshd -t && echo "syntaxe valide"
+[VPS] sudo sshd -T | grep -i "^passwordauthentication\|^permitrootlogin"
+[VPS] sudo systemctl restart ssh
+```
+
+Depuis un terminal **neuf**, sans fermer la session courante :
+
+```powershell
+[PC] ssh talentx-staging
 ```
 
 ---
 
-## 3. Pare-feu
+## 4. Pare-feu
 
 ```bash
-sudo apt install -y ufw
-sudo ufw allow OpenSSH        # AVANT d'activer, sinon tu te verrouilles dehors
-sudo ufw allow 80/tcp
-sudo ufw allow 443/tcp
-sudo ufw enable
-sudo ufw status verbose
+[VPS] sudo apt install -y ufw
+[VPS] sudo ufw allow OpenSSH
+[VPS] sudo ufw allow 80/tcp
+[VPS] sudo ufw allow 443/tcp
+[VPS] sudo ufw show added        # vérifier qu'OpenSSH y est AVANT d'activer
+[VPS] sudo ufw enable
 ```
-
-Aucun autre port n'est ouvert : Postgres, Redis et MinIO ne sont joignables que
-sur le réseau Docker interne, jamais depuis Internet.
 
 ---
 
-## 4. Docker Engine
+## 5. Docker Engine
 
-Le paquet `docker.io` des dépôts Debian est souvent ancien et sans le plugin
-`compose` v2. On installe depuis le dépôt officiel.
-
-```bash
-sudo apt install -y ca-certificates curl gnupg
-sudo install -m 0755 -d /etc/apt/keyrings
-curl -fsSL https://download.docker.com/linux/debian/gpg \
-  | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-sudo chmod a+r /etc/apt/keyrings/docker.gpg
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] \
-https://download.docker.com/linux/debian $(. /etc/os-release && echo $VERSION_CODENAME) stable" \
-  | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-sudo apt update
-sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-sudo usermod -aG docker talentx
-```
-
-Déconnecte-toi et reconnecte-toi pour que l'appartenance au groupe prenne effet.
+Le paquet `docker.io` des dépôts Ubuntu est souvent ancien et **sans le plugin
+`compose` v2**. On installe depuis le dépôt officiel.
 
 ```bash
-docker compose version        # doit répondre sans sudo
+[VPS] sudo apt install -y ca-certificates curl gnupg
+[VPS] sudo install -m 0755 -d /etc/apt/keyrings
+[VPS] curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+[VPS] sudo chmod a+r /etc/apt/keyrings/docker.gpg
+[VPS] echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo $VERSION_CODENAME) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+[VPS] sudo apt update
+[VPS] sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+[VPS] sudo usermod -aG docker ubuntu
 ```
 
-> Sur Ubuntu, remplacer `debian` par `ubuntu` dans les deux URL.
+Se déconnecter et se reconnecter — l'appartenance à un groupe n'est prise en
+compte qu'à l'ouverture de session.
+
+```bash
+[VPS] docker compose version      # sans sudo
+[VPS] docker run --rm hello-world
+```
+
+> Sur Debian, remplacer `ubuntu` par `debian` dans les deux URL.
 
 ---
 
-## 5. Enregistrements DNS
+## 6. Enregistrements DNS
 
-**Deux** entrées, pas une. L'hôte de stockage est distinct parce que les archives
-d'export RGPD sont livrées par URL présignée, dont la signature couvre l'hôte :
-servir MinIO sous un sous-chemin de l'API casserait la vérification.
+**Deux** entrées. L'hôte de stockage est distinct parce que les archives d'export
+RGPD sont livrées par URL présignée, dont la signature couvre l'hôte : servir
+MinIO sous un sous-chemin de l'API casserait la vérification.
 
-| Type | Nom               | Valeur    |
-| ---- | ----------------- | --------- |
-| `A`  | `staging-api`     | IP du VPS |
-| `A`  | `staging-storage` | IP du VPS |
+Créer les entrées **là où la zone est hébergée**, qui n'est pas forcément le
+registrar :
 
-Vérifier la propagation avant d'aller plus loin :
-
-```bash
-dig +short staging-api.<domaine>
-dig +short staging-storage.<domaine>
+```powershell
+[PC] nslookup -type=NS <domaine>
 ```
 
-Les deux doivent renvoyer l'IP du VPS. Sans cela, l'étape 8 échouera.
+| Type | Sous-domaine      | Cible       | TTL |
+| ---- | ----------------- | ----------- | --- |
+| `A`  | `staging-api`     | IPv4 du VPS | 300 |
+| `A`  | `staging-storage` | IPv4 du VPS | 300 |
+
+TTL à 300 pendant la mise en place : avec le défaut de 3600, une erreur d'adresse
+se paie d'une heure d'attente.
+
+```bash
+[VPS] nslookup staging-api.<domaine>
+[VPS] nslookup staging-storage.<domaine>
+```
+
+Tant que les deux ne renvoient pas l'IP, ne pas tenter le certificat — Let's
+Encrypt limite temporairement les demandes après trop d'échecs.
 
 ---
 
-## 6. Secrets
+## 7. Secrets
 
 Décision assumée pour le staging (TX-SEC-003 §11) : un fichier protégé, hors
-dépôt. **Ne vaut pas pour la production**, où un gestionnaire de secrets reste à
-arrêter.
+dépôt. **Ne vaut pas pour la production**, où l'outil reste à arrêter.
 
 ```bash
-sudo mkdir -p /etc/talentx
-sudo nano /etc/talentx/staging.env      # modèle : deploy/staging/staging.env.example
-sudo chown root:root /etc/talentx/staging.env
-sudo chmod 600 /etc/talentx/staging.env
+[VPS] sudo mkdir -p /etc/talentx
+[VPS] sudo nano /etc/talentx/staging.env     # modèle : staging.env.example
+[VPS] sudo chown root:root /etc/talentx/staging.env
+[VPS] sudo chmod 600 /etc/talentx/staging.env
 ```
 
-La clé de signature RS256 se génère **sur ton poste** :
+La clé de signature RS256 se génère sur le poste :
 
-```bash
-[local] pnpm --filter @talent-x/api keys:generate
+```powershell
+[PC] pnpm --filter @talent-x/api keys:generate
 ```
 
-> Ne jamais réutiliser la clé de production en staging : un jeton émis par l'un
-> serait accepté par l'autre.
+> Ne jamais réutiliser la clé de production : un jeton émis par l'un serait
+> accepté par l'autre.
 
 ---
 
-## 7. Récupérer la configuration de déploiement
+## 8. Configuration de déploiement
 
-```bash
-sudo mkdir -p /opt/talentx && sudo chown talentx:talentx /opt/talentx
-cd /opt/talentx
-git clone <URL_DU_DEPOT> repo
-cd repo/deploy/staging
+Seuls les fichiers de `deploy/staging/` sont nécessaires — le code source n'a pas
+sa place sur le serveur, l'image venant du registre.
+
+```powershell
+[PC] scp -r deploy/staging talentx-staging:/tmp/staging
 ```
 
-Valider la composition **avant** de lancer quoi que ce soit :
-
 ```bash
-docker compose config >/dev/null && echo "compose valide"
+[VPS] sudo mkdir -p /opt/talentx && sudo chown ubuntu:ubuntu /opt/talentx
+[VPS] mv /tmp/staging /opt/talentx/
+[VPS] cd /opt/talentx/staging
+[VPS] docker compose config >/dev/null && echo "compose valide"
 ```
 
 ---
 
-## 8. Certificat TLS — première émission
+## 9. Certificat TLS
 
 Poule et œuf : Nginx ne démarre pas son serveur TLS sans certificat, et le défi
-ACME a besoin d'un serveur. On émet donc une première fois en mode `standalone`,
-avant de démarrer la pile.
+ACME a besoin d'un serveur. On émet donc une première fois en `standalone`, avant
+de lancer la pile. Les renouvellements suivants sont automatiques.
 
 ```bash
-sudo docker run --rm -p 80:80 \
+[VPS] sudo docker run --rm -p 80:80 \
   -v talentx-staging_letsencrypt:/etc/letsencrypt \
   certbot/certbot certonly --standalone \
   -d staging-api.<domaine> -d staging-storage.<domaine> \
-  --agree-tos -m <ton-email> --no-eff-email
+  --agree-tos -m <email> --no-eff-email
 ```
 
 Un seul certificat couvre les deux noms — c'est ce qu'attend la configuration
-Nginx. Les renouvellements suivants sont automatiques (service `certbot`).
+Nginx, qui référence un chemin unique.
 
 ---
 
-## 9. Premier démarrage
+## 10. Premier démarrage
+
+`IMAGE_TAG` se lit dans le récapitulatif du job GitHub Actions « Image API ·
+publication GHCR ».
 
 ```bash
-cd /opt/talentx/repo/deploy/staging
-docker compose pull
-docker compose up -d
-docker compose ps
+[VPS] cd /opt/talentx/staging
+[VPS] docker compose pull
+[VPS] docker compose up -d
+[VPS] docker compose ps
 ```
 
-Le conteneur `migrate` doit apparaître en `exited (0)` : il applique les
-migrations puis sort. L'API et le worker ne démarrent qu'après sa réussite.
-
-```bash
-docker compose logs migrate
-docker compose logs api | tail -30
-docker compose logs worker | tail -20
-```
+Le conteneur `migrate` doit être en `exited (0)` : il applique les migrations puis
+sort, et l'API ne démarre qu'après sa réussite.
 
 ---
 
-## 10. Vérifications
+## 11. Vérifications
 
 ```bash
-curl -s https://staging-api.<domaine>/api/v1/health          # {"status":"ok"}
-curl -sI http://staging-api.<domaine> | head -1              # 301 vers HTTPS
+[VPS] curl -s https://staging-api.<domaine>/api/v1/health      # {"status":"ok"}
+[VPS] docker compose logs api | tail -30
+[VPS] docker compose logs worker | tail -20
 ```
 
-Ce qu'il faut voir dans les journaux :
+Ce qu'il faut voir :
 
 - `api` — `Nest application successfully started`, **sans** l'avertissement de clé
-  RS256 éphémère (sa présence signifie que `JWT_PRIVATE_KEY` n'est pas prise en
-  compte, et tous les jetons seraient invalidés à chaque redémarrage).
-- `worker` — `Worker à l'écoute de la file « notifications »`, et la ligne
-  `Push réel actif` si les credentials APNs/FCM sont renseignés.
+  RS256 éphémère. Sa présence signifierait que `JWT_PRIVATE_KEY` n'est pas prise
+  en compte, et tous les jetons seraient invalidés à chaque redémarrage.
+- `worker` — `Worker à l'écoute de la file « notifications »`, et `Push réel actif`
+  si les credentials APNs/FCM sont renseignés.
 
-Enfin, depuis l'app mobile : pointer `EXPO_PUBLIC_API_URL` sur
-`https://staging-api.<domaine>/api/v1` et se connecter.
+Puis depuis l'app mobile : pointer `EXPO_PUBLIC_API_URL` sur
+`https://staging-api.<domaine>/api/v1`.
 
 ---
 
 ## Pièges connus
 
-**Ne pas activer `ufw` avant d'avoir autorisé OpenSSH.** C'est le moyen le plus
-rapide de perdre l'accès à un serveur distant.
+**L'ordre lexical de `sshd_config.d/` décide.** La première valeur rencontrée
+gagne, et `/etc/ssh/sshd_config` est lu en dernier. Un fichier de durcissement
+doit trier **avant** `50-cloud-init.conf`, jamais après.
 
-**Le certificat couvre les deux noms d'hôte.** Émettre deux certificats séparés
-demanderait de modifier la configuration Nginx, qui référence un seul chemin.
+**`wc -l` ne dit pas si un fichier est vide.** Il compte les retours à la ligne :
+une clé publique sans retour final donne `0` alors que le fichier est plein.
+Utiliser `wc -c`.
 
-**`IMAGE_TAG` n'a pas de valeur par défaut**, volontairement. Un déploiement vise
-un SHA de commit précis ; avec `latest`, un redémarrage changerait de version
-sans décision explicite.
+**Ne pas activer `ufw` avant d'avoir autorisé OpenSSH.**
 
-**`S3_ENDPOINT` est l'URL publique**, pas `http://minio:9000`. C'est elle qui est
-signée dans les URL présignées : avec l'adresse interne, le lien de
-téléchargement d'export est injoignable depuis un téléphone.
+**Docker contourne `ufw`.** Il écrit ses propres règles iptables : un `ports:`
+ajouté à un service serait exposé sur Internet malgré le pare-feu. La composition
+n'en publie que sur `nginx` ; tous les autres services utilisent `expose:`.
+
+**`S3_ENDPOINT` est l'URL publique**, pas `http://minio:9000` — c'est elle qui est
+signée dans les URL présignées.
+
+**`IMAGE_TAG` n'a pas de défaut**, volontairement.
+
+**Compose n'interpole pas les variables dans `env_file`.** Un `${VAR:-défaut}` y
+retombe toujours sur le défaut.
