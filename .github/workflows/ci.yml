@@ -103,3 +103,64 @@ jobs:
         run: pnpm --filter @talent-x/api test:int
         env:
           DATABASE_URL: postgresql://talentx:talentx@localhost:5432/talentx?schema=public
+
+  # Étape 6 du pipeline TX-OPS-004 §5 : « Build Docker multi-stage et publication
+  # dans le registry ». Séparée des tests et conditionnée à leur réussite : on ne
+  # publie jamais un artefact dont la suite n'est pas verte.
+  #
+  # Ne tourne pas sur les pull requests — une PR ne doit pas produire d'image
+  # déployable, et GITHUB_TOKEN y est en lecture seule sur les packages.
+  publish-image:
+    name: Image API · publication GHCR
+    needs: build-test
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # GITHUB_TOKEN suffit : aucun secret à provisionner pour publier sur GHCR
+      # dans l'organisation propriétaire du dépôt.
+      - name: Login GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Contexte = racine du dépôt (pnpm a besoin du lockfile et du
+      # pnpm-workspace.yaml), Dockerfile = apps/api/Dockerfile.
+      #
+      # UN SEUL tag, le SHA court — délibérément pas de `latest` ni de `main` :
+      # un déploiement vise une version précise, et une étiquette mouvante fait
+      # changer de code au premier redémarrage sans que personne ne l'ait décidé.
+      - name: Build & push
+        id: push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/api/Dockerfile
+          push: true
+          tags: ghcr.io/${{ github.repository_owner }}/talentx-api:sha-${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Le tag à reporter dans IMAGE_TAG côté VPS, visible sans fouiller les logs.
+      - name: Récapitulatif
+        run: |
+          {
+            echo "### Image publiée"
+            echo ''
+            echo '```'
+            echo "IMAGE_TAG=sha-${{ github.sha }}"
+            echo '```'
+            echo ''
+            echo "Reporter cette valeur dans \`/etc/talentx/staging.env\` sur le VPS,"
+            echo "puis \`docker compose pull && docker compose up -d\`."
+          } >> "$GITHUB_STEP_SUMMARY"

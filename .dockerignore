@@ -1,0 +1,49 @@
+# Contexte de build Docker de l'API (TX-DEPLOY-004 §4.1).
+#
+# Le contexte est la RACINE du dépôt, pas apps/api : pnpm a besoin du
+# pnpm-workspace.yaml et du lockfile de la racine pour une installation
+# déterministe (`--frozen-lockfile`).
+#
+# Sans ce fichier, `node_modules/` (plusieurs centaines de Mo, dont tout Expo)
+# partirait dans le contexte à chaque build.
+
+# deps & builds — reconstruits dans l'image
+node_modules/
+dist/
+build/
+coverage/
+*.log
+
+# env & secrets — la configuration vient de l'environnement au démarrage
+.env
+.env.*
+!.env.example
+*.pem
+*.p8
+google-services.json
+*-firebase-adminsdk-*.json
+
+# l'app mobile n'a rien à faire dans une image serveur
+apps/mobile/
+
+# specs, maquettes et documentation : hors périmètre d'un artefact serveur
+docs/
+design/
+mockups/
+store/
+
+# tests — l'image ne les exécute pas (la CI s'en charge avant la construction)
+**/*.test.ts
+**/*.test.tsx
+**/*.spec.ts
+apps/api/test/
+
+# outillage local
+.git/
+.github/
+.claude/
+.expo/
+.vscode/
+.idea/
+.DS_Store
+docker-compose*.yml
