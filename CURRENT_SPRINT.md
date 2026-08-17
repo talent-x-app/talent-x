@@ -12,6 +12,111 @@ de débloquer les écrans coach C-01/C-02/C-03.
 - _(éditeurs typés terminés — TLX-054→061 livrés ↓)_
 - _(C-01 complet — TLX-081→085 livrés ↓)_
 
+## Terminés — Session 2026-08-17 : TLX-84 clos — push réel validé sur Android **et** iOS
+
+- **Le segment appareil → FCM est prouvé.** Deux notifications reçues et affichées sur le S20 FE :
+  (1) envoi direct sur le vrai token (`push-smoke.ts`, `FCM_TEST_TOKEN` lu en base) — `OAuth 200`
+  puis `messages:send` **200** ; (2) **bout-en-bout réel** — annonce publiée par le coach via
+  `POST /groups/{id}/announcements` → 2 lignes `notifications` → worker → FCM → bannière
+  « Nouvelle annonce · Ton coach a publié une annonce ». Message **générique** (ADR-10) : aucune
+  donnée métier ne transite par Google. La chaîne complète d'ADR-22 est désormais vérifiée de bout
+  en bout sur un appareil, pas seulement jusqu'aux fournisseurs.
+- **Enregistrement du device confirmé en base** : ligne `device_tokens` (`fcm`, 142 car.) liée à
+  `athlete.tlx173@demo.test` — donc permission accordée, jeton natif obtenu et
+  `POST /notifications/devices` abouti. TLX-226 fonctionne sur appareil réel.
+- **`Notification sans cible (aucun device actif)` reste journalisé pour le coéquipier** — c'est le
+  **bon** résultat (il n'a pas d'appareil), et non plus le symptôme d'une chaîne cassée. L'athlète,
+  lui, ne produit **aucune** ligne : ce processor ne journalise que préférence-off, absence de
+  device et jetons invalides. **Silence = envoi sans rejet** — à savoir pour ne pas rechercher en
+  vain une trace de succès.
+
+- **Ce qui bloquait réellement (deux causes, aucune côté code)** :
+  1. **Pare-feu Windows** — Wi-Fi en profil **Public** et **aucune** règle entrante. Deux règles
+     créées, volontairement étroites : TCP **3000** (API) et **8081** (Metro), `-Profile Any`,
+     **`-RemoteAddress LocalSubnet`** (portée limitée au sous-réseau du partage de connexion).
+     Suppression : `Get-NetFirewallRule -DisplayName 'Talent-X dev*' | Remove-NetFirewallRule`.
+  2. **APK périmé sur l'appareil** — le dev client installé (`bbc4ac61`, 2026-07-17) est
+     **antérieur à TLX-226** : sans `expo-notifications` dans le binaire, `getDeviceToken()` renvoie
+     `null` et l'enregistrement sort en `unavailable` **silencieusement** (chemin normal, par
+     conception). Il faut `518ebf13`. Symptôme trompeur : l'app marche parfaitement, le push est
+     juste inerte.
+
+- **Piège à ne pas refaire — seul le profil `development` est testable en LAN.** `.easignore`
+  exclut `.env`, donc un build **preview/production** n'embarque **aucune** `EXPO_PUBLIC_API_URL` :
+  `apiBaseUrl` vaut `''` et tous les appels échouent. Un test sur appareil contre l'API locale passe
+  donc **obligatoirement** par le dev client + Metro. Corollaire : les builds `distribution: internal`
+  **expirent** (`518ebf13` → **2026-08-25**) ; passé cette date, rebuild depuis `apps/mobile`.
+
+- **Défaut produit trouvé et corrigé : `setNotificationHandler` absent.** Aucun appel dans
+  `apps/mobile` → `expo-notifications` **avale** les push reçus **app au premier plan**
+  (« the default behavior when the handler is not set […] is **not to show** the notification »).
+  L'affichage en arrière-plan, lui, est assuré par le système à partir du bloc `notification` du
+  payload FCM (`fcm-client.ts`) — d'où un défaut invisible tant qu'on ne teste pas app ouverte.
+  Correctif : `FOREGROUND_BEHAVIOR` + `configureForegroundPresentation()`, installés **après** le
+  chargement paresseux du module natif — la garde de TLX-226 (dev client périmé, web) reste intacte,
+  aucun import statique introduit. `shouldSetBadge: false` : l'app ne tient aucun compteur, un badge
+  posé ici ne serait jamais remis à zéro. Le test assert **la décision d'affichage** elle-même, pas
+  seulement l'appel — un handler renvoyant `shouldShowBanner: false` doit casser la garde.
+  **Mobile 980/980** (110 suites, +1), typecheck + ESLint + Prettier clean.
+
+- **Validé en réel, par instrumentation temporaire** (`console.log` remontés dans Metro, retirés
+  depuis) : `installation du handler` → `handleNotification appelé` (titre/corps/`data` complets)
+  → `présentation OK` → **notification visible dans le volet, app au premier plan**. À noter pour
+  l'honnêteté du compte rendu : le comportement **avant** correctif n'a pas été observé sur
+  l'appareil — il est établi par la doc et le code d'`expo-notifications`, pas par une mesure.
+
+- **Ce qui reste et n'est pas de notre ressort : la bannière _heads-up_.** Aucune bannière ne
+  s'affiche par-dessus l'app, alors que tout le chemin applicatif est correct — le payload ne posant
+  ni `android.notification.channel_id` ni `data.channelId`, `FirebaseNotificationTrigger` retombe sur
+  `expo_notifications_fallback_notification_channel`, créé en **`IMPORTANCE_HIGH`**, et
+  `ExpoNotificationBuilder` renvoie déjà `max(PRIORITY_HIGH, …)` puisque `shouldPresentAlert` est
+  vrai. Reste donc l'affichage One UI (« Style de notification », « Afficher en pop-up » par app).
+  **Ne pas chercher à corriger ça côté code** sans mesure préalable : les deux leviers applicatifs
+  sont déjà au maximum. Si le sujet revient, l'outil est `adb logcat` (`adb` présent dans
+  `%LOCALAPPDATA%\Android\Sdk\platform-tools`), pas une nouvelle hypothèse.
+
+- **Friction d'environnement** : `JWT_PRIVATE_KEY` non défini → clé RS256 **éphémère**, régénérée à
+  chaque démarrage de l'API. Redémarrer l'API pendant un test sur appareil invalide la session du
+  téléphone (401 silencieux). Lancer API **et** worker depuis `dist/` (`node dist/main.js` /
+  `node dist/worker.js`) évite en prime la contention des deux watchers Nest sur le même `dist/`.
+
+- **iOS validé dans la même session — le blocage annoncé n'existait pas.** « Suspendu au compte
+  Apple Developer » était une **hypothèse jamais vérifiée** : le build iOS `15d0b819` est en
+  distribution **AdHoc** et il existe même un build **STORE** (2026-01-12) — or ni l'un ni l'autre
+  ne peut être signé sans adhésion payante. Vérifié en **inspectant l'IPA** plutôt qu'en supposant :
+  dev client (`EXDevLauncher`/`EXDevMenu` dans le binaire), `EXNotifications` présent, profil AdHoc
+  `com.talentx.app` valide jusqu'au **2027-01-08**, **1 UDID** provisionné (celui de l'iPhone), et
+  `NSAllowsArbitraryLoads` + `NSAllowsLocalNetworking` déjà posés (donc API LAN en HTTP joignable
+  sans rien changer). **Leçon : lire l'artefact, pas le ticket.**
+
+- **Piège majeur désamorcé — `aps-environment: production` vs `APNS_PRODUCTION=false`.** Le profil
+  AdHoc porte l'entitlement **`production`** : l'appareil s'enrôle donc auprès d'APNs **production**,
+  alors que le serveur pointait sur `api.sandbox.push.apple.com`. Un jeton de production envoyé au
+  sandbox renvoie **`400 BadDeviceToken`** — le message **exact** que le script interprète comme
+  « creds valides, token bidon », et qu'on aurait lu comme un échec de credentials. Trouvé **avant**
+  le premier envoi, en lisant le profil embarqué. `APNS_PRODUCTION=true` (sauvegarde
+  `apps/api/.env.bak-tlx84`). **Règle : `false` ne vaut que pour un build signé avec un profil de
+  développement — ce que `eas.json` ne produit pas aujourd'hui.**
+
+- **Bascule sans dommage collatéral** : `PushProviderFactory` n'est instancié **que par le worker**
+  (0 occurrence dans le log de l'API). Changer l'environnement APNs ne demande donc que
+  `node dist/worker.js` relancé — l'API reste debout, et la session de l'appareil Android survit
+  (elle n'aurait pas résisté à un redémarrage de l'API, cf. clé RS256 éphémère ci-dessous).
+
+- **Preuves iOS** : sonde `APNs → PROD` `400 BadDeviceToken` = auth OK ; ligne `device_tokens`
+  `apns` **64 car. hex** (vs 142 pour FCM) sur `teammate.tlx173@demo.test` ; envoi direct
+  `push-smoke.ts --apns` → **200 acceptée et livrée** ; notification affichée sur l'iPhone.
+
+- **Bout-en-bout bi-plateforme (le test qui vaut pour les deux)** : une **seule** annonce du coach
+  → `09:10:42` FCM (athlète) + `09:10:49` APNs (coéquipier), **0 occurrence** de
+  `Notification sans cible`, **0 jeton révoqué**. La disparition de cette ligne est le signal fort :
+  la même branche qui se déclenchait à _chaque_ envoi depuis le matin trouve désormais une cible
+  pour les deux membres. Valide au passage le **fan-out d'ADR-46 vers des plateformes hétérogènes**
+  servies par un même job.
+
+- **Reste sur TLX-84** : rien de technique. Seule la **doc du transfert hors UE** (APNs/FCM,
+  TX-SEC-003 §10/§17, AIPD) est à écrire. Le ticket est clos sur les deux plateformes.
+
 ## Terminés — Session 2026-08-11 (suite) : TLX-226, le chaînon push côté client
 
 - **Constat en attaquant TLX-84** : la chaîne push serveur était complète et validée jusqu'aux
