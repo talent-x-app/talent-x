@@ -16,7 +16,7 @@
     "e2e": "playwright test",
     "e2e:ui": "playwright test --ui",
     "e2e:headed": "playwright test --headed",
-    "eas-build-post-install": "pnpm --filter @talent-x/design-tokens --filter @talent-x/api-client build"
+    "eas-build-post-install": "pnpm --filter @talent-x/design-tokens --filter @talent-x/api-client build && node scripts/check-build-env.js"
   },
   "dependencies": {
     "@expo-google-fonts/poppins": "^0.2.3",
