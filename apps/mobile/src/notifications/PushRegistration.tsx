@@ -5,6 +5,7 @@ import type { NotificationType } from '@talent-x/api-client';
 import { useSession } from '../auth/SessionProvider';
 import { notificationHref } from './notification-ui';
 import {
+  configureForegroundPresentation,
   ensureDeviceRegistered,
   loadNotificationsModule,
   nativePushBridge,
@@ -70,6 +71,8 @@ export function PushRegistration({
       // `null` = module natif absent (dev client périmé) ou web : rien à écouter.
       const Notifications = await loadNotifications();
       if (!Notifications || cancelled) return;
+      // À défaut, un push reçu app ouverte ne s'affiche pas du tout (cf. `FOREGROUND_BEHAVIOR`).
+      configureForegroundPresentation(Notifications);
       subscription = Notifications.addNotificationResponseReceivedListener((response) => {
         const currentRole = roleRef.current;
         if (!currentRole) return;

@@ -134,6 +134,34 @@ export async function loadNotificationsModule(): Promise<NotificationsModule | n
   }
 }
 
+/**
+ * Comportement d'affichage d'un push reçu **app au premier plan**.
+ *
+ * Sans handler, `expo-notifications` **avale** silencieusement toute notification arrivant pendant
+ * que l'app est ouverte — rien à l'écran — alors que la même notification s'affiche normalement en
+ * arrière-plan, où c'est le système qui la présente à partir du bloc `notification` du payload FCM
+ * (`apps/api/src/jobs/push/fcm-client.ts`). Écart constaté en validant TLX-84 sur appareil réel.
+ *
+ * `shouldSetBadge: false` (iOS) : l'app ne tient aucun compteur de badge — l'activer poserait une
+ * pastille que rien ne viendrait jamais remettre à zéro.
+ */
+export const FOREGROUND_BEHAVIOR = {
+  shouldShowBanner: true,
+  shouldShowList: true,
+  shouldPlaySound: true,
+  shouldSetBadge: false,
+} as const;
+
+/**
+ * Installe le comportement d'affichage au premier plan. Appelé une fois le module natif chargé —
+ * donc jamais sur web ni sur un dev client qui ne l'embarque pas (cf. `loadNotificationsModule`).
+ */
+export function configureForegroundPresentation(Notifications: NotificationsModule): void {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({ ...FOREGROUND_BEHAVIOR }),
+  });
+}
+
 /** Pont réel vers `expo-notifications`. Toute absence/erreur se traduit par « pas de push ». */
 export const nativePushBridge: PushBridge = {
   async ensurePermission(): Promise<boolean> {

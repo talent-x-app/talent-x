@@ -31,11 +31,13 @@ jest.mock('../auth/secure-storage', () => ({
 import { PushRegistration } from './PushRegistration';
 import type { NotificationsModule } from './push-registration';
 
-/** Faux module natif : capture le listener pour rejouer un tap. */
+/** Faux module natif : capture le listener pour rejouer un tap + le handler de premier plan. */
 function fakeNotifications() {
   const remove = jest.fn();
+  const setNotificationHandler = jest.fn();
   let handler: ((response: unknown) => void) | null = null;
   const module = {
+    setNotificationHandler,
     addNotificationResponseReceivedListener: (fn: (response: unknown) => void) => {
       handler = fn;
       return { remove };
@@ -44,8 +46,16 @@ function fakeNotifications() {
   return {
     load: async () => module,
     remove,
+    setNotificationHandler,
     tap(type: string, resourceId: string) {
       handler?.({ notification: { request: { content: { data: { type, resourceId } } } } });
+    },
+    /** Rejoue la décision d'affichage prise pour un push arrivant app ouverte. */
+    async foregroundBehavior() {
+      const [installed] = setNotificationHandler.mock.calls[0] as [
+        { handleNotification: (n: unknown) => Promise<unknown> },
+      ];
+      return installed.handleNotification({});
     },
     get subscribed() {
       return handler !== null;
@@ -122,6 +132,23 @@ describe('PushRegistration (TLX-226)', () => {
     await waitFor(() => expect(load).toHaveBeenCalled());
     // L'enregistrement, lui, passe par le pont injecté et reste fonctionnel.
     await waitFor(() => expect(mockRegisterDevice).toHaveBeenCalled());
+  });
+
+  // Sans handler installé, expo-notifications avale les push reçus app ouverte : rien à l'écran,
+  // alors que la même notification s'affiche en arrière-plan. Écart trouvé en validant TLX-84 sur
+  // appareil — d'où une garde sur la décision d'affichage elle-même, pas seulement sur l'appel.
+  it('push reçu app au premier plan : bannière + liste, sans badge', async () => {
+    const notifs = fakeNotifications();
+    render(<PushRegistration bridge={bridge} os="android" loadNotifications={notifs.load} />);
+    await waitFor(() => expect(notifs.setNotificationHandler).toHaveBeenCalled());
+
+    await expect(notifs.foregroundBehavior()).resolves.toEqual({
+      shouldShowBanner: true,
+      shouldShowList: true,
+      shouldPlaySound: true,
+      // L'app ne tient aucun compteur : un badge posé ici ne serait jamais remis à zéro.
+      shouldSetBadge: false,
+    });
   });
 
   it('web : aucune tentative d’enregistrement', async () => {
