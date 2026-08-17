@@ -62,6 +62,13 @@ describe('LoginScreen (TLX-025)', () => {
     expect(screen.getByTestId('login-submit')).toBeOnTheScreen();
   });
 
+  it('affiche la pastille de marque au-dessus du titre', () => {
+    render(<LoginScreen />, { wrapper: Wrapper });
+    const logo = screen.getByTestId('login-logo');
+    expect(logo).toBeOnTheScreen();
+    expect(logo.props.accessibilityLabel).toBe('Talent-X');
+  });
+
   it('valide la saisie : champs vides → erreur, pas d’appel API', () => {
     render(<LoginScreen />, { wrapper: Wrapper });
     fireEvent.press(screen.getByTestId('login-submit'));

@@ -13,3 +13,4 @@ export { SegmentedTabs, type SegmentedTabItem, type SegmentedTabsProps } from '.
 export { QrCode, type QrCodeProps } from './QrCode';
 export { InlineConfirm, type InlineConfirmProps } from './InlineConfirm';
 export { DatePicker, type DatePickerProps } from './DatePicker';
+export { TxLogo, type TxLogoProps } from './TxLogo';

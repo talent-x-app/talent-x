@@ -9,16 +9,28 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "platforms": ["ios", "android", "web"],
+    "icon": "./assets/icon.png",
     "android": {
       "package": "com.talentx.app",
       "googleServicesFile": "./google-services.json",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon-foreground.png",
+        "backgroundImage": "./assets/adaptive-icon-background.png"
+      },
       "permissions": ["android.permission.CAMERA", "android.permission.RECORD_AUDIO"]
     },
     "ios": {
       "bundleIdentifier": "com.talentx.app",
+      "icon": {
+        "light": "./assets/icon.png",
+        "dark": "./assets/icon-dark.png"
+      },
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
     },
     "plugins": [
       "expo-router",
@@ -28,6 +40,19 @@
         "expo-camera",
         {
           "cameraPermission": "Autorise Talent-X à utiliser la caméra pour scanner le QR d'invitation d'un groupe."
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 180,
+          "resizeMode": "contain",
+          "backgroundColor": "#F4F6FA",
+          "dark": {
+            "image": "./assets/splash-icon.png",
+            "backgroundColor": "#0B0F17"
+          }
         }
       ]
     ],

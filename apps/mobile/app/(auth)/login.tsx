@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSession } from '../../src/auth/SessionProvider';
 import { setTokens } from '../../src/auth/token-store';
-import { Button, Input } from '../../src/components/ui';
+import { Button, Input, TxLogo } from '../../src/components/ui';
 import { toUserMessage, useToast } from '../../src/feedback';
 
 /**
@@ -75,8 +75,11 @@ export default function LoginScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <View style={[styles.brand, { marginBottom: spacing[8] }]}>
+          {/* Pastille de marque (maquette O-02 du UI kit) — même visuel que l'icône de l'app. */}
+          <TxLogo testID="login-logo" size={76} />
           <Text
             style={{
+              marginTop: spacing[4],
               color: colors.textPrimary,
               fontFamily: typography.fontFamily.bold,
               fontSize: typography.h1.fontSize,
