@@ -12,6 +12,64 @@ de débloquer les écrans coach C-01/C-02/C-03.
 - _(éditeurs typés terminés — TLX-054→061 livrés ↓)_
 - _(C-01 complet — TLX-081→085 livrés ↓)_
 
+## Terminés — Session 2026-08-11 (suite) : TLX-226, le chaînon push côté client
+
+- **Constat en attaquant TLX-84** : la chaîne push serveur était complète et validée jusqu'aux
+  fournisseurs, mais **aucun appareil ne pouvait rien recevoir** — l'app n'appelait jamais
+  `registerDevice`. Le verbe existait au contrat, dans le client généré et dans le backend (service,
+  contrôleur, tests) et **nulle part dans `apps/mobile`** ; ni `expo-notifications`, ni
+  `googleServicesFile`. La DoD « valider sur device » était inatteignable, indépendamment des
+  credentials. → **TLX-226** créé (High, bloquant pour TLX-84) puis livré.
+
+- **TLX-226 livré** (`c9f3a96`) : module `push-registration` injectable (mapping OS → plateforme,
+  enregistrement **idempotent**, révocation best-effort), composant racine `PushRegistration` sur le
+  patron d'`OfflineSync`, révocation câblée dans `signOut` **avant** la purge des jetons (l'endpoint
+  est authentifié — après, ce serait un 401). **Jeton natif** (`getDevicePushTokenAsync`) et non un
+  jeton du service Expo : le backend parle directement à APNs/FCM. Module natif chargé
+  **paresseusement** — un import statique ferait échouer le bundle entier sur un dev client antérieur
+  (mode de panne de TLX-141/218) ; ici l'app démarre et le push est inactif. Permission refusée,
+  jeton absent, module manquant et web = chemins **normaux**, jamais des erreurs affichées.
+  **Mobile 979/979** (110 suites, +21).
+
+- **Piège EAS coûteux, à ne pas refaire** : deux builds ont été lancés depuis la **racine** du
+  dépôt au lieu de `apps/mobile`. `eas-cli` y a généré un `app.json` et un `eas.json` parasites,
+  avec un **bundle différent** (`com.talentx.talentx`) et sans `version`. Conséquences observées et
+  d'abord mal attribuées : « Version 0.0.0 » côté EAS, app installée **sans icône et écran blanc**
+  (`No script URL provided` — le build n'empaquetait pas Talent-X du tout), et un push qui n'aurait
+  **jamais** fonctionné (topic `APNS_BUNDLE_ID=com.talentx.app` ≠ bundle signé). Fichiers supprimés,
+  builds relancés depuis `apps/mobile` → **0.1.0**, commit `7034aef`, iOS `15d0b819` + Android
+  `518ebf13` terminés. **Toujours builder depuis `apps/mobile`.**
+
+- **`google-services.json` hors dépôt mais dans l'archive EAS** (`ba9e21f`) : le fichier était non
+  suivi **et non ignoré**, à un `git add -A` près d'entrer dans l'historique (vérifié : jamais
+  committé). Ignoré désormais — mais l'ignorer casse le build, EAS constituant son archive depuis
+  `.gitignore`. D'où un **`.easignore`**, qui prend le relais côté EAS. Piège associé : toute
+  nouvelle exclusion de `.gitignore` doit y être répercutée.
+
+- **Pare-feu Windows = blocage réel du test sur appareil** : le Wi-Fi est en profil **Public** et
+  **aucune règle entrante pour `node.exe`** n'existe → ni Metro (8081) ni l'API (3000) ne sont
+  joignables depuis un téléphone. Confirmé depuis Safari sur l'iPhone. Les tests HTTP 200 depuis la
+  machine ne prouvaient rien (la boucle locale n'est jamais filtrée). Deux règles `-Profile Any`
+  restent à créer en administrateur. Vu aussi : `EXPO_PUBLIC_API_URL` pointait sur `localhost`,
+  inutilisable depuis un appareil.
+
+- **Validation web réelle (seed `seed-hub-demo.mjs`)** : le worker a bien tracé
+  `Notification sans cible (aucun device actif)` sur une douzaine de jobs pendant la navigation.
+  C'est le **bon** résultat : enqueue → worker → garde de préférence → recherche de device
+  fonctionnent ; seul le dernier maillon manquait, faute d'appareil (sur web, `platformForOs`
+  renvoie `null` par conception). Reste donc à valider **uniquement** le segment appareil → APNs.
+
+- **Deux dettes relevées, non traitées** : `android.permission.RECORD_AUDIO` ajoutée par le plugin
+  `expo-camera` alors que l'app ne fait que scanner des QR (minimisation + visible sur la fiche
+  Play) ; et `moduleResolution: "node"` dans `packages/tsconfig/node.json`, **qui cessera de
+  fonctionner en TypeScript 7.0** (`ignoreDeprecations: "6.0"` est un piège : TS 5.6 du dépôt
+  refuserait de compiler).
+
+- **Frictions d'environnement** : deux watchers Nest sur le même `dist/` se le disputent (le worker
+  tourne désormais depuis `node dist/worker.js`, donc sans rechargement auto) ; et **OneDrive**
+  verrouille les fichiers de `dist/` (`UNKNOWN: unknown error, unlink`) — même famille que le verrou
+  sur le moteur Prisma. Exclure `dist/` et `node_modules/` de la synchro réglerait le sujet.
+
 ## Terminés — Session 2026-08-11 : rotation des secrets push (TLX-142) + TLX-224
 
 - **Dépôt local resynchronisé** : `main` avait **94 commits** de retard (fast-forward → `482667e`),
