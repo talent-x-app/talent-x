@@ -1,0 +1,176 @@
+# Environnement de STAGING — Talent-X (TX-DEPLOY-004 §2, §4.1).
+#
+# « Réplique simplifiée de la prod » : mêmes conteneurs, même Nginx, mêmes
+# migrations — pour que la mise en production soit une répétition et non une
+# découverte. Écarts assumés par rapport à la cible §4.1, documentés ici :
+#
+#   • Stockage objet = MinIO conteneurisé, au lieu d'OVH Object Storage.
+#     Gratuit et immédiat. À REVALIDER contre OVH avant la production : les
+#     implémentations divergent sur les URL présignées, et c'est précisément le
+#     mécanisme de livraison des archives d'export RGPD (ADR-13).
+#   • Pas de sauvegardes chiffrées externes ni de PRA : §4.1 les impose au MVP
+#     *opérationnel*, c'est-à-dire à la production. La perte du staging est assumée.
+#   • Nœud unique — point de défaillance unique, cf. §4.1.
+#
+# Les secrets viennent d'un fichier HORS DÉPÔT sur le VPS (décision TX-SEC-003
+# §11 pour le staging) :  /etc/talentx/staging.env  en chmod 600, root:root.
+#
+# Démarrage :  docker compose --env-file /etc/talentx/staging.env up -d
+# Voir deploy/staging/README.md pour la première mise en service (certificat).
+
+name: talentx-staging
+
+x-api-env: &api-env
+  env_file:
+    - /etc/talentx/staging.env
+
+x-api-image: &api-image
+  # Image construite et publiée par la CI, taguée par SHA de commit (§5 étape 6).
+  # `IMAGE_TAG` vient du fichier d'environnement : un déploiement = un tag précis,
+  # jamais `latest` — sinon un redémarrage change silencieusement de version.
+  image: ${API_IMAGE:-ghcr.io/talent-x-app/talentx-api}:${IMAGE_TAG:?IMAGE_TAG est requis}
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    # Chemin absolu volontairement figé : Compose N'INTERPOLE PAS les variables
+    # dans `env_file`. Un `${VAR:-défaut}` y ressemblerait à une surcharge
+    # possible sans en être une — vérifié, ça retombe toujours sur le défaut.
+    env_file:
+      - /etc/talentx/staging.env
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+      POSTGRES_DB: ${POSTGRES_DB:?}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    # Aucun port publié : la base n'est jamais exposée hors du réseau Docker.
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    image: minio/minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY_ID:?}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_ACCESS_KEY:?}
+      # Indispensable derrière Nginx : sans lui, MinIO signe les URL présignées
+      # avec son adresse interne et le lien est inutilisable depuis un téléphone.
+      MINIO_SERVER_URL: ${S3_ENDPOINT:?}
+    volumes:
+      - miniodata:/data
+    healthcheck:
+      test: ['CMD', 'mc', 'ready', 'local']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Crée le bucket d'export au démarrage puis s'arrête.
+  minio-init:
+    image: minio/mc
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 '${S3_ACCESS_KEY_ID}' '${S3_SECRET_ACCESS_KEY}';
+      mc mb -p local/${S3_BUCKET};
+      exit 0;
+      "
+
+  # Migration de schéma — étape EXPLICITE et BLOQUANTE (§5 étape 8).
+  # Conteneur éphémère : il applique puis sort. L'API et le worker ne démarrent
+  # qu'après sa réussite, ce qui évite qu'un code neuf tourne sur un schéma ancien.
+  migrate:
+    <<: [*api-image, *api-env]
+    command: ['pnpm', '--filter', '@talent-x/api', 'exec', 'prisma', 'migrate', 'deploy']
+    working_dir: /repo
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: 'no'
+
+  api:
+    <<: [*api-image, *api-env]
+    restart: unless-stopped
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    # Exposé uniquement à Nginx, jamais publié sur l'hôte.
+    expose:
+      - '3000'
+
+  # Process séparé consommant la file BullMQ (TX-ARCH-001 §4.5) : notifications
+  # push, emails, exports, purges. Même image que l'API — un seul artefact.
+  worker:
+    <<: [*api-image, *api-env]
+    command: ['node', 'apps/api/dist/worker.js']
+    restart: unless-stopped
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - ./nginx/talentx.conf.template:/etc/nginx/templates/talentx.conf.template:ro
+      - letsencrypt:/etc/letsencrypt:ro
+      - certbot-www:/var/www/certbot:ro
+    environment:
+      # Substitués dans le template au démarrage par l'entrypoint officiel Nginx.
+      API_HOST: ${API_HOST:?API_HOST est requis (ex. staging-api.example.org)}
+      STORAGE_HOST: ${STORAGE_HOST:?STORAGE_HOST est requis (ex. staging-storage.example.org)}
+
+  # Renouvellement automatique. La PREMIÈRE émission est manuelle
+  # (cf. README) : Nginx ne peut pas démarrer son serveur TLS sans certificat.
+  certbot:
+    image: certbot/certbot
+    restart: unless-stopped
+    volumes:
+      - letsencrypt:/etc/letsencrypt
+      - certbot-www:/var/www/certbot
+    entrypoint: >
+      /bin/sh -c "
+      trap exit TERM;
+      while :; do
+        certbot renew --webroot -w /var/www/certbot --quiet;
+        sleep 12h & wait $${!};
+      done
+      "
+
+volumes:
+  pgdata:
+  redisdata:
+  miniodata:
+  letsencrypt:
+  certbot-www:
