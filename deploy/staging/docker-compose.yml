@@ -97,9 +97,25 @@ services:
   # Migration de schéma — étape EXPLICITE et BLOQUANTE (§5 étape 8).
   # Conteneur éphémère : il applique puis sort. L'API et le worker ne démarrent
   # qu'après sa réussite, ce qui évite qu'un code neuf tourne sur un schéma ancien.
+  # `pnpm` N'EXISTE PAS dans l'étage d'exécution de l'image (il n'y sert qu'à la
+  # construction) : on invoque le CLI Prisma par son point d'entrée Node.
+  #
+  # `node` en premier argument n'est pas cosmétique. L'image de base officielle
+  # `node` pose un ENTRYPOINT `docker-entrypoint.sh` qui préfixe `node` dès que le
+  # premier argument n'est pas un exécutable du PATH. Avec `pnpm` en tête, la
+  # commande devenait `node pnpm …` et échouait sur `Cannot find module /repo/pnpm`
+  # — un message qui ne désigne pas sa cause.
   migrate:
     <<: [*api-image, *api-env]
-    command: ['pnpm', '--filter', '@talent-x/api', 'exec', 'prisma', 'migrate', 'deploy']
+    command:
+      [
+        'node',
+        'node_modules/prisma/build/index.js',
+        'migrate',
+        'deploy',
+        '--schema',
+        'apps/api/prisma/schema.prisma',
+      ]
     working_dir: /repo
     depends_on:
       postgres:

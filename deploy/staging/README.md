@@ -261,24 +261,62 @@ Nginx, qui référence un chemin unique.
 
 ---
 
-## 10. Premier démarrage
+## 10. Accès au registre
 
-`IMAGE_TAG` se lit dans le récapitulatif du job GitHub Actions « Image API ·
-publication GHCR ».
+Le dépôt est privé, donc le paquet GHCR l'est aussi : sans authentification, le
+`pull` répond `denied`. Attention, GHCR renvoie **le même `denied` quand l'image
+n'existe pas** — vérifier d'abord que le job « Image API · publication GHCR » est
+bien vert avant de suspecter les droits.
+
+Créer un jeton sur `github.com/settings/tokens`, onglet **Tokens (classic)** —
+les jetons _fine-grained_ ne fonctionnent pas avec GHCR. Portée **`read:packages`
+uniquement** : le serveur n'a besoin que de télécharger.
+
+```bash
+[VPS] sudo docker login ghcr.io -u <login-github>
+```
+
+Le mot de passe demandé est le jeton. **`sudo` n'est pas optionnel** : Docker range
+les identifiants dans le `~/.docker/config.json` de l'utilisateur qui exécute la
+commande. Une connexion en tant qu'`ubuntu` suivie d'un `sudo docker compose pull`
+ferait tirer l'image par `root`, sans identifiants — et le registre répondrait
+`denied` comme si le jeton était mauvais.
+
+`-u` attend le **login GitHub personnel**, pas le nom de l'organisation. En cas de
+doute :
+
+```bash
+[VPS] curl -s -H "Authorization: Bearer <jeton>" https://api.github.com/user | grep '"login"'
+```
+
+---
+
+## 11. Premier démarrage
+
+`IMAGE_TAG` se lit dans le récapitulatif du job « Image API · publication GHCR ».
+Toujours un SHA dont l'exécution est **verte** : un run échoué ne publie rien.
 
 ```bash
 [VPS] cd /opt/talentx/staging
-[VPS] docker compose pull
-[VPS] docker compose up -d
-[VPS] docker compose ps
+[VPS] sudo docker compose --env-file /etc/talentx/staging.env config >/dev/null && echo "compose valide"
+[VPS] sudo docker compose --env-file /etc/talentx/staging.env pull
+[VPS] sudo docker compose --env-file /etc/talentx/staging.env up -d
+[VPS] sudo docker compose --env-file /etc/talentx/staging.env ps -a
 ```
 
-Le conteneur `migrate` doit être en `exited (0)` : il applique les migrations puis
+`--env-file` sur **chaque** commande : `IMAGE_TAG` n'a pas de défaut, un oubli
+échoue franchement plutôt que de démarrer une autre version.
+
+`ps -a` et non `ps` : sans `-a`, les conteneurs éphémères (`migrate`, `minio-init`)
+n'apparaissent pas puisqu'ils ont terminé — or c'est précisément leur code de
+sortie qu'on veut lire.
+
+Le conteneur `migrate` doit être en `Exited (0)` : il applique les migrations puis
 sort, et l'API ne démarre qu'après sa réussite.
 
 ---
 
-## 11. Vérifications
+## 12. Vérifications
 
 ```bash
 [VPS] curl -s https://staging-api.<domaine>/api/v1/health      # {"status":"ok"}
@@ -322,3 +360,20 @@ signée dans les URL présignées.
 
 **Compose n'interpole pas les variables dans `env_file`.** Un `${VAR:-défaut}` y
 retombe toujours sur le défaut.
+
+**`pnpm` n'existe pas dans l'image d'exécution.** Il ne sert qu'à la construction.
+Pire, l'image de base officielle `node` pose un `ENTRYPOINT docker-entrypoint.sh`
+qui **préfixe `node`** dès que le premier argument n'est pas un exécutable du PATH :
+une commande commençant par `pnpm` devient `node pnpm …` et échoue sur
+`Cannot find module '/repo/pnpm'`, message qui ne désigne pas sa cause. Toute
+commande surchargée doit commencer par un exécutable réellement présent — d'où
+l'appel direct au point d'entrée Node du CLI Prisma.
+
+**Le mot de passe Postgres est écrit à deux endroits** : `POSTGRES_PASSWORD` et,
+en clair, dans `DATABASE_URL`. Les désaccorder donne un Postgres parfaitement sain
+et un `migrate` qui échoue à s'authentifier. Les caractères spéciaux (`@`, `/`,
+`:`, `#`) doivent être encodés en pourcentage dans l'URL.
+
+**Le volume `letsencrypt` est créé hors Compose** (§9, certbot en `standalone`).
+Compose s'en plaint au démarrage — `volume ... was not created by Docker Compose` —
+et l'utilise quand même. Avertissement attendu, pas une erreur.
