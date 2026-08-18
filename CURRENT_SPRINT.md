@@ -12,7 +12,7 @@ de débloquer les écrans coach C-01/C-02/C-03.
 - _(éditeurs typés terminés — TLX-054→061 livrés ↓)_
 - _(C-01 complet — TLX-081→085 livrés ↓)_
 
-## Terminés — Session 2026-08-18 : staging — l'enregistrement push qui n'était jamais tenté
+## Terminés — Session 2026-08-18 : staging en service, TLX-84 clos sur staging, TLX-104 débloqué
 
 - **Cause du `device_tokens` vide sur staging trouvée par lecture du code, sans appareil** : la
   mémoire d'idempotence client (`push.device.*`, TLX-226) n'est scopée ni au compte ni au serveur.
@@ -48,9 +48,53 @@ de débloquer les écrans coach C-01/C-02/C-03.
   (le fournisseur réel existe depuis TLX-128). Débloquer TLX-104 = compte Brevo + 3 variables
   (`BREVO_API_KEY`, `EMAIL_FROM_ADDRESS`, `EMAIL_FROM_NAME`) dans `/etc/talentx/staging.env` +
   redémarrage du worker. Aucune clé Brevo n'existe en local.
-- **Reste (TLX-84 sur staging)** : valider `session_assigned` et `performance_feedback` sur
-  appareil contre le staging (déconnexion/reconnexion d'abord, cf. ci-dessus), vérifier la ligne
-  `device_tokens` côté VPS, puis retirer le log temporaire.
+- **TLX-84 validé sur staging — les deux scénarios, sur appareil réel.** `device_tokens` était
+  **vide (0 ligne)** avant le correctif ; après déconnexion/reconnexion, ligne `fcm` de 142 car.
+  liée à l'athlète. **La cause était bien l'idempotence, prouvée en base, pas déduite.**
+  (1) `session_assigned` : notification **visible dans le volet ET en bannière** — le défaut
+  _heads-up_ One UI relevé le 17/08 ne se reproduit pas ici. (2) `performance_feedback` : perf
+  saisie sur le téléphone (RPE 7), commentaire coach posté, notification en base avec `actorId`
+  (ADR-55), **aucune ligne de rejet** côté worker. Instrumentation retirée, arbre propre.
+- **Comment lire le silence du worker (à ne pas réapprendre)** : ce processor ne journalise **que**
+  les rejets — préférence off, absence de device, jeton invalide. Vérifié dans `fcm-client.ts` :
+  échec OAuth, code d'erreur, FCM injoignable et jeton mort écrivent **tous** un `warn`. Donc
+  **zéro ligne = envoi accepté**, et non « rien ne s'est passé ». Corollaire observé au passage :
+  la perf de l'athlète a déclenché un `performance_submitted` vers le coach, journalisé
+  « sans cible » — c'est le **bon** résultat, le coach est un script sans appareil.
+- **TLX-104 débloqué et validé sur staging** : les credentials Brevo étaient dans `apps/api/.env`
+  (local), que le staging ne lit jamais — il lit `/etc/talentx/staging.env`. Transférés (clé jamais
+  passée par une ligne de commande), worker **recréé** et non redémarré : `docker compose restart`
+  rejoue le conteneur avec l'environnement figé à son démarrage, seul `up -d` relit `env_file`.
+  Worker : `Email réel actif — Brevo`. Bout en bout : `POST /auth/forgot-password` → 202 →
+  `Email envoyé : kind=password_reset`.
+- **Piège email à ne pas rejouer** : le message est en **hardBounce** chez Brevo — l'adresse venait
+  du script (`coach.staging.<timestamp>@talent-x.app`), qui n'est pas une vraie boîte. Le pipeline
+  n'est pas en cause, mais les rebonds durs abîment la réputation d'expéditeur et Brevo suspend les
+  comptes qui en accumulent. **La campagne `qa/` doit fixer une adresse réelle.** Compte actuel :
+  plan **gratuit, 300 crédits** — assez pour qualifier, pas pour ouvrir.
+- **Fausse alerte levée par la mesure, pas par l'hypothèse** : `staging.env` porte des valeurs
+  entre guillemets (`FCM_CLIENT_EMAIL`, `APNS_*`…). Crainte que Compose les transmette
+  littéralement, ce qui aurait cassé le push au premier appareil enregistré. Vérifié **dans le
+  conteneur en marche** : 65 car. contre 67 dans le fichier — **Compose retire bien les guillemets**.
+  Rien à corriger.
+- **Deux écarts corrigés** : `/etc/talentx/staging.env` était en `ubuntu:ubuntu` alors que le
+  runbook annonce `root:root` (remis en root:root 600, `compose config` revérifié ensuite) ; et
+  `expo-env.d.ts` était **suivi par git ET listé dans `.gitignore`** — contradiction sans effet,
+  d'où un `git status` sale en permanence. Désindexé (`d7079ff`).
+- **Diagnostic à ne pas refaire de travers** : l'API **ne journalise pas les requêtes** (131 lignes,
+  démarrage + événements métier). Conclure « le téléphone n'a pas tenté l'appel » depuis l'absence
+  de trace serait faux. Seule la table `device_tokens` fait foi.
+- **Constat produit relevé, non traité (→ qualification)** : la **cloche ne se met pas à jour** à
+  l'arrivée d'un push. `PushRegistration` n'abonne que `addNotificationResponseReceivedListener`
+  (tap) ; son pendant `addNotificationReceivedListener` (arrivée) n'existe nulle part dans
+  `apps/mobile`, donc rien n'invalide `NOTIFICATIONS_QUERY_KEY`. Attention au faux ami :
+  `staleTime: 30_000` ne déclenche **aucun** refetch, il marque la donnée périmée — sans
+  déclencheur (remontage, invalidation, `refetchInterval`) la cloche reste figée indéfiniment.
+  Second trou distinct : pas de refetch au retour au premier plan (`refetchOnWindowFocus: false`
+  assumé « coûteux en data », et RN exigerait un câblage `AppState`/`focusManager` absent) — celui-là
+  demande un arbitrage, pas un correctif en passant.
+- **Reste sur TLX-84** : rien de technique. Seule la **doc du transfert hors UE** (APNs/FCM,
+  TX-SEC-003 §10/§17, AIPD) reste à écrire — décision DPO.
 
 ## Terminés — Session 2026-08-17 : TLX-84 clos — push réel validé sur Android **et** iOS
 
