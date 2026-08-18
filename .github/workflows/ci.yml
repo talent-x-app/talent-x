@@ -99,10 +99,25 @@ jobs:
 
       # Inclut la suite E2E des parcours critiques (critical-paths.int-spec, TLX-120) :
       # cycle complet coach↔athlète via HTTP contre la base du service `postgres`.
+      #
+      # Les variables S3_* sont FACTICES et c'est volontaire : le parcours avatar
+      # (TLX-124) demande une URL présignée, or `getSignedUrl` du SDK AWS v3 est un
+      # calcul local — aucun appel réseau, donc aucun MinIO à faire tourner ici. Le
+      # test vérifie le namespace du titulaire et la forme de l'URL, pas la
+      # connectivité au stockage. Sans ces variables, ObjectStorageService refuse de
+      # se configurer et l'endpoint répond 500.
+      #
+      # En local ces valeurs viennent de `apps/api/.env`, absent de la CI : d'où un
+      # test qui passe sur le poste et échoue ici.
       - name: Tests d'intégration & parcours critiques (DB)
         run: pnpm --filter @talent-x/api test:int
         env:
           DATABASE_URL: postgresql://talentx:talentx@localhost:5432/talentx?schema=public
+          S3_ENDPOINT: http://localhost:9000
+          S3_REGION: us-east-1
+          S3_BUCKET: talentx-test
+          S3_ACCESS_KEY_ID: test
+          S3_SECRET_ACCESS_KEY: test-secret
 
   # Étape 6 du pipeline TX-OPS-004 §5 : « Build Docker multi-stage et publication
   # dans le registry ». Séparée des tests et conditionnée à leur réussite : on ne
