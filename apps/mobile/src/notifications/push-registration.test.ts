@@ -6,10 +6,22 @@ jest.mock('@talent-x/api-client', () => ({
   revokeDevice: (...a: unknown[]) => mockRevokeDevice(...a),
 }));
 
+// Pas de `jest.mock('expo-notifications')` : le pont reçoit son chargeur (cf. `makeNativePushBridge`).
+// Un mock de module serait ici trompeur — sous jest-expo l'import dynamique ne le verrait pas.
+const mockGetPermissionsAsync = jest.fn();
+const mockRequestPermissionsAsync = jest.fn();
+const mockGetDevicePushTokenAsync = jest.fn();
+
 import {
+  configureForegroundPresentation,
   ensureDeviceRegistered,
+  FOREGROUND_BEHAVIOR,
+  loadNotificationsModule,
+  makeNativePushBridge,
+  nativePushBridge,
   platformForOs,
   revokeRegisteredDevice,
+  type NotificationsModule,
   type PushBridge,
 } from './push-registration';
 import type { KeyValueStore } from '../offline/key-value-store';
@@ -164,5 +176,114 @@ describe('revokeRegisteredDevice', () => {
     await expect(revokeRegisteredDevice(store)).resolves.toBeUndefined();
     // Aucun identifiant d'appareil orphelin ne reste dans le trousseau (minimisation RGPD).
     expect(store.dump()).toEqual({});
+  });
+});
+
+/**
+ * Présentation au premier plan — le chaînon dont l'ABSENCE a fait échouer la validation TLX-84
+ * sur appareil réel : sans handler, `expo-notifications` avale toute notification reçue pendant
+ * que l'app est ouverte, alors que la même s'affiche normalement en arrière-plan. Le symptôme
+ * (« l'envoi est OK mais je ne vois rien ») ne désigne pas la cause : d'où ce test.
+ */
+describe('configureForegroundPresentation', () => {
+  it('installe un handler qui demande l’affichage de la notification', async () => {
+    const setNotificationHandler = jest.fn();
+
+    configureForegroundPresentation({ setNotificationHandler } as unknown as NotificationsModule);
+
+    expect(setNotificationHandler).toHaveBeenCalledTimes(1);
+    const { handleNotification } = setNotificationHandler.mock.calls[0][0];
+    await expect(handleNotification()).resolves.toEqual(FOREGROUND_BEHAVIOR);
+  });
+
+  it('bannière, liste et son demandés ; badge laissé tranquille', () => {
+    // `shouldSetBadge: false` est délibéré : l'app ne tient aucun compteur, une pastille posée
+    // ici ne serait jamais remise à zéro.
+    expect(FOREGROUND_BEHAVIOR).toEqual({
+      shouldShowBanner: true,
+      shouldShowList: true,
+      shouldPlaySound: true,
+      shouldSetBadge: false,
+    });
+  });
+});
+
+describe('makeNativePushBridge', () => {
+  /** Faux module natif : le pont reçoit son chargeur, on n'a donc rien à résoudre dynamiquement. */
+  function fakeModule(): NotificationsModule {
+    return {
+      getPermissionsAsync: mockGetPermissionsAsync,
+      requestPermissionsAsync: mockRequestPermissionsAsync,
+      getDevicePushTokenAsync: mockGetDevicePushTokenAsync,
+    } as unknown as NotificationsModule;
+  }
+
+  const bridgeWithModule = () => makeNativePushBridge(async () => fakeModule());
+  /** Dev client antérieur à TLX-226 : le module natif n'est pas dans le binaire. */
+  const bridgeWithoutModule = () => makeNativePushBridge(async () => null);
+
+  it('permission déjà accordée : aucune demande à l’utilisateur', async () => {
+    mockGetPermissionsAsync.mockResolvedValue({ granted: true, canAskAgain: true });
+
+    expect(await bridgeWithModule().ensurePermission()).toBe(true);
+    expect(mockRequestPermissionsAsync).not.toHaveBeenCalled();
+  });
+
+  it('permission jamais demandée : on demande et on suit la réponse', async () => {
+    mockGetPermissionsAsync.mockResolvedValue({ granted: false, canAskAgain: true });
+    mockRequestPermissionsAsync.mockResolvedValue({ granted: true });
+
+    expect(await bridgeWithModule().ensurePermission()).toBe(true);
+    expect(mockRequestPermissionsAsync).toHaveBeenCalledTimes(1);
+  });
+
+  it('refus définitif : on n’insiste pas (`canAskAgain: false`)', async () => {
+    mockGetPermissionsAsync.mockResolvedValue({ granted: false, canAskAgain: false });
+
+    expect(await bridgeWithModule().ensurePermission()).toBe(false);
+    expect(mockRequestPermissionsAsync).not.toHaveBeenCalled();
+  });
+
+  it('remonte le jeton natif de l’appareil', async () => {
+    mockGetDevicePushTokenAsync.mockResolvedValue({ type: 'fcm', data: 'jeton-natif' });
+
+    expect(await bridgeWithModule().getDeviceToken()).toBe('jeton-natif');
+  });
+
+  it('jeton non textuel : ignoré plutôt que remonté tel quel à l’API', async () => {
+    // Sur certaines plateformes `data` n'est pas une chaîne ; l'envoyer casserait
+    // l'enregistrement côté serveur de façon silencieuse.
+    mockGetDevicePushTokenAsync.mockResolvedValue({ type: 'fcm', data: { fake: true } });
+
+    expect(await bridgeWithModule().getDeviceToken()).toBeNull();
+  });
+
+  it('jeton indisponible (simulateur, google-services.json absent) : null, pas d’exception', async () => {
+    mockGetDevicePushTokenAsync.mockRejectedValue(new Error('no token'));
+
+    expect(await bridgeWithModule().getDeviceToken()).toBeNull();
+  });
+
+  it('module natif absent : pas de push, mais l’app démarre (TLX-141/TLX-218)', async () => {
+    const bridge = bridgeWithoutModule();
+
+    expect(await bridge.ensurePermission()).toBe(false);
+    expect(await bridge.getDeviceToken()).toBeNull();
+    // Aucun appel n'est tenté : il n'y a rien à appeler.
+    expect(mockGetPermissionsAsync).not.toHaveBeenCalled();
+    expect(mockGetDevicePushTokenAsync).not.toHaveBeenCalled();
+  });
+
+  it('le pont de production est câblé sur le chargeur réel', async () => {
+    // Sous jest-expo l'import dynamique ne se résout pas : le pont réel dégrade donc en
+    // « pas de push », ce qui vérifie au passage qu'il ne lève jamais.
+    expect(await nativePushBridge.ensurePermission()).toBe(false);
+    expect(await nativePushBridge.getDeviceToken()).toBeNull();
+  });
+});
+
+describe('loadNotificationsModule', () => {
+  it('ne lève jamais : un module introuvable devient « pas de push »', async () => {
+    await expect(loadNotificationsModule()).resolves.toBeDefined();
   });
 });

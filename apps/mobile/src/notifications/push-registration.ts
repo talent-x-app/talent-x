@@ -162,28 +162,42 @@ export function configureForegroundPresentation(Notifications: NotificationsModu
   });
 }
 
-/** Pont réel vers `expo-notifications`. Toute absence/erreur se traduit par « pas de push ». */
-export const nativePushBridge: PushBridge = {
-  async ensurePermission(): Promise<boolean> {
-    const Notifications = await loadNotificationsModule();
-    if (!Notifications) return false;
-    const current = await Notifications.getPermissionsAsync();
-    if (current.granted) return true;
-    // `canAskAgain === false` → l'utilisateur a refusé définitivement : ne pas insister.
-    if (!current.canAskAgain) return false;
-    const asked = await Notifications.requestPermissionsAsync();
-    return asked.granted;
-  },
+/**
+ * Pont réel vers `expo-notifications`, au-dessus d'un **chargeur injecté**.
+ *
+ * Le chargeur est un paramètre pour la même raison que `loadNotificationsModule` est exporté :
+ * sous `jest-expo`, l'`await import()` de ce dernier **lève** au lieu de se résoudre, si bien
+ * qu'un pont qui l'appellerait en dur retomberait toujours sur « module absent » — les chemins
+ * permission accordée / refus définitif / jeton non textuel seraient intestables.
+ */
+export function makeNativePushBridge(
+  load: () => Promise<NotificationsModule | null> = loadNotificationsModule,
+): PushBridge {
+  return {
+    async ensurePermission(): Promise<boolean> {
+      const Notifications = await load();
+      if (!Notifications) return false;
+      const current = await Notifications.getPermissionsAsync();
+      if (current.granted) return true;
+      // `canAskAgain === false` → l'utilisateur a refusé définitivement : ne pas insister.
+      if (!current.canAskAgain) return false;
+      const asked = await Notifications.requestPermissionsAsync();
+      return asked.granted;
+    },
 
-  async getDeviceToken(): Promise<string | null> {
-    const Notifications = await loadNotificationsModule();
-    if (!Notifications) return null;
-    try {
-      const token = await Notifications.getDevicePushTokenAsync();
-      return typeof token.data === 'string' ? token.data : null;
-    } catch {
-      // Android sans `google-services.json`, simulateur iOS, appareil hors ligne…
-      return null;
-    }
-  },
-};
+    async getDeviceToken(): Promise<string | null> {
+      const Notifications = await load();
+      if (!Notifications) return null;
+      try {
+        const token = await Notifications.getDevicePushTokenAsync();
+        return typeof token.data === 'string' ? token.data : null;
+      } catch {
+        // Android sans `google-services.json`, simulateur iOS, appareil hors ligne…
+        return null;
+      }
+    },
+  };
+}
+
+/** Pont de production. Toute absence/erreur se traduit par « pas de push ». */
+export const nativePushBridge: PushBridge = makeNativePushBridge();

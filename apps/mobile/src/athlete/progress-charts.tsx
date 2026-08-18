@@ -603,12 +603,14 @@ function ProgressTimeline({
       {/* Zone graphe : tracé SVG (mesuré) + colonnes de sélection (toujours rendues). Le détail du
           jour sélectionné vit dans un panneau dédié sous le graphe (plus de bulle qui masque). */}
       <View
+        testID={`progress-chart-area-${eventKey}`}
         onLayout={(e: LayoutChangeEvent) => setWidth(e.nativeEvent.layout.width)}
         style={{ height: CHART_HEIGHT, position: 'relative' }}
       >
         {width > 0 ? (
           <ProgressChart
             width={width}
+            eventKey={eventKey}
             heights={heights}
             fracs={fracs}
             best={best}
@@ -808,6 +810,7 @@ function ProgressTimeline({
  */
 function ProgressChart({
   width,
+  eventKey,
   heights,
   fracs,
   best,
@@ -815,6 +818,7 @@ function ProgressChart({
   pbColor,
 }: {
   width: number;
+  eventKey: string;
   heights: number[];
   fracs: number[];
   best: number;
@@ -835,7 +839,7 @@ function ProgressChart({
       : '';
 
   return (
-    <Svg width={width} height={CHART_HEIGHT}>
+    <Svg testID={`progress-chart-${eventKey}`} width={width} height={CHART_HEIGHT}>
       <Defs>
         <LinearGradient id="progressArea" x1="0" y1="0" x2="0" y2="1">
           <Stop offset="0" stopColor={colors.accent} stopOpacity={0.22} />
