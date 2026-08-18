@@ -6,7 +6,13 @@ const mockRestore = jest.fn();
 const mockSetRole = jest.fn();
 const mockClearRole = jest.fn();
 const mockClearTokens = jest.fn();
+const mockRevokeRegisteredDevice = jest.fn();
+const mockForgetDeviceRegistration = jest.fn();
 
+jest.mock('../notifications/push-registration', () => ({
+  revokeRegisteredDevice: () => mockRevokeRegisteredDevice(),
+  forgetDeviceRegistration: () => mockForgetDeviceRegistration(),
+}));
 jest.mock('../data/setup', () => ({ setupApiClient: () => mockSetup() }));
 jest.mock('./auth', () => ({ restoreSession: () => mockRestore() }));
 jest.mock('./session-store', () => ({
@@ -47,6 +53,8 @@ beforeEach(() => {
   mockSetRole.mockResolvedValue(undefined);
   mockClearRole.mockResolvedValue(undefined);
   mockClearTokens.mockResolvedValue(undefined);
+  mockRevokeRegisteredDevice.mockResolvedValue(undefined);
+  mockForgetDeviceRegistration.mockResolvedValue(undefined);
 });
 
 describe('SessionProvider (TLX-027)', () => {
@@ -74,7 +82,23 @@ describe('SessionProvider (TLX-027)', () => {
     fireEvent.press(screen.getByTestId('signout'));
 
     await waitFor(() => expect(screen.getByTestId('state')).toHaveTextContent('role:none'));
+    expect(mockRevokeRegisteredDevice).toHaveBeenCalledTimes(1);
     expect(mockClearTokens).toHaveBeenCalledTimes(1);
     expect(mockClearRole).toHaveBeenCalledTimes(1);
+  });
+
+  it('signIn oublie la mémoire d’enregistrement push avant d’exposer le rôle', async () => {
+    renderProvider();
+    await waitFor(() => expect(screen.getByTestId('state')).toHaveTextContent('role:none'));
+
+    fireEvent.press(screen.getByTestId('signin'));
+
+    await waitFor(() => expect(screen.getByTestId('state')).toHaveTextContent('role:coach'));
+    expect(mockForgetDeviceRegistration).toHaveBeenCalledTimes(1);
+    // L'ordre est le contrat : c'est la pose du rôle qui déclenche la tentative
+    // d'enregistrement de <PushRegistration> — l'oubli doit être déjà effectif.
+    expect(mockForgetDeviceRegistration.mock.invocationCallOrder[0]).toBeLessThan(
+      mockSetRole.mock.invocationCallOrder[0],
+    );
   });
 });

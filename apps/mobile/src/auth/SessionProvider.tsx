@@ -1,5 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
-import { revokeRegisteredDevice } from '../notifications/push-registration';
+import {
+  forgetDeviceRegistration,
+  revokeRegisteredDevice,
+} from '../notifications/push-registration';
 import { setupApiClient } from '../data/setup';
 import { restoreSession } from './auth';
 import { clearRole, setRole, type UserRole } from './session-store';
@@ -37,6 +40,11 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signIn = useCallback(async (r: UserRole) => {
+    // Nouvelle session ⇒ la mémoire d'enregistrement push ne fait plus foi : elle peut décrire
+    // un autre compte (session précédente morte sans signOut) ou un autre serveur (bascule
+    // d'environnement en dev). L'oublier AVANT d'exposer le rôle force <PushRegistration> à
+    // ré-enregistrer — l'upsert serveur ré-associe alors l'appareil au compte courant.
+    await forgetDeviceRegistration();
     await setRole(r);
     setRoleState(r);
   }, []);

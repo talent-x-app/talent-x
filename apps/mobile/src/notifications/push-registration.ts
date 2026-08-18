@@ -113,6 +113,20 @@ export async function revokeRegisteredDevice(store: KeyValueStore = deviceStore)
       // par le fournisseur (mapping `invalidTokens`, TLX-107).
     }
   }
+  await forgetDeviceRegistration(store);
+}
+
+/**
+ * Oublie l'enregistrement local **sans appel réseau**. À appeler à l'entrée d'une nouvelle
+ * session : la mémoire d'idempotence ci-dessus ne vaut que pour le couple (compte, serveur) qui
+ * l'a écrite. Après un changement de compte — ou d'API visée, en dev/staging — un jeton natif
+ * inchangé ne signifie pas « appareil enregistré » : s'y fier prive la nouvelle session de push
+ * pendant que le serveur continue de viser l'ancien compte. Le ré-enregistrement forcé est
+ * précisément ce qu'attend l'API : l'upsert par `token` ré-associe l'appareil au compte courant
+ * (TX-ARCH-001 §4.6). `signOut` n'y suffit pas : une session peut mourir sans lui (refresh
+ * expiré → purge des jetons, révocation impossible faute d'auth).
+ */
+export async function forgetDeviceRegistration(store: KeyValueStore = deviceStore): Promise<void> {
   await Promise.all([store.removeItem(DEVICE_ID_KEY), store.removeItem(DEVICE_TOKEN_KEY)]);
 }
 

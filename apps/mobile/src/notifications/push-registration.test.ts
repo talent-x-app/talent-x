@@ -15,6 +15,7 @@ const mockGetDevicePushTokenAsync = jest.fn();
 import {
   configureForegroundPresentation,
   ensureDeviceRegistered,
+  forgetDeviceRegistration,
   FOREGROUND_BEHAVIOR,
   loadNotificationsModule,
   makeNativePushBridge,
@@ -176,6 +177,33 @@ describe('revokeRegisteredDevice', () => {
     await expect(revokeRegisteredDevice(store)).resolves.toBeUndefined();
     // Aucun identifiant d'appareil orphelin ne reste dans le trousseau (minimisation RGPD).
     expect(store.dump()).toEqual({});
+  });
+});
+
+describe('forgetDeviceRegistration', () => {
+  it('purge la mémoire locale sans aucun appel réseau', async () => {
+    const store = memoryStore({ 'push.device.id': 'dev-1', 'push.device.token': 'tok-abc' });
+
+    await forgetDeviceRegistration(store);
+
+    expect(store.dump()).toEqual({});
+    expect(mockRegisterDevice).not.toHaveBeenCalled();
+    expect(mockRevokeDevice).not.toHaveBeenCalled();
+  });
+
+  it('la mémoire héritée d’une autre session ne bloque plus le ré-enregistrement', async () => {
+    // Scénario réel (staging, 2026-08) : appareil enregistré contre l'API locale, nouvelle
+    // session contre le staging — sans l'oubli, `ensureDeviceRegistered` rend `unchanged`
+    // sans émettre d'appel, et `device_tokens` reste vide côté serveur.
+    mockRegisterDevice.mockResolvedValue({ status: 201, data: { id: 'dev-staging' } });
+    const store = memoryStore({ 'push.device.id': 'dev-local', 'push.device.token': 'tok-abc' });
+
+    await forgetDeviceRegistration(store);
+    const outcome = await ensureDeviceRegistered({ bridge: bridge(), store, os: 'android' });
+
+    expect(outcome).toBe('registered');
+    expect(mockRegisterDevice).toHaveBeenCalledWith({ platform: 'fcm', token: 'tok-abc' });
+    expect(store.dump()['push.device.id']).toBe('dev-staging');
   });
 });
 
