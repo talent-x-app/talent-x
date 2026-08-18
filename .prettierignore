@@ -4,6 +4,11 @@
 **/coverage/**
 **/node_modules/**
 **/.expo/**
+# Rapports Playwright : absents de la CI (gitignorés), mais présents dès qu'on
+# joue les e2e en local. Sans ces lignes, `format:check` échoue sur le poste et
+# pas sur la CI — le plus sûr moyen d'apprendre à ignorer un rouge.
+**/playwright-report/**
+**/test-results/**
 
 # Généré
 pnpm-lock.yaml
@@ -13,4 +18,7 @@ packages/api-client/src/generated/**
 # Specs & design : non reformatés (source de vérité humaine)
 docs/**
 design/**
+# Maquettes HTML déposées avec les ADR-43 et ADR-48 : références visuelles au
+# même titre que design/preview/**, pas du code à maintenir.
+mockups/**
 Talent-X_structure-tickets_v2.md

@@ -15,6 +15,11 @@ export default tseslint.config(
       '**/node_modules/**',
       '**/.expo/**',
       '**/*.config.js',
+      // Rapports Playwright : gitignorés, donc absents de la CI, mais présents dès
+      // qu'on joue les e2e en local. Sans ça, `pnpm lint` sort 830 erreurs sur du
+      // bundle minifié et l'on prend l'habitude d'ignorer un rouge.
+      '**/playwright-report/**',
+      '**/test-results/**',
       // Client API généré par orval (TLX-008) : ne pas linter le code généré.
       'packages/api-client/src/generated/**',
       // Specs & design : artefacts de référence (humains), pas du code applicatif.
