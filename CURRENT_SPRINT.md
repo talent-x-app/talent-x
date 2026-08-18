@@ -12,6 +12,46 @@ de débloquer les écrans coach C-01/C-02/C-03.
 - _(éditeurs typés terminés — TLX-054→061 livrés ↓)_
 - _(C-01 complet — TLX-081→085 livrés ↓)_
 
+## Terminés — Session 2026-08-18 : staging — l'enregistrement push qui n'était jamais tenté
+
+- **Cause du `device_tokens` vide sur staging trouvée par lecture du code, sans appareil** : la
+  mémoire d'idempotence client (`push.device.*`, TLX-226) n'est scopée ni au compte ni au serveur.
+  L'appareil s'était enregistré contre l'API **locale** le 17/08 ; même jeton natif →
+  `unchanged` → **aucun appel réseau vers le staging n'a jamais été émis**. Base vide =
+  enregistrement jamais tenté, pas enregistrement échoué.
+- **Correctif (fix TLX-226)** : `signIn` oublie la mémoire locale (`forgetDeviceRegistration`)
+  **avant** d'exposer le rôle — chaque nouvelle session force UN ré-enregistrement, que l'upsert
+  par `token` de l'API (TX-ARCH-001 §4.6) attend précisément pour ré-associer l'appareil au compte
+  courant. Couvre au passage le cas **prod** du même bug : session morte par expiration du refresh
+  (`clearTokens` sans révocation possible) puis login d'un autre compte sur le même appareil →
+  l'appareil continuait de recevoir les push de l'ancien compte, le nouveau n'en recevait aucun.
+- **À savoir pour le test appareil : un reload Metro ne suffit PAS.** Une session staging restaurée
+  ne passe pas par `signIn` — il faut **une** déconnexion/reconnexion pour purger la mémoire
+  héritée. Log temporaire `[push] enregistrement : <issue>` visible dans Metro (balisé, à retirer
+  après validation).
+- **L'instrumentation lourde de la veille cassait sa propre suite** (7 échecs PushRegistration :
+  les sondes ajoutaient des appels que les mocks ne prévoient pas) — réduite à la seule ligne
+  d'issue, suite verte. Leçon : toute instrumentation, même temporaire, se valide par sa suite.
+- **eas.json : bloc `env` sur le profil `preview`** — URL d'API staging versionnée et revuable
+  (une `EXPO_PUBLIC_*` est publique par nature, bundlée). Débloque les builds preview de TLX-77.
+  `production` reste **volontairement** sans URL : `check-build-env` doit continuer d'échouer tant
+  qu'aucune URL de production n'existe.
+- **Hygiène secrets** : `push-creds.env` (scratchpad de session) supprimé — après vérification par
+  empreinte SHA256 que les 8 valeurs existent à l'identique dans `apps/api/.env`. À ne pas refaire :
+  transférer des clés privées via un fichier intermédiaire en clair ; préférer un pipe direct vers
+  la session SSH. Rappel du risque de fond : `apps/api/.env` (clés APNs/FCM/JWT) vit dans un dossier
+  synchronisé OneDrive — argument de plus pour le gestionnaire de secrets à arrêter avant la prod.
+- **SSH staging indisponible en session non-interactive** : clé `talentx-staging-key` à passphrase
+  et service Windows `ssh-agent` désactivé. Déblocage (une fois, PowerShell admin) :
+  `Set-Service ssh-agent -StartupType Automatic; Start-Service ssh-agent; ssh-add $env:USERPROFILE\.ssh\talentx-staging-key`
+- **Email staging** : le worker tourne en `LoggingEmailProvider` faute de credentials **Brevo**
+  (le fournisseur réel existe depuis TLX-128). Débloquer TLX-104 = compte Brevo + 3 variables
+  (`BREVO_API_KEY`, `EMAIL_FROM_ADDRESS`, `EMAIL_FROM_NAME`) dans `/etc/talentx/staging.env` +
+  redémarrage du worker. Aucune clé Brevo n'existe en local.
+- **Reste (TLX-84 sur staging)** : valider `session_assigned` et `performance_feedback` sur
+  appareil contre le staging (déconnexion/reconnexion d'abord, cf. ci-dessus), vérifier la ligne
+  `device_tokens` côté VPS, puis retirer le log temporaire.
+
 ## Terminés — Session 2026-08-17 : TLX-84 clos — push réel validé sur Android **et** iOS
 
 - **Le segment appareil → FCM est prouvé.** Deux notifications reçues et affichées sur le S20 FE :
