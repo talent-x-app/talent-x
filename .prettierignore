@@ -12,6 +12,8 @@
 
 # Généré
 pnpm-lock.yaml
+# Régénéré par Expo à chaque prebuild ; gitignoré (d7079ff) mais présent en local.
+apps/mobile/expo-env.d.ts
 apps/api/prisma/migrations/**
 packages/api-client/src/generated/**
 

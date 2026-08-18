@@ -16,6 +16,7 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { ProgressModule } from './progress/progress.module';
 import { SessionsModule } from './sessions/sessions.module';
+import { ThrottlingModule } from './throttling/throttling.module';
 import { UsersModule } from './users/users.module';
 
 @Module({
@@ -34,6 +35,9 @@ import { UsersModule } from './users/users.module';
     AuthorizationModule,
     HealthModule,
     MetricsModule,
+    // AVANT AuthModule : le ThrottlerGuard doit précéder JwtAuthGuard dans la
+    // chaîne APP_GUARD pour compter aussi les requêtes qui finiront en 401 (TLX-233).
+    ThrottlingModule,
     AuthModule,
     UsersModule,
     GroupsModule,

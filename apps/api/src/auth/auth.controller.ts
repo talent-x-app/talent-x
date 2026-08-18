@@ -3,6 +3,7 @@ import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagg
 import { CurrentUser, type AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { Public } from '../common/decorators/public.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
+import { StrictThrottle } from '../common/decorators/strict-throttle.decorator';
 import { ErrorDto } from '../common/dto/error.dto';
 import { AuthService } from './auth.service';
 import { AuthSessionDto } from './dto/auth-session.dto';
@@ -24,6 +25,7 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Public()
+  @StrictThrottle()
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Créer un compte', operationId: 'register' })
@@ -34,6 +36,7 @@ export class AuthController {
   }
 
   @Public()
+  @StrictThrottle()
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Authentifier et délivrer les jetons', operationId: 'login' })
@@ -77,6 +80,7 @@ export class AuthController {
   }
 
   @Public()
+  @StrictThrottle()
   @Post('forgot-password')
   @HttpCode(HttpStatus.ACCEPTED)
   @ApiOperation({

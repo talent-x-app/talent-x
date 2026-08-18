@@ -16,6 +16,12 @@ describe('validateEnv', () => {
       EXPORT_URL_TTL_SECONDS: 86400,
       ACCOUNT_PURGE_RETENTION_DAYS: 30,
       CONSENT_TEXT_VERSION: '2026-01',
+      THROTTLE_ENABLED: false,
+      THROTTLE_TTL_SECONDS: 60,
+      THROTTLE_LIMIT: 300,
+      THROTTLE_STRICT_TTL_SECONDS: 900,
+      THROTTLE_STRICT_LIMIT: 10,
+      TRUST_PROXY_HOPS: 0,
     });
   });
 
@@ -206,6 +212,61 @@ describe('validateEnv', () => {
     expect(() => validateEnv({ ...base, BREVO_API_KEY: 'k' })).toThrow(
       /email \(Brevo\) incomplète/,
     );
+  });
+
+  // --- Rate limiting (TLX-233) ---
+
+  it('désactive le throttling par défaut en dev/test, l’active en prod-like', () => {
+    expect(validateEnv(base).THROTTLE_ENABLED).toBe(false);
+    expect(validateEnv({ ...base, NODE_ENV: 'development' }).THROTTLE_ENABLED).toBe(false);
+    expect(validateEnv(prodReady).THROTTLE_ENABLED).toBe(true);
+    expect(validateEnv({ ...prodReady, NODE_ENV: 'staging' }).THROTTLE_ENABLED).toBe(true);
+  });
+
+  it('permet de surcharger THROTTLE_ENABLED dans les deux sens', () => {
+    expect(validateEnv({ ...base, THROTTLE_ENABLED: 'true' }).THROTTLE_ENABLED).toBe(true);
+    expect(validateEnv({ ...prodReady, THROTTLE_ENABLED: 'false' }).THROTTLE_ENABLED).toBe(false);
+  });
+
+  it('rejette un THROTTLE_ENABLED qui n’est ni true ni false', () => {
+    expect(() => validateEnv({ ...base, THROTTLE_ENABLED: 'yes' })).toThrow(/THROTTLE_ENABLED/);
+  });
+
+  it('applique les seuils de throttling par défaut et les surcharge', () => {
+    const cfg = validateEnv(base);
+    expect(cfg.THROTTLE_TTL_SECONDS).toBe(60);
+    expect(cfg.THROTTLE_LIMIT).toBe(300);
+    expect(cfg.THROTTLE_STRICT_TTL_SECONDS).toBe(900);
+    expect(cfg.THROTTLE_STRICT_LIMIT).toBe(10);
+    const overridden = validateEnv({
+      ...base,
+      THROTTLE_TTL_SECONDS: '30',
+      THROTTLE_LIMIT: '50',
+      THROTTLE_STRICT_TTL_SECONDS: '120',
+      THROTTLE_STRICT_LIMIT: '3',
+    });
+    expect(overridden.THROTTLE_TTL_SECONDS).toBe(30);
+    expect(overridden.THROTTLE_LIMIT).toBe(50);
+    expect(overridden.THROTTLE_STRICT_TTL_SECONDS).toBe(120);
+    expect(overridden.THROTTLE_STRICT_LIMIT).toBe(3);
+  });
+
+  it('rejette un seuil de throttling non entier ou ≤ 0', () => {
+    expect(() => validateEnv({ ...base, THROTTLE_LIMIT: '0' })).toThrow(/THROTTLE_LIMIT/);
+    expect(() => validateEnv({ ...base, THROTTLE_STRICT_TTL_SECONDS: 'abc' })).toThrow(
+      /THROTTLE_STRICT_TTL_SECONDS/,
+    );
+  });
+
+  it('TRUST_PROXY_HOPS : défaut 0 en dev/test, 1 en prod-like, surchargeable', () => {
+    expect(validateEnv(base).TRUST_PROXY_HOPS).toBe(0);
+    expect(validateEnv(prodReady).TRUST_PROXY_HOPS).toBe(1);
+    expect(validateEnv({ ...prodReady, TRUST_PROXY_HOPS: '2' }).TRUST_PROXY_HOPS).toBe(2);
+    expect(validateEnv({ ...prodReady, TRUST_PROXY_HOPS: '0' }).TRUST_PROXY_HOPS).toBe(0);
+  });
+
+  it('rejette un TRUST_PROXY_HOPS négatif ou non entier', () => {
+    expect(() => validateEnv({ ...base, TRUST_PROXY_HOPS: '-1' })).toThrow(/TRUST_PROXY_HOPS/);
   });
 
   it('passe through les variables JWT quand présentes et bien formées', () => {

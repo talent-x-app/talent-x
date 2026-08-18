@@ -1,6 +1,8 @@
 import 'reflect-metadata';
 import { HttpStatus, ValidationPipe } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
+import type { Express } from 'express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
@@ -12,6 +14,15 @@ async function bootstrap(): Promise<void> {
   // de bootstrap sont rejoués via le logger JSON une fois celui-ci installé.
   const app = await NestFactory.create(AppModule, { bufferLogs: true });
   app.useLogger(new JsonLogger());
+
+  // Derrière Nginx (staging/prod), l'IP client vient de X-Forwarded-For. Sans
+  // trust proxy, le rate limiting par IP (TLX-233) compterait tout le trafic sur
+  // l'IP du proxy : 429 collectifs et limiteur contournable. TRUST_PROXY_HOPS=0
+  // (défaut dev/test) laisse Express ignorer l'en-tête, non fiable sans proxy.
+  const trustProxyHops = app.get(ConfigService).get<number>('TRUST_PROXY_HOPS') ?? 0;
+  if (trustProxyHops > 0) {
+    (app.getHttpAdapter().getInstance() as Express).set('trust proxy', trustProxyHops);
+  }
 
   // Contrat : toutes les routes métier sous /api/v1 (cf. docs/talent-x-openapi.yaml).
   // `/metrics` est exclu : endpoint d'exploitation (exposition Prometheus, TLX-83),

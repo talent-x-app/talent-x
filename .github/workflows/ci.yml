@@ -36,6 +36,17 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+      # Redis réel pour les tests d'intégration (TLX-233) : le stockage Redis du
+      # rate limiting est exercé en CI comme en local (REDIS_URL du .env).
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -113,6 +124,7 @@ jobs:
         run: pnpm --filter @talent-x/api test:int
         env:
           DATABASE_URL: postgresql://talentx:talentx@localhost:5432/talentx?schema=public
+          REDIS_URL: redis://localhost:6379
           S3_ENDPOINT: http://localhost:9000
           S3_REGION: us-east-1
           S3_BUCKET: talentx-test

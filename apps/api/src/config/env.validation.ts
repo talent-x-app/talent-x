@@ -95,6 +95,25 @@ export interface EnvConfig {
   BREVO_API_KEY?: string;
   EMAIL_FROM_ADDRESS?: string;
   EMAIL_FROM_NAME?: string;
+  /**
+   * Rate limiting (TLX-233, TX-SEC-003 « credential stuffing »). Actif par
+   * défaut en staging/production, inactif en dev/test (les suites de tests et
+   * Playwright enchaînent les logins depuis une même IP). Seuils par IP :
+   * « global » sur toutes les routes, « strict » sur les routes marquées
+   * @StrictThrottle() (login, register, forgot-password).
+   */
+  THROTTLE_ENABLED: boolean;
+  THROTTLE_TTL_SECONDS: number;
+  THROTTLE_LIMIT: number;
+  THROTTLE_STRICT_TTL_SECONDS: number;
+  THROTTLE_STRICT_LIMIT: number;
+  /**
+   * Nombre de proxys de confiance devant l'API (Express `trust proxy`). Défaut
+   * 1 en staging/production (Nginx pose X-Forwarded-For), 0 sinon. Sans lui,
+   * le rate limiting par IP compterait tout le trafic sur l'IP du proxy —
+   * 429 collectifs, et un en-tête forgé suffirait à esquiver le limiteur.
+   */
+  TRUST_PROXY_HOPS: number;
 }
 
 const NODE_ENVS: readonly NodeEnv[] = ['development', 'test', 'staging', 'production'];
@@ -204,6 +223,40 @@ export function validateEnv(raw: Record<string, unknown>): EnvConfig {
     errors.push(`APP_PUBLIC_URL est requis en ${nodeEnv} (liens transactionnels)`);
   }
 
+  // Rate limiting (TLX-233) : seuils configurables, jamais en dur. Défauts sûrs ;
+  // actif par défaut uniquement en prod-like (cf. commentaire de l'interface).
+  const throttleEnabledRaw = (raw.THROTTLE_ENABLED as string)?.trim();
+  let throttleEnabled = isProdLike;
+  if (throttleEnabledRaw !== undefined && throttleEnabledRaw !== '') {
+    if (throttleEnabledRaw !== 'true' && throttleEnabledRaw !== 'false') {
+      errors.push(`THROTTLE_ENABLED doit valoir true ou false (reçu : "${throttleEnabledRaw}")`);
+    }
+    throttleEnabled = throttleEnabledRaw === 'true';
+  }
+  const throttleInt = (name: string, fallback: number): number => {
+    const rawValue = (raw[name] as string)?.trim();
+    if (rawValue === undefined || rawValue === '') return fallback;
+    const value = Number(rawValue);
+    if (!Number.isInteger(value) || value <= 0) {
+      errors.push(`${name} doit être un entier > 0 (reçu : "${rawValue}")`);
+    }
+    return value;
+  };
+  const throttleTtlSeconds = throttleInt('THROTTLE_TTL_SECONDS', 60);
+  const throttleLimit = throttleInt('THROTTLE_LIMIT', 300);
+  const throttleStrictTtlSeconds = throttleInt('THROTTLE_STRICT_TTL_SECONDS', 900);
+  const throttleStrictLimit = throttleInt('THROTTLE_STRICT_LIMIT', 10);
+
+  // Proxys de confiance (X-Forwarded-For) : 1 en prod-like (Nginx), 0 sinon.
+  const trustProxyRaw = (raw.TRUST_PROXY_HOPS as string)?.trim();
+  let trustProxyHops = isProdLike ? 1 : 0;
+  if (trustProxyRaw !== undefined && trustProxyRaw !== '') {
+    trustProxyHops = Number(trustProxyRaw);
+    if (!Number.isInteger(trustProxyHops) || trustProxyHops < 0) {
+      errors.push(`TRUST_PROXY_HOPS doit être un entier >= 0 (reçu : "${trustProxyRaw}")`);
+    }
+  }
+
   // Credentials push APNs/FCM (TLX-107) : optionnels, mais tout-ou-rien par plateforme.
   errors.push(...validatePushEnv((key) => raw[key] as string | undefined));
 
@@ -231,6 +284,12 @@ export function validateEnv(raw: Record<string, unknown>): EnvConfig {
     ...(jwtKeyId ? { JWT_KEY_ID: jwtKeyId } : {}),
     ...(jwtAdditionalPublicKeys ? { JWT_ADDITIONAL_PUBLIC_KEYS: jwtAdditionalPublicKeys } : {}),
     CONSENT_TEXT_VERSION: consentTextVersion,
+    THROTTLE_ENABLED: throttleEnabled,
+    THROTTLE_TTL_SECONDS: throttleTtlSeconds,
+    THROTTLE_LIMIT: throttleLimit,
+    THROTTLE_STRICT_TTL_SECONDS: throttleStrictTtlSeconds,
+    THROTTLE_STRICT_LIMIT: throttleStrictLimit,
+    TRUST_PROXY_HOPS: trustProxyHops,
     ...(metricsToken ? { METRICS_TOKEN: metricsToken } : {}),
     ...(appPublicUrl ? { APP_PUBLIC_URL: appPublicUrl } : {}),
     // Credentials push transmis tels quels (résolus en config structurée par la
