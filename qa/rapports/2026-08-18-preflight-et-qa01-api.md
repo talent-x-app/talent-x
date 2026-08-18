@@ -6,22 +6,22 @@ pilotables par API. **Deux défauts trouvés, dont un de sécurité.**
 
 ## Contexte
 
-|                      |                                                                                                     |
-| -------------------- | --------------------------------------------------------------------------------------------------- |
-| Commit déployé (API) | `9cef887` — **à jour** : aucun commit postérieur ne touche `apps/api`, `packages` ou `prisma`       |
-| CI                   | ⚠️ **non vérifiée** — ni `gh` ni jeton disponibles depuis la session ; à confirmer côté utilisateur |
-| `main` local         | `8b9f3b4`                                                                                           |
-| Staging              | `https://staging-api.talent-x.app` — 9 conteneurs, certificat → 2026-11-16                          |
-| Appareils            | non sollicités cette session                                                                        |
-| Comptes QA           | ⚠️ **pas encore créés** (boîtes réelles requises) — bloque QA-01.1/01.4/01.5                        |
-| Préflight QA-08.1    | ⚠️ **1 point rouge** (voir TLX-232), les autres verts                                               |
+|                      |                                                                                                  |
+| -------------------- | ------------------------------------------------------------------------------------------------ |
+| Commit déployé (API) | `9cef887` — **à jour** : aucun commit postérieur ne touche `apps/api`, `packages` ou `prisma`    |
+| CI                   | ✅ **verte** — confirmée par l'utilisateur (non vérifiable depuis la session : ni `gh` ni jeton) |
+| `main` local         | `8b9f3b4`                                                                                        |
+| Staging              | `https://staging-api.talent-x.app` — 9 conteneurs, certificat → 2026-11-16                       |
+| Appareils            | non sollicités cette session                                                                     |
+| Comptes QA           | ⚠️ **pas encore créés** (boîtes réelles requises) — bloque QA-01.1/01.4/01.5                     |
+| Préflight QA-08.1    | ⚠️ **1 point rouge** (voir TLX-232), les autres verts                                            |
 
 ## Résultats par scénario
 
 | Scénario                       | Verdict    | Preuve                                                                                           | Commentaire                                                        |
 | ------------------------------ | ---------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------ |
 | QA-08.1 — image déployée       | ✅         | `git log 9cef887..HEAD -- apps/api packages prisma` → vide                                       | l'image n'est pas périmée pour le backend                          |
-| QA-08.1 — CI verte             | ⏭         | —                                                                                                | non vérifiable depuis la session                                   |
+| QA-08.1 — CI verte             | ✅         | confirmation utilisateur                                                                         | hors de portée de la session (ni `gh` ni jeton)                    |
 | QA-08.1 — health / redirection | ✅         | `health` 200 `{"status":"ok"}` ; HTTP → 301                                                      |                                                                    |
 | QA-08.1 — **readiness**        | ❌         | 1ᵉʳ appel après boot → **503** `redis:false` ; suivants → 200                                    | **TLX-232**, reproduit après `restart api`                         |
 | QA-08.1 — conteneurs           | ✅         | 7 `Up`, `migrate` + `minio-init` `Exited (0)`                                                    |                                                                    |
@@ -56,8 +56,9 @@ push et email au démarrage du worker ; **le 503 de `/ready` reproduit à volont
 les deux `501` de la 2FA ; 299 crédits Brevo ; persistance de la clé RS256 (kid
 identique de part et d'autre d'un redémarrage).
 
-**Supposé / déduit** — (1) **la CI est verte** sur le commit poussé : non vérifiable
-ici, à confirmer ; (2) l'exposition de `forgot-password` au flood est établie **par
+**Supposé / déduit** — (1) **la CI verte** est une confirmation de l'utilisateur, pas une
+mesure de la session (ni `gh` ni jeton disponibles) ; (2) l'exposition de
+`forgot-password` au flood est établie **par
 lecture du code** (`auth.service.ts` : un jeton créé et un email enfilé à chaque appel
 pour une adresse existante) et **non par mesure** — la mesurer enverrait de vrais emails
 et brûlerait des crédits, ce que la règle §2 du plan interdit ; (3) la survie de la
@@ -74,7 +75,9 @@ sur l'appareil**.
 
 ## Suites à donner
 
-- [ ] Confirmer que la CI est verte sur `8b9f3b4` (seul point du préflight non vérifié)
+- [x] ~~Confirmer que la CI est verte sur `8b9f3b4`~~ — confirmé
+- [ ] Faire traiter le **lot 1** (`qa/correctifs/2026-08-18-lot-1.md`) dans une session
+      de développement distincte : TLX-233, TLX-232, TLX-231
 - [ ] Créer les comptes QA sur boîtes réelles (alias `+qa-coach` / `+qa-athlete` /
       `+qa-athlete2`) → débloque QA-01.1, 01.4, 01.5 et toute la suite
 - [ ] Confirmer sur l'appareil que la session a survécu au redémarrage de l'API (QA-08.7)

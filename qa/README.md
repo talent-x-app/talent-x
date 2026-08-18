@@ -34,6 +34,9 @@ Elle prouve ce que l'automatisation **ne peut pas** prouver :
 - **Un rapport par campagne**, committé dans `qa/rapports/` (`AAAA-MM-JJ-<portée>.md`,
   modèle : `rapports/TEMPLATE.md`). Tout défaut ouvre un ticket TLX et rejoint le
   registre §7.
+- **Qualifier n'est pas corriger.** Une session de campagne **ne produit aucun
+  correctif** : corriger en cours de route change la chose mesurée et invalide ce qui
+  précède. Les défauts partent en tickets, les correctifs se font ailleurs (§8).
 
 ## 3. Environnement et véhicule de test
 
@@ -117,6 +120,29 @@ rapport committé.
 | —       | Image API 1,44 Go (poids de pull à chaque déploiement)                                                                               | hors campagne — ops, avant prod |
 | —       | Heads-up One UI : bannière OK constatée le 18/08 sur S20 FE ; si absente ailleurs, réglage « Afficher en pop-up », pas un défaut app | QA-05.2                         |
 | —       | Compte Brevo plan gratuit (300 crédits) — suffisant pour qualifier, pas pour ouvrir                                                  | QA-08.1                         |
+
+## 8. Traitement des défauts — la campagne ne corrige rien
+
+Séparation stricte, pour deux raisons : un correctif appliqué en pleine campagne
+invalide les scénarios déjà déroulés (l'artefact testé n'est plus le même), et
+l'attention qu'exige un diagnostic n'est pas celle qu'exige une implémentation.
+
+**Ce que fait la session de campagne** — reproduire, prouver, ouvrir le ticket avec la
+preuve, consigner au rapport, **continuer**. Rien d'autre.
+
+**Ticket de campagne** — statut **Backlog**, jamais Todo (le flux de sprint reste celui
+du produit), et label **`qa-campagne`**. La sévérité est portée par le rapport, la
+priorité Linear par l'arbitrage. Un ticket ainsi marqué se lit : « défaut établi, preuve
+jointe, correctif non commencé, arbitrage à faire ».
+
+**Ce qui déclenche la correction** — un **lot** rédigé en fin de session dans
+`qa/correctifs/AAAA-MM-JJ-lot-N.md` : le prompt à donner à une session de développement
+distincte, avec les tickets, l'ordre, les contraintes et les pièges connus. La session
+de campagne n'ouvre jamais ce chantier elle-même.
+
+**Retour de boucle** — une fois le lot livré, la campagne **rejoue les scénarios
+concernés** contre le staging redéployé, et le rapport suivant clôt les lignes du
+registre §7. Un défaut n'est clos que par un scénario vert, pas par un commit.
 
 ## Annexe A — couverture du contrat (80 opérations)
 
