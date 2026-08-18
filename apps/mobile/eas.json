@@ -15,6 +15,9 @@
     "preview": {
       "distribution": "internal",
       "node": "22.11.0",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://staging-api.talent-x.app/api/v1"
+      },
       "android": {
         "buildType": "apk"
       }
