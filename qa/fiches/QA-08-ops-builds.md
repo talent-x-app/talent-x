@@ -8,14 +8,23 @@ Ce qui encadre la campagne : l'état du staging avant de commencer (08.1 est un
 **Couvre** : `health`, `ready`, l'état complet de la pile.
 **Checklist** (commandes §5 du plan) :
 
-- [ ] CI verte, et `IMAGE_TAG` = SHA du **dernier commit de `main` ayant touché autre
-      chose que du Markdown** (vérif : `docker compose … config`, ligne `image:`).
-      ⚠️ Ce n'est pas forcément `HEAD` : la CI ignore les poussées purement
-      documentaires, donc aucune image n'est publiée pour celles-ci. Un `IMAGE_TAG` en
-      retard de quelques commits de doc est **normal** ; en retard d'un commit de code
-      ne l'est pas. Pour trancher :
-      `git log --oneline <IMAGE_TAG_SHA>..main -- . ':(exclude)**/*.md'`
-      — s'il ne sort rien, l'image est à jour.
+- [ ] CI verte, et l'image déployée **contient le code applicatif courant** (le tag se
+      lit dans `docker compose … config`, ligne `image:`). ⚠️ `IMAGE_TAG` n'égale plus
+      forcément `HEAD` : la CI ignore les poussées purement documentaires, donc aucune
+      image n'est publiée pour celles-ci — un retard de quelques commits de doc est
+      **normal**. Ne pas tester « autre chose que du Markdown » non plus : un changement
+      de workflow ou de fiche QA n'entre pas dans l'image et produirait un faux positif
+      (constaté le 2026-08-19). La question juste porte sur le **contexte de build**
+      d'`apps/api/Dockerfile` :
+
+      ```bash
+      git log --oneline <IMAGE_TAG_SHA>..main -- \
+        apps/api packages pnpm-lock.yaml package.json pnpm-workspace.yaml .npmrc
+      ```
+
+      Rien en sortie = image à jour. Des commits = image périmée, redéployer avant de
+      qualifier quoi que ce soit.
+
 - [ ] `curl https://staging-api.talent-x.app/api/v1/health` → 200 `{"status":"ok"}` ;
       HTTP → 301
 - [ ] 9 conteneurs : 7 `Up`, `migrate` + `minio-init` en `Exited (0)`
