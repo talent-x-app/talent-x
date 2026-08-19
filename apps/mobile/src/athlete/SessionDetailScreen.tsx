@@ -340,6 +340,13 @@ export function SessionDetailScreen() {
       void queryClient.invalidateQueries({ queryKey: ['assignments'] });
       void queryClient.invalidateQueries({ queryKey: ['assignment', id] });
       // Préchauffe le cache de la confirmation (A-05) — pas d'appel réseau supplémentaire.
+      // La promesse tient parce que `setQueryData` s'exécute APRÈS l'invalidation ci-dessus,
+      // qui emporte cette clé par préfixe : l'écriture lève le drapeau d'invalidation et
+      // remet la donnée à l'heure. L'écran de confirmation monte alors sur une entrée
+      // fraîche et `refetchOnMount` ne part pas — **tant que `staleTime` est non nul**
+      // (30 s dans `createQueryClient`). Sous un client à `staleTime: 0`, comme ceux des
+      // tests, la requête repart : c'est une propriété de la configuration, pas du code
+      // ci-dessus, et `query-client.test.ts` la vérifie sur le vrai client (TLX-240).
       queryClient.setQueryData(['assignment', id, 'performance'], perf);
       if (alreadySaved) {
         // Mise à jour : retour à la **lecture seule** (la perf relue, mesures incluses).

@@ -71,8 +71,9 @@ export function PresenceControl({
 }: {
   assignment: Assignment;
   now?: Date;
-  /** Clé du cache de l'affectation à mettre à jour en optimiste (défaut : `['assignments', id]`).
-   *  Le détail séance (`SessionDetailScreen`) la passe (`['assignment', id]`) pour aligner. */
+  /** Clé du cache de l'affectation à mettre à jour en optimiste. Défaut : `assignmentQueryKey`,
+   *  désormais au singulier comme le détail de séance (TLX-240) — les deux formes ont convergé,
+   *  le point d'injection reste pour les écrans qui liraient l'affectation sous une autre clé. */
   queryKey?: readonly unknown[];
 }) {
   const { colors, typography, spacing, radius, borderWidth } = useTheme();

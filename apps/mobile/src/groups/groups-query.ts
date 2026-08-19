@@ -78,9 +78,17 @@ export function announcementRepliesQueryKey(groupId: string, announcementId: str
  */
 export const ASSIGNMENTS_QUERY_KEY = ['assignments'] as const;
 
-/** Détail d'une affectation (`GET /assignments/:id`) — séance embarquée, lecture seule. */
+/**
+ * Détail d'une affectation (`GET /assignments/:id`) — séance embarquée, lecture seule.
+ *
+ * Préfixe **singulier**, aligné sur le détail de séance et la revue coach (TLX-240). Cette
+ * fonction renvoyait `['assignments', id]` au pluriel : deux entrées de cache coexistaient
+ * pour la même ressource. Ça tenait par accident — le préfixe `['assignments']` de la liste
+ * emportait la variante plurielle au passage — mais toute invalidation écrite sur le
+ * singulier manquait l'autre **en silence**, le mode de panne de TLX-238 en plus discret.
+ */
 export function assignmentQueryKey(assignmentId: string) {
-  return ['assignments', assignmentId] as const;
+  return ['assignment', assignmentId] as const;
 }
 
 /**
