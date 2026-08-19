@@ -113,7 +113,8 @@ rapport committé.
 | TLX-236 | **Majeur.** Le mode saisie du détail de séance persiste entre séances → le feedback du coach est illisible                           | QA-05.2 — **ouvert le 19/08**   |
 | TLX-237 | **Majeur.** Un push reçu app en arrière-plan n'apparaît jamais dans le centre (matérialise le point 2 de TLX-231)                    | QA-05.6 — **ouvert le 19/08**   |
 | TLX-223 | Sauts : « Nb de barres » / « Essais par barre » du coach ignorés par la saisie athlète                                               | QA-03.5                         |
-| TLX-84  | `group_update` jamais validé sur appareil (coach sans téléphone jusqu'ici)                                                           | QA-05.3                         |
+| TLX-238 | **BLOQUANT.** Crash du coach à l'enregistrement d'une séance : deux formes incompatibles sous la clé `['groups']`                    | QA-02.2 — **ouvert le 19/08**   |
+| TLX-84  | ~~`group_update` jamais validé sur appareil~~ — **résolu le 19/08** ; reste la documentation du transfert hors UE                    | QA-05.3                         |
 | —       | Contenu de l'email de reset jamais vu ; **le lien pointe sur `APP_PUBLIC_URL` = hôte API, qui ne sert aucune app**                   | QA-01.5                         |
 | —       | URL présignées jamais validées contre le vrai OVH Object Storage (MinIO en staging)                                                  | QA-06.4                         |
 | —       | 2FA = V2, `501` assumé au contrat                                                                                                    | QA-01.8 (test négatif)          |

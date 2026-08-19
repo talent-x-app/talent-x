@@ -94,6 +94,11 @@ de diagnostic, jeton du coach B créé pour l'occasion) : `GET /groups/{id}` d'u
 étranger, `PUT /assignments/{id}/attendance` en tant que coach ; enfin supprimer un
 groupe de test vide.
 **Attendu** : renommage visible côté athlètes ; le membre retiré perd l'accès au hub ;
-sondes → **404 anti-énumération** (groupe étranger) et **403** (attendance côté coach) —
-conformes à la matrice de droits (spec §6).
-**Preuve** : les codes HTTP des sondes ; l'écran du membre retiré.
+sondes → **refus systématique**, aucune 200.
+⚠️ **Corrigé le 2026-08-19 — cette fiche exigeait à tort un 404 « anti-énumération » sur
+les ressources étrangères.** Rien ne le prescrit : le contrat déclare **403 et 404** pour
+`GET /groups/{id}`, et la spec n'impose l'anti-énumération que sur la **réinitialisation
+de mot de passe**. L'API répond 403 « Ce groupe ne vous appartient pas. » — conforme. Ce
+qui se teste est donc **qu'aucune sonde ne passe**, pas le code exact ; noter le code
+obtenu au rapport sans en faire un écart.
+**Preuve** : les codes HTTP des sondes (script `rbac.mjs`) ; l'écran du membre retiré.

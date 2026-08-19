@@ -40,7 +40,9 @@ appareil (worker : « Notification sans cible » — correct mais non probant).
 (athlète 2 après un `leaveGroup`, ou compte neuf à boîte réelle).
 **Étapes** : l'athlète rejoint le groupe par code.
 **Attendu** : push « Groupe mis à jour · Un athlète a rejoint votre groupe » sur
-l'appareil coach ; le tap ouvre l'écran du groupe.
+l'appareil coach ; le tap ouvre la **liste des athlètes** — `notificationHref` y route
+délibérément, il n'existe pas d'écran groupe dédié côté coach (cette fiche disait
+« l'écran du groupe », corrigé le 2026-08-19).
 **Preuve** : bannière + **zéro** ligne « sans cible » dans le worker sur la fenêtre du
 test. **Clore ce scénario = clore la partie technique de TLX-84** (le noter au rapport
 et basculer le ticket).
