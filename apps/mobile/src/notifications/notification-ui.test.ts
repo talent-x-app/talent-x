@@ -67,8 +67,15 @@ describe('notification-ui (TLX-111, ADR-23)', () => {
       ]);
     });
 
-    it('group_update : préfixe des groupes (liste + détail + membres)', () => {
-      expect(notificationQueryKeys('group_update', 'g-1')).toEqual([['groups']]);
+    it('group_update : préfixe des groupes (liste + détail + membres) ET tableau de bord coach', () => {
+      // Mesuré sur appareil le 19/08 : sur un seul `group_update`, l'écran « Groupes » se
+      // mettait à jour tout seul pendant que l'écran « Athlètes » exigeait encore un
+      // rafraîchissement manuel. Une adhésion fait entrer l'athlète dans
+      // `GET /coach/dashboard` — le préfixe `['groups']` ne l'atteint pas.
+      expect(notificationQueryKeys('group_update', 'g-1')).toEqual([
+        ['groups'],
+        ['coach', 'dashboard'],
+      ]);
     });
 
     it('group_announcement : annonces du groupe visé', () => {

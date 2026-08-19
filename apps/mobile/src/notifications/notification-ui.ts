@@ -185,8 +185,12 @@ export function notificationQueryKeys(
 
     // Adhésion à un groupe : la liste (effectifs) et le détail. `['groups']` est le préfixe
     // commun aux deux — et à `['groups', 'mine']` côté athlète, sans effet là où rien n'est monté.
+    // Une adhésion fait aussi entrer l'athlète dans `GET /coach/dashboard` : sans cette
+    // seconde clé, l'écran « Athlètes » du coach exigeait encore un rafraîchissement manuel
+    // quand la liste des groupes, elle, se mettait à jour seule sur le même push (mesuré sur
+    // appareil le 19/08 — les deux écrans, un seul `group_update`).
     case 'group_update':
-      return [GROUPS_QUERY_KEY];
+      return [GROUPS_QUERY_KEY, COACH_DASHBOARD_QUERY_KEY];
 
     // Annonce (ADR-46) : resourceId = groupe.
     case 'group_announcement':
