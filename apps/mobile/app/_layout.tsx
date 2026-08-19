@@ -13,6 +13,7 @@ import { useEffect } from 'react';
 import { SessionProvider } from '../src/auth/SessionProvider';
 import { QueryProvider } from '../src/data/QueryProvider';
 import { ErrorBoundary, OfflineBanner, ToastProvider } from '../src/feedback';
+import { NotificationsForegroundRefresh } from '../src/notifications/NotificationsForegroundRefresh';
 import { PushRegistration } from '../src/notifications/PushRegistration';
 import { OfflineSync } from '../src/offline';
 import { WebFocusStyle } from '../src/web/web-focus-style';
@@ -62,6 +63,9 @@ export default function RootLayout() {
               <OfflineSync />
               {/* Enregistre le jeton push une fois connecté + route les taps (TLX-226). */}
               <PushRegistration />
+              {/* Recharge le centre au retour au premier plan : un push reçu app en
+                  arrière-plan n'invalide rien (TLX-237). */}
+              <NotificationsForegroundRefresh />
             </SessionProvider>
           </ToastProvider>
         </ErrorBoundary>

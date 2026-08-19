@@ -9,7 +9,7 @@ import { useTheme } from '@talent-x/design-tokens';
 import { Feather } from '@expo/vector-icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { useSession } from '../auth/SessionProvider';
 import { Button, Card } from '../components/ui';
 import {
@@ -85,6 +85,18 @@ export function NotificationsScreen() {
     <ScrollView
       style={{ flex: 1, backgroundColor: colors.background }}
       contentContainerStyle={{ padding: spacing[6], gap: spacing[5] }}
+      // Tirer-pour-rafraîchir (TLX-237) : c'est le geste que tout utilisateur tente en
+      // premier, et il n'existait pas. Il compte double ici — cet écran est déclaré en
+      // `Tabs.Screen … href: null`, donc jamais démonté : `refetchOnMount` ne s'y rejoue
+      // jamais, et le bouton « Réessayer » n'apparaît qu'en cas d'erreur.
+      refreshControl={
+        <RefreshControl
+          testID="notifications-refresh"
+          refreshing={feed.isRefetching}
+          onRefresh={() => void feed.refetch()}
+          tintColor={colors.textSecondary}
+        />
+      }
     >
       {/* Retour explicite (TLX-92) : route empilée hors tab bar — sans cette affordance, seul le
           geste/bouton système permettait de revenir, et il ramenait sur l'Accueil. */}

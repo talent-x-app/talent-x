@@ -1,7 +1,7 @@
 import { ThemeProvider, darkColors, darkTheme } from '@talent-x/design-tokens';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
-import { StyleSheet } from 'react-native';
+import { RefreshControl, StyleSheet } from 'react-native';
 import { type ReactNode, useState } from 'react';
 
 const mockListNotifications = jest.fn();
@@ -165,6 +165,23 @@ describe('NotificationsScreen (TLX-111 — ADR-23)', () => {
 
     await waitFor(() => expect(screen.getByTestId('notification-n-2')).toBeOnTheScreen());
     expect(mockReadAllNotifications).not.toHaveBeenCalled();
+  });
+
+  // TLX-237 — l'écran est un `Tabs.Screen … href: null`, jamais démonté : `refetchOnMount`
+  // ne s'y rejoue jamais et le bouton « Réessayer » n'apparaît qu'en erreur. Sans
+  // tirer-pour-rafraîchir, l'utilisateur n'avait AUCUN geste pour rattraper une
+  // notification reçue app en arrière-plan.
+  it('tirer-pour-rafraîchir : recharge le feed', async () => {
+    mockListNotifications.mockResolvedValue(page([UNREAD], 1));
+    render(<NotificationsScreen />, { wrapper: Wrapper });
+    await waitFor(() => expect(screen.getByTestId('notification-n-1')).toBeOnTheScreen());
+    expect(mockListNotifications).toHaveBeenCalledTimes(1);
+
+    // Le `RefreshControl` est passé en PROP du ScrollView, pas rendu comme élément hôte :
+    // il n'est pas atteignable par testID, d'où l'accès par type.
+    fireEvent(screen.UNSAFE_getByType(RefreshControl), 'refresh');
+
+    await waitFor(() => expect(mockListNotifications).toHaveBeenCalledTimes(2));
   });
 
   it('revient en arrière au tap sur « Retour » (TLX-92)', async () => {
