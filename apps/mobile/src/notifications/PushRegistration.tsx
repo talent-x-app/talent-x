@@ -1,8 +1,10 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef } from 'react';
 import { Platform } from 'react-native';
 import type { NotificationType } from '@talent-x/api-client';
 import { useSession } from '../auth/SessionProvider';
+import { NOTIFICATIONS_QUERY_KEY } from './NotificationsScreen';
 import { notificationHref } from './notification-ui';
 import {
   configureForegroundPresentation,
@@ -17,9 +19,10 @@ import {
 /**
  * Composant racine **sans rendu** (TLX-226) — même patron qu'`OfflineSync` (TLX-077).
  *
- * Deux responsabilités, toutes deux best-effort :
+ * Trois responsabilités, toutes best-effort :
  *  1. enregistrer le jeton de l'appareil **une fois connecté** (l'endpoint est authentifié) ;
- *  2. router l'utilisateur vers la ressource quand il **tape** une notification système.
+ *  2. router l'utilisateur vers la ressource quand il **tape** une notification système ;
+ *  3. rafraîchir le feed in-app à l'**arrivée** d'un push (TLX-231).
  *
  * Le module natif est chargé paresseusement : sur un dev client antérieur à cette dépendance,
  * ou sur web, ce composant ne fait rien et l'app démarre normalement (cf. `push-registration`).
@@ -37,6 +40,7 @@ export function PushRegistration({
 } = {}) {
   const { role } = useSession();
   const router = useRouter();
+  const queryClient = useQueryClient();
   /** Une seule tentative par session connectée : pas de boucle si l'API refuse. */
   const attemptedFor = useRef<string | null>(null);
   /** Le rôle courant, lu par le listener sans le faire dépendre du rôle (évite un réabonnement). */
@@ -64,7 +68,7 @@ export function PushRegistration({
   // Tap sur une notification système → écran de la ressource (mapping partagé avec le centre
   // in-app, ADR-23 : le backend n'envoie qu'un signal `type` + `resourceId`).
   useEffect(() => {
-    let subscription: { remove: () => void } | null = null;
+    const subscriptions: { remove: () => void }[] = [];
     let cancelled = false;
 
     void (async () => {
@@ -73,24 +77,44 @@ export function PushRegistration({
       if (!Notifications || cancelled) return;
       // À défaut, un push reçu app ouverte ne s'affiche pas du tout (cf. `FOREGROUND_BEHAVIOR`).
       configureForegroundPresentation(Notifications);
-      subscription = Notifications.addNotificationResponseReceivedListener((response) => {
-        const currentRole = roleRef.current;
-        if (!currentRole) return;
-        const data = response.notification.request.content.data as {
-          type?: string;
-          resourceId?: string;
-        };
-        if (!data?.type || !data.resourceId) return;
-        const href = notificationHref(currentRole, data.type as NotificationType, data.resourceId);
-        if (href) router.push(href as never);
-      });
+
+      // ARRIVÉE d'un push (TLX-231) — distinct du tap ci-dessous. Sans cet abonnement, la
+      // notification est en base et la bannière s'affiche, mais rien n'invalide le cache : la
+      // cloche et le centre partagent `NOTIFICATIONS_QUERY_KEY` (ADR-23) et restent figés
+      // jusqu'au prochain remontage. Attention au faux ami : `staleTime` ne déclenche aucun
+      // refetch, il ne fait que marquer la donnée périmée.
+      subscriptions.push(
+        Notifications.addNotificationReceivedListener(() => {
+          // Pas de garde sur le rôle : sans observateur monté, l'invalidation se borne à
+          // marquer la clé périmée — aucune requête réseau émise.
+          void queryClient.invalidateQueries({ queryKey: NOTIFICATIONS_QUERY_KEY });
+        }),
+      );
+
+      subscriptions.push(
+        Notifications.addNotificationResponseReceivedListener((response) => {
+          const currentRole = roleRef.current;
+          if (!currentRole) return;
+          const data = response.notification.request.content.data as {
+            type?: string;
+            resourceId?: string;
+          };
+          if (!data?.type || !data.resourceId) return;
+          const href = notificationHref(
+            currentRole,
+            data.type as NotificationType,
+            data.resourceId,
+          );
+          if (href) router.push(href as never);
+        }),
+      );
     })();
 
     return () => {
       cancelled = true;
-      subscription?.remove();
+      for (const subscription of subscriptions) subscription.remove();
     };
-  }, [router, loadNotifications]);
+  }, [router, loadNotifications, queryClient]);
 
   return null;
 }
