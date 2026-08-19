@@ -1,12 +1,10 @@
 import {
   assignSession,
   getCoachDashboard,
-  listGroups,
   type AssignRequest,
   type Dashboard,
   type DashboardAthlete,
   type Group,
-  type GroupPage,
 } from '@talent-x/api-client';
 import { useTheme } from '@talent-x/design-tokens';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -18,7 +16,7 @@ import { Button, Card, DatePicker } from '../components/ui';
 import { ResponsiveContent } from '../responsive/ResponsiveContent';
 import { useToast } from '../feedback';
 import { COACH_DASHBOARD_QUERY_KEY } from '../dashboard/dashboard-query';
-import { GROUPS_QUERY_KEY } from '../groups/groups-query';
+import { coachGroupsQuery } from '../groups/groups-query';
 import { weekdayLabel } from '../assignments/recurrence-label';
 import { AthleteStatusBadge, athleteFullName, athleteInitials } from './athlete-ui';
 import { coachHomeHref, coachSessionDetailHref } from './navigation';
@@ -61,15 +59,10 @@ export function CoachAssignScreen({
     },
   });
 
-  // Groupes du coach (ADR-30) — cache partagé avec les écrans Groupes (C-04).
-  const groupsQuery = useQuery({
-    queryKey: GROUPS_QUERY_KEY,
-    queryFn: async (): Promise<GroupPage> => {
-      const response = await listGroups();
-      if (response.status === 200) return response.data;
-      throw response;
-    },
-  });
+  // Groupes du coach (ADR-30) — cache partagé avec les écrans Groupes (C-04). La `queryFn`
+  // vit à côté de la clé (TLX-238) : cet écran y écrivait l'enveloppe `{ data, meta }` là où
+  // la liste des groupes y écrivait le `Group[]` déballé, et le dernier monté cassait l'autre.
+  const groupsQuery = useQuery(coachGroupsQuery());
 
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [selectedGroups, setSelectedGroups] = useState<Set<string>>(new Set());
@@ -85,7 +78,7 @@ export function CoachAssignScreen({
   } | null>(null);
 
   const athletes = dashboard.data?.athletes ?? [];
-  const groups = groupsQuery.data?.data ?? [];
+  const groups = groupsQuery.data ?? [];
 
   const dueWeekday = weekdayLabel(dueDate);
   // La répétition n'est proposée/envoyée que si l'échéance est une date valide (ADR-35).

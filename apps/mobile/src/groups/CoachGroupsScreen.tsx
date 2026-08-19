@@ -1,4 +1,4 @@
-import { createGroup, listGroups, type Group, type GroupCreate } from '@talent-x/api-client';
+import { createGroup, type Group, type GroupCreate } from '@talent-x/api-client';
 import { useTheme } from '@talent-x/design-tokens';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Feather } from '@expo/vector-icons';
@@ -7,7 +7,7 @@ import { useState } from 'react';
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { Button, Card, Input } from '../components/ui';
 import { toUserMessage, useToast } from '../feedback';
-import { GROUPS_QUERY_KEY } from './groups-query';
+import { coachGroupsQuery, GROUPS_QUERY_KEY } from './groups-query';
 import { groupDetailHref } from './navigation';
 
 /**
@@ -25,15 +25,8 @@ export function CoachGroupsScreen() {
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState('');
 
-  const query = useQuery({
-    queryKey: GROUPS_QUERY_KEY,
-    queryFn: async (): Promise<Group[]> => {
-      const response = await listGroups();
-      if (response.status === 200) return response.data.data;
-      throw response;
-    },
-    retry: false,
-  });
+  // Producteur unique du cache `['groups']` (TLX-238) — la `queryFn` vit à côté de la clé.
+  const query = useQuery({ ...coachGroupsQuery(), retry: false });
 
   const create = useMutation({
     mutationFn: async (): Promise<Group> => {
