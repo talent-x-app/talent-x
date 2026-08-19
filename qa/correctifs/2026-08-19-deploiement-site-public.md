@@ -1,6 +1,6 @@
 # Déploiement du lot 1 + site public — 2026-08-19
 
-`main` est à **`47bec37`** et poussé : les quatre correctifs de la campagne y sont
+`main` est à **`3608921`** et poussé : les quatre correctifs de la campagne y sont
 (TLX-232, TLX-231, TLX-233, TLX-234). Le staging tourne encore l'image précédente, qui
 n'en contient aucun. Ce document est le **prompt à coller dans une session d'exploitation**.
 
@@ -24,10 +24,16 @@ certificat et vérifications. Ne réinvente pas la procédure, applique-la.
   `/opt/talentx/staging`, secrets dans `/etc/talentx/staging.env` (`root:root`, `600`).
 - Hôtes déjà servis : `staging-api.talent-x.app`, `staging-storage.talent-x.app`.
 - Hôte à ajouter : **`staging.talent-x.app`** — le site public.
-- Image à déployer : `IMAGE_TAG=sha-47bec3737cab41aa2c7850440755c8bc3a92531c`
-  (vérifie d'abord que le job « Image API · publication GHCR » est **vert** sur `47bec37` :
-  un run échoué ne publie rien, et GHCR renvoie le même `denied` pour une image absente
-  que pour un droit manquant).
+- Image à déployer : **`IMAGE_TAG=sha-360892142e4970f6f5548ee5d3ca4566a39963e7`**
+  (run #257, vert). Un run échoué ou annulé ne publie rien, et GHCR renvoie le même
+  `denied` pour une image absente que pour un droit manquant — d'où l'importance de partir
+  d'un run **vert**.
+
+  > Le run précédent (#256, commit `47bec37`) apparaît **annulé** : deux poussées
+  > rapprochées se sont succédé et la concurrence GitHub Actions a interrompu la première
+  > au profit de la seconde. Ce n'est pas un échec de build. `3608921` contient tout
+  > `47bec37` — c'est le même code plus un fichier de documentation — donc l'image du run
+  > #257 est complète.
 
 ### L'ordre compte — trois contraintes non négociables
 
