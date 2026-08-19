@@ -710,6 +710,14 @@ Décision complète : [`docs/adr/ADR-56-react-native-svg-graphes-riches.md`](adr
 
 ---
 
+## ADR-57 — Destination du lien de réinitialisation : site public minimal
+
+Décision complète : [`docs/adr/ADR-57-destination-lien-reinitialisation.md`](adr/ADR-57-destination-lien-reinitialisation.md).
+
+**Statut : Accepté** (2026-08-19, validé). Constat **QA-01.5** : le backend de réinitialisation est conforme (202 neutre, jeton haché à usage unique, email délivré) mais le parcours est **impraticable** — aucune UI dans `apps/mobile` (la maquette O-02 prévoit pourtant le lien) et le lien pointe sur l'hôte API, donc **404 JSON**. **D1** la récupération doit fonctionner **sans l'app** (téléphone changé, réinstallation, ordinateur) : une page web est le socle, pas une option. **D2** **site public statique minimal** sur le domaine principal, servi par le Nginx déjà déployé — `/reset-password`, `/privacy`, `/support` ; `APP_PUBLIC_URL` cesse de désigner l'API. **D3** justifié deux fois : `talent-x.app` ne résout pas aujourd'hui, et TLX-77 est bloqué sur l'exigence « politique de confidentialité en URL publique » des deux stores — une seule infrastructure, deux problèmes résolus. **D4** hébergement en UE chez nous (cohérence TX-SEC-003) ; jeton **nettoyé de l'URL** (il transite en query string → historique et journaux d'accès), **aucun script tiers**, `Referrer-Policy: no-referrer` conservé, origine à ajouter au **CORS**. **D5** écrans de **demande** dans l'app (lien O-02 déjà maquetté) avec message **neutre** — le 202 anti-énumération du serveur ne vaut rien si l'écran révèle l'existence du compte. Écartés : lien profond seul (souvent non cliquable en mail, inopérant sans app installée), build web Expo complet (exposerait toute l'app, canal produit non décidé), page servie par l'API (la moins chère, mais ne fait rien pour TLX-77 et garde un lien en `api.`), hébergeur statique tiers (sous-traitant hors UE pour servir la politique de confidentialité). **Différés** : App Links / Universal Links — la page web reste le repli, ce travail n'est jamais perdu.
+
+---
+
 ## Gabarit pour un nouvel ADR
 
 ```markdown
