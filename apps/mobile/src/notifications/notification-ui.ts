@@ -1,4 +1,10 @@
 import type { NotificationType } from '@talent-x/api-client';
+import { COACH_DASHBOARD_QUERY_KEY } from '../dashboard/dashboard-query';
+import {
+  ASSIGNMENTS_QUERY_KEY,
+  GROUPS_QUERY_KEY,
+  groupAnnouncementsQueryKey,
+} from '../groups/groups-query';
 
 /**
  * Présentation des notifications in-app (TLX-111, ADR-23) — module pur.
@@ -113,6 +119,92 @@ export function notificationHref(
     return { pathname: '/(coach)/group/[id]', params: { id: resourceId } };
   }
   return null;
+}
+
+/**
+ * Détail d'une affectation et tout ce qui en dépend (TLX-235). Préfixe **singulier**
+ * `['assignment', id]` : c'est celui du détail de séance et de la revue coach, qui porte
+ * aussi `…, 'performance'`, `…, 'attendance-summary'` et `…, 'teammates-attendance'`.
+ * L'invalidation TanStack se faisant par préfixe, les descendants suivent — inutile de les
+ * énumérer.
+ *
+ * À ne pas confondre avec `assignmentQueryKey()` de `groups-query`, au **pluriel**
+ * (`['assignments', id]`), utilisé par le contrôle de présence : celui-là est couvert par
+ * `ASSIGNMENTS_QUERY_KEY`, préfixe de la liste.
+ */
+function assignmentDetailKey(assignmentId: string): readonly unknown[] {
+  return ['assignment', assignmentId];
+}
+
+/**
+ * Fils de commentaires de performance (`['performance', <id>, 'comments']`, cf.
+ * `performanceCommentsKey`). Le préfixe racine est volontaire : une notification de
+ * feedback porte l'identifiant de l'**affectation**, jamais celui de la performance — il
+ * est impossible de viser le fil précis sans requête. Seuls les fils réellement montés
+ * seront rechargés ; les autres sont simplement marqués périmés.
+ */
+const PERFORMANCE_COMMENTS_PREFIX: readonly unknown[] = ['performance'];
+
+/**
+ * Clés de cache à invalider à l'**arrivée** d'une notification (TLX-235), dérivées du seul
+ * signal disponible : `type` + `resourceId` (ADR-23). Sans elles, l'app annonçait un
+ * événement qu'elle n'affichait pas — la cloche s'incrémentait, la ressource restait figée.
+ *
+ * Fonction **pure**, à côté de `notificationHref` qui dérive la navigation du même signal.
+ *
+ * Deux rappels qui expliquent la forme des clés :
+ *  - l'invalidation se fait **par préfixe** : `['assignment', id]` emporte ses descendants ;
+ *  - `staleTime` ne déclenche **aucun** refetch, et sans observateur monté une invalidation
+ *    se borne à marquer la clé périmée — d'où l'absence de garde sur le rôle : le coach et
+ *    l'athlète peuvent recevoir les mêmes types sans qu'aucune requête inutile ne parte.
+ */
+export function notificationQueryKeys(
+  type: NotificationType,
+  resourceId: string,
+): readonly (readonly unknown[])[] {
+  switch (type) {
+    // Une séance de plus dans la liste de l'athlète (accueil, Séances, calendrier).
+    case 'session_assigned':
+      return [ASSIGNMENTS_QUERY_KEY];
+
+    // Le coach a commenté : le fil vit sous `['performance', <perfId>, 'comments']`, pas
+    // sous l'affectation — invalider la seule affectation rafraîchirait la perf sans jamais
+    // faire apparaître le commentaire, c'est-à-dire tout sauf ce que la notification annonce.
+    case 'performance_feedback':
+      return [assignmentDetailKey(resourceId), PERFORMANCE_COMMENTS_PREFIX];
+
+    // Perf soumise par un athlète : revue coach (détail + perf) et les agrégats qui la
+    // comptent — tableau de bord « à revoir », liste des séances, historique complété.
+    case 'performance_submitted':
+      return [
+        assignmentDetailKey(resourceId),
+        COACH_DASHBOARD_QUERY_KEY,
+        ASSIGNMENTS_QUERY_KEY,
+        ['coach', 'assignments', 'completed'],
+      ];
+
+    // Adhésion à un groupe : la liste (effectifs) et le détail. `['groups']` est le préfixe
+    // commun aux deux — et à `['groups', 'mine']` côté athlète, sans effet là où rien n'est monté.
+    case 'group_update':
+      return [GROUPS_QUERY_KEY];
+
+    // Annonce (ADR-46) : resourceId = groupe.
+    case 'group_announcement':
+      return [groupAnnouncementsQueryKey(resourceId)];
+
+    // Kudos (ADR-49) : resourceId = affectation ; les 👏 vivent sous
+    // `['assignment', id, 'teammates-attendance']`, couvert par le préfixe.
+    case 'group_kudos':
+      return [assignmentDetailKey(resourceId)];
+
+    // Réponse de fil (ADR-50) : resourceId = groupe, sans l'identifiant de l'annonce. Le
+    // préfixe des annonces couvre à la fois la liste (son `replyCount`) et tous les fils.
+    case 'group_reply':
+      return [groupAnnouncementsQueryKey(resourceId)];
+
+    default:
+      return [];
+  }
 }
 
 /** Date relative compacte (fr) : « à l'instant », « il y a 3 h », « hier », « 8 juin ». */

@@ -5,7 +5,7 @@ import { Platform } from 'react-native';
 import type { NotificationType } from '@talent-x/api-client';
 import { useSession } from '../auth/SessionProvider';
 import { NOTIFICATIONS_QUERY_KEY } from './NotificationsScreen';
-import { notificationHref } from './notification-ui';
+import { notificationHref, notificationQueryKeys } from './notification-ui';
 import {
   configureForegroundPresentation,
   ensureDeviceRegistered,
@@ -22,7 +22,8 @@ import {
  * Trois responsabilités, toutes best-effort :
  *  1. enregistrer le jeton de l'appareil **une fois connecté** (l'endpoint est authentifié) ;
  *  2. router l'utilisateur vers la ressource quand il **tape** une notification système ;
- *  3. rafraîchir le feed in-app à l'**arrivée** d'un push (TLX-231).
+ *  3. rafraîchir à l'**arrivée** d'un push le feed in-app (TLX-231) **et la ressource
+ *     annoncée** (TLX-235) — sans quoi l'app annonce un événement qu'elle n'affiche pas.
  *
  * Le module natif est chargé paresseusement : sur un dev client antérieur à cette dépendance,
  * ou sur web, ce composant ne fait rien et l'app démarre normalement (cf. `push-registration`).
@@ -84,10 +85,26 @@ export function PushRegistration({
       // jusqu'au prochain remontage. Attention au faux ami : `staleTime` ne déclenche aucun
       // refetch, il ne fait que marquer la donnée périmée.
       subscriptions.push(
-        Notifications.addNotificationReceivedListener(() => {
+        Notifications.addNotificationReceivedListener((notification) => {
           // Pas de garde sur le rôle : sans observateur monté, l'invalidation se borne à
           // marquer la clé périmée — aucune requête réseau émise.
           void queryClient.invalidateQueries({ queryKey: NOTIFICATIONS_QUERY_KEY });
+
+          // …et la RESSOURCE annoncée (TLX-235). Sans ça, l'app annonçait un événement
+          // qu'elle n'affichait pas : le badge s'incrémentait, la séance n'apparaissait pas
+          // dans la liste en dessous. Le payload porte déjà `type` et `resourceId` — le
+          // listener de tap ci-dessous les lit pour router, aucun changement de contrat.
+          const data = notification.request.content.data as {
+            type?: string;
+            resourceId?: string;
+          };
+          if (!data?.type || !data.resourceId) return;
+          for (const queryKey of notificationQueryKeys(
+            data.type as NotificationType,
+            data.resourceId,
+          )) {
+            void queryClient.invalidateQueries({ queryKey });
+          }
         }),
       );
 

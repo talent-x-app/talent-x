@@ -63,6 +63,10 @@ function fakeNotifications() {
     receive(type = 'session_assigned', resourceId = 'as-42') {
       receivedHandler?.({ request: { content: { data: { type, resourceId } } } });
     },
+    /** Arrivée d'une charge utile arbitraire (payload incomplet, ancien format…). */
+    receiveRaw(data: Record<string, unknown>) {
+      receivedHandler?.({ request: { content: { data } } });
+    },
     get receiveSubscribed() {
       return receivedHandler !== null;
     },
@@ -201,6 +205,42 @@ describe('PushRegistration (TLX-226)', () => {
     expect(invalidate).not.toHaveBeenCalled();
     notifs.receive();
 
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['notifications', 'me'] });
+  });
+
+  // TLX-235 — la cloche s'incrémentait bien (TLX-231) mais la ressource annoncée restait
+  // figée : l'app annonçait un événement qu'elle n'affichait pas.
+  it('arrivée d’un push : invalide AUSSI la ressource annoncée', async () => {
+    const notifs = fakeNotifications();
+    const { invalidate } = renderPush({ loadNotifications: notifs.load });
+    await waitFor(() => expect(notifs.receiveSubscribed).toBe(true));
+
+    notifs.receive('session_assigned', 'as-42');
+
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['notifications', 'me'] });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['assignments'] });
+  });
+
+  it('arrivée d’un push : chaque clé du mapping est invalidée (feedback → 2 clés)', async () => {
+    const notifs = fakeNotifications();
+    const { invalidate } = renderPush({ loadNotifications: notifs.load });
+    await waitFor(() => expect(notifs.receiveSubscribed).toBe(true));
+
+    notifs.receive('performance_feedback', 'as-7');
+
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['assignment', 'as-7'] });
+    // Le fil de commentaires est indexé par performance, pas par affectation.
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['performance'] });
+  });
+
+  it('charge utile sans type ni resourceId : la cloche seule, sans planter', async () => {
+    const notifs = fakeNotifications();
+    const { invalidate } = renderPush({ loadNotifications: notifs.load });
+    await waitFor(() => expect(notifs.receiveSubscribed).toBe(true));
+
+    notifs.receiveRaw({});
+
+    expect(invalidate).toHaveBeenCalledTimes(1);
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ['notifications', 'me'] });
   });
 

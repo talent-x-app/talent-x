@@ -3,6 +3,7 @@ import {
   formatRelativeDate,
   notificationDescription,
   notificationHref,
+  notificationQueryKeys,
 } from './notification-ui';
 
 describe('notification-ui (TLX-111, ADR-23)', () => {
@@ -36,6 +37,73 @@ describe('notification-ui (TLX-111, ADR-23)', () => {
       expect(notificationHref('athlete', 'group_update', 'g-1')).toBeNull();
       // L'athlète ne reçoit jamais performance_submitted (signal coach).
       expect(notificationHref('athlete', 'performance_submitted', 'asg-1')).toBeNull();
+    });
+  });
+
+  // TLX-235 : un cas par type. Chaque clé est confrontée à celle qu'utilise réellement
+  // l'écran consommateur — la piste du ticket était un point de départ, et elle s'est
+  // révélée insuffisante pour `performance_feedback` (cf. ci-dessous).
+  describe('notificationQueryKeys', () => {
+    it('session_assigned : la liste des séances (accueil, Séances, calendrier)', () => {
+      expect(notificationQueryKeys('session_assigned', 'asg-1')).toEqual([['assignments']]);
+    });
+
+    it('performance_feedback : l’affectation ET les fils de commentaires', () => {
+      // Le fil vit sous `['performance', <perfId>, 'comments']` alors que la notification
+      // porte l'id de l'AFFECTATION : sans le second préfixe, le commentaire annoncé
+      // n'apparaîtrait jamais — on rafraîchirait tout sauf lui.
+      expect(notificationQueryKeys('performance_feedback', 'asg-2')).toEqual([
+        ['assignment', 'asg-2'],
+        ['performance'],
+      ]);
+    });
+
+    it('performance_submitted : revue coach + agrégats qui la comptent', () => {
+      expect(notificationQueryKeys('performance_submitted', 'asg-9')).toEqual([
+        ['assignment', 'asg-9'],
+        ['coach', 'dashboard'],
+        ['assignments'],
+        ['coach', 'assignments', 'completed'],
+      ]);
+    });
+
+    it('group_update : préfixe des groupes (liste + détail + membres)', () => {
+      expect(notificationQueryKeys('group_update', 'g-1')).toEqual([['groups']]);
+    });
+
+    it('group_announcement : annonces du groupe visé', () => {
+      expect(notificationQueryKeys('group_announcement', 'g-1')).toEqual([
+        ['groups', 'g-1', 'announcements'],
+      ]);
+    });
+
+    it('group_kudos : l’affectation (les 👏 sont sous son préfixe)', () => {
+      expect(notificationQueryKeys('group_kudos', 'asg-3')).toEqual([['assignment', 'asg-3']]);
+    });
+
+    it('group_reply : préfixe des annonces — couvre le fil ET le compteur de réponses', () => {
+      // `resourceId` est le GROUPE, jamais l'annonce : viser le fil précis est impossible
+      // sans requête, le préfixe est donc la clé la plus fine disponible.
+      expect(notificationQueryKeys('group_reply', 'g-7')).toEqual([
+        ['groups', 'g-7', 'announcements'],
+      ]);
+    });
+
+    it('n’invalide jamais la racine du cache (garde-fou anti « trop large »)', () => {
+      const types = [
+        'session_assigned',
+        'performance_feedback',
+        'performance_submitted',
+        'group_update',
+        'group_announcement',
+        'group_kudos',
+        'group_reply',
+      ] as const;
+      for (const type of types) {
+        const keys = notificationQueryKeys(type, 'r-1');
+        expect(keys.length).toBeGreaterThan(0);
+        for (const key of keys) expect(key.length).toBeGreaterThan(0);
+      }
     });
   });
 
