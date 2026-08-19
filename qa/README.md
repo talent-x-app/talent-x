@@ -108,7 +108,8 @@ rapport committé.
 
 | Réf     | Constat                                                                                                                              | Où c'est traité                 |
 | ------- | ------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------- |
-| TLX-231 | La cloche ne se rafraîchit pas à l'arrivée d'un push                                                                                 | QA-05.4 (attendu adapté)        |
+| TLX-231 | ~~La cloche ne se rafraîchit pas à l'arrivée d'un push~~ — **résolu**, vérifié sur appareil le 19/08                                 | QA-05.4                         |
+| TLX-235 | À l'arrivée d'un push, seule la cloche se rafraîchit : la ressource sous-jacente reste figée (accueil athlète)                       | QA-05.4 — **ouvert le 19/08**   |
 | TLX-223 | Sauts : « Nb de barres » / « Essais par barre » du coach ignorés par la saisie athlète                                               | QA-03.5                         |
 | TLX-84  | `group_update` jamais validé sur appareil (coach sans téléphone jusqu'ici)                                                           | QA-05.3                         |
 | —       | Contenu de l'email de reset jamais vu ; **le lien pointe sur `APP_PUBLIC_URL` = hôte API, qui ne sert aucune app**                   | QA-01.5                         |
