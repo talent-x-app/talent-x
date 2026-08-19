@@ -109,9 +109,12 @@ rapport committé.
 | Réf     | Constat                                                                                                                              | Où c'est traité                 |
 | ------- | ------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------- |
 | TLX-231 | ~~La cloche ne se rafraîchit pas à l'arrivée d'un push~~ — **résolu**, vérifié sur appareil le 19/08                                 | QA-05.4                         |
-| TLX-235 | À l'arrivée d'un push, seule la cloche se rafraîchit : la ressource sous-jacente reste figée (accueil athlète)                       | QA-05.4 — **ouvert le 19/08**   |
-| TLX-236 | **Majeur.** Le mode saisie du détail de séance persiste entre séances → le feedback du coach est illisible                           | QA-05.2 — **ouvert le 19/08**   |
-| TLX-237 | **Majeur.** Un push reçu app en arrière-plan n'apparaît jamais dans le centre (matérialise le point 2 de TLX-231)                    | QA-05.6 — **ouvert le 19/08**   |
+| TLX-235 | À l'arrivée d'un push, la ressource n'est pas invalidée — **3 cas sur 4 résolus le 19/08** ; reste la liste des athlètes (coach)     | QA-05.4                         |
+| TLX-236 | ~~Le mode saisie persiste entre séances → feedback du coach illisible~~ — **résolu**, rejoué sur appareil le 19/08                   | QA-05.2                         |
+| TLX-237 | ~~Un push reçu app en arrière-plan n'apparaît jamais dans le centre~~ — **résolu**, rejoué sur appareil le 19/08                     | QA-05.6                         |
+| TLX-239 | Autres états locaux rémanents sur les écrans d'onglet masqués (dont la bascule de vue coach/athlète)                                 | QA-02/QA-03 — ouvert le 19/08   |
+| TLX-240 | Clé d'affectation au singulier/pluriel ; préchauffage de cache annulé par une invalidation                                           | hors campagne — dette           |
+| TLX-241 | La suite mobile ne se termine pas proprement (« worker failed to exit gracefully »)                                                  | hors campagne — dette de test   |
 | TLX-223 | Sauts : « Nb de barres » / « Essais par barre » du coach ignorés par la saisie athlète                                               | QA-03.5                         |
 | TLX-238 | **BLOQUANT.** Crash du coach à l'enregistrement d'une séance : deux formes incompatibles sous la clé `['groups']`                    | QA-02.2 — **ouvert le 19/08**   |
 | TLX-84  | ~~`group_update` jamais validé sur appareil~~ — **résolu le 19/08** ; reste la documentation du transfert hors UE                    | QA-05.3                         |
