@@ -8,8 +8,14 @@ Ce qui encadre la campagne : l'état du staging avant de commencer (08.1 est un
 **Couvre** : `health`, `ready`, l'état complet de la pile.
 **Checklist** (commandes §5 du plan) :
 
-- [ ] CI verte sur le commit déployé ; `IMAGE_TAG` = SHA de ce commit
-      (vérif : `docker compose … config`, ligne `image:`)
+- [ ] CI verte, et `IMAGE_TAG` = SHA du **dernier commit de `main` ayant touché autre
+      chose que du Markdown** (vérif : `docker compose … config`, ligne `image:`).
+      ⚠️ Ce n'est pas forcément `HEAD` : la CI ignore les poussées purement
+      documentaires, donc aucune image n'est publiée pour celles-ci. Un `IMAGE_TAG` en
+      retard de quelques commits de doc est **normal** ; en retard d'un commit de code
+      ne l'est pas. Pour trancher :
+      `git log --oneline <IMAGE_TAG_SHA>..main -- . ':(exclude)**/*.md'`
+      — s'il ne sort rien, l'image est à jour.
 - [ ] `curl https://staging-api.talent-x.app/api/v1/health` → 200 `{"status":"ok"}` ;
       HTTP → 301
 - [ ] 9 conteneurs : 7 `Up`, `migrate` + `minio-init` en `Exited (0)`

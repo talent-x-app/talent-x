@@ -3,6 +3,18 @@ name: CI
 on:
   push:
     branches: [main]
+    # Un commit purement documentaire ne change aucun artefact : la suite
+    # n'apprendrait rien et l'image publiée serait un doublon du code précédent,
+    # sous un SHA différent — c'est ainsi qu'on hésite ensuite sur le tag à
+    # déployer. Seul le Markdown est exclu : `docs/talent-x-openapi.yaml` est le
+    # contrat d'API et DOIT continuer à déclencher la CI.
+    #
+    # Volontairement absent de `pull_request` ci-dessous : une PR joue toujours
+    # la suite complète. Cela garde `format:check` sur le Markdown, et évite le
+    # piège classique de `paths-ignore` — un contrôle requis qui reste
+    # éternellement « en attente » sur une PR documentaire, bloquant la fusion.
+    paths-ignore:
+      - '**/*.md'
   pull_request:
 
 # Annule les exécutions obsolètes sur une même réf (push successifs).
