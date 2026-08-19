@@ -53,9 +53,13 @@ jest.mock('@talent-x/api-client', () => ({
   },
   LoadUnit: { kg: 'kg', lb: 'lb', percent_1rm: 'percent_1rm', bodyweight: 'bodyweight' },
 }));
+// Mutable : `session/[id]` est un écran d'onglet masqué que React Navigation ne démonte
+// jamais. Changer d'`id` sans remonter le composant est donc le scénario RÉEL, et le seul
+// qui expose TLX-236 — d'où un paramètre de route qu'on peut faire varier entre deux rendus.
+let mockRouteId = 'as-1';
 jest.mock('expo-router', () => ({
   useRouter: () => ({ back: mockBack, replace: mockReplace }),
-  useLocalSearchParams: () => ({ id: 'as-1' }),
+  useLocalSearchParams: () => ({ id: mockRouteId }),
 }));
 jest.mock('../feedback', () => ({
   useToast: () => ({ show: mockShow, dismiss: jest.fn() }),
@@ -107,6 +111,7 @@ const ASSIGNMENT = {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockRouteId = 'as-1';
   mockListComments.mockResolvedValue({ status: 200, data: { data: [], meta: {} } });
   mockListMyRecords.mockResolvedValue({ status: 200, data: { items: [] } });
 });
@@ -493,6 +498,77 @@ describe('SessionDetailScreen (TLX-065/071 — A-03/A-04)', () => {
     fireEvent.press(screen.getByTestId('submit-performance'));
     await waitFor(() => expect(mockUpdatePerformance).toHaveBeenCalled());
     expect(mockSubmitPerformance).not.toHaveBeenCalled();
+  });
+
+  // TLX-236 — le mode de saisie est un état local d'un écran que React Navigation ne
+  // démonte jamais (`Tabs.Screen … href: null`). Aucun test existant ne changeait de
+  // séance sans remonter le composant : c'est très exactement le trou par lequel le
+  // défaut est passé, et la raison pour laquelle Jest ne l'avait pas vu.
+  describe('mode de saisie sur un écran jamais démonté (TLX-236)', () => {
+    it('changer de séance sans remonter l’écran : retour en lecture', async () => {
+      mockGetAssignment.mockResolvedValue({ status: 200, data: ASSIGNMENT });
+      mockGetPerformance.mockResolvedValue({ status: 404, data: { error: 'NOT_FOUND' } });
+      const view = render(<SessionDetailScreen />, { wrapper: Wrapper });
+
+      await enterEntryMode();
+      expect(screen.getByTestId('submit-performance')).toBeOnTheScreen();
+
+      // Navigation vers une AUTRE séance : le paramètre de route change, le composant
+      // reste monté (`rerender` ne remonte pas). Sans correctif, la séance B s'ouvrait
+      // directement sur le formulaire — sans qu'aucun enregistrement soit nécessaire.
+      mockRouteId = 'as-2';
+      view.rerender(<SessionDetailScreen />);
+
+      await waitFor(() => expect(screen.getByTestId('start-perf-entry')).toBeOnTheScreen());
+      expect(screen.queryByTestId('submit-performance')).toBeNull();
+    });
+
+    it('premier enregistrement : repasse en lecture avant la confirmation', async () => {
+      mockGetAssignment.mockResolvedValue({ status: 200, data: ASSIGNMENT });
+      // 404 tant que rien n'est saisi, puis la perf : `onSuccess` invalide `['assignment', id]`,
+      // ce qui emporte PAR PRÉFIXE `['assignment', id, 'performance']` et déclenche un vrai
+      // refetch — la perf relue est donc celle du serveur, pas celle posée en cache.
+      mockGetPerformance
+        .mockResolvedValueOnce({ status: 404, data: { error: 'NOT_FOUND' } })
+        .mockResolvedValue({
+          status: 200,
+          data: { id: 'p-1', rpe: 5, results: { schemaVersion: 2, items: [] } },
+        });
+      mockSubmitPerformance.mockResolvedValue({
+        status: 201,
+        data: { id: 'p-1', rpe: 5, results: { schemaVersion: 2, items: [] } },
+      });
+      render(<SessionDetailScreen />, { wrapper: Wrapper });
+      await enterEntryMode();
+
+      fireEvent.press(screen.getByTestId('submit-performance'));
+
+      await waitFor(() => expect(mockReplace).toHaveBeenCalled());
+      // L'écran part vers la confirmation, mais ne doit PAS rester en saisie derrière lui :
+      // c'est ce qui rendait le fil de feedback du coach (branche `view`) inatteignable.
+      await waitFor(() => expect(screen.queryByTestId('submit-performance')).toBeNull());
+      expect(screen.getByTestId('start-perf-entry')).toHaveTextContent(/Modifier ma perf/);
+    });
+
+    it('mise à jour d’une perf existante : retour en lecture (non-régression)', async () => {
+      mockGetAssignment.mockResolvedValue({ status: 200, data: ASSIGNMENT });
+      mockGetPerformance.mockResolvedValue({
+        status: 200,
+        data: { id: 'p-1', rpe: 7, results: { schemaVersion: 2, items: [] } },
+      });
+      mockUpdatePerformance.mockResolvedValue({
+        status: 200,
+        data: { id: 'p-1', rpe: 7, results: { schemaVersion: 2, items: [] } },
+      });
+      render(<SessionDetailScreen />, { wrapper: Wrapper });
+      await enterEntryMode();
+
+      fireEvent.press(screen.getByTestId('submit-performance'));
+
+      await waitFor(() => expect(mockUpdatePerformance).toHaveBeenCalled());
+      await waitFor(() => expect(screen.queryByTestId('submit-performance')).toBeNull());
+      expect(mockReplace).not.toHaveBeenCalled();
+    });
   });
 
   it('état erreur si la séance ne charge pas', async () => {
