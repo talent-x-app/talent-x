@@ -701,6 +701,83 @@ describe('SessionDetailScreen (TLX-065/071 — A-03/A-04)', () => {
       expect(screen.getByTestId('exercise-0-target')).toHaveTextContent(/95 % record/);
     });
 
+    // TLX-239 — même mécanisme que le `mode` de TLX-236, dans le même fichier : la bascule
+    // décrit la séance affichée, et l'écran n'étant jamais démonté, elle la suivait.
+    it('changer de séance sans remonter l’écran : retour en vue athlète', async () => {
+      mockGetAssignment.mockResolvedValue({ status: 200, data: PR_ASSIGNMENT });
+      mockGetPerformance.mockResolvedValue({ status: 404, data: { error: 'NOT_FOUND' } });
+      mockListMyRecords.mockResolvedValue({
+        status: 200,
+        data: {
+          items: [
+            {
+              id: 'r-1',
+              athleteId: 'me',
+              eventKey: 'sprint:60m',
+              label: '60 m',
+              value: 7.32,
+              unit: 's',
+              direction: 'min',
+              achievedAt: '2026-06-01T00:00:00Z',
+            },
+          ],
+        },
+      });
+      const view = render(<SessionDetailScreen />, { wrapper: Wrapper });
+
+      await waitFor(() => expect(screen.getByTestId('session-view-toggle')).toBeOnTheScreen());
+      fireEvent.press(screen.getByText('Vue coach'));
+      expect(screen.getByTestId('exercise-0-target')).toHaveTextContent(/95 % record/);
+
+      mockRouteId = 'as-2';
+      view.rerender(<SessionDetailScreen />);
+
+      // Sans correctif, la séance suivante s'ouvrait en vue coach — la cible individualisée
+      // par les records de l'athlète, seul intérêt de l'écran pour lui, restait masquée.
+      await waitFor(() =>
+        expect(screen.getByTestId('exercise-0-target')).toHaveTextContent(/≈ 7\.71 s/),
+      );
+    });
+  });
+
+  /**
+   * TLX-239 — la passe sur les états rémanents. `rpe` et `notes` n'ont qu'un seul chemin de
+   * réhydratation : l'effet sur `existing.data`, qui **sort tôt** quand la séance suivante
+   * n'a pas encore de perf enregistrée. Ils survivaient donc au changement de séance.
+   */
+  describe('effort et notes sur un écran jamais démonté (TLX-239)', () => {
+    it('séance suivante sans perf : le formulaire ne garde ni le RPE ni les notes de la précédente', async () => {
+      mockGetAssignment.mockResolvedValue({ status: 200, data: ASSIGNMENT });
+      // La séance A porte une perf enregistrée (RPE 9, notes) ; la séance B n'en a aucune.
+      mockGetPerformance.mockImplementation((id: string) =>
+        id === 'as-1'
+          ? Promise.resolve({
+              status: 200,
+              data: {
+                id: 'p-1',
+                rpe: 9,
+                notes: 'Jambes lourdes',
+                results: { schemaVersion: 2, items: [] },
+              },
+            })
+          : Promise.resolve({ status: 404, data: { error: 'NOT_FOUND' } }),
+      );
+      const view = render(<SessionDetailScreen />, { wrapper: Wrapper });
+
+      await enterEntryMode();
+      await waitFor(() => expect(screen.getByTestId('rpe-value')).toHaveTextContent('9/10'));
+      expect(screen.getByTestId('notes-input').props.value).toBe('Jambes lourdes');
+
+      mockRouteId = 'as-2';
+      view.rerender(<SessionDetailScreen />);
+      await enterEntryMode();
+
+      // Sans correctif, l'athlète ouvrait sa nouvelle séance avec l'effort et les notes de
+      // la précédente déjà inscrits — et pouvait les soumettre sans les avoir écrits.
+      await waitFor(() => expect(screen.getByTestId('rpe-value')).toHaveTextContent('7/10'));
+      expect(screen.getByTestId('notes-input').props.value).toBe('');
+    });
+
     it('sans intensité % record : pas de bascule ni de requête records', async () => {
       mockGetAssignment.mockResolvedValue({ status: 200, data: ASSIGNMENT });
       mockGetPerformance.mockResolvedValue({ status: 404, data: { error: 'NOT_FOUND' } });

@@ -185,22 +185,6 @@ export function SessionDetailScreen() {
   // saisie via « Saisir ma performance » (A-04). La saisie n'est jamais imposée d'emblée.
   const [mode, setMode] = useState<'view' | 'entry'>('view');
 
-  // TLX-236 — le `useState` ci-dessus n'est évalué QU'UNE FOIS. `session/[id]` est un
-  // `Tabs.Screen … href: null` (écran d'onglet masqué, pas de pile) : React Navigation le
-  // monte à la première visite et ne le démonte jamais. Sans cette remise à zéro, passer
-  // en saisie sur une séance contamine toutes les suivantes — l'écran unique sert toutes
-  // les séances, et changer d'`id` ne remonte rien.
-  //
-  // Ajusté PENDANT le rendu plutôt que dans un `useEffect` : un effet s'exécute après la
-  // peinture, la séance suivante s'ouvrirait donc sur un éclair de formulaire de saisie
-  // avant de basculer en lecture. React ré-exécute ce composant immédiatement, sans
-  // afficher le rendu intermédiaire.
-  const renderedId = useRef(id);
-  if (renderedId.current !== id) {
-    renderedId.current = id;
-    setMode('view');
-  }
-
   // État de saisie local par feuille (mode dérivé du type de bloc — TLX-072/073/074),
   // dimensionné sur la cible (TLX-062) ou les tours du groupe (ADR-27), puis réhydraté.
   const [entries, setEntries] = useState<ExerciseEntry[]>([]);
@@ -210,6 +194,36 @@ export function SessionDetailScreen() {
   // Persistance hors-ligne (TLX-077) : brouillon auto-sauvegardé + écriture en attente.
   const [pendingDraft, setPendingDraft] = useState<PerfDraft | null>(null);
   const [queuedOffline, setQueuedOffline] = useState(false);
+
+  // TLX-236, étendu par TLX-239 — les `useState` ci-dessus ne sont évalués QU'UNE FOIS.
+  // `session/[id]` est un `Tabs.Screen … href: null` (écran d'onglet masqué, pas de pile) :
+  // React Navigation le monte à la première visite et ne le démonte jamais. L'écran unique
+  // sert donc toutes les séances, et changer d'`id` ne remonte rien : tout état qui décrit
+  // la séance affichée doit être remis à zéro ici, à la main.
+  //
+  // Ajusté PENDANT le rendu plutôt que dans un `useEffect` : un effet s'exécute après la
+  // peinture, la séance suivante s'ouvrirait donc sur un éclair de l'état précédent avant
+  // de basculer. React ré-exécute ce composant immédiatement, sans afficher le rendu
+  // intermédiaire.
+  //
+  // Ce qui est remis à zéro, et pourquoi :
+  //  - `mode` (TLX-236) : passer en saisie sur une séance contaminait toutes les suivantes ;
+  //  - `view` (TLX-161) : la bascule vue coach restait active d'une séance à l'autre ;
+  //  - `rpe` / `notes` : leur seul effet de réhydratation sort tôt quand la séance suivante
+  //    n'a pas encore de perf enregistrée — le formulaire s'ouvrait alors pré-rempli avec
+  //    l'effort et les notes de la séance précédente.
+  //
+  // `entries` n'y figure pas : l'effet sur `[leafRows]` le redimensionne dès que la
+  // nouvelle séance est chargée. `pendingDraft` et `queuedOffline` non plus : l'effet sur
+  // `[id]` les réécrit systématiquement, y compris à `null` / `false`.
+  const renderedId = useRef(id);
+  if (renderedId.current !== id) {
+    renderedId.current = id;
+    setMode('view');
+    setView('athlete');
+    setRpe(DEFAULT_RPE);
+    setNotes('');
+  }
 
   useEffect(() => {
     setEntries(leafRows.map((r) => makeEmptyEntry(r.exercise, leafRounds(r.group))));
