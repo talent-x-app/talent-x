@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "@talent-x/tsconfig/node.json",
+  "compilerOptions": {
+    "noEmit": true,
+    // Le harnais Playwright transpile sans vérifier les types : sans ce `typecheck`,
+    // la config et les specs seraient les seuls fichiers TypeScript du dépôt à ne
+    // jamais être contrôlés.
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "types": ["node"]
+  },
+  "include": ["playwright.config.ts", "e2e/**/*.ts"]
+}

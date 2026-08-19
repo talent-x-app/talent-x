@@ -11,7 +11,7 @@
 server {
     listen 80;
     listen [::]:80;
-    server_name ${API_HOST} ${STORAGE_HOST};
+    server_name ${API_HOST} ${STORAGE_HOST} ${SITE_HOST};
 
     # Seule ressource servie en clair : le défi ACME de Let's Encrypt.
     location /.well-known/acme-challenge/ {
@@ -71,6 +71,53 @@ server {
         proxy_connect_timeout 10s;
         proxy_send_timeout    120s;
         proxy_read_timeout    120s;
+    }
+}
+
+# ──────────────────────────── Site public statique ───────────────────────────
+# ADR-57. Destination du lien de réinitialisation envoyé par email : elle doit
+# fonctionner SANS l'application installée (téléphone changé, réinstallation,
+# ouverture du mail depuis un ordinateur). D'où une page web, et non un lien
+# profond. Fichiers servis tels quels depuis le dépôt — aucun build.
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    http2 on;
+    server_name ${SITE_HOST};
+
+    # Certificat mutualisé avec l'API : ${SITE_HOST} doit être ajouté au
+    # certificat existant (certbot --expand), cf. deploy/staging/README.md.
+    ssl_certificate     /etc/letsencrypt/live/${API_HOST}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${API_HOST}/privkey.pem;
+
+    ssl_protocols TLSv1.3;
+    ssl_prefer_server_ciphers off;
+    ssl_session_timeout 1d;
+    ssl_session_cache shared:TalentX:10m;
+    ssl_session_tickets off;
+
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Frame-Options "DENY" always;
+    # Le jeton de réinitialisation transite dans l'URL : aucun référent ne doit
+    # sortir d'ici. À conserver (contrainte explicite d'ADR-57).
+    add_header Referrer-Policy "no-referrer" always;
+
+    server_tokens off;
+    root /usr/share/nginx/html;
+
+    # Configuration du site injectée à la volée : l'URL de l'API est dérivée de
+    # ${API_HOST}, jamais écrite en dur dans un fichier versionné. `scripts/serve.mjs`
+    # reproduit ce comportement en local, pour que les tests portent sur le même contrat.
+    location = /assets/config.js {
+        default_type application/javascript;
+        add_header Referrer-Policy "no-referrer" always;
+        return 200 "window.TALENTX_CONFIG={apiBaseUrl:'https://${API_HOST}/api/v1'};";
+    }
+
+    # `$uri.html` : le lien de l'email pointe /reset-password, sans extension.
+    location / {
+        try_files $uri $uri.html =404;
     }
 }
 

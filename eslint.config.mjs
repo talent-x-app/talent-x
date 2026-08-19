@@ -59,6 +59,16 @@ export default tseslint.config(
     languageOptions: { globals: { ...globals.jest } },
   },
 
+  // Site public statique (apps/site/public) : code exécuté par le NAVIGATEUR, servi tel
+  // quel (aucun build, cf. ADR-57). Les globals Node n'y ont pas cours.
+  {
+    files: ['apps/site/public/**/*.js'],
+    languageOptions: {
+      globals: { ...globals.browser },
+      parserOptions: { sourceType: 'module' },
+    },
+  },
+
   // Tests E2E Playwright (apps/mobile/e2e) : idiomes propres au harnais — payloads d'API
   // non typés (`any` sur les réponses REST de seed) et destructuration vide des fixtures
   // (`async ({}, use) =>`). On les autorise ici sans relâcher le reste du dépôt.

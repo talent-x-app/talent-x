@@ -111,6 +111,17 @@ describe('LoginScreen (TLX-025)', () => {
     expect(mockSetTokens).not.toHaveBeenCalled();
   });
 
+  // TLX-234 : la maquette O-02 prévoit ce lien depuis le début, il n'avait jamais été
+  // implémenté — un utilisateur ne pouvait même pas DEMANDER une réinitialisation.
+  it('propose « Mot de passe oublié ? » et ouvre l’écran de demande', () => {
+    render(<LoginScreen />, { wrapper: Wrapper });
+
+    expect(screen.getByText('Mot de passe oublié ?')).toBeOnTheScreen();
+    fireEvent.press(screen.getByTestId('login-forgot-password'));
+
+    expect(mockPush).toHaveBeenCalledWith('/(auth)/forgot-password');
+  });
+
   it('erreur serveur : toast d’erreur, pas de redirection', async () => {
     mockLogin.mockResolvedValue({ status: 500, data: { error: 'INTERNAL_ERROR' } });
     render(<LoginScreen />, { wrapper: Wrapper });

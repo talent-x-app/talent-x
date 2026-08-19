@@ -187,6 +187,12 @@ registrar :
 | ---- | ----------------- | ----------- | --- |
 | `A`  | `staging-api`     | IPv4 du VPS | 300 |
 | `A`  | `staging-storage` | IPv4 du VPS | 300 |
+| `A`  | `staging`         | IPv4 du VPS | 300 |
+
+`staging` sert le **site public** (ADR-57) : c'est la destination du lien de
+réinitialisation de mot de passe envoyé par email. Nom distinct de l'API à
+dessein — l'API ne sert aucune page, et un lien vers `api.` déclenche l'instinct
+anti-hameçonnage.
 
 TTL à 300 pendant la mise en place : avec le défaut de 3600, une erreur d'adresse
 se paie d'une heure d'attente.
@@ -194,6 +200,7 @@ se paie d'une heure d'attente.
 ```bash
 [VPS] nslookup staging-api.<domaine>
 [VPS] nslookup staging-storage.<domaine>
+[VPS] nslookup staging.<domaine>
 ```
 
 Tant que les deux ne renvoient pas l'IP, ne pas tenter le certificat — Let's
@@ -233,12 +240,27 @@ sa place sur le serveur, l'image venant du registre.
 [PC] scp -r deploy/staging talentx-staging:/tmp/staging
 ```
 
+Le **site public** (ADR-57) fait exception : ses fichiers vivent dans
+`apps/site/public` et sont servis tels quels par Nginx, mais le VPS ne reçoit pas
+le dépôt. On les copie donc à côté, dans le `./site` que monte le compose :
+
+```powershell
+[PC] scp -r apps/site/public talentx-staging:/tmp/staging/site
+```
+
+À refaire à chaque modification du site — il n'est pas embarqué dans l'image de
+l'API, et un `docker compose up` ne le rafraîchit pas tout seul.
+
 ```bash
 [VPS] sudo mkdir -p /opt/talentx && sudo chown ubuntu:ubuntu /opt/talentx
 [VPS] mv /tmp/staging /opt/talentx/
 [VPS] cd /opt/talentx/staging
 [VPS] docker compose config >/dev/null && echo "compose valide"
 ```
+
+> `docker compose config` ne dit **rien** d'un `./site` absent : Docker crée
+> silencieusement un dossier vide et Nginx sert des 404. La vérification qui
+> compte est celle du §12 (ouvrir `/reset-password`).
 
 ---
 
@@ -252,12 +274,30 @@ de lancer la pile. Les renouvellements suivants sont automatiques.
 [VPS] sudo docker run --rm -p 80:80 \
   -v talentx-staging_letsencrypt:/etc/letsencrypt \
   certbot/certbot certonly --standalone \
-  -d staging-api.<domaine> -d staging-storage.<domaine> \
+  -d staging-api.<domaine> -d staging-storage.<domaine> -d staging.<domaine> \
   --agree-tos -m <email> --no-eff-email
 ```
 
-Un seul certificat couvre les deux noms — c'est ce qu'attend la configuration
-Nginx, qui référence un chemin unique.
+Un seul certificat couvre les trois noms — c'est ce qu'attend la configuration
+Nginx, qui référence un chemin unique (celui de `${API_HOST}`).
+
+Sur une installation **déjà en service**, ajouter le nom du site au certificat
+existant plutôt que d'en émettre un second. Nginx doit libérer le port 80 le
+temps de l'émission :
+
+```bash
+[VPS] cd /opt/talentx/staging && sudo docker compose stop nginx
+[VPS] sudo docker run --rm -p 80:80 \
+  -v talentx-staging_letsencrypt:/etc/letsencrypt \
+  certbot/certbot certonly --standalone --expand \
+  -d staging-api.<domaine> -d staging-storage.<domaine> -d staging.<domaine> \
+  --agree-tos -m <email> --no-eff-email
+[VPS] sudo docker compose up -d nginx
+```
+
+Sans `--expand`, certbot crée un lignage séparé (`-0001`) que la configuration ne
+référence pas : le site répondrait avec le certificat de l'API et le navigateur
+afficherait une erreur de nom.
 
 ---
 
@@ -322,6 +362,10 @@ sort, et l'API ne démarre qu'après sa réussite.
 [VPS] curl -s https://staging-api.<domaine>/api/v1/health      # {"status":"ok"}
 [VPS] docker compose logs api | tail -30
 [VPS] docker compose logs worker | tail -20
+
+# Site public (ADR-57) — la page du lien de réinitialisation.
+[VPS] curl -sI https://staging.<domaine>/reset-password | head -1   # HTTP/2 200
+[VPS] curl -s  https://staging.<domaine>/assets/config.js           # window.TALENTX_CONFIG=…
 ```
 
 Ce qu'il faut voir :
@@ -331,6 +375,16 @@ Ce qu'il faut voir :
   en compte, et tous les jetons seraient invalidés à chaque redémarrage.
 - `worker` — `Worker à l'écoute de la file « notifications »`, et `Push réel actif`
   si les credentials APNs/FCM sont renseignés.
+- site — un **404** sur `/reset-password` signifie presque toujours un `./site`
+  vide (fichiers non copiés, cf. §8), pas une erreur de configuration Nginx. Un
+  `config.js` qui renvoie l'URL d'un autre hôte que l'API signale un `API_HOST`
+  incohérent dans `/etc/talentx/staging.env`.
+
+Le parcours complet ne tient que si `APP_PUBLIC_URL` désigne **le site** et non
+l'API : c'est cette variable qui construit le lien de l'email, et l'API ne sert
+aucune page (défaut TLX-234). `CORS_ORIGINS` doit inclure l'origine du site,
+faute de quoi la page s'affiche mais l'envoi échoue silencieusement pour le
+navigateur.
 
 Puis depuis l'app mobile : pointer `EXPO_PUBLIC_API_URL` sur
 `https://staging-api.<domaine>/api/v1`.

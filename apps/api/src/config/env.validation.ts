@@ -67,9 +67,13 @@ export interface EnvConfig {
    */
   METRICS_TOKEN?: string;
   /**
-   * URL publique de l'app (base des liens transactionnels — ex. lien de
-   * réinitialisation de mot de passe, TLX-104). Non secret. Requis en
-   * staging/production ; défaut dev (`http://localhost:8081`, Expo web) si absent.
+   * Base des liens transactionnels — ex. `${APP_PUBLIC_URL}/reset-password?token=…`
+   * (TLX-104). Non secret. Requis en staging/production ; défaut dev
+   * (`http://localhost:8081`, Expo web) si absent.
+   *
+   * **Doit désigner le site public, jamais l'hôte de l'API** (ADR-57) : l'API ne sert
+   * aucune page, un lien pointant dessus renvoie un 404 JSON brut à l'utilisateur —
+   * c'est le défaut TLX-234, mesuré en campagne de qualification.
    */
   APP_PUBLIC_URL?: string;
   /**

@@ -1,0 +1,170 @@
+/* ============================================================
+   Site public Talent-X — feuille de style unique (ADR-57).
+
+   Les valeurs ci-dessous sont RECOPIÉES de `design/tokens.css`
+   (source de vérité, non modifiable depuis ce site). Copie
+   assumée : le site est volontairement sans build ni dépendance,
+   il ne peut donc pas importer le paquet de tokens.
+
+   Deux écarts délibérés par rapport à `design/tokens.css` :
+   - aucune police distante. `tokens.css` importe Poppins depuis
+     Google Fonts ; l'ADR interdit tout tiers sur ce site (le
+     jeton de réinitialisation transite dans l'URL). On retombe
+     sur la pile système.
+   - seul le sous-ensemble utilisé par la page est repris.
+   ============================================================ */
+
+:root {
+  --tx-blue-500: #2e7cf6;
+  --tx-blue-600: #1b5be0;
+  --tx-slate-0: #ffffff;
+  --tx-slate-50: #f4f6fa;
+  --tx-slate-200: #d3dae6;
+  --tx-slate-500: #5c6678;
+  --tx-slate-700: #2a3140;
+  --tx-slate-950: #0b0f17;
+  --tx-success-500: #1fa968;
+  --tx-danger-500: #e5484d;
+
+  --tx-radius-md: 12px;
+  --tx-radius-lg: 16px;
+  --tx-space-2: 8px;
+  --tx-space-3: 12px;
+  --tx-space-4: 16px;
+  --tx-space-6: 24px;
+  --tx-space-8: 32px;
+
+  --tx-font: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+
+  --tx-bg: var(--tx-slate-50);
+  --tx-surface: var(--tx-slate-0);
+  --tx-text: var(--tx-slate-950);
+  --tx-text-secondary: var(--tx-slate-500);
+  --tx-border: var(--tx-slate-200);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --tx-bg: #11151f;
+    --tx-surface: #161b27;
+    --tx-text: #ffffff;
+    --tx-text-secondary: #b6c0d0;
+    --tx-border: #2a3140;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--tx-space-4);
+  background: var(--tx-bg);
+  color: var(--tx-text);
+  font-family: var(--tx-font);
+  line-height: 1.5;
+}
+
+main {
+  width: 100%;
+  max-width: 420px;
+  padding: var(--tx-space-8);
+  background: var(--tx-surface);
+  border: 1px solid var(--tx-border);
+  border-radius: var(--tx-radius-lg);
+}
+
+.brand {
+  margin: 0 0 var(--tx-space-6);
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+}
+
+.brand span {
+  color: var(--tx-blue-500);
+}
+
+h1 {
+  margin: 0 0 var(--tx-space-2);
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.lead {
+  margin: 0 0 var(--tx-space-6);
+  color: var(--tx-text-secondary);
+  font-size: 14px;
+}
+
+label {
+  display: block;
+  margin-bottom: var(--tx-space-2);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+input {
+  width: 100%;
+  margin-bottom: var(--tx-space-4);
+  padding: var(--tx-space-3);
+  font-family: inherit;
+  font-size: 16px; /* < 16px déclenche un zoom au focus sur iOS */
+  color: var(--tx-text);
+  background: var(--tx-bg);
+  border: 1px solid var(--tx-border);
+  border-radius: var(--tx-radius-md);
+}
+
+input:focus-visible {
+  outline: 2px solid var(--tx-blue-500);
+  outline-offset: 1px;
+}
+
+button {
+  width: 100%;
+  padding: var(--tx-space-3);
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  color: #fff;
+  background: var(--tx-blue-500);
+  border: 0;
+  border-radius: var(--tx-radius-md);
+  cursor: pointer;
+}
+
+button:hover:not(:disabled) {
+  background: var(--tx-blue-600);
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.message {
+  margin: var(--tx-space-4) 0 0;
+  padding: var(--tx-space-3);
+  border-radius: var(--tx-radius-md);
+  font-size: 14px;
+}
+
+.message[data-variant='error'] {
+  color: var(--tx-danger-500);
+  border: 1px solid var(--tx-danger-500);
+}
+
+.message[data-variant='success'] {
+  color: var(--tx-success-500);
+  border: 1px solid var(--tx-success-500);
+}
+
+[hidden] {
+  display: none !important;
+}

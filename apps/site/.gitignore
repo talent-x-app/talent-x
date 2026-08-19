@@ -1,0 +1,5 @@
+# Artefacts Playwright (rapports, traces, captures) — pas du code.
+# Même règle que apps/mobile : sans ça, `test-results/.last-run.json` entre dans
+# l'index au premier `git add` du dossier.
+/playwright-report/
+/test-results/

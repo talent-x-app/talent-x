@@ -3,7 +3,15 @@ import { useTheme } from '@talent-x/design-tokens';
 import { useMutation } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { useSession } from '../../src/auth/SessionProvider';
 import { setTokens } from '../../src/auth/token-store';
 import { Button, Input, TxLogo } from '../../src/components/ui';
@@ -167,6 +175,26 @@ export default function LoginScreen() {
             Créer un compte
           </Button>
         </View>
+
+        {/* Maquette O-02 (screens.jsx L60) : lien discret, centré, sous les boutons.
+            `textSecondary` et non `textMuted` : texte porteur d'info sous 18 px (TLX-151). */}
+        <Pressable
+          testID="login-forgot-password"
+          accessibilityRole="link"
+          disabled={mutation.isPending}
+          onPress={() => router.push('/(auth)/forgot-password')}
+          style={{ marginTop: spacing[6], alignSelf: 'center', padding: spacing[2] }}
+        >
+          <Text
+            style={{
+              color: colors.textSecondary,
+              fontFamily: typography.fontFamily.medium,
+              fontSize: typography.caption.fontSize,
+            }}
+          >
+            Mot de passe oublié ?
+          </Text>
+        </Pressable>
       </ScrollView>
     </KeyboardAvoidingView>
   );

@@ -160,12 +160,21 @@ services:
       - '443:443'
     volumes:
       - ./nginx/talentx.conf.template:/etc/nginx/templates/talentx.conf.template:ro
+      # Site public statique (ADR-57) : fichiers servis tels quels, sans build ni
+      # image dédiée. En lecture seule — Nginx n'a aucune raison d'y écrire.
+      #
+      # Chemin RELATIF à ce dossier, et non `../../apps/site/public` : le VPS ne
+      # reçoit que `deploy/staging/` (§8 du README), jamais le dépôt. Le contenu
+      # d'`apps/site/public` y est copié à part — un `docker compose config`
+      # validerait un montage vide sans rien dire, d'où la vérification du §12.
+      - ./site:/usr/share/nginx/html:ro
       - letsencrypt:/etc/letsencrypt:ro
       - certbot-www:/var/www/certbot:ro
     environment:
       # Substitués dans le template au démarrage par l'entrypoint officiel Nginx.
       API_HOST: ${API_HOST:?API_HOST est requis (ex. staging-api.example.org)}
       STORAGE_HOST: ${STORAGE_HOST:?STORAGE_HOST est requis (ex. staging-storage.example.org)}
+      SITE_HOST: ${SITE_HOST:?SITE_HOST est requis (ex. staging.example.org) — destination du lien de réinitialisation}
 
   # Renouvellement automatique. La PREMIÈRE émission est manuelle
   # (cf. README) : Nginx ne peut pas démarrer son serveur TLS sans certificat.

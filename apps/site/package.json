@@ -1,0 +1,17 @@
+{
+  "name": "@talent-x/site",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Site public statique (ADR-57) — destination du lien de réinitialisation de mot de passe.",
+  "scripts": {
+    "dev": "node scripts/serve.mjs",
+    "typecheck": "tsc --noEmit",
+    "test:e2e": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.60.0",
+    "@talent-x/tsconfig": "workspace:*",
+    "@types/node": "^22.10.2",
+    "typescript": "~5.6.3"
+  }
+}
