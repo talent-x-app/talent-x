@@ -106,27 +106,28 @@ rapport committé.
 
 À confirmer ou clore pendant la campagne — **ne pas les redécouvrir** :
 
-| Réf     | Constat                                                                                                                              | Où c'est traité                 |
-| ------- | ------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------- |
-| TLX-231 | ~~La cloche ne se rafraîchit pas à l'arrivée d'un push~~ — **résolu**, vérifié sur appareil le 19/08                                 | QA-05.4                         |
-| TLX-235 | À l'arrivée d'un push, la ressource n'est pas invalidée — **3 cas sur 4 résolus le 19/08** ; reste la liste des athlètes (coach)     | QA-05.4                         |
-| TLX-236 | ~~Le mode saisie persiste entre séances → feedback du coach illisible~~ — **résolu**, rejoué sur appareil le 19/08                   | QA-05.2                         |
-| TLX-237 | ~~Un push reçu app en arrière-plan n'apparaît jamais dans le centre~~ — **résolu**, rejoué sur appareil le 19/08                     | QA-05.6                         |
-| TLX-239 | Autres états locaux rémanents sur les écrans d'onglet masqués (dont la bascule de vue coach/athlète)                                 | QA-02/QA-03 — ouvert le 19/08   |
-| TLX-240 | Clé d'affectation au singulier/pluriel ; préchauffage de cache annulé par une invalidation                                           | hors campagne — dette           |
-| TLX-241 | La suite mobile ne se termine pas proprement (« worker failed to exit gracefully »)                                                  | hors campagne — dette de test   |
-| TLX-223 | Sauts : « Nb de barres » / « Essais par barre » du coach ignorés par la saisie athlète                                               | QA-03.5                         |
-| TLX-238 | **BLOQUANT.** Crash du coach à l'enregistrement d'une séance : deux formes incompatibles sous la clé `['groups']`                    | QA-02.2 — **ouvert le 19/08**   |
-| TLX-84  | ~~`group_update` jamais validé sur appareil~~ — **résolu le 19/08** ; reste la documentation du transfert hors UE                    | QA-05.3                         |
-| —       | Contenu de l'email de reset jamais vu ; **le lien pointe sur `APP_PUBLIC_URL` = hôte API, qui ne sert aucune app**                   | QA-01.5                         |
-| —       | URL présignées jamais validées contre le vrai OVH Object Storage (MinIO en staging)                                                  | QA-06.4                         |
-| —       | 2FA = V2, `501` assumé au contrat                                                                                                    | QA-01.8 (test négatif)          |
-| —       | `android.permission.RECORD_AUDIO` ajoutée par `expo-camera` (l'app ne fait que scanner des QR)                                       | QA-08.5                         |
-| —       | Favicon web jamais vérifié (`expo export -p web`)                                                                                    | QA-08.6                         |
-| —       | Monogramme in-app à 74 % vs 60,5 % dans l'UI kit                                                                                     | QA-08.6                         |
-| —       | Image API 1,44 Go (poids de pull à chaque déploiement)                                                                               | hors campagne — ops, avant prod |
-| —       | Heads-up One UI : bannière OK constatée le 18/08 sur S20 FE ; si absente ailleurs, réglage « Afficher en pop-up », pas un défaut app | QA-05.2                         |
-| —       | Compte Brevo plan gratuit (300 crédits) — suffisant pour qualifier, pas pour ouvrir                                                  | QA-08.1                         |
+| Réf     | Constat                                                                                                                                                                                                             | Où c'est traité                 |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- |
+| TLX-231 | ~~La cloche ne se rafraîchit pas à l'arrivée d'un push~~ — **résolu**, vérifié sur appareil le 19/08                                                                                                                | QA-05.4                         |
+| TLX-235 | À l'arrivée d'un push, la ressource n'est pas invalidée — **3 cas sur 4 résolus le 19/08** ; la 4ᵉ clé est corrigée et fusionnée le 19/08, **à rejouer**                                                            | QA-05.4                         |
+| TLX-236 | ~~Le mode saisie persiste entre séances → feedback du coach illisible~~ — **résolu**, rejoué sur appareil le 19/08                                                                                                  | QA-05.2                         |
+| TLX-237 | ~~Un push reçu app en arrière-plan n'apparaît jamais dans le centre~~ — **résolu**, rejoué sur appareil le 19/08                                                                                                    | QA-05.6                         |
+| TLX-239 | États locaux rémanents sur les écrans d'onglet masqués — **ADR-58 accepté et appliqué le 20/08** (`key` de route sur 13 routes, test de découverte), **à rejouer**                                                  | QA-02/QA-03                     |
+| TLX-240 | ~~Clé d'affectation au singulier/pluriel ; préchauffage de cache annulé par une invalidation~~ — **fermé le 19/08** : le point 2 était faux, mesuré sur le client réel                                              | hors campagne — clos            |
+| TLX-241 | La suite mobile ne se termine pas proprement (« worker failed to exit gracefully »)                                                                                                                                 | hors campagne — dette de test   |
+| TLX-223 | Sauts : « Nb de barres » / « Essais par barre » du coach ignorés par la saisie athlète — **confirmé sur appareil le 19/08** ; arbitré le 20/08 : **la saisie doit lire le réglage**                                 | QA-03.5                         |
+| TLX-238 | ~~**BLOQUANT.** Crash du coach à l'enregistrement d'une séance : deux formes incompatibles sous la clé `['groups']`~~ — **corrigé et fusionné le 19/08**, `queryFn` rapatriée dans `groups-query.ts`, **à rejouer** | QA-02.2                         |
+| TLX-254 | **CI rouge depuis le 19/08** (fusion du lot 3) : couverture de branches 79,86 % pour un seuil à 80 % — 8 branches manquantes                                                                                        | hors campagne — bloque le CI    |
+| TLX-84  | ~~`group_update` jamais validé sur appareil~~ — **résolu le 19/08** ; reste la documentation du transfert hors UE                                                                                                   | QA-05.3                         |
+| —       | Contenu de l'email de reset jamais vu ; **le lien pointe sur `APP_PUBLIC_URL` = hôte API, qui ne sert aucune app**                                                                                                  | QA-01.5                         |
+| —       | URL présignées jamais validées contre le vrai OVH Object Storage (MinIO en staging)                                                                                                                                 | QA-06.4                         |
+| —       | 2FA = V2, `501` assumé au contrat                                                                                                                                                                                   | QA-01.8 (test négatif)          |
+| —       | `android.permission.RECORD_AUDIO` ajoutée par `expo-camera` (l'app ne fait que scanner des QR)                                                                                                                      | QA-08.5                         |
+| —       | Favicon web jamais vérifié (`expo export -p web`)                                                                                                                                                                   | QA-08.6                         |
+| —       | Monogramme in-app à 74 % vs 60,5 % dans l'UI kit                                                                                                                                                                    | QA-08.6                         |
+| —       | Image API 1,44 Go (poids de pull à chaque déploiement)                                                                                                                                                              | hors campagne — ops, avant prod |
+| —       | Heads-up One UI : bannière OK constatée le 18/08 sur S20 FE ; si absente ailleurs, réglage « Afficher en pop-up », pas un défaut app                                                                                | QA-05.2                         |
+| —       | Compte Brevo plan gratuit (300 crédits) — suffisant pour qualifier, pas pour ouvrir                                                                                                                                 | QA-08.1                         |
 
 ## 8. Traitement des défauts — la campagne ne corrige rien
 
