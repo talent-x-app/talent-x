@@ -87,10 +87,14 @@ records ; **vérifier côté coach qu'il ne les voit nulle part** (recoupe QA-02
 
 **Couvre** : `updateMe`, `createAvatarUpload`, `confirmAvatar`, `deleteAvatar`.
 **Étapes** : modifier bio/discipline ; **changer la photo** (galerie) — l'upload passe
-par le stockage objet ; supprimer la photo depuis le mode édition ; vérifier l'avatar
-dans le roster côté coach.
-**Attendu** : photo visible partout après confirmation ; suppression propre (retour aux
-initiales).
+par le stockage objet ; supprimer la photo depuis le mode édition.
+**Attendu** : photo visible sur son propre profil après confirmation ; suppression propre
+(retour aux initiales).
+⚠️ **Ne pas attendre l'avatar côté coach** : `GroupMember.athlete` porte un `UserSummary`
+(id, prénom, nom, discipline) **sans `photoUrl`**, et les écrans coach rendent des
+initiales. Seule la vue **pair-à-pair** `GroupTeammate` porte un `avatarUrl` (ADR-37).
+L'asymétrie est dans le contrat : un athlète voit la photo de ses coéquipiers, son coach
+ne la voit jamais. À arbitrer un jour, ce n'est pas un défaut.
 **Preuve** : l'objet existe côté MinIO (`mc ls` ou URL de l'avatar) puis disparaît.
 ⚠️ Même mécanique présignée que les exports : la validation **contre OVH réel** est
 portée par QA-06.4.
