@@ -1,6 +1,7 @@
 import {
   aggregateForWindow,
   bestIndex,
+  countMarks,
   perfHeights,
   periodLabel,
   periodRange,
@@ -190,6 +191,42 @@ describe('progress-series (A-06 — TLX-090)', () => {
           { date: '2026-06-01', value: 3 },
         ]),
       ).toEqual([0, 0.5, 1]);
+    });
+  });
+
+  /**
+   * TLX-244 — un point n'est pas une marque : le backend rend déjà **best/jour**, les autres
+   * marques du jour vivant dans `others`. Compter les points revenait à annoncer des jours
+   * sous le mot « marques ».
+   */
+  describe('countMarks', () => {
+    it('additionne la meilleure du jour et ses `others`', () => {
+      expect(
+        countMarks([
+          { date: '2026-06-02', value: 7.8 },
+          { date: '2026-06-12', value: 7.6, others: [7.72, 7.9] },
+          { date: '2026-06-26', value: 7.45 },
+        ]),
+      ).toBe(5);
+    });
+
+    it('sans `others`, un point vaut bien une marque', () => {
+      expect(countMarks([{ date: '2026-06-02', value: 7.8 }])).toBe(1);
+      expect(countMarks([])).toBe(0);
+    });
+
+    it('doit être appelé AVANT l’agrégation d’affichage, qui écarte des jours entiers', () => {
+      // Deux jours de la même semaine : `aggregateForWindow` n'en garde qu'un en fenêtre
+      // Année, et la marque de l'autre jour disparaîtrait du compte.
+      const points = [
+        { date: '2026-06-08', value: 7.9 },
+        { date: '2026-06-10', value: 7.6, others: [7.7] },
+      ];
+      const aggregated = aggregateForWindow(points, 'year', 'min');
+
+      expect(countMarks(points)).toBe(3);
+      expect(aggregated).toHaveLength(1);
+      expect(countMarks(aggregated)).toBe(2); // ce qu'on obtiendrait en comptant trop tard
     });
   });
 

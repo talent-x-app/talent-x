@@ -16,6 +16,7 @@ import {
   PROGRESS_WINDOWS,
   aggregateForWindow,
   bestIndex,
+  countMarks,
   perfHeights,
   periodLabel,
   periodRange,
@@ -335,7 +336,13 @@ export function ProgressSeriesCard({
 }) {
   const { colors, typography, spacing } = useTheme();
   // Période calendaire puis agrégation d'affichage (Année/Tout → best/semaine, ADR-56 densité).
-  const points = aggregateForWindow(pointsInPeriod(series.points, range), window, series.direction);
+  const inPeriod = pointsInPeriod(series.points, range);
+  const points = aggregateForWindow(inPeriod, window, series.direction);
+  // TLX-244 — compté sur `inPeriod`, AVANT l'agrégation : un point n'est pas une marque (le
+  // backend rend déjà best/jour, les autres dans `others`) et l'agrégation Année/Tout écarte
+  // en plus des jours entiers. `points.length` annonçait donc des jours, voire des semaines,
+  // sous le mot « marques » — et contredisait le détail du jour deux lignes plus bas.
+  const markCount = countMarks(inPeriod);
   const trend = seriesTrend(points, series.direction);
   const last = points[points.length - 1];
   const delta = windowDelta(points, series.direction);
@@ -371,7 +378,7 @@ export function ProgressSeriesCard({
                 fontSize: typography.bodySm.fontSize,
               }}
             >
-              {points.length} marque{points.length > 1 ? 's' : ''} sur la période
+              {markCount} marque{markCount > 1 ? 's' : ''} sur la période
             </Text>
           </View>
           {trend ? (

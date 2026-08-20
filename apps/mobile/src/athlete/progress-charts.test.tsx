@@ -146,7 +146,10 @@ describe('ProgressSeriesCard — en-tête', () => {
     expect(screen.getByTestId('progress-last-sprint:60m')).toHaveTextContent('7.45 s');
     // Sens `min` : le chrono baisse → progression.
     expect(screen.getByTestId('progress-trend-sprint:60m-up')).toBeOnTheScreen();
-    expect(screen.getByText('3 marques sur la période')).toBeOnTheScreen();
+    // TLX-244 — cet attendu valait « 3 » et verrouillait le défaut : la fixture porte
+    // 3 POINTS mais 5 marques, sa journée du 12 juin en comptant 3 à elle seule
+    // (`others: [7.72, 7.9]`). Le compteur annonçait donc des jours sous le mot « marques ».
+    expect(screen.getByText('5 marques sur la période')).toBeOnTheScreen();
   });
 
   it('une seule marque : singulier, et ni tendance ni delta', () => {
@@ -270,6 +273,31 @@ describe('ProgressSeriesCard — frise et tracé', () => {
     expect(within(detail).getByText(/12 juin/)).toBeOnTheScreen();
     // La journée porte 3 marques (la meilleure + `others`).
     expect(within(detail).getByText('3 marques')).toBeOnTheScreen();
+  });
+
+  /**
+   * TLX-244 — l'en-tête et le détail du jour comptaient deux choses différentes sous le même
+   * mot, à trois lignes d'écart : c'est le cas « plusieurs marques le même jour » qui révèle
+   * l'écart, et c'est l'écran où l'athlète vient vérifier ses propres chiffres.
+   */
+  it('en-tête et détail du jour ne se contredisent plus (plusieurs marques le même jour)', () => {
+    renderCard(SPRINT);
+
+    // 3 points, mais 5 marques : le 12 juin en porte 3 à lui seul.
+    expect(screen.getByText('5 marques sur la période')).toBeOnTheScreen();
+    fireEvent.press(screen.getByTestId('progress-mark-sprint:60m-1'));
+    expect(
+      within(screen.getByTestId('progress-day-detail-sprint:60m')).getByText('3 marques'),
+    ).toBeOnTheScreen();
+  });
+
+  it('fenêtre Année : le compteur reste en marques, pas en semaines', () => {
+    // `aggregateForWindow` condense Année/Tout en best/SEMAINE : compter après elle aurait
+    // annoncé un nombre de semaines, et l'écart grandit avec l'historique. Ces trois jours
+    // tombent sur trois semaines distinctes — le compteur doit dire 5, pas 3.
+    renderCard(SPRINT, 'year');
+
+    expect(screen.getByText('5 marques sur la période')).toBeOnTheScreen();
   });
 
   it('taper le graphe sélectionne la marque la plus proche du doigt', () => {

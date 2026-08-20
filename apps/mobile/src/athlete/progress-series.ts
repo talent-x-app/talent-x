@@ -141,6 +141,23 @@ export function aggregateForWindow(
 }
 
 /**
+ * Nombre de **marques réelles** d'une série de points (TLX-244).
+ *
+ * `points.length` ne compte pas des marques : le backend renvoie déjà **une meilleure marque
+ * par jour**, les autres du même jour vivant dans `others`. L'en-tête de carte annonçait donc
+ * un nombre de **jours** sous le mot « marques », et se contredisait avec le détail du jour —
+ * qui, lui, compte juste. En fenêtre Année/Tout, `aggregateForWindow` condense encore en
+ * best/semaine : le compteur aurait annoncé des **semaines**, écart qui grandit avec
+ * l'historique.
+ *
+ * À appeler sur les points **de la période, avant agrégation d'affichage** : l'agrégation
+ * écarte des jours entiers, compter après elle sous-estimerait.
+ */
+export function countMarks(points: ProgressPoint[]): number {
+  return points.reduce((total, p) => total + 1 + (p.others?.length ?? 0), 0);
+}
+
+/**
  * Fractions X (0..1) **proportionnelles au temps** des marques (ADR-56) : un grand écart de dates
  * occupe plus de largeur qu'un petit (axe honnête vs espacement par index). ≤ 1 point → centré ;
  * toutes les marques le même jour → espacement régulier (repli).
