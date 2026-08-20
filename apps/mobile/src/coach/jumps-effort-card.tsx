@@ -12,6 +12,7 @@ import {
   type EditableNode,
 } from './session-builder-ui';
 import { JUMPS_PRESETS, JUMP_RECORDS, targetDistanceFromRecord } from './assistant-presets';
+import { attemptsPerBar, plannedBarCount } from '../sessions/bar-grid';
 import {
   CanvasKpiHeader,
   CellInput,
@@ -83,11 +84,17 @@ function serieProps(group: EditableGroup) {
   };
 }
 
-/** Hauteurs de barres dérivées (barre de départ + i × montée), pour la grille verticale. */
+/**
+ * Hauteurs de barres dérivées (barre de départ + i × montée), pour la grille verticale.
+ *
+ * Bornes lues depuis `sessions/bar-grid`, **les mêmes que la saisie athlète** (TLX-223) : ce
+ * que le coach prévisualise ici doit être exactement ce que l'athlète recevra. Deux bornes
+ * divergentes reproduiraient le défaut sous une autre forme — un aperçu qui ment.
+ */
 function barHeights(block: EditableBlock): number[] {
   const start = Number(block.params.startHeightCm) || 0;
   const inc = Number(block.params.incrementCm) || 0;
-  const bars = Math.max(0, Number(block.params.bars) || 0);
+  const bars = plannedBarCount(block.params) ?? 0;
   return Array.from({ length: bars }, (_, i) => start + i * inc);
 }
 
@@ -97,7 +104,9 @@ function totalAttempts(series: EditableGroup[]): number {
     const rounds = Math.max(1, Number(g.rounds) || 1);
     for (const b of g.items) {
       if (b.type === BlockType.vertical_jumps) {
-        n += (Number(b.params.bars) || 0) * (Number(b.params.attemptsPerBar) || 0);
+        // Mêmes bornes et mêmes replis que la grille de saisie : le volume annoncé au coach
+        // doit correspondre au nombre d'essais réellement proposés à l'athlète (TLX-223).
+        n += (plannedBarCount(b.params) ?? 0) * attemptsPerBar(b.params);
       } else {
         n += (Number(b.params.attempts) || 0) * rounds;
       }
@@ -650,7 +659,7 @@ function VerticalJumpEditor({
         </View>
         <InfoNote>
           La grille pré-remplit les barres côté athlète (ADR-25). Chaque barre laisse{' '}
-          {block.params.attemptsPerBar ?? 3} essais avant élimination.
+          {attemptsPerBar(block.params)} essais avant élimination.
         </InfoNote>
       </View>
     </>

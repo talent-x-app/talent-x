@@ -4,6 +4,12 @@ import {
   type ExerciseResult,
   type SetResult,
 } from '@talent-x/api-client';
+import {
+  attemptsPerBar,
+  DEFAULT_ATTEMPTS_PER_BAR,
+  DEFAULT_BAR_COUNT,
+  plannedBarCount,
+} from '../sessions/bar-grid';
 
 /**
  * Saisie de perf typée (A-04 §4 — TLX-072/073/074, ADR-19). Le **mode de saisie** dérive du
@@ -19,8 +25,23 @@ import {
  */
 export type EntryMode = 'time' | 'distance' | 'bars' | 'checklist';
 
-/** Nombre d'essais par barre (règle d'athlétisme : 3 essais, élimination après 3 échecs). */
-export const ATTEMPTS_PER_BAR = 3;
+export {
+  DEFAULT_ATTEMPTS_PER_BAR,
+  MAX_ATTEMPTS_PER_BAR,
+  MAX_BAR_COUNT,
+} from '../sessions/bar-grid';
+
+/**
+ * Essais par barre **du bloc** : le réglage du coach (`params.attemptsPerBar`), borné, avec
+ * repli sur la règle d'athlétisme (3 essais, élimination au 3ᵉ échec).
+ *
+ * C'était une constante (TLX-223) : le coach saisissait « Essais / barre », la carte
+ * l'annonçait — « chaque barre laisse N essais avant élimination » — et la grille de saisie
+ * en proposait 3 quoi qu'il arrive. Deux champs éditables sans effet sur le livrable.
+ */
+export function attemptsPerBarOf(ex: Pick<Exercise, 'params'>): number {
+  return attemptsPerBar(ex.params);
+}
 
 /** État d'une cellule d'essai de la grille de barres (non tenté / franchi / échoué). */
 export type BarAttempt = 'none' | 'cleared' | 'failed';
@@ -85,18 +106,9 @@ export function initialRowCount(ex: Exercise, rounds?: number): number {
   return 1;
 }
 
-/** Nombre de barres pré-remplies quand le coach fixe départ + montée sans planifier (ADR-25). */
-const DEFAULT_BAR_COUNT = 5;
-
-/**
- * Plafond de barres pré-remplies. `bars` est un `param` **libre** (conteneur ouvert, ADR-18) :
- * une valeur aberrante ne doit pas produire une grille ingérable côté athlète.
- */
-const MAX_BAR_COUNT = 30;
-
-/** Une barre vide (hauteur libre + essais non tentés). */
-export function makeEmptyBar(height = ''): BarRow {
-  return { height, attempts: Array<BarAttempt>(ATTEMPTS_PER_BAR).fill('none') };
+/** Une barre vide (hauteur libre + essais non tentés), dimensionnée sur le réglage du bloc. */
+export function makeEmptyBar(height = '', attempts = DEFAULT_ATTEMPTS_PER_BAR): BarRow {
+  return { height, attempts: Array<BarAttempt>(attempts).fill('none') };
 }
 
 /**
@@ -108,17 +120,17 @@ export function makeEmptyBar(height = ''): BarRow {
  * (champ « Nb de barres », ADR-38/39 — son modèle « Hauteur » en propose 6). Sans lui, on
  * retombe sur `DEFAULT_BAR_COUNT`. Auparavant ce défaut s'appliquait **toujours** : le coach
  * prévisualisait 6 barres (165→190 cm) et l'athlète en recevait 5 (165→185 cm), sans que
- * l'écart soit signalé nulle part (TLX-223). ADR-25 ne fixe pas de nombre de barres — seuls
- * les **3 essais par barre** relèvent de la règle d'athlétisme (cf. `ATTEMPTS_PER_BAR`).
+ * l'écart soit signalé nulle part (TLX-223). Le **nombre d'essais** par barre suit le même
+ * chemin : `params.attemptsPerBar` est un réglage du coach, pas une constante.
  */
 export function initialBars(ex: Exercise): BarRow[] {
+  const attempts = attemptsPerBarOf(ex);
   const startCm = param(ex, 'startHeightCm');
-  if (startCm == null) return [makeEmptyBar()];
+  if (startCm == null) return [makeEmptyBar('', attempts)];
   const incrementCm = param(ex, 'incrementCm') ?? 0;
-  const planned = param(ex, 'bars');
-  const count = planned != null ? Math.min(Math.floor(planned), MAX_BAR_COUNT) : DEFAULT_BAR_COUNT;
+  const count = plannedBarCount(ex.params) ?? DEFAULT_BAR_COUNT;
   return Array.from({ length: count }, (_unused, i) =>
-    makeEmptyBar(String((startCm + i * incrementCm) / 100)),
+    makeEmptyBar(String((startCm + i * incrementCm) / 100), attempts),
   );
 }
 
@@ -353,8 +365,12 @@ export function entryFromResult(
       row.attempts.push(s.failed ? 'failed' : 'cleared');
     });
     if (!rows.length) return empty;
+    // Complète jusqu'au réglage du bloc, **sans jamais tronquer** : une perf saisie quand la
+    // grille comptait 3 essais doit rester lisible entière sur un bloc reconfiguré à 2. La
+    // grille s'adapte à ce que la donnée contient, pas l'inverse (TLX-223).
+    const attempts = attemptsPerBarOf(ex);
     rows.forEach((row) => {
-      while (row.attempts.length < ATTEMPTS_PER_BAR) row.attempts.push('none');
+      while (row.attempts.length < attempts) row.attempts.push('none');
     });
     return { mode: 'bars', bars: rows };
   }

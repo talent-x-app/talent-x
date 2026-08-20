@@ -1,7 +1,9 @@
 import { BlockType, type Exercise } from '@talent-x/api-client';
 
 import {
-  ATTEMPTS_PER_BAR,
+  attemptsPerBarOf,
+  DEFAULT_ATTEMPTS_PER_BAR,
+  MAX_ATTEMPTS_PER_BAR,
   type BarRow,
   clearedBarHeight,
   entryFromResult,
@@ -74,7 +76,77 @@ describe('grille de barres (mode bars, ADR-25)', () => {
     );
     expect(bars.map((b) => b.height)).toEqual(['1.65', '1.7', '1.75', '1.8', '1.85']);
     expect(bars[0].attempts).toEqual(['none', 'none', 'none']);
-    expect(bars[0].attempts).toHaveLength(ATTEMPTS_PER_BAR);
+    expect(bars[0].attempts).toHaveLength(DEFAULT_ATTEMPTS_PER_BAR);
+  });
+
+  /**
+   * TLX-223 — « Essais / barre » est un **réglage du coach**, pas une constante d'athlétisme
+   * (arbitrage rendu le 20/08). La carte l'annonce — « chaque barre laisse N essais avant
+   * élimination » — et la grille de saisie doit s'y conformer, sinon les deux champs éditables
+   * n'ont aucun effet sur le livrable.
+   */
+  describe('essais par barre — réglage du coach (TLX-223)', () => {
+    const barsFor = (params: Record<string, unknown>) =>
+      initialBars(ex({ type: BlockType.vertical_jumps, params }));
+
+    it('2 essais configurés → grille à 2 essais', () => {
+      const bars = barsFor({ startHeightCm: 165, incrementCm: 5, bars: 4, attemptsPerBar: 2 });
+      expect(bars).toHaveLength(4);
+      bars.forEach((b) => expect(b.attempts).toEqual(['none', 'none']));
+    });
+
+    it('3 essais configurés → grille à 3 essais', () => {
+      const bars = barsFor({ startHeightCm: 165, incrementCm: 5, bars: 2, attemptsPerBar: 3 });
+      bars.forEach((b) => expect(b.attempts).toHaveLength(3));
+    });
+
+    it('champ absent → repli sur la règle d’athlétisme (3), sans casser', () => {
+      const bars = barsFor({ startHeightCm: 165, incrementCm: 5, bars: 2 });
+      bars.forEach((b) => expect(b.attempts).toHaveLength(DEFAULT_ATTEMPTS_PER_BAR));
+    });
+
+    it('valeur aberrante → bornée, jamais une grille ingérable (ADR-18 : `params` est libre)', () => {
+      const bars = barsFor({ startHeightCm: 165, bars: 1, attemptsPerBar: 50 });
+      expect(bars[0].attempts).toHaveLength(MAX_ATTEMPTS_PER_BAR);
+    });
+
+    it('valeur nulle, négative ou non numérique → repli sur 3', () => {
+      expect(attemptsPerBarOf({ params: { attemptsPerBar: 0 } })).toBe(DEFAULT_ATTEMPTS_PER_BAR);
+      expect(attemptsPerBarOf({ params: { attemptsPerBar: -2 } })).toBe(DEFAULT_ATTEMPTS_PER_BAR);
+      expect(attemptsPerBarOf({ params: { attemptsPerBar: 'trois' } })).toBe(
+        DEFAULT_ATTEMPTS_PER_BAR,
+      );
+      expect(attemptsPerBarOf({ params: undefined })).toBe(DEFAULT_ATTEMPTS_PER_BAR);
+    });
+
+    it('sans barre de départ : la barre unique suit aussi le réglage', () => {
+      const bars = barsFor({ attemptsPerBar: 2 });
+      expect(bars).toHaveLength(1);
+      expect(bars[0].attempts).toHaveLength(2);
+    });
+
+    it('une perf déjà saisie à 3 essais reste entière sur un bloc reconfiguré à 2', () => {
+      // Le cas signalé au ticket : la grille s'adapte à ce que la donnée contient, jamais
+      // l'inverse. Tronquer perdrait un essai réellement enregistré.
+      const entry = entryFromResult(
+        ex({
+          type: BlockType.vertical_jumps,
+          params: { startHeightCm: 165, bars: 1, attemptsPerBar: 2 },
+        }),
+        {
+          exerciseName: 'Hauteur',
+          setResults: [
+            { set: 1, distanceMeters: 1.65, failed: true },
+            { set: 2, distanceMeters: 1.65, failed: true },
+            { set: 3, distanceMeters: 1.65, failed: false },
+          ],
+        },
+      );
+
+      expect(entry.mode).toBe('bars');
+      if (entry.mode !== 'bars') return;
+      expect(entry.bars[0].attempts).toEqual(['failed', 'failed', 'cleared']);
+    });
   });
 
   it('initialBars : le nombre de barres suit `bars` planifié par le coach (TLX-223)', () => {

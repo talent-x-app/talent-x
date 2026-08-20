@@ -68,7 +68,7 @@ import { AthleteIntentBanner, SessionStatStrip, SuccessStopCard } from './brief-
 import { perfConfirmationHref } from './navigation';
 import { RecordCandidatesCard } from './record-candidates-ui';
 import {
-  ATTEMPTS_PER_BAR,
+  attemptsPerBarOf,
   type BarAttempt,
   type BarRow,
   entryFromResult,
@@ -820,6 +820,7 @@ function LeafEntry({
           <BarsEntryGrid
             index={i}
             bars={entry.bars}
+            attemptsPerBar={attemptsPerBarOf(ex)}
             onChange={(bars) => onChange(() => ({ mode: 'bars', bars }))}
           />
         ) : (
@@ -1067,11 +1068,18 @@ const BAR_ATTEMPT_CYCLE: Record<BarAttempt, BarAttempt> = {
 };
 const BAR_ATTEMPT_SYMBOL: Record<BarAttempt, string> = { none: '–', cleared: 'O', failed: 'X' };
 
-/** Barre éliminatoire : 3 échecs et aucun franchissement (garde-fou d'UI, ADR-25). */
+/**
+ * Barre éliminatoire : tous les essais échoués, aucun franchissement (garde-fou d'UI, ADR-25).
+ *
+ * Le seuil suit la **longueur de la barre**, elle-même dimensionnée sur le réglage du coach
+ * (TLX-223). Le comparer à une constante de 3 aurait laissé une barre de 2 essais ne jamais
+ * s'éliminer, et une barre de 4 s'éliminer avec un essai encore libre.
+ */
 function barEliminated(bar: BarRow): boolean {
   return (
+    bar.attempts.length > 0 &&
     !bar.attempts.includes('cleared') &&
-    bar.attempts.filter((a) => a === 'failed').length >= ATTEMPTS_PER_BAR
+    bar.attempts.every((a) => a === 'failed')
   );
 }
 
@@ -1083,10 +1091,13 @@ function barEliminated(bar: BarRow): boolean {
 function BarsEntryGrid({
   index,
   bars,
+  attemptsPerBar,
   onChange,
 }: {
   index: number;
   bars: BarRow[];
+  /** Essais par barre du bloc (TLX-223) — dimensionne aussi les barres ajoutées à la main. */
+  attemptsPerBar: number;
   onChange: (bars: BarRow[]) => void;
 }) {
   const { colors, typography, spacing, radius, borderWidth } = useTheme();
@@ -1186,7 +1197,7 @@ function BarsEntryGrid({
         testID={`exercise-${index}-add-bar`}
         variant="ghost"
         size="sm"
-        onPress={() => onChange([...bars, makeEmptyBar()])}
+        onPress={() => onChange([...bars, makeEmptyBar('', attemptsPerBar)])}
       >
         + Ajouter une barre
       </Button>
