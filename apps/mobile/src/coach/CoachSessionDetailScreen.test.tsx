@@ -44,9 +44,12 @@ jest.mock('@talent-x/api-client', () => ({
   LoadUnit: { kg: 'kg', lb: 'lb', percent_1rm: 'percent_1rm', bodyweight: 'bodyweight' },
   AthleteStatus: { up_to_date: 'up_to_date', late: 'late', pending_review: 'pending_review' },
 }));
+// Mutable : `coach/session/[id]` est un écran d'onglet masqué que React Navigation ne démonte
+// jamais. Changer d'`id` sans remonter le composant est donc le scénario réel (TLX-245).
+let mockRouteId = 's-1';
 jest.mock('expo-router', () => ({
   useRouter: () => ({ push: mockPush, back: mockBack }),
-  useLocalSearchParams: () => ({ id: 's-1' }),
+  useLocalSearchParams: () => ({ id: mockRouteId }),
 }));
 jest.mock('../feedback', () => ({ useToast: () => ({ show: jest.fn(), dismiss: jest.fn() }) }));
 
@@ -93,8 +96,26 @@ const SESSION = {
   },
 };
 
+/**
+ * Rendu avec un client **accessible au test** : TLX-245 ne se reproduit que si la séance
+ * suivante est déjà dans le cache, condition qu'on doit pouvoir poser explicitement.
+ */
+function renderWithClient() {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  // Fourni via l'option `wrapper` : RNTL le réapplique au `rerender`, là où un arbre passé en
+  // élément racine repartirait sans ses providers.
+  const wrapper = ({ children }: { children: ReactNode }) => (
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider>{children}</ThemeProvider>
+    </QueryClientProvider>
+  );
+  const view = render(<CoachSessionDetailScreen />, { wrapper });
+  return { ...view, queryClient };
+}
+
 beforeEach(() => {
   jest.clearAllMocks();
+  mockRouteId = 's-1';
   mockListComments.mockResolvedValue({ status: 200, data: { data: [], meta: {} } });
   // Défauts : aucune affectation, aucun athlète lié (les tests dédiés surchargent).
   mockListAssignments.mockResolvedValue({ status: 200, data: { data: [], meta: {} } });
@@ -274,6 +295,65 @@ describe('CoachSessionDetailScreen (C-05 — détail lecture seule)', () => {
     // Retour à l'état initial : bouton Supprimer de nouveau visible, aucun appel DELETE.
     expect(screen.getByTestId('coach-session-delete')).toBeOnTheScreen();
     expect(mockDeleteSession).not.toHaveBeenCalled();
+  });
+
+  /**
+   * TLX-245 — `coach/session/[id]` est un `Tabs.Screen … href: null`, jamais démonté : une
+   * confirmation de suppression ouverte puis abandonnée survivait au changement de route et
+   * se rouvrait sur la séance **suivante**, `deleteSession` visant alors l'`id` courant.
+   *
+   * La condition de reproduction n'est pas anodine et explique que le scénario n'ait jamais
+   * été vu sur appareil : si la séance suivante n'est **pas** en cache, `session.isLoading`
+   * repasse à vrai, le bloc entier se démonte et la confirmation retombe d'elle-même. Le
+   * défaut n'existe que sur une séance déjà visitée — d'où le cache pré-rempli ci-dessous.
+   */
+  describe('confirmation de suppression sur un écran jamais démonté (TLX-245)', () => {
+    const SESSION_B = { ...SESSION, id: 's-2', title: 'Endurance longue' };
+
+    it('changer de séance ferme la confirmation restée armée', async () => {
+      mockGetSession.mockResolvedValue({ status: 200, data: SESSION });
+      const view = renderWithClient();
+
+      await waitFor(() => expect(screen.getByTestId('coach-session-delete')).toBeOnTheScreen());
+      fireEvent.press(screen.getByTestId('coach-session-delete'));
+      expect(screen.getByTestId('coach-session-delete-confirm')).toBeOnTheScreen();
+
+      // La séance B a déjà été visitée : elle est en cache, donc aucun état de chargement ne
+      // vient démonter le bloc — c'est très exactement la fenêtre du défaut.
+      view.queryClient.setQueryData(['session', 's-2'], SESSION_B);
+      mockGetSession.mockResolvedValue({ status: 200, data: SESSION_B });
+      mockRouteId = 's-2';
+      view.rerender(<CoachSessionDetailScreen />);
+
+      await waitFor(() =>
+        expect(screen.getByTestId('coach-session-title')).toHaveTextContent('Endurance longue'),
+      );
+      // Sans correctif, la confirmation s'affichait sur B sans que le coach l'ait demandée —
+      // et un appui aurait supprimé B.
+      expect(screen.queryByTestId('coach-session-delete-confirm')).toBeNull();
+      expect(screen.getByTestId('coach-session-delete')).toBeOnTheScreen();
+      expect(mockDeleteSession).not.toHaveBeenCalled();
+    });
+
+    it('la suppression reste opérante après un changement de séance (non-régression)', async () => {
+      mockGetSession.mockResolvedValue({ status: 200, data: SESSION });
+      const view = renderWithClient();
+      await waitFor(() => expect(screen.getByTestId('coach-session-delete')).toBeOnTheScreen());
+
+      view.queryClient.setQueryData(['session', 's-2'], SESSION_B);
+      mockGetSession.mockResolvedValue({ status: 200, data: SESSION_B });
+      mockRouteId = 's-2';
+      view.rerender(<CoachSessionDetailScreen />);
+
+      await waitFor(() =>
+        expect(screen.getByTestId('coach-session-title')).toHaveTextContent('Endurance longue'),
+      );
+      fireEvent.press(screen.getByTestId('coach-session-delete'));
+      fireEvent.press(screen.getByTestId('coach-session-delete-confirm'));
+
+      // La cible suit bien la route : c'est B qu'on supprime, après l'avoir demandé sur B.
+      await waitFor(() => expect(mockDeleteSession).toHaveBeenCalledWith('s-2'));
+    });
   });
 
   it('expose la discussion de séance (TLX-118) : poste sur la séance', async () => {

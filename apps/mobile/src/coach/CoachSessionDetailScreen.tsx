@@ -236,8 +236,16 @@ export function CoachSessionDetailScreen() {
             Assigner à des athlètes
           </Button>
 
-          {/* TLX-194 : suppression (soft-delete) avec confirmation inline. */}
-          <DeleteSessionAction sessionId={id} title={session.data.title} />
+          {/* TLX-194 : suppression (soft-delete) avec confirmation inline.
+              `key={id}` (TLX-245) : `coach/session/[id]` est un `Tabs.Screen … href: null`, jamais
+              démonté. Sans clé, une confirmation ouverte sur une séance puis abandonnée survivait
+              au changement de route et se rouvrait sur la **suivante**, `deleteSession` visant
+              alors l'`id` courant. Le remontage est gratuit — ce composant n'a aucun état à
+              préserver — et supprime la classe entière du problème pour lui.
+              À noter pour la reproduction : le défaut n'apparaît que si la séance suivante est
+              **déjà en cache**. Sinon `session.isLoading` repasse à vrai, ce bloc se démonte, et
+              la confirmation retombe d'elle-même. */}
+          <DeleteSessionAction key={id} sessionId={id} title={session.data.title} />
 
           {/* TLX-118 : discussion de séance — le coach répond aux questions des athlètes
               affectés (cible = séance, même fil que côté athlète). */}
