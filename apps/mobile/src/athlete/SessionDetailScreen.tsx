@@ -66,6 +66,7 @@ import { sessionPhrase } from '../sessions/session-summary';
 import { AttendanceSummaryView, PresenceControl, TeammatesKudosView } from '../groups/presence-ui';
 import { AthleteIntentBanner, SessionStatStrip, SuccessStopCard } from './brief-ui';
 import { perfConfirmationHref } from './navigation';
+import { RecordCandidatesCard } from './record-candidates-ui';
 import {
   ATTEMPTS_PER_BAR,
   type BarAttempt,
@@ -512,6 +513,25 @@ export function SessionDetailScreen() {
                     .
                   </Text>
                 </Card>
+              ) : null}
+
+              {/* TLX-243 — rattrapage des candidats record. Ils ne vivaient que sur l'écran de
+                  confirmation (A-05), atteignable par le seul `router.replace` qui suit le
+                  PREMIER enregistrement, et en `replace` : quitter sans valider rendait le
+                  record définitivement inatteignable, alors que le serveur continue de le
+                  proposer à chaque lecture de la performance. Ici la donnée est déjà chargée
+                  (`existing`), il n'y a rien à reconstruire — et ce chemin couvre du même coup
+                  la CORRECTION, dont la branche `onSuccess` ne navigue jamais vers A-05. */}
+              {existing.data?.recordCandidates?.length ? (
+                <RecordCandidatesCard
+                  performance={existing.data}
+                  testID="session-detail-record-candidates"
+                  title={
+                    existing.data.recordCandidates.length > 1
+                      ? 'Records à valider'
+                      : 'Record à valider'
+                  }
+                />
               ) : null}
 
               {/* A-03 : séance en lecture seule (exercices + Réussi/Stop) — mode par défaut. La

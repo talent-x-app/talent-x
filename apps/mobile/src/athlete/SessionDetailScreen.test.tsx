@@ -9,6 +9,7 @@ const mockSubmitPerformance = jest.fn();
 const mockUpdatePerformance = jest.fn();
 const mockListComments = jest.fn();
 const mockListMyRecords = jest.fn();
+const mockConfirmRecord = jest.fn();
 const mockBack = jest.fn();
 const mockReplace = jest.fn();
 const mockShow = jest.fn();
@@ -20,6 +21,7 @@ jest.mock('@talent-x/api-client', () => ({
   updatePerformance: (...a: unknown[]) => mockUpdatePerformance(...a),
   listComments: (...a: unknown[]) => mockListComments(...a),
   listMyRecords: (...a: unknown[]) => mockListMyRecords(...a),
+  confirmRecord: (...a: unknown[]) => mockConfirmRecord(...a),
   createComment: jest.fn(),
   getCoachDashboard: jest.fn(),
   updateAssignment: jest.fn(),
@@ -114,6 +116,7 @@ beforeEach(() => {
   mockRouteId = 'as-1';
   mockListComments.mockResolvedValue({ status: 200, data: { data: [], meta: {} } });
   mockListMyRecords.mockResolvedValue({ status: 200, data: { items: [] } });
+  mockConfirmRecord.mockResolvedValue({ status: 200, data: { eventKey: 'sprint:60m' } });
 });
 
 describe('SessionDetailScreen (TLX-065/071 — A-03/A-04)', () => {
@@ -638,6 +641,89 @@ describe('SessionDetailScreen (TLX-065/071 — A-03/A-04)', () => {
     expect(screen.getByTestId('assignment-status-assigned')).toBeOnTheScreen();
     // Sous-titre = phrase condensée dérivée des reps (ADR-38), prioritaire sur la description.
     expect(screen.getByTestId('session-detail-subtitle')).toHaveTextContent('(8×·10×)');
+  });
+
+  /**
+   * TLX-243 — les candidats record ne vivaient que sur l'écran de confirmation (A-05),
+   * atteignable par le seul `router.replace` qui suit le PREMIER enregistrement, et en
+   * `replace` : quitter sans valider rendait le record définitivement inatteignable, alors
+   * que le serveur continue de le proposer à chaque lecture de la performance.
+   */
+  describe('rattrapage des candidats record (TLX-243)', () => {
+    const PERF_WITH_CANDIDATE = {
+      id: 'p-1',
+      rpe: 7,
+      results: { schemaVersion: 2, items: [] },
+      recordCandidates: [
+        { eventKey: 'sprint:60m', label: '60 m', value: 6.39, unit: 's', previousValue: 6.65 },
+      ],
+    };
+
+    it('revenir sur la séance après avoir quitté sans valider : le record est de nouveau proposable', async () => {
+      mockGetAssignment.mockResolvedValue({ status: 200, data: ASSIGNMENT });
+      mockGetPerformance.mockResolvedValue({ status: 200, data: PERF_WITH_CANDIDATE });
+      render(<SessionDetailScreen />, { wrapper: Wrapper });
+
+      // En lecture seule — l'athlète n'a rien à ressaisir, juste à confirmer.
+      await waitFor(() =>
+        expect(screen.getByTestId('session-detail-record-candidates')).toBeOnTheScreen(),
+      );
+      expect(screen.getByTestId('record-candidate-sprint:60m')).toHaveTextContent(/60 m/);
+      expect(screen.getByText(/Ancien record/)).toBeOnTheScreen();
+
+      fireEvent.press(screen.getByTestId('record-confirm-sprint:60m'));
+
+      await waitFor(() =>
+        expect(mockConfirmRecord).toHaveBeenCalledWith('sprint:60m', { performanceId: 'p-1' }),
+      );
+      await waitFor(() =>
+        expect(screen.getByTestId('record-confirmed-sprint:60m')).toBeOnTheScreen(),
+      );
+    });
+
+    it('sans candidat : aucune carte (on ne promet pas un record qui n’existe pas)', async () => {
+      mockGetAssignment.mockResolvedValue({ status: 200, data: ASSIGNMENT });
+      mockGetPerformance.mockResolvedValue({
+        status: 200,
+        data: { id: 'p-1', rpe: 7, results: { schemaVersion: 2, items: [] } },
+      });
+      render(<SessionDetailScreen />, { wrapper: Wrapper });
+
+      await waitFor(() => expect(screen.getByTestId('session-detail-saved')).toBeOnTheScreen());
+      expect(screen.queryByTestId('session-detail-record-candidates')).toBeNull();
+    });
+
+    it('une CORRECTION qui produit un record le propose — ce chemin ne passe jamais par A-05', async () => {
+      mockGetAssignment.mockResolvedValue({ status: 200, data: ASSIGNMENT });
+      // Perf déjà enregistrée, sans candidat : la correction est justement le cas où la
+      // première saisie était fausse — le chemin le plus probable en usage réel.
+      //
+      // La seconde valeur porte le candidat, et ce n'est pas une commodité de test : ce qui
+      // finit dans le cache n'est PAS la réponse du PUT (le `setQueryData` d'`onSuccess`),
+      // mais la relecture que déclenche l'invalidation de `['assignment', id]` juste
+      // au-dessus — l'observateur est monté, donc il refetch quel que soit le `staleTime`.
+      // Le serveur joint les candidats à cette lecture aussi (`getPerformance`, ADR-20 :
+      // « la proposition de record survit au refetch »).
+      mockGetPerformance
+        .mockResolvedValueOnce({
+          status: 200,
+          data: { id: 'p-1', rpe: 7, results: { schemaVersion: 2, items: [] } },
+        })
+        .mockResolvedValue({ status: 200, data: PERF_WITH_CANDIDATE });
+      mockUpdatePerformance.mockResolvedValue({ status: 200, data: PERF_WITH_CANDIDATE });
+      render(<SessionDetailScreen />, { wrapper: Wrapper });
+
+      await enterEntryMode();
+      fireEvent.press(screen.getByTestId('submit-performance'));
+
+      await waitFor(() => expect(mockUpdatePerformance).toHaveBeenCalled());
+      // La branche `alreadySaved` d'`onSuccess` repasse en lecture sans naviguer : sans ce
+      // rattrapage, le record détecté à la correction n'était proposé nulle part.
+      await waitFor(() =>
+        expect(screen.getByTestId('session-detail-record-candidates')).toBeOnTheScreen(),
+      );
+      expect(mockReplace).not.toHaveBeenCalled();
+    });
   });
 
   describe('bascule Vue coach / Vue athlète (TLX-161)', () => {
