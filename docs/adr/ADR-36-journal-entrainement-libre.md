@@ -3,7 +3,8 @@
 - **Statut :** Accepté (validé 2026-06-13)
 - **Date :** 2026-06-13
 - **Décisions validées :** (1) **modèle** = séance **auto-possédée par l'athlète** (`coachId = athleteId`, statut dédié `self_logged`) + auto-affectation `completed` + perf, atomique (**Option 1** retenue, vs Option 2 `coachId` nullable écartée) ; (2) un endpoint athlète **`POST /athletes/me/training-log`** (vs extension de `/sessions`) ; (3) la séance libre **alimente progression/records/assiduité** de l'athlète, mais **pas** les stats d'adhésion du coach (naturellement, car coach-scopées).
-- **Réf. :** Linear TLX-111 · RB-03/09 (perf exige une affectation) · ADR-20 (records, dérivation athleteId-scopée) · ADR-21 (progression athleteId-scopée) · ADR-31 (cycle de vie/assiduité) · ADR-17 (stats coach = coach-scopées) · ADR-29 (statut additif `template`, méthode CHECK expand-only) · `performances.service.ts` · `assignments.service.ts`
+- **Amendé par :** **ADR-51 §D3** (2026-06-24) — §3 ci-dessous : la lecture coach est cloisonnée aux séances dont le coach est l'auteur, elle **exclut** donc les séances libres (acté le 2026-08-20, TLX-248).
+- **Réf. :** Linear TLX-111 · RB-03/09 (perf exige une affectation) · ADR-20 (records, dérivation athleteId-scopée) · ADR-21 (progression athleteId-scopée) · ADR-31 (cycle de vie/assiduité) · ADR-17 (stats coach = coach-scopées) · ADR-29 (statut additif `template`, méthode CHECK expand-only) · **ADR-51 §D3** (cloisonnement de la lecture coach) · `performances.service.ts` · `assignments.service.ts`
 
 **Contexte.** Une `Performance` est **1:1 avec une `SessionAssignment`** (`performances.assignment_id`
 unique) créée par l'**affectation du coach** (RB-03/09). L'athlète qui fait une **séance libre** (footing,
@@ -70,14 +71,44 @@ Choisi **contre** une extension de `POST /sessions` côté athlète : `/sessions
 ma séance »), porte le consentement, et compose les trois écritures atomiquement. OpenAPI
 (`TrainingLogRequest`) → DTO Nest → client orval régénéré.
 
-### 3. Visibilité coach — sous consentement, sans polluer le pilotage
+### 3. Visibilité coach — le coach ne voit pas l'entraînement libre
+
+> **Amendé le 2026-08-20 par ADR-51 §D3 (TLX-248).** La rédaction d'origine — reproduite plus bas —
+> annonçait l'inverse. Elle est **périmée depuis le 2026-06-24** et décrivait une exposition de
+> données que le code n'a jamais faite.
 
 Une séance libre a **`coach_id = athleteId`** → elle **n'apparaît pas** dans le tableau de bord/stats du
 coach (coach-scopés sur `session.coach_id = coach.id`, ADR-17) : le pilotage du coach reste **son** plan,
-non pollué par l'entraînement libre. En revanche, **progression & records** (athleteId-scopés,
-**consent-gated `coach_access`**, ADR-20/21 + miroir coach TLX-112) **incluent** les séances libres : le
-coach lié et consenti voit les marques libres de l'athlète. C'est exactement « visible du coach sous
-consentement » via les **portes existantes**, sans code d'autorisation neuf.
+non pollué par l'entraînement libre.
+
+**Progression et records côté coach ne l'incluent pas davantage.** ADR-51 §D3 borne toute lecture
+coach des données d'un athlète aux **séances dont le coach est l'auteur** (`session.coachId ===
+coachId`). Une séance libre porte `coach_id = athleteId` : elle échoue à ce filtre. Le coach lié et
+consenti **ne voit donc pas** les marques libres de son athlète — le consentement `coach_access`
+ouvre l'accès aux données du **plan du coach**, pas à l'entraînement personnel.
+
+**Intention confirmée par le propriétaire le 2026-08-20 :** « le coach ne doit pas voir
+l'entraînement libre de son athlète, même consenti. » C'est cohérent avec la minimisation et avec
+l'asymétrie déjà assumée en §4 — l'athlète voit son activité totale, le coach voit **son** plan.
+
+Vérifié sur staging (QA-03.8) : cinq lectures coach (`progress`, `records`, `stats`,
+`coach/dashboard`, `sessions`) ne contiennent aucune des marques libres, alors que la **même sonde**
+passée sur le compte de l'athlète les trouve — l'absence côté coach est une mesure, pas un artefact.
+
+<details>
+<summary>Rédaction d'origine (2026-06-13), conservée pour l'historique — <strong>ne pas
+appliquer</strong></summary>
+
+> En revanche, **progression & records** (athleteId-scopés, **consent-gated `coach_access`**,
+> ADR-20/21 + miroir coach TLX-112) **incluent** les séances libres : le coach lié et consenti voit
+> les marques libres de l'athlète. C'est exactement « visible du coach sous consentement » via les
+> **portes existantes**, sans code d'autorisation neuf.
+
+Ce texte a précédé ADR-51 (multi-coach, 2026-06-24), qui a cloisonné les lectures coach sans citer
+ADR-36. Le laisser tel quel poussait un lecteur à « corriger » une absence qui est la règle — soit
+exactement la régression de confidentialité que §D3 existe pour empêcher.
+
+</details>
 
 ### 4. Progression / records / assiduité — alimentés comme une perf normale
 

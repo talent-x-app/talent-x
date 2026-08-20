@@ -2,8 +2,12 @@
 
 - **Statut :** Accepté (2026-06-24 — validé ; implémentation par lots, D3 avant tout front)
 - **Date :** 2026-06-24
+- **Amende :** **ADR-36 §3** (journal d'entraînement libre) — §D3 borne la lecture coach aux séances
+  dont le coach est l'auteur ; une séance libre (`coach_id = athleteId`) en est donc **exclue**, ce
+  qui renverse la visibilité annoncée par ADR-36 §3. Reprise explicitée le 2026-08-20 (TLX-248).
 - **Réf. :** ADR-05 (RGPD transverse) · ADR-08 (RBAC + appartenance + ownership + consentement) ·
   ADR-26 (`AthleteGroup`) · ADR-37 (identité minimisée pair-à-pair) · ADR-30 (fan-out de groupe) ·
+  **ADR-36** (séance libre `self_logged` — exclue de la lecture coach par §D3) ·
   TX-SEC-003 §consentement · TX-DPIA-007 · `talent-x-openapi.yaml`
 
 **Contexte.** On veut permettre à un athlète d'appartenir à des groupes de **coachs différents**
@@ -47,6 +51,12 @@ groupes du coach. Concrètement : `athlete-progress`, `records`, `coach-insights
 et commentaires côté coach filtrent par `coachId`. Un coach **ne voit ni** les perfs/séances d'un
 autre coach, **ni** l'existence d'autres coachs/groupes de l'athlète. (L'athlète, lui, garde sa vue
 unifiée — c'est *sa* donnée.)
+
+**Conséquence sur les séances libres (amende ADR-36 §3).** Une séance libre porte
+`coach_id = athleteId` (ADR-36 §1) : elle échoue au filtre ci-dessus comme n'importe quelle séance
+d'un autre coach. **Aucun coach ne voit l'entraînement libre de son athlète, même consenti** —
+`coach_access` ouvre le plan du coach, pas l'entraînement personnel. ADR-36 §3 annonçait l'inverse ;
+son texte a été corrigé le 2026-08-20 (TLX-248) et renvoie désormais ici.
 
 **D4 — Surface athlète.** « Mes groupes » regroupe par coach ; chaque hub de groupe montre **son**
 coach (carte « Ton coach » déjà par groupe). La vue de progression **de l'athlète** reste unifiée
