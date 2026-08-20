@@ -1,6 +1,6 @@
 # ADR-58 — États locaux des écrans d'onglet masqués : remontage par `key` de route
 
-- **Statut :** Proposé (2026-08-20, à valider)
+- **Statut :** Accepté (2026-08-20, validé)
 - **Date :** 2026-08-20
 - **Réf. :** TLX-239 (inventaire), TLX-236, TLX-245, TLX-238, TLX-93, TLX-161, TLX-077, scénarios QA-02/QA-03
 
