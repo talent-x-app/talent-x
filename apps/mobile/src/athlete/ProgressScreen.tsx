@@ -5,7 +5,6 @@ import { Feather } from '@expo/vector-icons';
 import { ActivityIndicator, ScrollView, Text, View } from 'react-native';
 import { Button, Card } from '../components/ui';
 import { AttendanceSection } from './AttendanceSection';
-import { FreeSessionLog } from './FreeSessionLog';
 import { PersonalRecordsSection } from './PersonalRecordsSection';
 import { ProgressExplorer, ProgressMetricsRow } from './progress-charts';
 
@@ -90,8 +89,8 @@ export function ProgressScreen({ now }: { now?: Date }) {
         <>
           <ProgressMetricsRow progress={progress.data} />
 
-          {/* Journal d'entraînement (TLX-111, ADR-36) : consigner une séance libre. */}
-          <FreeSessionLog />
+          {/* Journal d'entraînement (ADR-36) : l'entrée « Enregistrer une séance libre » est sur
+              l'écran Séances depuis TLX-249 — Progression est un écran de lecture. */}
 
           {/* Assiduité : série + taux du mois (TLX-115), dérivée du cache ['assignments']. */}
           <AttendanceSection />

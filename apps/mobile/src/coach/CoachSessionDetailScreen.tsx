@@ -14,7 +14,7 @@ import { useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { Button, Card, InlineConfirm } from '../components/ui';
 import { useToast } from '../feedback';
-import { SESSION_STATUS_META } from '../calendar/calendar-model';
+import { SESSION_STATUS_META } from '../sessions/session-status-meta';
 import { AssignmentStatusBadge, formatSessionDate } from '../athlete/athlete-session-ui';
 import { COACH_DASHBOARD_QUERY_KEY } from '../dashboard/dashboard-query';
 import { athleteFullName } from './athlete-ui';

@@ -16,6 +16,13 @@ jest.mock('@talent-x/api-client', () => ({
     completed: 'completed',
     skipped: 'skipped',
   },
+  SessionStatus: {
+    draft: 'draft',
+    published: 'published',
+    archived: 'archived',
+    template: 'template',
+    self_logged: 'self_logged',
+  },
 }));
 jest.mock('../feedback', () => ({ useToast: () => ({ show: jest.fn(), dismiss: jest.fn() }) }));
 

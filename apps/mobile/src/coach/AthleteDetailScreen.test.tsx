@@ -24,6 +24,13 @@ jest.mock('@talent-x/api-client', () => ({
     completed: 'completed',
     skipped: 'skipped',
   },
+  SessionStatus: {
+    draft: 'draft',
+    published: 'published',
+    archived: 'archived',
+    template: 'template',
+    self_logged: 'self_logged',
+  },
   BlockType: {
     strength: 'strength',
     interval: 'interval',

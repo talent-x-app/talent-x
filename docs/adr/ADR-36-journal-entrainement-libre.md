@@ -123,4 +123,42 @@ activité **totale**, le coach voit l'adhésion à **son** plan.
 records) → tests (service : atomicité, consentement, candidats ; intégration DB-backed : libre →
 progression/records/assiduité alimentés, exclu du dashboard coach, visible en progress coach sous
 consentement) → UI athlète « Enregistrer une séance libre » (mini-constructeur : titre, date, bloc typé
-+ résultat, RPE, notes) + entrée depuis l'Accueil/Progression + tests.
++ résultat, RPE, notes) + entrée depuis l'écran **Séances** (voir *Amendement 2026-08-20*) + tests.
+
+---
+
+## Amendement — 2026-08-20 (TLX-249) : l'entrée vit sur l'écran Séances
+
+Le périmètre ci-dessus plaçait l'entrée « Enregistrer une séance libre » « depuis l'Accueil/
+Progression ». **Le livré n'a jamais correspondu à ce texte** : le composant n'était monté qu'à un
+seul endroit, l'écran Progression, et l'entrée depuis l'Accueil n'a pas existé.
+
+En déroulant QA-03.8 sur appareil, **le propriétaire du produit n'a pas trouvé l'entrée** et l'a
+cherchée dans « Mes séances ». Arbitrage du 2026-08-20 :
+
+> concernant les séances libre, je veux que enregistrer une séance libre soit mis dans l'écran
+> « Séances » et enlever de progression même s'il faut modifier l'adr
+
+**Décision.** L'entrée est sur l'écran **Séances** (A-02), et **nulle part ailleurs** — elle est
+retirée de Progression. Raison de fond, au-delà de la préférence : Progression est un écran de
+**consultation** (graphes, records, assiduité) ; consigner une séance est une **écriture**. L'entrée
+était rangée là où l'athlète vient lire, et c'est aussi là qu'il cherche ce qu'il a déjà fait, pas
+où il déclare ce qu'il vient de faire.
+
+**Conséquences.**
+
+- Le composant est **autonome** (replié par défaut, aucune dépendance à la progression) : il porte
+  lui-même l'invalidation des caches `['progress','me']`, records et `['assignments']` après
+  enregistrement. Rien n'est perdu au déplacement — la progression se rafraîchit quand on y revient.
+- Il est rendu **hors** des états de la requête `GET /assignments` : un athlète **sans coach** n'a
+  aucune affectation, tombe sur l'état vide, et doit malgré tout pouvoir consigner. C'est le canal
+  d'acquisition annoncé en *Contexte* ; le laisser dans la branche « liste non vide » l'aurait
+  refermé.
+- Corollaire d'étiquetage : les séances libres apparaissent dans la même liste que celles du coach,
+  et le badge d'affectation dit « Réalisée » pour les deux. La liste porte donc désormais
+  l'étiquette **« Séance libre »**, de la même source que le calendrier (`SESSION_STATUS_META`) —
+  §3/§4 font de cette séparation une règle de visibilité, elle ne pouvait pas rester invisible à
+  l'écran.
+
+**Réf. :** Linear TLX-249 · scénario QA-03.8 · `AthleteSessionsScreen.tsx` · `FreeSessionLog.tsx` ·
+`sessions/session-status-meta.ts`

@@ -19,6 +19,13 @@ jest.mock('@talent-x/api-client', () => ({
     completed: 'completed',
     skipped: 'skipped',
   },
+  SessionStatus: {
+    draft: 'draft',
+    published: 'published',
+    archived: 'archived',
+    template: 'template',
+    self_logged: 'self_logged',
+  },
 }));
 jest.mock('../feedback', () => ({ useToast: () => ({ show: jest.fn(), dismiss: jest.fn() }) }));
 
@@ -78,6 +85,16 @@ beforeEach(() => {
 });
 
 describe('ProgressScreen (TLX-090 — A-06)', () => {
+  it('n’offre plus d’écriture : la séance libre a migré vers Séances (TLX-249)', async () => {
+    mockGetMyProgress.mockResolvedValue({ status: 200, data: PROGRESS });
+    render(<ProgressScreen now={FIXED_NOW} />, { wrapper: Wrapper });
+
+    await waitFor(() => expect(screen.getByTestId('progress-series-sprint:60m')).toBeOnTheScreen());
+    // Progression est un écran de **consultation** ; consigner une séance est une écriture.
+    expect(screen.queryByTestId('free-session-open')).toBeNull();
+    expect(screen.queryByTestId('free-session-form')).toBeNull();
+  });
+
   it('affiche métriques, graphe par épreuve, dernière marque et tendance', async () => {
     mockGetMyProgress.mockResolvedValue({ status: 200, data: PROGRESS });
     render(<ProgressScreen now={FIXED_NOW} />, { wrapper: Wrapper });

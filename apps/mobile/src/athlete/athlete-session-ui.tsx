@@ -1,9 +1,10 @@
-import { AssignmentStatus, type Assignment } from '@talent-x/api-client';
+import { AssignmentStatus, SessionStatus, type Assignment } from '@talent-x/api-client';
 import { useTheme } from '@talent-x/design-tokens';
 import { Feather } from '@expo/vector-icons';
 import { StyleSheet, Text, View } from 'react-native';
 import { Card } from '../components/ui';
 import { countLeaves } from '../sessions/exercises-doc';
+import { SESSION_STATUS_META } from '../sessions/session-status-meta';
 import { sessionDiscipline } from '../progress/session-discipline';
 import { disciplineVisual } from '../groups/discipline-ui';
 
@@ -107,11 +108,48 @@ export function AssignmentListItem({
               {exerciseCount(assignment)} exercice{exerciseCount(assignment) > 1 ? 's' : ''}
             </Text>
             <DisciplineInlineTag assignment={assignment} />
+            <SelfLoggedInlineTag assignment={assignment} />
           </View>
         </View>
         <AssignmentStatusBadge status={assignment.status} />
       </View>
     </Card>
+  );
+}
+
+/**
+ * Étiquette « Séance libre » (TLX-249). Le badge de statut d'affectation dit « Réalisée » pour une
+ * séance libre comme pour une séance du coach : rien ne les distinguait dans la liste, alors que
+ * la séparation plan du coach ⇄ entraînement libre est structurante (ADR-36 §3/§4) — elle décide
+ * de ce que le coach voit. Le libellé vient de `SESSION_STATUS_META`, seule définition du concept.
+ */
+function SelfLoggedInlineTag({ assignment }: { assignment: Pick<Assignment, 'session'> }) {
+  const { colors, typography, spacing, radius } = useTheme();
+  if (assignment.session?.status !== SessionStatus.self_logged) return null;
+  return (
+    <View
+      testID="session-self-logged"
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        paddingHorizontal: spacing[2],
+        paddingVertical: 2,
+        borderRadius: radius.pill,
+        backgroundColor: colors.surfaceSunken,
+      }}
+    >
+      <Feather name="edit-3" size={10} color={colors.textSecondary} />
+      <Text
+        style={{
+          color: colors.textSecondary,
+          fontFamily: typography.fontFamily.medium,
+          fontSize: typography.caption.fontSize,
+        }}
+      >
+        {SESSION_STATUS_META[SessionStatus.self_logged].label}
+      </Text>
+    </View>
   );
 }
 

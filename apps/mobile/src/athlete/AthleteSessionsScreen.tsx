@@ -10,6 +10,7 @@ import { filterByText } from '../search/text-filter';
 import { disciplineVisual } from '../groups/discipline-ui';
 import { sessionDiscipline } from '../progress/session-discipline';
 import { AssignmentListItem, sessionTitle } from './athlete-session-ui';
+import { FreeSessionLog } from './FreeSessionLog';
 
 type FilterKey = 'upcoming' | 'past';
 
@@ -117,6 +118,13 @@ export function AthleteSessionsScreen({ embedded = false }: { embedded?: boolean
           Séances
         </Text>
       ) : null}
+
+      {/* Journal d'entraînement (TLX-111, ADR-36), déplacé ici depuis Progression par TLX-249 :
+          consigner une séance est une **écriture**, elle n'a pas sa place sur un écran de lecture,
+          et c'est dans « Séances » que l'athlète la cherche. Rendu **hors** des états de la requête :
+          un athlète sans coach n'a aucune affectation et doit pouvoir consigner malgré tout — c'est
+          le canal d'acquisition prévu par ADR-36 (Contexte). */}
+      <FreeSessionLog />
 
       {query.isLoading ? (
         <View testID="sessions-loading" style={{ paddingVertical: spacing[6] }}>

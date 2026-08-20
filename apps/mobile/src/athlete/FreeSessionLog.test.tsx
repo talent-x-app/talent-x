@@ -101,6 +101,54 @@ describe('FreeSessionLog (TLX-111 — A, ADR-36)', () => {
   });
 });
 
+describe('FreeSessionLog — exemples dérivés de la famille (TLX-247)', () => {
+  /** Le placeholder est la seule chose qui désambiguïse l'unité au moment de la frappe. */
+  const placeholderOf = (testID: string) => screen.getByTestId(testID).props.placeholder;
+
+  it('sprint : l’exemple de temps est un temps de sprint, pas « 1500 »', () => {
+    render(<FreeSessionLog />, { wrapper: Wrapper });
+    fireEvent.press(screen.getByTestId('free-session-open'));
+
+    // Défaut = sprint. « 1500 » à côté d'une pastille Sprint se lit comme 1500 **m**.
+    expect(placeholderOf('free-mark')).toBe('Temps (s) — ex. 7.42');
+    expect(placeholderOf('free-mark')).not.toContain('1500');
+    expect(placeholderOf('free-distance')).toBe('Distance (m) — ex. 60');
+  });
+
+  it('endurance : l’exemple de temps redevient « 1500 », qui y est plausible', () => {
+    render(<FreeSessionLog />, { wrapper: Wrapper });
+    fireEvent.press(screen.getByTestId('free-session-open'));
+    fireEvent.press(screen.getByTestId('free-family-endurance'));
+
+    // 1500 s ≈ 25 min : correct ici, et c'est bien la famille qui décide.
+    expect(placeholderOf('free-mark')).toBe('Temps (s) — ex. 1500');
+    expect(placeholderOf('free-distance')).toBe('Distance (m) — ex. 5000');
+  });
+
+  it('saut : unité en mètres, exemple de marque en mètres', () => {
+    render(<FreeSessionLog />, { wrapper: Wrapper });
+    fireEvent.press(screen.getByTestId('free-session-open'));
+    fireEvent.press(screen.getByTestId('free-family-jumps'));
+
+    expect(placeholderOf('free-mark')).toBe('Marque (m) — ex. 6.42');
+    // Famille sans paramètre : pas de champ distance à désambiguïser.
+    expect(screen.queryByTestId('free-distance')).toBeNull();
+  });
+
+  it('chaque famille porte un exemple distinct de celui du sprint', () => {
+    render(<FreeSessionLog />, { wrapper: Wrapper });
+    fireEvent.press(screen.getByTestId('free-session-open'));
+
+    const marks = new Set<string>();
+    for (const family of ['sprint', 'hurdles', 'endurance', 'interval', 'jumps', 'vertical']) {
+      fireEvent.press(screen.getByTestId(`free-family-${family}`));
+      marks.add(placeholderOf('free-mark'));
+    }
+    // Six familles, six exemples : aucun n'est partagé par défaut d'unité.
+    expect(marks.size).toBe(6);
+  });
+});
+
 describe('FreeSessionLog — mode multi-séries (TLX-162, ADR-38)', () => {
   it('bascule multi-séries : 3 séries par défaut, le Stepper en ajoute en préservant la saisie', () => {
     render(<FreeSessionLog />, { wrapper: Wrapper });

@@ -7,6 +7,7 @@ import {
   type Session,
 } from '@talent-x/api-client';
 import { ASSIGNMENT_STATUS_META } from '../athlete/athlete-session-ui';
+import { SESSION_STATUS_META } from '../sessions/session-status-meta';
 import { sessionDiscipline } from '../progress/session-discipline';
 import { disciplineVisual, type DisciplineVisual } from '../groups/discipline-ui';
 
@@ -48,19 +49,6 @@ export interface CalendarEntry {
   /** Brouillon (séance non publiée) — séparé de « Sans date » dans le calendrier. */
   isDraft?: boolean;
 }
-
-/** Libellé + tonalité par statut de séance (coach C-09). */
-export const SESSION_STATUS_META: Record<SessionStatus, { label: string; tone: CalendarTone }> = {
-  [SessionStatus.draft]: { label: 'Brouillon', tone: 'neutral' },
-  [SessionStatus.published]: { label: 'Publiée', tone: 'accent' },
-  [SessionStatus.archived]: { label: 'Archivée', tone: 'neutral' },
-  // Les modèles (C-10, ADR-29) sont filtrés en amont du calendrier ; entrée présente pour la
-  // complétude du type (un modèle n'apparaît jamais comme entrée planifiée).
-  [SessionStatus.template]: { label: 'Modèle', tone: 'neutral' },
-  // Séance libre athlète (TLX-111, ADR-36) : appartient à l'athlète (coach_id = athlète) ;
-  // n'apparaît pas dans le calendrier coach. Entrée présente pour la complétude du type.
-  [SessionStatus.self_logged]: { label: 'Séance libre', tone: 'neutral' },
-};
 
 /** Libellé + tonalité par statut de compétition (ADR-24). */
 export const COMPETITION_STATUS_META: Record<

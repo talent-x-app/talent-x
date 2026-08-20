@@ -11,27 +11,85 @@ import { MY_RECORDS_QUERY_KEY } from './records-query';
 
 type ParamKind = 'distance' | 'throws' | 'discipline' | 'none';
 
-/** Familles d'épreuve proposées (alignées sur la détection ADR-20) + bloc typé + paramètre. */
+/**
+ * Familles d'épreuve proposées (alignées sur la détection ADR-20) + bloc typé + paramètre.
+ *
+ * TLX-247 : `markExample` et `distanceExample` sont portés **par famille**. Un exemple générique
+ * dérivé de la seule `unit` donnait « ex. 1500 » sur Sprint — plausible en endurance (1500 s ≈
+ * 25 min), absurde sur 60 m, et surtout lisible comme une **distance** juste après un champ de
+ * distance. L'exemple doit désambiguïser l'unité, pas travailler contre l'étiquette.
+ */
 const FAMILIES: {
   value: string;
   label: string;
   blockType: string;
   param: ParamKind;
   unit: 's' | 'm';
+  /** Exemple de marque, dans l'unité de la famille. */
+  markExample: string;
+  /** Exemple de distance, pour les familles à `param: 'distance'`. */
+  distanceExample?: string;
 }[] = [
-  { value: 'sprint', label: 'Sprint', blockType: 'sprint', param: 'distance', unit: 's' },
-  { value: 'hurdles', label: 'Haies', blockType: 'hurdles', param: 'distance', unit: 's' },
-  { value: 'endurance', label: 'Endurance', blockType: 'endurance', param: 'distance', unit: 's' },
-  { value: 'interval', label: 'Intervalles', blockType: 'interval', param: 'distance', unit: 's' },
-  { value: 'jumps', label: 'Saut', blockType: 'jumps', param: 'none', unit: 'm' },
+  {
+    value: 'sprint',
+    label: 'Sprint',
+    blockType: 'sprint',
+    param: 'distance',
+    unit: 's',
+    markExample: '7.42',
+    distanceExample: '60',
+  },
+  {
+    value: 'hurdles',
+    label: 'Haies',
+    blockType: 'hurdles',
+    param: 'distance',
+    unit: 's',
+    markExample: '14.80',
+    distanceExample: '110',
+  },
+  {
+    value: 'endurance',
+    label: 'Endurance',
+    blockType: 'endurance',
+    param: 'distance',
+    unit: 's',
+    markExample: '1500',
+    distanceExample: '5000',
+  },
+  {
+    value: 'interval',
+    label: 'Intervalles',
+    blockType: 'interval',
+    param: 'distance',
+    unit: 's',
+    markExample: '62.5',
+    distanceExample: '400',
+  },
+  {
+    value: 'jumps',
+    label: 'Saut',
+    blockType: 'jumps',
+    param: 'none',
+    unit: 'm',
+    markExample: '6.42',
+  },
   {
     value: 'vertical',
     label: 'Vertical',
     blockType: 'vertical_jumps',
     param: 'discipline',
     unit: 'm',
+    markExample: '1.85',
   },
-  { value: 'throws', label: 'Lancer', blockType: 'throws', param: 'throws', unit: 'm' },
+  {
+    value: 'throws',
+    label: 'Lancer',
+    blockType: 'throws',
+    param: 'throws',
+    unit: 'm',
+    markExample: '12.40',
+  },
 ];
 
 /**
@@ -223,7 +281,7 @@ export function FreeSessionLog() {
             testID="free-distance"
             value={distance}
             onChangeText={setDistance}
-            placeholder="Distance (m) — ex. 5000"
+            placeholder={`Distance (m) — ex. ${spec.distanceExample}`}
             placeholderTextColor={colors.textMuted}
             keyboardType="numeric"
             style={inputStyle}
@@ -313,7 +371,11 @@ export function FreeSessionLog() {
             testID="free-mark"
             value={mark}
             onChangeText={setMark}
-            placeholder={spec.unit === 's' ? 'Temps (s) — ex. 1500' : 'Marque (m) — ex. 6.42'}
+            placeholder={
+              spec.unit === 's'
+                ? `Temps (s) — ex. ${spec.markExample}`
+                : `Marque (m) — ex. ${spec.markExample}`
+            }
             placeholderTextColor={colors.textMuted}
             keyboardType="numeric"
             style={inputStyle}
