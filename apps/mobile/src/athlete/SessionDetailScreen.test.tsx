@@ -581,6 +581,41 @@ describe('SessionDetailScreen (TLX-065/071 — A-03/A-04)', () => {
     await waitFor(() => expect(screen.getByTestId('session-detail-error')).toBeOnTheScreen());
   });
 
+  /**
+   * Les deux issues de l'état d'erreur (TLX-254). Elles n'étaient pas exercées : le test
+   * ci-dessus vérifiait que la carte s'affiche, jamais qu'on puisse en sortir. Un athlète
+   * hors couverture réseau n'a que ces deux gestes.
+   */
+  it('état erreur : « Réessayer » relance la requête, « Retour » ramène en arrière', async () => {
+    mockGetAssignment.mockResolvedValue({ status: 500, data: { error: 'INTERNAL_ERROR' } });
+    mockGetPerformance.mockResolvedValue({ status: 404, data: { error: 'NOT_FOUND' } });
+    render(<SessionDetailScreen />, { wrapper: Wrapper });
+    await waitFor(() => expect(screen.getByTestId('session-detail-error')).toBeOnTheScreen());
+    const callsBefore = mockGetAssignment.mock.calls.length;
+
+    fireEvent.press(screen.getByTestId('session-detail-retry'));
+    await waitFor(() => expect(mockGetAssignment.mock.calls.length).toBeGreaterThan(callsBefore));
+
+    fireEvent.press(screen.getByTestId('session-detail-back'));
+    expect(mockBack).toHaveBeenCalledTimes(1);
+  });
+
+  it('la séance se rétablit après un échec transitoire (le réessai aboutit)', async () => {
+    mockGetAssignment
+      .mockResolvedValueOnce({ status: 500, data: { error: 'INTERNAL_ERROR' } })
+      .mockResolvedValue({ status: 200, data: ASSIGNMENT });
+    mockGetPerformance.mockResolvedValue({ status: 404, data: { error: 'NOT_FOUND' } });
+    render(<SessionDetailScreen />, { wrapper: Wrapper });
+    await waitFor(() => expect(screen.getByTestId('session-detail-error')).toBeOnTheScreen());
+
+    fireEvent.press(screen.getByTestId('session-detail-retry'));
+
+    await waitFor(() =>
+      expect(screen.getByTestId('session-detail-title')).toHaveTextContent('Haut du corps'),
+    );
+    expect(screen.queryByTestId('session-detail-error')).toBeNull();
+  });
+
   it('affiche le brief : métriques, consigne en une phrase, carte Réussi/Stop (ADR-28)', async () => {
     mockGetAssignment.mockResolvedValue({
       status: 200,

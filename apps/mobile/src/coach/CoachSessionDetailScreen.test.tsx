@@ -229,6 +229,56 @@ describe('CoachSessionDetailScreen (C-05 — détail lecture seule)', () => {
     expect(screen.queryByTestId('coach-session-discipline-summary')).toBeNull();
   });
 
+  /**
+   * ADR-42 §4 — séance composite : pas de discipline unique inférable, mais une structure
+   * lisible bloc par bloc. Ce repli n'était rendu par aucun test (TLX-254) : le seul cas non
+   * inférable couvert vérifiait l'**absence** du résumé de discipline, jamais la présence de
+   * ce qui le remplace. C'est précisément le rendu qui évite au coach une liste plate.
+   */
+  it('ADR-42 §4 : séance composite → récap par bloc (discipline reconnue + repli « Personnalisé »)', async () => {
+    mockGetSession.mockResolvedValue({
+      status: 200,
+      data: {
+        ...SESSION,
+        exercises: {
+          schemaVersion: 3,
+          items: [
+            { name: '60 m', order: 0, type: 'sprint', params: { distanceMeters: 60 } },
+            { name: '80 m', order: 1, type: 'sprint', params: { distanceMeters: 80 } },
+            // Rupture de discipline → second segment, et le rendu bascule sur le récap par bloc.
+            { name: 'Squat', order: 2, type: 'strength', sets: 4, reps: 5, params: {} },
+          ],
+        },
+      },
+    });
+    render(<CoachSessionDetailScreen />, { wrapper: Wrapper });
+
+    await waitFor(() => expect(screen.getByTestId('coach-session-bloc-0')).toBeOnTheScreen());
+    expect(screen.getByTestId('coach-session-bloc-1')).toBeOnTheScreen();
+    expect(screen.getByText('2 blocs')).toBeOnTheScreen();
+    // Pas de résumé de discipline : c'est bien le repli composite qui est rendu.
+    expect(screen.queryByTestId('coach-session-discipline-summary')).toBeNull();
+  });
+
+  /**
+   * La section « Assigné à » joint deux requêtes (affectations + noms via le dashboard). Leurs
+   * chemins d'échec n'étaient pas couverts (TLX-254) : un coach hors ligne ne doit pas voir
+   * l'écran casser, ni une liste d'athlètes anonymes présentée comme complète.
+   */
+  it('« Assigné à » : échec de chargement → la séance reste lisible, sans section fantôme', async () => {
+    mockGetSession.mockResolvedValue({ status: 200, data: SESSION });
+    mockListAssignments.mockResolvedValue({ status: 500, data: { error: 'INTERNAL_ERROR' } });
+    mockGetCoachDashboard.mockResolvedValue({ status: 500, data: { error: 'INTERNAL_ERROR' } });
+    render(<CoachSessionDetailScreen />, { wrapper: Wrapper });
+
+    await waitFor(() =>
+      expect(screen.getByTestId('coach-session-title')).toHaveTextContent('Contraste & vitesse'),
+    );
+    // Le reste de l'écran tient : le détail d'une séance ne dépend pas de ses affectations.
+    expect(screen.getByTestId('coach-session-delete')).toBeOnTheScreen();
+    expect(screen.queryByTestId('assigned-athlete-a-1')).toBeNull();
+  });
+
   it('TLX-193 : section « Assigné à » — noms (via dashboard) + statut d’affectation', async () => {
     mockGetSession.mockResolvedValue({ status: 200, data: SESSION });
     mockListAssignments.mockResolvedValue({
