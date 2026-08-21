@@ -8,12 +8,26 @@ campagne : un défaut ici est **bloquant** par définition. Spec §11.4 et §11.
 **Couvre** : `getConsents`, `updateConsent` (`data_processing`).
 **Étapes** : l'athlète retire `data_processing` depuis Confidentialité & données ;
 tenter une saisie de perf ; re-consentir.
-**Attendu** : la saisie est bloquée par **403 `CONSENT_REQUIRED`** (le contrat le
-promet sur `submitPerformance`) ; le reste de l'app dégrade proprement, sans crash ;
-le re-consentement rétablit tout.
-**Preuve** : le 403 ; `select type, granted, text_version, updated_at from consents
-where user_id = '<id>' order by updated_at desc` — l'historique trace les deux
-bascules (base juridique, TX-SEC-003 §6).
+**Attendu** : la saisie est bloquée par **403 `CONSENT_REQUIRED`** (vérifié au contrat
+**et** dans `ConsentGate` — la garde couvre aussi `updatePerformance`) ; le reste de
+l'app dégrade proprement, sans crash ; le re-consentement rétablit tout.
+**Preuve** : le 403 ; `select type, granted, coach_id, text_version, granted_at,
+revoked_at, created_at from consents where user_id = '<id>' order by created_at` —
+la table est **append-only**, une ligne par bascule (base juridique, TX-SEC-003 §6).
+
+⚠️ **`consents` n'a pas de colonne `updated_at`** : `granted_at`, `revoked_at` et
+`created_at`, pas autre chose. La requête de preuve précédente ne s'exécutait pas.
+
+⚠️ **Lire la chronologie avant de conclure quoi que ce soit sur un écran.** Le 21/08,
+« j'ai remis sur ON et je ne vois toujours pas mes perfs » semblait démenti par une sonde
+API renvoyant `403` — mais la sonde tournait **après** un second retrait fait entre-temps.
+L'observation d'écran, elle, avait bien eu lieu consentement actif. Ordonner les
+horodatages des bascules et ceux de l'observation, systématiquement.
+
+⚠️ **Rétablir le consentement ne rafraîchit aucun écran** (TLX-270) : `retry: false`,
+aucune invalidation à la bascule, « Réessayer » masqué justement dans ce cas, et pas de
+tirer-pour-rafraîchir. Tant que le ticket est ouvert, **relancer l'application** après
+tout rétablissement, sinon les scénarios suivants qualifient un cache périmé.
 
 ## QA-06.2 — Consentement d'accès coach, **par coach** (ADR-51 §D2a)
 
