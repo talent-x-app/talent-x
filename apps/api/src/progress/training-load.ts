@@ -6,7 +6,9 @@
  *  - **charge aiguë** = somme des sRPE sur les 7 derniers jours.
  *  - **charge chronique** = moyenne hebdomadaire sur 28 jours = somme(28 j) / 4.
  *  - **ACWR** (acute:chronic workload ratio) = aiguë / chronique. Zone sûre 0.8–1.3 ;
- *    < 0.8 = sous-charge (désentraînement), > 1.3 = surcharge (risque de blessure).
+ *    < 0.8 = sous-charge (désentraînement), > 1.3 = surcharge (risque de blessure). Rendu
+ *    seulement au-delà de `ACWR_MIN_HISTORY_DAYS` d'historique (TLX-260) — sans quoi le ratio
+ *    vaut arithmétiquement 4,00 pour tout le monde.
  *  - **monotonie** = moyenne / écart-type des charges quotidiennes (7 j).
  *  - **contrainte (strain)** = charge hebdo × monotonie.
  *
@@ -46,6 +48,20 @@ export interface TrainingLoad {
 /** Bornes de la zone sûre d'ACWR (consensus sports science). */
 export const ACWR_OPTIMAL_MIN = 0.8;
 export const ACWR_OPTIMAL_MAX = 1.3;
+
+/**
+ * Historique minimal exigé avant de rendre un ACWR — **28 jours** (TLX-260, seuil tranché par le
+ * propriétaire le 21/08/2026). Le seuil coïncide avec la fenêtre chronique, et c'est la raison
+ * d'être du garde : tant que l'historique tient dans les 7 derniers jours, `acute === chronic28`,
+ * donc `acwr = acute / (acute / 4) = 4,00` — **quelle que soit la charge**. Deux athlètes dont les
+ * charges vont de 1 à 5 affichaient le même 4,00, et 4,00 > 1,3 classait en « Surcharge » tout
+ * athlète de moins d'une semaine d'ancienneté. Une alarme permanente ne prévient de rien.
+ *
+ * Mesuré sur **l'ancienneté de la plus ancienne séance chargée**, et non sur la date de création
+ * du compte ni sur le nombre de séances : un athlète inscrit depuis 40 jours dont la première
+ * séance chargée date d'hier n'a pas plus d'historique qu'un athlète inscrit hier.
+ */
+export const ACWR_MIN_HISTORY_DAYS = 28;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -109,10 +125,16 @@ export function computeTrainingLoad(points: LoadPoint[], now: Date): TrainingLoa
   let sessions = 0;
   // Charges quotidiennes des 7 derniers jours (7 buckets) pour la monotonie.
   const daily = new Map<number, number>();
+  // Plus ancienne séance chargée, **toutes fenêtres confondues** : c'est elle qui mesure
+  // l'historique (TLX-260). Les points antérieurs à 28 j ne comptent pas dans les charges mais
+  // prouvent l'ancienneté — les ignorer ici reviendrait à ne jamais franchir le seuil.
+  let oldestLoadedMs: number | null = null;
 
   for (const p of points) {
     const t = p.date.getTime();
-    if (!(p.load > 0) || t > nowMs || t <= chronicFrom) continue;
+    if (!(p.load > 0) || t > nowMs) continue;
+    if (oldestLoadedMs == null || t < oldestLoadedMs) oldestLoadedMs = t;
+    if (t <= chronicFrom) continue;
     chronic28 += p.load;
     sessions += 1;
     if (t > acuteFrom) {
@@ -123,7 +145,13 @@ export function computeTrainingLoad(points: LoadPoint[], now: Date): TrainingLoa
   }
 
   const chronic = chronic28 / 4;
-  const acwr = chronic > 0 ? round(acute / chronic, 2) : null;
+  // Précondition du ratio (TLX-260) : la moyenne « sur 28 jours » ne porte réellement sur 28 jours
+  // qu'à partir du moment où l'athlète a 28 jours d'historique. Avant, elle divise par 4 une somme
+  // qui n'en couvre qu'une fraction — d'où le 4,00 constant. Pas d'historique suffisant, pas de
+  // ratio : `null`, que `classifyZone` traduit en `insufficient`.
+  const hasEnoughHistory =
+    oldestLoadedMs != null && nowMs - oldestLoadedMs >= ACWR_MIN_HISTORY_DAYS * DAY_MS;
+  const acwr = hasEnoughHistory && chronic > 0 ? round(acute / chronic, 2) : null;
 
   // Monotonie sur 7 jours calendaires pleins (jours sans séance = charge 0).
   const dayValues: number[] = [];
@@ -151,8 +179,10 @@ export function computeTrainingLoad(points: LoadPoint[], now: Date): TrainingLoa
 }
 
 /**
- * Zone d'ACWR. `insufficient` si la charge chronique manque (pas assez d'historique
- * pour un ratio fiable) ; sinon sous-charge / optimal / surcharge selon la zone sûre.
+ * Zone d'ACWR. `insufficient` si le ratio n'est pas rendu (charge chronique nulle, ou historique
+ * sous `ACWR_MIN_HISTORY_DAYS` — cf. `computeTrainingLoad`) ; sinon sous-charge / optimal /
+ * surcharge selon la zone sûre. Cette fonction **classe un ratio** ; c'est l'appelant qui décide
+ * si un ratio est mesurable (TLX-260).
  */
 export function classifyZone(acwr: number | null, chronic28Total: number): LoadZone {
   if (acwr == null || chronic28Total <= 0) return 'insufficient';

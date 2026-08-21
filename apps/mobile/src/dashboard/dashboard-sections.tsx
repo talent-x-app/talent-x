@@ -67,7 +67,9 @@ export const LOAD_ZONE_META: Record<
   LoadZone,
   { label: string; tone: 'success' | 'warning' | 'danger' | 'muted' }
 > = {
-  insufficient: { label: 'Données insuffisantes', tone: 'muted' },
+  // TLX-260 — « Données insuffisantes » laissait croire à un défaut de saisie ; le cas réel est
+  // un historique trop court pour qu'un ratio aigu/chronique veuille dire quelque chose (28 j).
+  insufficient: { label: "Pas assez d'historique", tone: 'muted' },
   underload: { label: 'Sous-charge', tone: 'warning' },
   optimal: { label: 'Optimal', tone: 'success' },
   overload: { label: 'Surcharge', tone: 'danger' },
@@ -393,6 +395,10 @@ export function TrainingLoadSection({
           const load = athlete.load!;
           const meta = LOAD_ZONE_META[load.zone];
           const tone = toneColors(meta.tone);
+          // TLX-260 — `insufficient` n'est pas une zone, c'est l'absence de mesure : ni badge de
+          // zone, ni jauge (elle serait à zéro et se lirait comme une charge nulle). Le libellé
+          // dit pourquoi, et les charges mesurées, elles, restent affichées.
+          const measured = load.zone !== 'insufficient';
           return (
             <Card
               key={athlete.id}
@@ -411,44 +417,48 @@ export function TrainingLoadSection({
                   >
                     {athleteFullName(athlete)}
                   </Text>
-                  <View
-                    testID={`coach-dashboard-load-${athlete.id}-zone`}
-                    style={{
-                      paddingVertical: 3,
-                      paddingHorizontal: 8,
-                      borderRadius: 999,
-                      backgroundColor: tone.bg,
-                    }}
-                  >
-                    <Text
+                  {measured ? (
+                    <View
+                      testID={`coach-dashboard-load-${athlete.id}-zone`}
                       style={{
-                        color: tone.fg,
-                        fontFamily: typography.fontFamily.medium,
-                        fontSize: typography.caption.fontSize,
+                        paddingVertical: 3,
+                        paddingHorizontal: 8,
+                        borderRadius: 999,
+                        backgroundColor: tone.bg,
                       }}
                     >
-                      {meta.label}
-                    </Text>
-                  </View>
+                      <Text
+                        style={{
+                          color: tone.fg,
+                          fontFamily: typography.fontFamily.medium,
+                          fontSize: typography.caption.fontSize,
+                        }}
+                      >
+                        {meta.label}
+                      </Text>
+                    </View>
+                  ) : null}
                 </View>
                 {/* Jauge ACWR : barre 0..2, zone sûre 0.8–1.3 ; le curseur prend la couleur de zone. */}
-                <View
-                  style={{
-                    height: 8,
-                    borderRadius: 4,
-                    backgroundColor: colors.surfaceSunken,
-                    overflow: 'hidden',
-                  }}
-                >
+                {measured ? (
                   <View
-                    testID={`coach-dashboard-load-${athlete.id}-gauge`}
                     style={{
-                      height: '100%',
-                      width: `${gaugeFraction(load.acwr) * 100}%`,
-                      backgroundColor: tone.fg,
+                      height: 8,
+                      borderRadius: 4,
+                      backgroundColor: colors.surfaceSunken,
+                      overflow: 'hidden',
                     }}
-                  />
-                </View>
+                  >
+                    <View
+                      testID={`coach-dashboard-load-${athlete.id}-gauge`}
+                      style={{
+                        height: '100%',
+                        width: `${gaugeFraction(load.acwr) * 100}%`,
+                        backgroundColor: tone.fg,
+                      }}
+                    />
+                  </View>
+                ) : null}
                 <Text
                   style={{
                     // Lecture de charge porteuse d'info → textSecondary (AA, TLX-145).
@@ -457,7 +467,9 @@ export function TrainingLoadSection({
                     fontSize: typography.bodySm.fontSize,
                   }}
                 >
-                  ACWR {formatAcwr(load.acwr)} · charge aiguë {load.acute}
+                  {measured
+                    ? `ACWR ${formatAcwr(load.acwr)} · charge aiguë ${load.acute}`
+                    : `${meta.label} · charge aiguë ${load.acute}`}
                 </Text>
               </View>
             </Card>

@@ -298,6 +298,16 @@ describe('Charge d’entraînement (TLX-113)', () => {
     ).toEqual(['s', 'u']);
   });
 
+  it('un athlète sans historique suffisant n’est jamais en alerte (TLX-260)', () => {
+    // Le défaut de QA-02.6 : « Surcharge » en rouge sur tout athlète de moins d'une semaine
+    // d'ancienneté, par construction arithmétique — l'alerte cessait d'être un signal.
+    const list = [withLoad('neuf', 'insufficient'), withLoad('over', 'overload', { acwr: 1.8 })];
+
+    expect(athletesWithLoadAlert(list).map((a) => a.id)).toEqual(['over']);
+    // Il reste listé dans la section : sa charge est mesurée, c'est le **ratio** qui manque.
+    expect(athletesWithLoad(list).map((a) => a.id)).toContain('neuf');
+  });
+
   it('formatAcwr / gaugeFraction', () => {
     expect(formatAcwr(1.234)).toBe('1.23');
     expect(formatAcwr(undefined)).toBe('—');
@@ -408,25 +418,28 @@ describe('contraste AA des textes secondaires (TLX-145)', () => {
     ).toBe(darkColors.textSecondary);
   });
 
-  it('TrainingLoadSection : lecture ACWR + badge zone neutre « Données insuffisantes » lisibles (textSecondary)', () => {
-    const withLoad = athlete({
+  /**
+   * TLX-260 — l'historique insuffisant n'est pas une zone. Ce test portait le sujet a11y
+   * (TLX-145/151 : le libellé du **badge neutre** doit rester lisible en thème sombre) ; ce badge
+   * n'existe plus, la ligne de lecture le remplace et hérite du sujet.
+   */
+  it('TrainingLoadSection : historique insuffisant → pas de badge ni de jauge, ligne lisible (TLX-260)', () => {
+    const withoutHistory = athlete({
       id: 'a-1',
-      load: {
-        acute: 100,
-        chronic: 90,
-        zone: 'insufficient',
-        weeklyLoad: 100,
-        sessions: 5,
-        acwr: 1.0,
-      },
+      // Forme réellement produite par l'API depuis TLX-260 : pas de zone ⇒ pas d'ACWR.
+      load: { acute: 100, chronic: 25, zone: 'insufficient', weeklyLoad: 100, sessions: 5 },
     });
-    render(<TrainingLoadSection athletes={[withLoad]} onPressAthlete={jest.fn()} />, {
+    render(<TrainingLoadSection athletes={[withoutHistory]} onPressAthlete={jest.fn()} />, {
       wrapper: DarkWrapper,
     });
+
+    // Ni verdict de zone, ni jauge : une jauge à zéro se lirait comme une charge nulle.
+    expect(screen.queryByTestId('coach-dashboard-load-a-1-zone')).toBeNull();
+    expect(screen.queryByTestId('coach-dashboard-load-a-1-gauge')).toBeNull();
+    // Le libellé dit la cause, et la charge mesurée reste affichée — elle, elle est vraie.
     const card = screen.getByTestId('coach-dashboard-load-a-1');
-    expect(colorOf(within(card).getByText(/ACWR/))).toBe(darkColors.textSecondary);
-    // Tonalité « muted » remappée : le libellé du badge neutre ne tombe plus sous le seuil AA.
-    const zone = screen.getByTestId('coach-dashboard-load-a-1-zone');
-    expect(colorOf(within(zone).getByText(/Données insuffisantes/))).toBe(darkColors.textSecondary);
+    const line = within(card).getByText(/Pas assez d'historique/);
+    expect(line).toHaveTextContent(/charge aiguë 100/);
+    expect(colorOf(line)).toBe(darkColors.textSecondary);
   });
 });
