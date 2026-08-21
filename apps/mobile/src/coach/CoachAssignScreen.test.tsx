@@ -1,6 +1,6 @@
 import { ThemeProvider } from '@talent-x/design-tokens';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { type ReactNode, useState } from 'react';
 import { Pressable, Text } from 'react-native';
 
@@ -10,6 +10,9 @@ const mockListGroups = jest.fn();
 const mockBack = jest.fn();
 const mockReplace = jest.fn();
 const mockShow = jest.fn();
+// Capture le dernier callback passé à useFocusEffect → permet de simuler une **ré-entrée** sur
+// l'écran (persistant comme un tab caché) sans le remonter (TLX-257, même patron que TLX-93).
+const mockFocusCb: { current: (() => void) | null } = { current: null };
 
 jest.mock('@talent-x/api-client', () => ({
   getCoachDashboard: (...a: unknown[]) => mockGetCoachDashboard(...a),
@@ -17,7 +20,18 @@ jest.mock('@talent-x/api-client', () => ({
   listGroups: (...a: unknown[]) => mockListGroups(...a),
   AthleteStatus: { up_to_date: 'up_to_date', late: 'late', pending_review: 'pending_review' },
 }));
-jest.mock('expo-router', () => ({ useRouter: () => ({ back: mockBack, replace: mockReplace }) }));
+jest.mock('expo-router', () => {
+  const React = jest.requireActual('react');
+  return {
+    useRouter: () => ({ back: mockBack, replace: mockReplace }),
+    // Comme le vrai useFocusEffect : exécute le callback au premier focus (≈ montage) ; on
+    // mémorise le dernier pour rejouer une ré-entrée dans les tests.
+    useFocusEffect: (cb: () => void) => {
+      mockFocusCb.current = cb;
+      React.useEffect(() => cb(), [cb]);
+    },
+  };
+});
 jest.mock('../feedback', () => ({ useToast: () => ({ show: mockShow, dismiss: jest.fn() }) }));
 
 import { CoachAssignScreen } from './CoachAssignScreen';
@@ -324,6 +338,62 @@ describe('CoachAssignScreen (TLX-063 — C-06/C-07)', () => {
       expect(screen.getByTestId('assign-submit')).toHaveTextContent(/sélectionne/i),
     );
     expect(screen.getByTestId('assign-submit')).toBeDisabled();
+  });
+
+  /**
+   * TLX-257 — le cas que `key={id}` ne couvre pas. Le test voisin change de `sessionId` et passe
+   * déjà aujourd'hui : il ne prouverait rien ici. Celui-ci reste sur **la même** séance, donc sur
+   * la même instance jamais remontée, et rejoue une ré-entrée par le focus.
+   */
+  it('réaffecter la MÊME séance après « Terminé » : on retrouve le formulaire, pas la confirmation', async () => {
+    mockGetCoachDashboard.mockResolvedValue({ status: 200, data: DASHBOARD });
+    mockListGroups.mockResolvedValue({ status: 200, data: GROUPS });
+    mockAssignSession.mockResolvedValue({
+      status: 201,
+      data: { data: [{ id: 'asg-a', athleteId: 'a-1', sessionId: 's-1' }] },
+    });
+    render(<CoachAssignScreen sessionId="s-1" sessionTitle="Vitesse" now={NOW} />, {
+      wrapper: Wrapper,
+    });
+
+    // Première affectation : un athlète, une échéance.
+    await waitFor(() => expect(screen.getByTestId('assign-athlete-a-1')).toBeOnTheScreen());
+    fireEvent.press(screen.getByTestId('assign-athlete-a-1'));
+    pickDate('assign-due-date', '2026-06-20');
+    fireEvent.press(screen.getByTestId('assign-submit'));
+    await waitFor(() => expect(screen.getByTestId('assign-confirmation')).toBeOnTheScreen());
+
+    // « Terminé » → retour. L'écran, lui, reste monté.
+    fireEvent.press(screen.getByTestId('assign-done'));
+    expect(mockBack).toHaveBeenCalled();
+    expect(screen.getByTestId('assign-confirmation')).toBeOnTheScreen(); // toujours là, non démonté
+
+    // Ré-entrée sur la même séance : le focus revient sans remontage (la clé n'a pas changé).
+    act(() => mockFocusCb.current?.());
+
+    // Le formulaire est de retour — c'est la DoD : le coach peut affecter à quelqu'un d'autre.
+    await waitFor(() => expect(screen.getByTestId('assign-submit')).toBeOnTheScreen());
+    expect(screen.queryByTestId('assign-confirmation')).toBeNull();
+    // …et rien de la première affectation ne subsiste : ni sélection, ni échéance, ni récurrence.
+    // Une sélection rémanente serait pire que l'écran bloqué : silencieuse.
+    expect(screen.getByTestId('assign-submit')).toHaveTextContent(/sélectionne/i);
+    expect(screen.getByTestId('assign-submit')).toBeDisabled();
+    expect(screen.getByTestId('assign-due-date')).not.toHaveTextContent('2026-06-20');
+  });
+
+  it('une sortie sans affectation ne vide pas une sélection en cours (TLX-257)', async () => {
+    // La remise à zéro est conditionnée au parcours **terminé** : sans cette garde, revenir sur
+    // l'écran après un aller-retour quelconque effacerait le travail en cours du coach.
+    mockGetCoachDashboard.mockResolvedValue({ status: 200, data: DASHBOARD });
+    render(<CoachAssignScreen sessionId="s-1" now={NOW} />, { wrapper: Wrapper });
+
+    await waitFor(() => expect(screen.getByTestId('assign-athlete-a-1')).toBeOnTheScreen());
+    fireEvent.press(screen.getByTestId('assign-athlete-a-1'));
+    expect(screen.getByTestId('assign-submit')).toHaveTextContent('Assigner (1 cible)');
+
+    act(() => mockFocusCb.current?.());
+
+    expect(screen.getByTestId('assign-submit')).toHaveTextContent('Assigner (1 cible)');
   });
 
   it('échéance pré-remplie depuis la date planifiée de la séance (defaultDueDate)', async () => {

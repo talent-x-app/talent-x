@@ -9,8 +9,8 @@ import {
 import { useTheme } from '@talent-x/design-tokens';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Feather } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { Button, Card, DatePicker } from '../components/ui';
 import { ResponsiveContent } from '../responsive/ResponsiveContent';
@@ -77,6 +77,46 @@ export function CoachAssignScreen({
     targets: string[];
   } | null>(null);
 
+  /**
+   * TLX-257 — le parcours a-t-il atteint son état terminal (une affectation a abouti) ? En `ref`
+   * et non en `state` : cette valeur ne pilote aucun rendu, et la lire depuis les dépendances de
+   * l'effet de focus ferait rejouer la remise à zéro **pendant** que la confirmation est à
+   * l'écran, l'effaçant aussitôt affichée.
+   */
+  const completedRef = useRef(false);
+
+  /**
+   * Remise à zéro du parcours à la **ré-entrée** sur l'écran (TLX-257).
+   *
+   * L'écran est un onglet `href:null` qui reste monté. `key={id}` (TLX-93, généralisée par
+   * ADR-58) le remonte quand on passe à une **autre** séance — mais revenir sur **la même**
+   * séance ne change pas la clé, donc ne remonte rien : `confirmed` survivait, et l'écran
+   * rouvrait sur la confirmation de l'affectation précédente. Le coach ne pouvait plus jamais
+   * affecter cette séance à quelqu'un d'autre (QA-02.4).
+   *
+   * Le nettoyage est fait à l'**entrée** et non à la sortie parce que les sorties sont
+   * multiples — « Terminé », « Retour », bouton matériel Android, geste de retour — et qu'il
+   * suffirait d'en oublier une pour que le défaut revienne. L'entrée, elle, est unique.
+   *
+   * Et il ne se déclenche qu'après un parcours **terminé** : une simple sortie/retour sans
+   * affectation ne doit pas effacer une sélection en cours.
+   */
+  useFocusEffect(
+    useCallback(() => {
+      if (!completedRef.current) return;
+      completedRef.current = false;
+      setConfirmed(null);
+      // Sans ces cinq-là, la sélection précédente restait cochée et l'affectation suivante
+      // serait partie avec des cibles que le coach n'a pas choisies — silencieux, donc pire
+      // que l'écran bloqué.
+      setSelected(new Set());
+      setSelectedGroups(new Set());
+      setDueDate(defaultDueDate ?? '');
+      setRepeat(false);
+      setRepeatUntil('');
+    }, [defaultDueDate]),
+  );
+
   const athletes = dashboard.data?.athletes ?? [];
   const groups = groupsQuery.data ?? [];
 
@@ -120,6 +160,8 @@ export function CoachAssignScreen({
       const athleteTargets = athletes
         .filter((a) => selected.has(a.id))
         .map((a) => athleteFullName(a));
+      // Parcours terminé : la prochaine entrée sur cet écran repartira d'un formulaire vierge.
+      completedRef.current = true;
       setConfirmed({
         athletes: athleteCount,
         occurrences,

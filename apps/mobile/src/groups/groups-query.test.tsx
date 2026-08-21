@@ -16,9 +16,16 @@ jest.mock('@talent-x/api-client', () => ({
   assignSession: (...a: unknown[]) => mockAssignSession(...a),
   AthleteStatus: { up_to_date: 'up_to_date', late: 'late', pending_review: 'pending_review' },
 }));
-jest.mock('expo-router', () => ({
-  useRouter: () => ({ push: jest.fn(), back: jest.fn(), replace: jest.fn() }),
-}));
+jest.mock('expo-router', () => {
+  const React = jest.requireActual('react');
+  return {
+    useRouter: () => ({ push: jest.fn(), back: jest.fn(), replace: jest.fn() }),
+    // `CoachAssignScreen` remet son parcours à zéro à la reprise du focus (TLX-257). Ce test
+    // ne porte pas sur ce comportement, mais un mock partiel d'`expo-router` fait échouer le
+    // montage entier — d'où le hook, au comportement réel (exécuté au premier focus).
+    useFocusEffect: (cb: () => void) => React.useEffect(() => cb(), [cb]),
+  };
+});
 jest.mock('../feedback', () => ({
   useToast: () => ({ show: jest.fn(), dismiss: jest.fn() }),
   toUserMessage: () => ({ title: 'Erreur', description: undefined }),

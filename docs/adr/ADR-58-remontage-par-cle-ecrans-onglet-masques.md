@@ -1,8 +1,9 @@
 # ADR-58 — États locaux des écrans d'onglet masqués : remontage par `key` de route
 
-- **Statut :** Accepté (2026-08-20, validé)
+- **Statut :** Accepté (2026-08-20, validé) · **amendé le 2026-08-21** (TLX-257 — portée de la
+  règle : le changement de ressource, pas la ré-entrée ; voir *Amendement* en fin de document)
 - **Date :** 2026-08-20
-- **Réf. :** TLX-239 (inventaire), TLX-236, TLX-245, TLX-238, TLX-93, TLX-161, TLX-077, scénarios QA-02/QA-03
+- **Réf. :** TLX-239 (inventaire), TLX-236, TLX-245, TLX-238, TLX-93, TLX-161, TLX-077, TLX-257, scénarios QA-02/QA-03
 
 **Contexte.**
 
@@ -118,3 +119,70 @@ deviennent redondantes, pas fausses — à retirer lors d'un passage ultérieur,
   **ici** parce qu'elle touche toute la structure de navigation des deux rôles, avec un risque
   de régression sans commune mesure avec le défaut traité, et qu'elle mérite son propre ADR si
   elle est un jour envisagée.
+
+---
+
+## Amendement — 2026-08-21 (TLX-257) : la portée de la règle
+
+**Ce que le cas a démontré.**
+
+Le coach affecte une séance à un athlète, appuie sur « Terminé », revient sur la séance et
+rouvre l'assignation : il retombe sur la **confirmation de l'affectation précédente**. Il ne
+peut plus jamais affecter cette séance à quelqu'un d'autre, ni à un groupe. Affecter
+progressivement — un athlète aujourd'hui, deux autres demain — est bloqué (QA-02.4, sur
+appareil).
+
+Or `(coach)/assign/[id]` est **la seule des treize routes qui portait déjà sa `key`** avant
+cet ADR, depuis TLX-93, avec exactement le raisonnement du corps du document. La règle était
+appliquée, et l'écran échouait quand même.
+
+**La portée, écrite.**
+
+`key={param}` garantit une chose et une seule : **aucun état de la ressource A ne s'affiche
+sur la ressource B**. Elle ne garantit pas qu'**une entrée sur l'écran reparte d'un état
+neuf** — revenir sur la *même* ressource ne change pas la clé, donc ne remonte rien.
+
+La distinction n'est pas théorique : ce sont deux fuites différentes.
+
+| | Fuite traitée | Déclencheur | Remède |
+| --- | --- | --- | --- |
+| **Changement de ressource** | l'état de A s'affiche sur B | le paramètre de route change | `key={param}` au fichier de route |
+| **Ré-entrée** | l'état de la fois précédente s'affiche sur la même ressource | le paramètre ne change pas | remise à zéro à la reprise du focus |
+
+**Règle complémentaire.** Un écran qui héberge un parcours à **état terminal** — une
+confirmation, un récapitulatif de succès, tout état qui signifie « c'est fini » et qui change
+ce qui est rendu — doit, **en plus** de sa `key`, remettre ce parcours à zéro quand il reprend
+le focus après avoir été terminé.
+
+Deux précisions qui font la différence entre un correctif et un nouveau défaut :
+
+- **À l'entrée, pas à la sortie.** Les sorties sont multiples — bouton « Terminé », « Retour »,
+  bouton matériel Android, geste de retour — et il suffit d'en oublier une pour que le défaut
+  revienne. L'entrée est unique. C'est aussi ce qui rend le remède insensible aux chemins de
+  sortie ajoutés plus tard.
+- **Seulement après un parcours terminé.** Une remise à zéro inconditionnelle au focus
+  effacerait une sélection en cours dès que le coach fait un aller-retour quelconque. Le drapeau
+  « terminé » se pose au succès et se lit dans une `ref` : en `state`, il ferait rejouer l'effet
+  **pendant** que la confirmation est à l'écran et l'effacerait aussitôt affichée.
+
+L'objection du corps de l'ADR contre `useFocusEffect` comme règle générale — « un effet
+s'exécute après la peinture, donc éclair de l'état précédent » — ne s'applique pas ici : il
+ne s'agit pas d'ouvrir une autre ressource, mais de rouvrir la même, et l'éclair porterait sur
+un contenu que l'utilisateur vient lui-même de produire.
+
+**Ce que les tests ne peuvent pas attraper.**
+
+`app/routes-key.test.ts` ne peut rien pour cette famille : il vérifie la **présence** d'une
+`key`, et elle est bien là. Un contrôle statique équivalent supposerait de reconnaître « état
+terminal » dans un `useState`, ce qu'aucune lecture de fichier ne donne. Le filet est donc un
+test par écran concerné, au patron : affecter → « Terminé » → **rejouer le focus sans
+remonter** → attendre le formulaire. Un test qui change de `sessionId` passe déjà et ne prouve
+rien.
+
+**Portée restante — non corrigée ici.**
+
+`(coach)/competition/[id]/engage` a la même forme : `confirmedNames` en `useState`, `onDone`
+qui se contente de naviguer. Ré-engager des athlètes sur **la même** compétition devrait donc
+rouvrir sur le récapitulatif précédent. Le tableau du corps de l'ADR l'avait déjà signalé pour
+la fuite de *changement* de ressource, corrigée par sa `key` ; la fuite de *ré-entrée*, elle,
+reste ouverte. Non traité dans TLX-257, dont le périmètre est l'assignation.
