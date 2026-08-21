@@ -325,7 +325,11 @@ export function SprintEffortCanvas({
             icon="activity"
             title={warmup.name}
             subtitle={warmup.notes}
+            durationSeconds={warmup.durationSeconds}
             onEditNotes={(notes) => commit(series, { ...warmup, notes }, cooldown)}
+            onEditDurationSeconds={(durationSeconds) =>
+              commit(series, { ...warmup, durationSeconds }, cooldown)
+            }
           />
         )
       }
@@ -336,7 +340,11 @@ export function SprintEffortCanvas({
             icon="wind"
             title={cooldown.name}
             subtitle={cooldown.notes}
+            durationSeconds={cooldown.durationSeconds}
             onEditNotes={(notes) => commit(series, warmup, { ...cooldown, notes })}
+            onEditDurationSeconds={(durationSeconds) =>
+              commit(series, warmup, { ...cooldown, durationSeconds })
+            }
           />
         )
       }

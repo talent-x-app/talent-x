@@ -28,6 +28,20 @@ describe('isBaseFieldVisible — masquage sets en groupe (ADR-27 règle 6)', () 
     expect(isBaseFieldVisible(BlockType.sprint, 'reps', false)).toBe(false);
     expect(isBaseFieldVisible(BlockType.sprint, 'reps', true)).toBe(false);
   });
+
+  /**
+   * TLX-259 — détecteur du défaut 2 : `stationSeconds` (durée **d'une station**) ne supplante pas
+   * `durationSeconds` (durée **du bloc**). Tant qu'il le faisait, l'éditeur masquait la durée des
+   * bornes, le coach ne pouvait pas la poser, `blockToExercise` ne la sérialisait pas — et la
+   * séance ne pesait rien au monitoring de charge (TLX-113).
+   */
+  it('la durée du bloc reste visible sur les types circuit — stationSeconds ne la supplante pas', () => {
+    expect(isBaseFieldVisible(BlockType.warmup, 'durationSeconds')).toBe(true);
+    expect(isBaseFieldVisible(BlockType.cooldown, 'durationSeconds')).toBe(true);
+    expect(isBaseFieldVisible(BlockType.core, 'durationSeconds')).toBe(true);
+    // `workSeconds` (durée d'une répétition tenue) couvre bien la même dimension : inchangé.
+    expect(isBaseFieldVisible(BlockType.interval, 'durationSeconds')).toBe(false);
+  });
 });
 
 describe('nodesToItems — sérialisation v3 (order global, ADR-27 règle 4)', () => {

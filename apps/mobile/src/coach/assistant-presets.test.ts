@@ -212,4 +212,66 @@ describe('presets Renforcement / PPG (ADR-41 §7)', () => {
     expect(types[types.length - 1]).toBe('cooldown');
     expect(types).toContain('strength');
   });
+
+  it('PPG : la durée de travail d’une station survit à la sérialisation (TLX-259)', () => {
+    const preset = assistantPresets('strength').find((p) => p.key === 'circuit_ppg');
+    const serialized = nodesToItems(preset!.build())[0] as {
+      items: { durationSeconds?: number }[];
+    };
+    // Le test voisin (« PPG (circuit_ppg) ») assertait `durationSeconds: '40'` sur la forme
+    // **éditable** et, du sérialisé, seulement `restSeconds`/`sets`. Il passait donc pendant que
+    // `stationSeconds` supplantait `durationSeconds` et que les 40 s de travail étaient jetées à
+    // l'écriture : la station partait à l'athlète sans sa durée.
+    expect(serialized.items[0].durationSeconds).toBe(40);
+  });
+});
+
+/**
+ * TLX-259 défaut 2 — le constructeur doit émettre une durée **exploitable par le calcul**.
+ * Avant : l'échauffement annonçait « ~25 min » en fin de `notes`, écrit pour un humain. Aucune
+ * séance construite dans l'app ne portait de `durationSeconds`, donc `plannedDurationMinutes`
+ * rendait `null`, donc `sessionLoad` aussi, donc ni ACWR ni monotonie ni contrainte (TLX-113).
+ */
+describe('durée des bornes — une séance construite dans l’app doit peser (TLX-259 / TLX-113)', () => {
+  /**
+   * Réplique de la règle de repli de `plannedDurationMinutes`
+   * (`apps/api/src/progress/training-load.ts`) : somme des `durationSeconds` des nœuds de premier
+   * niveau, ÷ 60. **Réplique et non import** — mobile et API ne partagent pas ce code.
+   *
+   * Ce que ce test prouve : l'app **émet** le champ que l'API lit, à la place où elle le lit.
+   * Ce qu'il ne prouve pas : le comportement de `plannedDurationMinutes` elle-même (couverte par
+   * `training-load.spec.ts`), ni la charge bout en bout, qui demande un RPE d'athlète.
+   */
+  function plannedMinutes(items: readonly unknown[]): number | null {
+    const seconds = items.reduce<number>((sum, node) => {
+      const d = (node as { durationSeconds?: unknown }).durationSeconds;
+      return sum + (typeof d === 'number' ? d : 0);
+    }, 0);
+    return seconds > 0 ? Math.round(seconds / 60) : null;
+  }
+
+  it.each([
+    ['sprint', 35],
+    ['strength', 35],
+  ])('l’amorce %s produit une durée planifiée non nulle (%i min)', (discipline, expected) => {
+    const items = nodesToItems(assistantSeed(discipline));
+
+    expect(plannedMinutes(items)).toBe(expected);
+  });
+
+  it('la durée est portée par le champ, plus par une phrase dans `notes`', () => {
+    const [warmup, ...rest] = nodesToItems(assistantSeed('sprint')) as {
+      type?: string;
+      durationSeconds?: number;
+      notes?: string;
+    }[];
+    const cooldown = rest[rest.length - 1];
+
+    expect(warmup).toMatchObject({ type: 'warmup', durationSeconds: 25 * 60 });
+    expect(cooldown).toMatchObject({ type: 'cooldown', durationSeconds: 10 * 60 });
+    // Deux porteurs de la même valeur divergent dès que le coach en modifie un : le `notes`
+    // décrit le contenu de la phase, la durée est un champ.
+    expect(warmup.notes).not.toMatch(/min/);
+    expect(cooldown.notes).not.toMatch(/min/);
+  });
 });

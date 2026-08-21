@@ -1,5 +1,5 @@
 import { BlockType } from '@talent-x/api-client';
-import { splitEffortNodes } from './effort-card-shared';
+import { barDurationMinutes, barDurationSeconds, splitEffortNodes } from './effort-card-shared';
 import {
   isEditableGroup,
   makeBlock,
@@ -81,6 +81,43 @@ describe('splitEffortNodes — pas de perte de bloc top-level (TLX-168)', () => 
     const b = split([sprint]).series[0].key;
     expect(a).toBe(b); // stable d'un rendu à l'autre
     expect(a).toContain(sprint.key);
+  });
+});
+
+describe('durée d’une borne : secondes du document ⇄ minutes du coach (TLX-259)', () => {
+  it('secondes → minutes affichées', () => {
+    expect(barDurationMinutes('1500')).toBe('25');
+    expect(barDurationMinutes('600')).toBe('10');
+  });
+
+  it('durée absente ou non exploitable → champ vide, pas « 0 »', () => {
+    // « 0 min » se lirait comme une durée posée à zéro ; l'absence doit rester une absence.
+    expect(barDurationMinutes('')).toBe('');
+    expect(barDurationMinutes('0')).toBe('');
+    expect(barDurationMinutes('abc')).toBe('');
+  });
+
+  it('minutes saisies → secondes du modèle éditable', () => {
+    expect(barDurationSeconds('25')).toBe('1500');
+    expect(barDurationSeconds('8')).toBe('480');
+  });
+
+  it('champ vidé → durée effacée (la conservation n’est pas un gel)', () => {
+    expect(barDurationSeconds('')).toBe('');
+    expect(barDurationSeconds('0')).toBe('');
+  });
+
+  it('aller-retour stable sur un compte rond de minutes', () => {
+    expect(barDurationSeconds(barDurationMinutes('1500'))).toBe('1500');
+  });
+
+  /**
+   * Un document importé peut porter une durée qui n'est pas un compte rond de minutes. Le champ
+   * est à la minute : il l'affiche arrondie. La valeur stockée, elle, n'est réécrite que si le
+   * coach tape — l'affichage seul n'altère rien (cf. l'aller-retour conservateur de TLX-259).
+   */
+  it('durée non ronde : affichée arrondie, jamais réécrite d’elle-même', () => {
+    expect(barDurationMinutes('90')).toBe('2');
   });
 });
 

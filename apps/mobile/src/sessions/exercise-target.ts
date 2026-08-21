@@ -44,12 +44,23 @@ function loadLabel(load: Exercise['load']): string | undefined {
   return `${load.value} ${LOAD_UNIT_SUFFIX[load.unit]}`;
 }
 
+/**
+ * Durée lisible : secondes tant que c'est la bonne échelle, minutes dès qu'un compte rond de
+ * minutes ≥ 2 min est atteint. Une borne de séance vaut 1500 s (TLX-259) — « 25 min » se lit,
+ * « 1500s » se déchiffre. Conversion **exacte** seulement : un `90` reste « 90s » plutôt que de
+ * s'afficher « 2 min » et de mentir de 30 secondes.
+ */
+function durationLabel(seconds: number): string {
+  return seconds >= 120 && seconds % 60 === 0 ? `${seconds / 60} min` : `${seconds}s`;
+}
+
 /** Cible depuis la base commune v1 (séries × reps / durée + charge). Utilisée en repli. */
 function baseTarget(ex: Exercise): string | undefined {
   const parts: string[] = [];
   if (ex.sets && ex.reps) parts.push(`${ex.sets} × ${ex.reps}`);
-  else if (ex.sets && ex.durationSeconds) parts.push(`${ex.sets} × ${ex.durationSeconds}s`);
-  else if (ex.durationSeconds) parts.push(`${ex.durationSeconds}s`);
+  else if (ex.sets && ex.durationSeconds)
+    parts.push(`${ex.sets} × ${durationLabel(ex.durationSeconds)}`);
+  else if (ex.durationSeconds) parts.push(durationLabel(ex.durationSeconds));
   else if (ex.reps) parts.push(`${ex.reps} reps`);
   const load = loadLabel(ex.load);
   if (load) parts.push(load);

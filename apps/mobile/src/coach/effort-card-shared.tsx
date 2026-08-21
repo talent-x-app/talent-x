@@ -426,13 +426,37 @@ export function EffortRowFrame({
 
 // ---------- Barre Échauffement / Retour au calme --------------------------------------------
 
+/**
+ * Durée d'une borne : le document la porte en **secondes** (`durationSeconds` — c'est ce que lit
+ * `plannedDurationMinutes`, TLX-113), le coach la pense en minutes. Le champ est donc à la
+ * **minute**, comme « Durée (min) » du brief. Une valeur qui n'est pas un compte rond de minutes
+ * (documents importés) s'affiche arrondie ; la valeur stockée, elle, n'est réécrite que si le
+ * coach tape — l'affichage n'altère rien de lui-même.
+ */
+export function barDurationMinutes(durationSeconds: string): string {
+  const seconds = Number(durationSeconds.trim());
+  if (durationSeconds.trim() === '' || !Number.isFinite(seconds) || seconds <= 0) return '';
+  return String(Math.round(seconds / 60));
+}
+
+/** Minutes saisies → secondes du modèle éditable ; chaîne vide = durée effacée. */
+export function barDurationSeconds(minutes: string): string {
+  const trimmed = minutes.trim();
+  if (trimmed === '') return '';
+  const n = Number(trimmed);
+  if (!Number.isFinite(n) || n <= 0) return '';
+  return String(Math.round(n * 60));
+}
+
 export function WarmupCooldownBar({
   icon,
   title,
   subtitle,
   placeholder,
+  durationSeconds,
   onEditNotes,
   onEditTitle,
+  onEditDurationSeconds,
   onRemove,
   testID,
 }: {
@@ -441,15 +465,27 @@ export function WarmupCooldownBar({
   subtitle: string;
   /** Invite affichée (repliée) quand `subtitle` est vide — ex. « Appuyer pour ajouter » (TLX-169). */
   placeholder?: string;
+  /**
+   * Durée de la phase, en secondes (forme du modèle éditable). TLX-259 : sans elle, la séance
+   * ne pèse rien au monitoring de charge — l'échauffement annonçait « ~25 min » dans `notes`,
+   * lisible par un humain et invisible pour le calcul.
+   */
+  durationSeconds?: string;
   onEditNotes: (notes: string) => void;
   /** Édition du titre (composite, TLX-172 #5). Absent → titre figé (cartes standalone). */
   onEditTitle?: (title: string) => void;
+  /** Édition de la durée (TLX-259). Absent → aucun champ Durée. */
+  onEditDurationSeconds?: (durationSeconds: string) => void;
   /** Suppression de la phase une fois ajoutée (composite, TLX-172 #5). */
   onRemove?: () => void;
   testID?: string;
 }) {
   const [expanded, setExpanded] = useState(false);
   const { colors, typography, spacing, radius, borderWidth } = useTheme();
+  const minutes = barDurationMinutes(durationSeconds ?? '');
+  // Ligne repliée : durée puis description. Vide tant que ni l'une ni l'autre n'est posée —
+  // la barre ne doit afficher AUCUN contenu fantôme (TLX-169).
+  const summary = [minutes ? `${minutes} min` : '', subtitle].filter((p) => p !== '').join(' · ');
 
   return (
     <View
@@ -486,7 +522,7 @@ export function WarmupCooldownBar({
             {title}
           </Text>
           {!expanded &&
-            (subtitle ? (
+            (summary ? (
               <Text
                 style={{
                   color: colors.textSecondary,
@@ -495,7 +531,7 @@ export function WarmupCooldownBar({
                 }}
                 numberOfLines={1}
               >
-                {subtitle}
+                {summary}
               </Text>
             ) : placeholder ? (
               <Text
@@ -537,6 +573,31 @@ export function WarmupCooldownBar({
                 backgroundColor: colors.surface,
                 color: colors.textPrimary,
                 fontFamily: typography.fontFamily.medium,
+                fontSize: typography.bodySm.fontSize,
+              }}
+            />
+          ) : null}
+          {onEditDurationSeconds ? (
+            <TextInput
+              testID={testID ? `${testID}-duration` : undefined}
+              value={minutes}
+              // Minutes entières : `blockToExercise` ne sérialise qu'un entier de secondes, et un
+              // séparateur décimal saisi puis reformaté ferait sauter le curseur.
+              onChangeText={(t) =>
+                onEditDurationSeconds(barDurationSeconds(t.replace(/[^0-9]/g, '')))
+              }
+              keyboardType="numeric"
+              placeholder="Durée en minutes…"
+              placeholderTextColor={colors.textMuted}
+              style={{
+                height: 40,
+                paddingHorizontal: spacing[3],
+                borderRadius: radius.sm,
+                borderWidth: borderWidth.hairline,
+                borderColor: colors.borderStrong,
+                backgroundColor: colors.surface,
+                color: colors.textPrimary,
+                fontFamily: typography.fontFamily.regular,
                 fontSize: typography.bodySm.fontSize,
               }}
             />

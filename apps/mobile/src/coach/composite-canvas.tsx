@@ -114,11 +114,15 @@ export function CompositeCanvas({
         title={warmup.name}
         subtitle={warmup.notes}
         placeholder="Appuyer pour ajouter"
+        durationSeconds={warmup.durationSeconds}
         onEditNotes={(notes) =>
           commitWith(series, { ...warmup, notes }, hasCooldown ? cooldown : null)
         }
         onEditTitle={(name) =>
           commitWith(series, { ...warmup, name }, hasCooldown ? cooldown : null)
+        }
+        onEditDurationSeconds={(durationSeconds) =>
+          commitWith(series, { ...warmup, durationSeconds }, hasCooldown ? cooldown : null)
         }
         onRemove={
           hasWarmup ? () => commitWith(series, null, hasCooldown ? cooldown : null) : undefined
@@ -159,10 +163,14 @@ export function CompositeCanvas({
         title={cooldown.name}
         subtitle={cooldown.notes}
         placeholder="Appuyer pour ajouter"
+        durationSeconds={cooldown.durationSeconds}
         onEditNotes={(notes) =>
           commitWith(series, hasWarmup ? warmup : null, { ...cooldown, notes })
         }
         onEditTitle={(name) => commitWith(series, hasWarmup ? warmup : null, { ...cooldown, name })}
+        onEditDurationSeconds={(durationSeconds) =>
+          commitWith(series, hasWarmup ? warmup : null, { ...cooldown, durationSeconds })
+        }
         onRemove={
           hasCooldown ? () => commitWith(series, hasWarmup ? warmup : null, null) : undefined
         }
@@ -172,13 +180,23 @@ export function CompositeCanvas({
 }
 
 /**
- * Défauts **vides** (titre seul, sans notes) pour le composite : tant qu'aucun échauffement /
- * retour au calme n'est réellement ajouté, la barre ne doit afficher AUCUN contenu fantôme — sinon
- * le coach croit qu'un échauffement est inclus alors qu'il n'est pas persisté (TLX-169). Le
- * contenu par défaut « Footing 12′… » reste réservé aux assistants standalone (ADR-39).
+ * Défauts **vides** (titre seul, sans notes ni durée) pour le composite : tant qu'aucun
+ * échauffement / retour au calme n'est réellement ajouté, la barre ne doit afficher AUCUN contenu
+ * fantôme — sinon le coach croit qu'un échauffement est inclus alors qu'il n'est pas persisté
+ * (TLX-169). Le contenu par défaut « Footing 12′… » reste réservé aux assistants standalone
+ * (ADR-39) — et la durée par défaut avec lui (TLX-259) : posée ici, elle chiffrerait une phase
+ * que le coach n'a pas ajoutée et fausserait la charge d'entraînement au lieu de la réparer.
  */
-const makeEmptyWarmup = (): EditableBlock => ({ ...makeWarmupBlock(), notes: '' });
-const makeEmptyCooldown = (): EditableBlock => ({ ...makeCooldownBlock(), notes: '' });
+const makeEmptyWarmup = (): EditableBlock => ({
+  ...makeWarmupBlock(),
+  notes: '',
+  durationSeconds: '',
+});
+const makeEmptyCooldown = (): EditableBlock => ({
+  ...makeCooldownBlock(),
+  notes: '',
+  durationSeconds: '',
+});
 
 /** Sépare warmup / cooldown / séries (un seul warmup/cooldown au niveau séance). */
 function splitSeries(nodes: EditableNode[]): {

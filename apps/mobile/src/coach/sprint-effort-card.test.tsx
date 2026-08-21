@@ -396,6 +396,27 @@ describe('SprintEffortCanvas', () => {
     expect((arg[0] as EditableBlock).notes).toBe('Test échauffement');
   });
 
+  /**
+   * TLX-259 défaut 2 — la durée d'une borne doit être **saisissable**. Elle ne l'était pas :
+   * `stationSeconds` supplantait `durationSeconds`, donc aucun champ, donc la seule façon de
+   * dire « 25 min » était de l'écrire dans `notes` — invisible pour le calcul de charge.
+   */
+  it("édite la durée de l'échauffement (TLX-259)", () => {
+    const onChange = jest.fn();
+    render(<SprintEffortCanvas nodes={defaultNodes()} onChange={onChange} />);
+    act(() => {
+      fireEvent.press(screen.getByTestId('warmup-bar-toggle'));
+    });
+    // Le champ est à la minute (comme « Durée (min) » du brief) ; le document, en secondes.
+    expect(screen.getByTestId('warmup-bar-duration').props.value).toBe('25');
+    act(() => {
+      fireEvent.changeText(screen.getByTestId('warmup-bar-duration'), '30');
+    });
+
+    const [arg] = onChange.mock.calls[onChange.mock.calls.length - 1];
+    expect((arg[0] as EditableBlock).durationSeconds).toBe('1800');
+  });
+
   it('largeur mobile : cellules rétrécissables (minWidth 0) + colonne récup fixe (TLX-191)', () => {
     const nodes = [
       makeWarmupBlock(),

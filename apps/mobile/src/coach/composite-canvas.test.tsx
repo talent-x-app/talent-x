@@ -141,6 +141,22 @@ describe('CompositeCanvas (ADR-42)', () => {
     expect(screen.queryByText(/Footing 12/)).toBeNull();
     // Les deux barres (échauffement + retour au calme) affichent l'invite d'ajout.
     expect(screen.getAllByText('Appuyer pour ajouter')).toHaveLength(2);
+    // Même règle pour la durée par défaut arrivée avec TLX-259 : chiffrer une phase que le coach
+    // n'a pas ajoutée fausserait la charge d'entraînement au lieu de la réparer.
+    expect(screen.queryByText(/\d+ min/)).toBeNull();
+  });
+
+  it('éditer la durée de l’échauffement le persiste en secondes (TLX-259)', () => {
+    const h = setup([customBlock()]);
+    fireEvent.press(screen.getByTestId('warmup-bar-toggle'));
+    fireEvent.changeText(screen.getByTestId('warmup-bar-duration'), '20');
+
+    const warmup = h
+      .nodes()
+      .find((n) => !isEditableGroup(n) && (n as EditableBlock).type === BlockType.warmup) as
+      | EditableBlock
+      | undefined;
+    expect(warmup?.durationSeconds).toBe('1200');
   });
 
   it('saisir une note d’échauffement le persiste réellement (TLX-169)', () => {

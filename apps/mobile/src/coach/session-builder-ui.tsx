@@ -491,7 +491,14 @@ export type BaseFieldKey = 'sets' | 'reps' | 'durationSeconds' | 'restSeconds';
  */
 const BASE_FIELD_SUPERSEDED_BY: Partial<Record<BaseFieldKey, string[]>> = {
   reps: ['reps', 'fullJumps', 'techniqueThrows', 'fullThrows', 'rounds'],
-  durationSeconds: ['workSeconds', 'stationSeconds'],
+  // TLX-259 — `stationSeconds` retiré : il porte la durée **d'une station**, pas celle du bloc.
+  // Deux dimensions différentes, donc pas une redondance au sens de TLX-94 (dont le critère est
+  // « le param couvre la même dimension »). Le commentaire de `CIRCUIT_PARAM_FIELDS` le disait
+  // déjà — « la durée totale reste portée par le champ de base `durationSeconds` » — et le code
+  // le contredisait : l'éditeur masquait la durée d'un échauffement, d'un retour au calme et
+  // d'un circuit, donc le coach ne pouvait pas la poser et la séance ne pesait rien au
+  // monitoring de charge (TLX-113).
+  durationSeconds: ['workSeconds'],
   restSeconds: ['recoverySeconds'],
 };
 
@@ -564,22 +571,31 @@ export function makeBlock(over: Partial<EditableBlock> & { type: BlockType }): E
   return { ...makeEmptyBlock(), ...over };
 }
 
-/** Bloc d'échauffement par défaut pour l'assistant Sprint (ADR-39). */
+/**
+ * Bloc d'échauffement par défaut pour l'assistant Sprint (ADR-39).
+ *
+ * TLX-259 — la durée est un **champ** (`durationSeconds`), plus une phrase en fin de `notes`.
+ * Écrite « ~25 min » elle était lisible par un humain et invisible pour `plannedDurationMinutes`
+ * (TLX-113) : aucune séance construite dans l'app ne produisait de charge. Le `notes` ne la
+ * répète plus — deux porteurs de la même valeur divergent dès que le coach en modifie un.
+ */
 export function makeWarmupBlock(): EditableBlock {
   return makeBlock({
     type: BlockType.warmup,
     name: 'Échauffement',
-    notes: 'Footing 12′ · gammes (4×2×30 m) · 3 lignes droites · ~25 min',
+    durationSeconds: String(25 * 60),
+    notes: 'Footing 12′ · gammes (4×2×30 m) · 3 lignes droites',
     params: {},
   });
 }
 
-/** Bloc de retour au calme par défaut pour l'assistant Sprint (ADR-39). */
+/** Bloc de retour au calme par défaut pour l'assistant Sprint (ADR-39). Durée : cf. TLX-259 ci-dessus. */
 export function makeCooldownBlock(): EditableBlock {
   return makeBlock({
     type: BlockType.cooldown,
     name: 'Retour au calme',
-    notes: 'Footing 8′ · étirements · respiration · ~10 min',
+    durationSeconds: String(10 * 60),
+    notes: 'Footing 8′ · étirements · respiration',
     params: {},
   });
 }
