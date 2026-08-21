@@ -125,8 +125,9 @@ activité **totale**, le coach voit l'adhésion à **son** plan.
 ### 5. Cycle de vie & garde-fous
 
 - La séance libre naît **`completed`** (l'athlète consigne du réalisé). Correction de la marque = chemin
-  **PUT perf** existant (ADR-33 : tracé). Suppression = soft-delete de l'affectation/séance (chemins
-  existants, propriétaire = l'athlète).
+  **PUT perf** existant (ADR-33 : tracé). Suppression : voir l'**amendement du 2026-08-20** ci-dessous
+  — la rédaction d'origine (« soft-delete de l'affectation/séance, **chemins existants**,
+  propriétaire = l'athlète ») décrivait un chemin qui **n'existait pas**.
 - `self_logged` n'est **pas assignable** par autrui (athlètes hors endpoint coach ; `coach_id` =
   l'athlète). Pas de fuite : scope athlète = ses propres affectations.
 - RGPD : aucune donnée nouvelle de nature différente (séance/affectation/perf de l'athlète) → export/
@@ -193,3 +194,85 @@ où il déclare ce qu'il vient de faire.
 
 **Réf. :** Linear TLX-249 · scénario QA-03.8 · `AthleteSessionsScreen.tsx` · `FreeSessionLog.tsx` ·
 `sessions/session-status-meta.ts`
+---
+
+## Amendement — 2026-08-20 (TLX-253) : la suppression d'une séance libre, pour de vrai
+
+**§5 décrivait un chemin qui n'existe pas.** Il annonçait « soft-delete de l'affectation/séance
+(**chemins existants**, propriétaire = l'athlète) », en supposant que le chemin coach servirait
+l'athlète puisqu'il est propriétaire. Il ne le sert pas : `DELETE /sessions/{id}` est
+`@Roles('coach')`, donc l'athlète est **refusé sur le rôle, avant même** tout contrôle de propriété.
+
+Mesuré en QA-03.8/QA-03.10 sur l'athlète propriétaire de la séance :
+
+```
+GET    /sessions/92411c0b-…  →  200   {"status":"self_logged","coachId":"ae451bdf-…"}
+DELETE /sessions/92411c0b-…  →  403   {"error":"FORBIDDEN","message":"Rôle insuffisant…"}
+```
+
+Il lit sa séance, il ne peut pas la supprimer. Une séance consignée par erreur — mauvaise date,
+doublon, mauvaise épreuve — **ne peut plus jamais être retirée** et continue d'alimenter
+progression, records et assiduité. La capacité a été spécifiée, jamais livrée, et **rien ne l'a
+signalé** : le seul test qui l'aurait attrapée est celui d'un athlète supprimant sa propre séance,
+que personne n'avait écrit.
+
+### B1 — Endpoint athlète dédié `DELETE /athletes/me/training-log/{assignmentId}`
+
+Retenu **contre** l'assouplissement du garde de `DELETE /sessions/{id}` (autoriser le rôle athlète
+*si* `status === 'self_logged'` **et** `coachId === userId`). Moins de code, mais cela mettrait
+**deux régimes d'autorisation dans une même route** — celle-là même dont le garde de rôle est
+aujourd'hui la seule protection. Un endpoint dédié garde un régime par route, et c'est l'argument
+qu'ADR-36 §2 avait **déjà retenu** pour la création, contre l'extension de `/sessions`. La
+suppression est donc symétrique du `POST` qui a créé la séance.
+
+**Le paramètre est l'`assignmentId`**, pas le `sessionId` : c'est l'identifiant que l'athlète
+manipule partout (`GET /assignments`, route `/(athlete)/session/[id]`), et la séance libre est en
+1:1 avec son affectation. Le serveur remonte à la séance.
+
+**Garde** : rôle `athlete` **et** propriété — l'affectation est la sienne, sa séance est
+`self_logged`, et `session.coachId === athleteId`. Tout écart donne **404** (pas 403) :
+indistinguable de « n'existe pas », anti-énumération, cohérent avec `listTeammates` (ADR-37 §1).
+Un athlète ne peut donc supprimer ni la séance d'un coach, ni celle d'un autre athlète.
+
+### B2 — Soft-delete cohérent des trois maillons
+
+La séance, l'affectation et la performance ont été créées **atomiquement** (§1) : elles disparaissent
+ensemble, dans une transaction. `deletedAt` est posé sur la **séance** et sur l'**affectation** —
+c'est suffisant et c'est déjà la maille que lit l'aval : `AthleteProgressService.derive` filtre
+`deletedAt: null` **et** `session: { deletedAt: null }`. La progression, l'assiduité et la dérivation
+de candidats cessent donc de voir la séance sans qu'une seule dérivation change.
+
+`Performance` **ne porte pas de colonne `deleted_at`** et n'en gagne pas : elle n'est jamais lue
+autrement que par son affectation (1:1, `assignment_id` unique). La conserver garde la trace
+d'audit (ADR-33) sans la rendre visible nulle part.
+
+### B3 — Le record confirmé issu de la perf supprimée est supprimé avec elle
+
+C'est le point que le ticket demandait de trancher. `personal_records` est une table
+**matérialisée**, pas une dérivation : `listMyRecords` fait un `findMany({ athleteId })` direct. Un
+soft-delete ne la traverse donc pas — et l'`ON DELETE SET NULL` de `performance_id` ne se déclenche
+que sur une suppression **physique**. Sans geste explicite, le record survivrait à la séance qui
+l'a produit, `performance_id` pointant vers une ligne devenue invisible : **un record orphelin,
+indiscernable d'un record manuel** (ADR-32).
+
+**Décision : le record dont `performance_id` désigne la performance supprimée est supprimé**, dans
+la même transaction. La séance n'a pas eu lieu, la marque n'a pas eu lieu, le record non plus. Un
+record pointant vers une **autre** performance n'est pas touché.
+
+**Aucun recalcul du record précédent.** Un record est **revendiqué**, pas agrégé (ADR-20/32 : la
+détection propose des *candidats*, l'athlète confirme). Re-dériver la meilleure marque restante
+reviendrait à inscrire au nom de l'athlète un record qu'il n'a jamais confirmé. Ses marques
+antérieures restent en base et ressortiront comme candidats à la prochaine occasion.
+
+### B4 — Côté écran : confirmation inline, pas de troisième geste destructif mal cadré
+
+TLX-245 (confirmation restée armée visant la séance suivante) et TLX-250 (photo supprimée sans
+confirmation, sous un « Annuler ») disent que les gestes destructifs de ce produit sont mal cadrés.
+La suppression est donc posée sur le détail d'une séance libre **derrière la confirmation inline
+d'ADR-44 §6** — le patron déjà utilisé pour quitter un groupe — et l'état de confirmation est
+**dérivé de la ressource affichée**, jamais conservé d'un écran à l'autre (leçon de TLX-245,
+appliquée par ADR-58).
+
+**Réf. de l'amendement :** Linear TLX-253 · TLX-245 / TLX-250 (cadrage des gestes destructifs) ·
+ADR-20/32 (record revendiqué) · ADR-33 (correction tracée) · ADR-44 §6 (confirmation inline) ·
+scénarios QA-03.8 / QA-03.10

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { type Performance } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { ConsentGate } from '../common/authorization/consent.gate';
@@ -64,6 +64,55 @@ export class TrainingLogService {
     });
 
     return this.withRecordCandidates(toPerformanceDto(performance), dto);
+  }
+
+  /**
+   * Supprime une séance libre (ADR-36 §5, amendement §B1–B3). Symétrique du `POST` : les trois
+   * maillons créés atomiquement disparaissent ensemble, dans une transaction.
+   *
+   * **Garde** (§B1) : l'affectation appartient à l'appelant **et** sa séance est `self_logged`
+   * dont il est l'auteur. Tout écart → **404**, indistinguable de « n'existe pas »
+   * (anti-énumération) : un athlète ne supprime ni la séance d'un coach, ni celle d'un autre
+   * athlète. Le filtre porte la garde entière — il n'y a pas de lecture puis vérification.
+   *
+   * **Portée du soft-delete** (§B2) : `deletedAt` sur la séance et l'affectation suffit, c'est la
+   * maille que lit l'aval (`AthleteProgressService.derive` filtre les deux) → la séance sort de la
+   * progression, de l'assiduité et de la détection de candidats sans qu'une dérivation change.
+   * `Performance` ne porte pas de `deleted_at` et n'en gagne pas : elle n'est lue que par son
+   * affectation (1:1), et la conserver garde la trace d'audit (ADR-33).
+   */
+  async deleteTrainingLogSession(athleteId: string, assignmentId: string): Promise<void> {
+    const assignment = await this.prisma.sessionAssignment.findFirst({
+      where: {
+        id: assignmentId,
+        athleteId,
+        deletedAt: null,
+        session: {
+          deletedAt: null,
+          coachId: athleteId, // séance libre : l'athlète en est l'auteur (ADR-36 §1)
+          status: SessionStatus.SelfLogged,
+        },
+      },
+      select: { id: true, sessionId: true, performance: { select: { id: true } } },
+    });
+    if (!assignment) {
+      throw new NotFoundException('Séance libre introuvable.');
+    }
+
+    const now = new Date();
+    const performanceId = assignment.performance?.id;
+    await this.prisma.$transaction(async (tx) => {
+      await tx.session.update({ where: { id: assignment.sessionId }, data: { deletedAt: now } });
+      await tx.sessionAssignment.update({ where: { id: assignment.id }, data: { deletedAt: now } });
+      // §B3 : `personal_records` est **matérialisée**, pas dérivée — un soft-delete ne la traverse
+      // pas, et l'ON DELETE SET NULL de `performance_id` ne se déclenche qu'à la suppression
+      // physique. Sans ce geste, le record confirmé survivrait à la séance qui l'a produit,
+      // indiscernable d'un record manuel (ADR-32). Aucun recalcul du record précédent : un record
+      // est **revendiqué**, pas agrégé (ADR-20) — les marques antérieures ressortiront en candidats.
+      if (performanceId) {
+        await tx.personalRecord.deleteMany({ where: { athleteId, performanceId } });
+      }
+    });
   }
 
   /**

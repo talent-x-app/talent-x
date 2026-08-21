@@ -5401,6 +5401,69 @@ export const logTrainingSession = async (trainingLogRequest: TrainingLogRequest,
 
 
 
+export type deleteTrainingLogSessionResponse204 = {
+  data: void
+  status: 204
+}
+
+export type deleteTrainingLogSessionResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type deleteTrainingLogSessionResponse404 = {
+  data: NotFoundResponse
+  status: 404
+}
+
+export type deleteTrainingLogSessionResponse429 = {
+  data: TooManyRequestsResponse
+  status: 429
+}
+
+export type deleteTrainingLogSessionResponse500 = {
+  data: ServerErrorResponse
+  status: 500
+}
+
+export type deleteTrainingLogSessionResponseSuccess = (deleteTrainingLogSessionResponse204) & {
+  headers: Headers;
+};
+export type deleteTrainingLogSessionResponseError = (deleteTrainingLogSessionResponse401 | deleteTrainingLogSessionResponse404 | deleteTrainingLogSessionResponse429 | deleteTrainingLogSessionResponse500) & {
+  headers: Headers;
+};
+
+export type deleteTrainingLogSessionResponse = (deleteTrainingLogSessionResponseSuccess | deleteTrainingLogSessionResponseError)
+
+export const getDeleteTrainingLogSessionUrl = (assignmentId: string,) => {
+
+
+
+
+  return `/athletes/me/training-log/${assignmentId}`
+}
+
+/**
+ * Symétrique du POST qui a créé la séance. Soft-delete **atomique** des trois maillons créés ensemble (ADR-36 §1) : la séance `self_logged` et l'affectation sont marquées supprimées, et le record personnel éventuellement **confirmé depuis cette performance** est supprimé avec elles (§B3) — sinon il survivrait, `performanceId` pointant une ligne invisible, indiscernable d'un record manuel (ADR-32). Aucun record antérieur n'est recalculé : un record est **revendiqué**, pas agrégé (ADR-20).
+ *
+ * Le paramètre est l'identifiant d'**affectation** — celui que l'athlète manipule partout (`GET /assignments`) — la séance libre étant en 1:1 avec son affectation.
+ *
+ * Garde : rôle athlète **et** propriété (affectation de l'appelant, séance `self_logged` dont il est l'auteur). Tout écart renvoie **404**, indistinguable de « n'existe pas » (anti-énumération) : un athlète ne peut supprimer ni la séance d'un coach, ni celle d'un autre athlète.
+ * @summary Supprimer une séance libre (ADR-36 §5, amendement §B1)
+ */
+export const deleteTrainingLogSession = async (assignmentId: string, options?: RequestInit): Promise<deleteTrainingLogSessionResponse> => {
+
+  return customFetch<deleteTrainingLogSessionResponse>(getDeleteTrainingLogSessionUrl(assignmentId),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
 export type confirmRecordResponse200 = {
   data: PersonalRecord
   status: 200

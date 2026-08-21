@@ -3,7 +3,9 @@ import {
   getPerformance,
   submitPerformance,
   updatePerformance,
+  deleteTrainingLogSession,
   AssignmentStatus,
+  SessionStatus,
   type Assignment,
   type Performance,
   type PerformanceCreate,
@@ -751,9 +753,104 @@ export function SessionDetailScreen() {
               </Button>
             </>
           )}
+
+          {/* Suppression d'une séance libre (TLX-253, ADR-36 §5 amendé §B4). `key` sur l'id de
+              l'affectation : l'écran d'onglet n'est jamais démonté (ADR-58), et une confirmation
+              restée armée viserait la séance suivante — c'est exactement TLX-245. */}
+          {assignment.data.session?.status === SessionStatus.self_logged ? (
+            <DeleteFreeSessionAction key={id} assignmentId={id} />
+          ) : null}
         </>
       )}
     </ScrollView>
+  );
+}
+
+/**
+ * Suppression d'une séance libre (TLX-253). L'athlète en est le propriétaire (ADR-36 §1) mais
+ * n'avait aucun chemin : `DELETE /sessions/{id}` est coach-only, d'où le 403 sur le rôle mesuré
+ * en QA-03.8. Confirmation **inline** (ADR-44 §6, comme quitter un groupe) plutôt qu'une
+ * suppression immédiate — deux gestes destructifs du produit sont déjà mal cadrés (TLX-245/250).
+ */
+function DeleteFreeSessionAction({ assignmentId }: { assignmentId: string }) {
+  const { colors, typography, spacing } = useTheme();
+  const router = useRouter();
+  const toast = useToast();
+  const queryClient = useQueryClient();
+  const [confirming, setConfirming] = useState(false);
+
+  const remove = useMutation({
+    mutationFn: async (): Promise<void> => {
+      const response = await deleteTrainingLogSession(assignmentId);
+      if (response.status !== 204) throw response;
+    },
+    onSuccess: () => {
+      // La séance quitte progression, records et assiduité : invalider les mêmes caches que
+      // l'enregistrement (FreeSessionLog), sinon l'écran d'où l'on revient reste faux.
+      void queryClient.invalidateQueries({ queryKey: ['assignments'] });
+      void queryClient.invalidateQueries({ queryKey: ['progress', 'me'] });
+      void queryClient.invalidateQueries({ queryKey: MY_RECORDS_QUERY_KEY });
+      toast.show({ variant: 'success', title: 'Séance libre supprimée' });
+      router.back();
+    },
+    onError: () =>
+      toast.show({
+        variant: 'danger',
+        title: 'Suppression impossible',
+        description: 'Réessaie dans un instant.',
+      }),
+  });
+
+  return (
+    <Card testID="free-session-delete-card">
+      {confirming ? (
+        <View style={{ gap: spacing[3] }}>
+          <Text
+            style={{
+              color: colors.textPrimary,
+              fontFamily: typography.fontFamily.medium,
+              fontSize: typography.body.fontSize,
+              textAlign: 'center',
+            }}
+          >
+            Supprimer cette séance libre ? Elle disparaîtra de ta progression, de ton assiduité, et
+            le record qui en vient sera retiré.
+          </Text>
+          <View style={{ flexDirection: 'row', gap: spacing[2] }}>
+            <View style={{ flex: 1 }}>
+              <Button
+                testID="free-session-delete-cancel"
+                variant="secondary"
+                fullWidth
+                onPress={() => setConfirming(false)}
+              >
+                Annuler
+              </Button>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Button
+                testID="free-session-delete-confirm"
+                variant="danger"
+                fullWidth
+                loading={remove.isPending}
+                onPress={() => remove.mutate()}
+              >
+                Supprimer
+              </Button>
+            </View>
+          </View>
+        </View>
+      ) : (
+        <Button
+          testID="free-session-delete"
+          variant="ghost"
+          fullWidth
+          onPress={() => setConfirming(true)}
+        >
+          Supprimer cette séance libre
+        </Button>
+      )}
+    </Card>
   );
 }
 

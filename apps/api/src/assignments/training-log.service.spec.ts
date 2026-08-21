@@ -1,4 +1,4 @@
-import { ForbiddenException } from '@nestjs/common';
+import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import type { ConsentGate } from '../common/authorization/consent.gate';
 import type { PrismaService } from '../prisma/prisma.service';
 import type { RecordsService } from '../progress/records.service';
@@ -54,17 +54,27 @@ function recordsMock(over: Partial<RecordsService> = {}): RecordsService {
 }
 
 type PrismaMock = {
-  session: { create: jest.Mock };
-  sessionAssignment: { create: jest.Mock };
+  session: { create: jest.Mock; update: jest.Mock };
+  sessionAssignment: { create: jest.Mock; update: jest.Mock; findFirst: jest.Mock };
   performance: { create: jest.Mock };
+  personalRecord: { deleteMany: jest.Mock };
   $transaction: jest.Mock;
 };
 
 function prismaMock(): PrismaMock {
   const mock = {
-    session: { create: jest.fn().mockResolvedValue({ id: 's-1' }) },
-    sessionAssignment: { create: jest.fn().mockResolvedValue({ id: 'asg-1' }) },
+    session: {
+      create: jest.fn().mockResolvedValue({ id: 's-1' }),
+      update: jest.fn().mockResolvedValue({ id: 's-1' }),
+    },
+    sessionAssignment: {
+      create: jest.fn().mockResolvedValue({ id: 'asg-1' }),
+      update: jest.fn().mockResolvedValue({ id: 'asg-1' }),
+      // Par défaut : aucune séance libre possédée ne correspond (cas 404).
+      findFirst: jest.fn().mockResolvedValue(null),
+    },
     performance: { create: jest.fn().mockResolvedValue(performanceRow()) },
+    personalRecord: { deleteMany: jest.fn().mockResolvedValue({ count: 0 }) },
     $transaction: jest.fn((arg: unknown) => (arg as (tx: unknown) => unknown)(mock)),
   } as PrismaMock;
   return mock;
@@ -171,5 +181,124 @@ describe('TrainingLogService (ADR-36)', () => {
 
     expect(res.id).toBe('perf-1');
     expect(res.recordCandidates).toBeUndefined();
+  });
+});
+
+describe('TrainingLogService.deleteTrainingLogSession (ADR-36 §5, amendement §B1–B3)', () => {
+  /** Affectation d'une séance libre possédée, telle que la remonte la garde. */
+  function ownedRow(over: Record<string, unknown> = {}) {
+    return { id: 'asg-1', sessionId: 's-1', performance: { id: 'perf-1' }, ...over };
+  }
+
+  it('soft-delete la séance et l’affectation dans une transaction', async () => {
+    const prisma = prismaMock();
+    prisma.sessionAssignment.findFirst.mockResolvedValue(ownedRow());
+
+    await service(prisma).deleteTrainingLogSession('a-1', 'asg-1');
+
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(prisma.session.update).toHaveBeenCalledWith({
+      where: { id: 's-1' },
+      data: { deletedAt: expect.any(Date) },
+    });
+    expect(prisma.sessionAssignment.update).toHaveBeenCalledWith({
+      where: { id: 'asg-1' },
+      data: { deletedAt: expect.any(Date) },
+    });
+  });
+
+  it('la garde exige propriété ET séance libre dont l’athlète est l’auteur (§B1)', async () => {
+    const prisma = prismaMock();
+    prisma.sessionAssignment.findFirst.mockResolvedValue(ownedRow());
+
+    await service(prisma).deleteTrainingLogSession('a-1', 'asg-1');
+
+    // La garde entière est portée par le filtre : pas de lecture large puis vérification.
+    expect(prisma.sessionAssignment.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          id: 'asg-1',
+          athleteId: 'a-1',
+          deletedAt: null,
+          session: expect.objectContaining({
+            deletedAt: null,
+            coachId: 'a-1',
+            status: 'self_logged',
+          }),
+        }),
+      }),
+    );
+  });
+
+  it('supprime le record confirmé issu de cette performance (§B3)', async () => {
+    const prisma = prismaMock();
+    prisma.sessionAssignment.findFirst.mockResolvedValue(ownedRow());
+
+    await service(prisma).deleteTrainingLogSession('a-1', 'asg-1');
+
+    // Sans ce geste, le record survivrait à sa source : `personal_records` est matérialisée,
+    // et l'ON DELETE SET NULL ne se déclenche qu'à la suppression physique.
+    expect(prisma.personalRecord.deleteMany).toHaveBeenCalledWith({
+      where: { athleteId: 'a-1', performanceId: 'perf-1' },
+    });
+  });
+
+  it('aucun record touché si la séance n’a pas de performance', async () => {
+    const prisma = prismaMock();
+    prisma.sessionAssignment.findFirst.mockResolvedValue(ownedRow({ performance: null }));
+
+    await service(prisma).deleteTrainingLogSession('a-1', 'asg-1');
+
+    expect(prisma.personalRecord.deleteMany).not.toHaveBeenCalled();
+    expect(prisma.session.update).toHaveBeenCalled();
+  });
+
+  it('ne recalcule aucun record antérieur : un record est revendiqué, pas agrégé (§B3)', async () => {
+    const prisma = prismaMock();
+    const records = recordsMock();
+    prisma.sessionAssignment.findFirst.mockResolvedValue(ownedRow());
+
+    await service(prisma, consentMock(), records).deleteTrainingLogSession('a-1', 'asg-1');
+
+    // Re-dériver la meilleure marque restante inscrirait un record jamais confirmé (ADR-20/32).
+    expect(records.detectCandidates).not.toHaveBeenCalled();
+  });
+
+  it('séance d’un coach : 404, aucune écriture (non-fuite)', async () => {
+    const prisma = prismaMock();
+    // La garde ne remonte rien : `status: self_logged` + `coachId: athleteId` ne matchent pas.
+    prisma.sessionAssignment.findFirst.mockResolvedValue(null);
+
+    await expect(
+      service(prisma).deleteTrainingLogSession('a-1', 'asg-du-coach'),
+    ).rejects.toBeInstanceOf(NotFoundException);
+
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(prisma.session.update).not.toHaveBeenCalled();
+    expect(prisma.personalRecord.deleteMany).not.toHaveBeenCalled();
+  });
+
+  it('séance libre d’un AUTRE athlète : 404, aucune écriture (non-fuite)', async () => {
+    const prisma = prismaMock();
+    prisma.sessionAssignment.findFirst.mockResolvedValue(null);
+
+    await expect(
+      service(prisma).deleteTrainingLogSession('a-2', 'asg-de-a-1'),
+    ).rejects.toBeInstanceOf(NotFoundException);
+
+    // 404 et non 403 : « pas à toi » et « n'existe pas » sont indistinguables (anti-énumération).
+    expect(prisma.sessionAssignment.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ athleteId: 'a-2' }) }),
+    );
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('séance déjà supprimée : 404 (idempotent du point de vue de l’appelant)', async () => {
+    const prisma = prismaMock();
+    prisma.sessionAssignment.findFirst.mockResolvedValue(null);
+
+    await expect(service(prisma).deleteTrainingLogSession('a-1', 'asg-1')).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
   });
 });

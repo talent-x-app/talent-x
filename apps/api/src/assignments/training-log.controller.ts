@@ -1,4 +1,4 @@
-import { Body, Controller, HttpCode, Post } from '@nestjs/common';
+import { Body, Controller, Delete, HttpCode, Param, ParseUUIDPipe, Post } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -26,5 +26,26 @@ export class TrainingLogController {
     @Body() dto: TrainingLogRequestDto,
   ): Promise<PerformanceDto> {
     return this.trainingLog.logTrainingSession(athleteId, dto);
+  }
+
+  /**
+   * Suppression d'une séance libre (ADR-36 §5, amendement §B1). Endpoint **athlète dédié**, plutôt
+   * que d'assouplir le garde de `DELETE /sessions/{id}` : une route, un régime d'autorisation —
+   * le même argument qu'ADR-36 §2 avait retenu pour la création.
+   */
+  @Delete('athletes/me/training-log/:assignmentId')
+  @Roles('athlete')
+  @HttpCode(204)
+  @ApiOperation({
+    summary: 'Supprimer une séance libre',
+    operationId: 'deleteTrainingLogSession',
+  })
+  @ApiResponse({ status: 204, description: 'Séance libre supprimée.' })
+  @ApiResponse({ status: 404, description: 'Séance libre introuvable (ou non possédée).' })
+  deleteTrainingLogSession(
+    @CurrentUser('id') athleteId: string,
+    @Param('assignmentId', ParseUUIDPipe) assignmentId: string,
+  ): Promise<void> {
+    return this.trainingLog.deleteTrainingLogSession(athleteId, assignmentId);
   }
 }

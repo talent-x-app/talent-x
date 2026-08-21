@@ -31,6 +31,8 @@ jest.mock('@talent-x/api-client', () => ({
     template: 'template',
     self_logged: 'self_logged',
   },
+  // TLX-253 : l'écran expose la suppression d'une séance libre.
+  deleteTrainingLogSession: jest.fn(),
   AssignmentUpdateRequestStatus: {
     assigned: 'assigned',
     in_progress: 'in_progress',

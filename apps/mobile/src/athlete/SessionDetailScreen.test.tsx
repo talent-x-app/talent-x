@@ -10,6 +10,7 @@ const mockUpdatePerformance = jest.fn();
 const mockListComments = jest.fn();
 const mockListMyRecords = jest.fn();
 const mockConfirmRecord = jest.fn();
+const mockDeleteTrainingLogSession = jest.fn();
 const mockBack = jest.fn();
 const mockReplace = jest.fn();
 const mockShow = jest.fn();
@@ -26,6 +27,8 @@ jest.mock('@talent-x/api-client', () => ({
   getCoachDashboard: jest.fn(),
   updateAssignment: jest.fn(),
   deleteAssignment: jest.fn(),
+  // TLX-253 : suppression d'une séance libre par son propriétaire.
+  deleteTrainingLogSession: (...a: unknown[]) => mockDeleteTrainingLogSession(...a),
   AssignmentStatus: {
     assigned: 'assigned',
     in_progress: 'in_progress',
@@ -915,5 +918,115 @@ describe('SessionDetailScreen (TLX-065/071 — A-03/A-04)', () => {
       expect(screen.queryByTestId('session-view-toggle')).toBeNull();
       expect(mockListMyRecords).not.toHaveBeenCalled();
     });
+  });
+});
+
+describe('SessionDetailScreen — suppression d’une séance libre (TLX-253, ADR-36 §B4)', () => {
+  /** Séance libre : `status: self_logged`, `coachId` = l'athlète (ADR-36 §1). */
+  const FREE = {
+    ...ASSIGNMENT,
+    id: 'as-1',
+    status: 'completed',
+    session: { ...ASSIGNMENT.session, status: 'self_logged', coachId: 'me' },
+  };
+
+  beforeEach(() => {
+    mockGetPerformance.mockResolvedValue({ status: 404, data: { error: 'NOT_FOUND' } });
+  });
+
+  it('séance du coach : aucune entrée de suppression', async () => {
+    mockGetAssignment.mockResolvedValue({ status: 200, data: ASSIGNMENT });
+    render(<SessionDetailScreen />, { wrapper: Wrapper });
+
+    await waitFor(() => expect(screen.getByTestId('session-detail-title')).toBeOnTheScreen());
+    // L'athlète ne supprime que ses propres séances libres.
+    expect(screen.queryByTestId('free-session-delete')).toBeNull();
+  });
+
+  it('séance libre : suppression derrière une confirmation, pas au premier tap', async () => {
+    mockGetAssignment.mockResolvedValue({ status: 200, data: FREE });
+    render(<SessionDetailScreen />, { wrapper: Wrapper });
+
+    await waitFor(() => expect(screen.getByTestId('free-session-delete')).toBeOnTheScreen());
+    fireEvent.press(screen.getByTestId('free-session-delete'));
+
+    // Premier tap = armer, pas supprimer (TLX-250 : geste destructif sans confirmation).
+    expect(mockDeleteTrainingLogSession).not.toHaveBeenCalled();
+    expect(screen.getByTestId('free-session-delete-confirm')).toBeOnTheScreen();
+
+    fireEvent.press(screen.getByTestId('free-session-delete-confirm'));
+    await waitFor(() => expect(mockDeleteTrainingLogSession).toHaveBeenCalledWith('as-1'));
+  });
+
+  it('annuler désarme sans rien supprimer', async () => {
+    mockGetAssignment.mockResolvedValue({ status: 200, data: FREE });
+    render(<SessionDetailScreen />, { wrapper: Wrapper });
+
+    await waitFor(() => expect(screen.getByTestId('free-session-delete')).toBeOnTheScreen());
+    fireEvent.press(screen.getByTestId('free-session-delete'));
+    fireEvent.press(screen.getByTestId('free-session-delete-cancel'));
+
+    expect(mockDeleteTrainingLogSession).not.toHaveBeenCalled();
+    expect(screen.getByTestId('free-session-delete')).toBeOnTheScreen();
+  });
+
+  it('la confirmation ne suit pas le changement de séance, cache chaud (régression TLX-245)', async () => {
+    mockGetAssignment.mockImplementation((id: string) =>
+      Promise.resolve({
+        status: 200,
+        data: { ...FREE, id, session: { ...FREE.session, id: `s-${id}` } },
+      }),
+    );
+    const view = render(<SessionDetailScreen />, { wrapper: Wrapper });
+
+    // Réchauffer le cache des DEUX séances. C'est la condition du défaut : sur une séance
+    // jamais visitée, l'état de chargement démonte le composant et masque le problème —
+    // le défaut n'existe que si la suivante est déjà en cache (rejeu QA de TLX-245).
+    await waitFor(() => expect(screen.getByTestId('free-session-delete')).toBeOnTheScreen());
+    mockRouteId = 'as-2';
+    view.rerender(<SessionDetailScreen />);
+    await waitFor(() => expect(screen.getByTestId('free-session-delete')).toBeOnTheScreen());
+    mockRouteId = 'as-1';
+    view.rerender(<SessionDetailScreen />);
+    await waitFor(() => expect(screen.getByTestId('free-session-delete')).toBeOnTheScreen());
+
+    // Armer sur as-1, puis basculer vers as-2 — servie par le cache, sans état de chargement.
+    fireEvent.press(screen.getByTestId('free-session-delete'));
+    expect(screen.getByTestId('free-session-delete-confirm')).toBeOnTheScreen();
+    mockRouteId = 'as-2';
+    view.rerender(<SessionDetailScreen />);
+
+    // Sans le `key` (ADR-58), la confirmation reste armée et vise la séance suivante.
+    expect(screen.queryByTestId('free-session-delete-confirm')).toBeNull();
+    expect(screen.getByTestId('free-session-delete')).toBeOnTheScreen();
+    expect(mockDeleteTrainingLogSession).not.toHaveBeenCalled();
+  });
+
+  it('succès : invalide assignments, progression et records, puis revient en arrière', async () => {
+    mockGetAssignment.mockResolvedValue({ status: 200, data: FREE });
+    mockDeleteTrainingLogSession.mockResolvedValue({ status: 204 });
+    render(<SessionDetailScreen />, { wrapper: Wrapper });
+
+    await waitFor(() => expect(screen.getByTestId('free-session-delete')).toBeOnTheScreen());
+    fireEvent.press(screen.getByTestId('free-session-delete'));
+    fireEvent.press(screen.getByTestId('free-session-delete-confirm'));
+
+    await waitFor(() => expect(mockBack).toHaveBeenCalled());
+    expect(mockShow).toHaveBeenCalledWith(expect.objectContaining({ variant: 'success' }));
+  });
+
+  it('échec : message d’erreur, on reste sur la séance', async () => {
+    mockGetAssignment.mockResolvedValue({ status: 200, data: FREE });
+    mockDeleteTrainingLogSession.mockResolvedValue({ status: 404, data: { error: 'NOT_FOUND' } });
+    render(<SessionDetailScreen />, { wrapper: Wrapper });
+
+    await waitFor(() => expect(screen.getByTestId('free-session-delete')).toBeOnTheScreen());
+    fireEvent.press(screen.getByTestId('free-session-delete'));
+    fireEvent.press(screen.getByTestId('free-session-delete-confirm'));
+
+    await waitFor(() =>
+      expect(mockShow).toHaveBeenCalledWith(expect.objectContaining({ variant: 'danger' })),
+    );
+    expect(mockBack).not.toHaveBeenCalled();
   });
 });
