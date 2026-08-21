@@ -49,6 +49,17 @@ export interface EditableBlock {
   notes: string;
   /** Saisie brute des `params` propres au type, indexée par clé de champ. */
   params: Record<string, string>;
+  /**
+   * Champs du document source que **l'éditeur ne représente pas** — reconduits tels quels à la
+   * sérialisation (TLX-259, « écriture conservatrice », contrepartie de la lecture défensive
+   * d'ADR-18). Clés de premier niveau hors du modèle éditable ; `undefined` pour un bloc neuf.
+   */
+  preserved?: Record<string, unknown>;
+  /**
+   * Clés de `params` présentes au document mais **non déclarées par la spec du type** —
+   * `params` est un conteneur **ouvert** (ADR-18), l'éditeur n'en connaît qu'une partie.
+   */
+  preservedParams?: Record<string, unknown>;
 }
 
 /**
@@ -610,20 +621,61 @@ function normalizeLegacyParams(
   src: Record<string, unknown>,
 ): Record<string, unknown> {
   if (type === BlockType.jumps && src.approachMeters != null && src.approach == null) {
-    return { ...src, approach: src.approachMeters, approachUnit: 'meters' };
+    // La clé héritée est **retirée** : elle est remplacée, pas complétée. Jusqu'à TLX-259 le
+    // filtre « clés déclarées par la spec » la supprimait par effet de bord ; la reconduction
+    // des clés hors spec (conteneur ouvert, ADR-18) l'aurait ressuscitée à côté de sa migration.
+    const { approachMeters: _legacy, ...rest } = src;
+    return { ...rest, approach: src.approachMeters, approachUnit: 'meters' };
   }
   return src;
 }
 
 /** Hydrate un bloc éditable depuis un `Exercise` du contrat (feuille). */
+/** Clés de premier niveau qu'`EditableBlock` sait représenter — le reste est reconduit tel quel. */
+const MODELLED_EXERCISE_KEYS = new Set([
+  'name',
+  'order',
+  'type',
+  'sets',
+  'reps',
+  'durationSeconds',
+  'restSeconds',
+  'load',
+  'notes',
+  'params',
+]);
+
 function blockFromExercise(ex: Exercise): EditableBlock {
   const type = (ex.type ?? BlockType.custom) as BlockType;
   const src = normalizeLegacyParams(type, (ex.params ?? {}) as Record<string, unknown>);
+  const declared = new Set(specForType(type).paramFields?.map((f) => f.key) ?? []);
   const params: Record<string, string> = {};
   specForType(type).paramFields?.forEach((f) => {
     if (src[f.key] != null) params[f.key] = String(src[f.key]);
   });
+  // TLX-259 — écriture conservatrice : ce que l'éditeur ne sait pas représenter est mis de côté
+  // ici, et reconduit à la sérialisation, plutôt que détruit à l'aller-retour.
+  const preserved: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(ex as unknown as Record<string, unknown>)) {
+    if (!MODELLED_EXERCISE_KEYS.has(key)) preserved[key] = value;
+  }
+  // Champs de base présents au document mais **masqués** pour ce type (supplantation TLX-94,
+  // ou `sets` en groupe ADR-27) : l'éditeur ne les montre pas, donc le coach ne peut ni les
+  // modifier ni les vider. Les reconduire est la seule lecture correcte — sans quoi ouvrir la
+  // séance et changer un titre les effaçait (TLX-259 : `durationSeconds` des bornes, d'où la
+  // charge d'entraînement à zéro, TLX-113).
+  const inGroupAtRead = false;
+  for (const key of ['sets', 'reps', 'durationSeconds', 'restSeconds'] as const) {
+    const value = ex[key];
+    if (value != null && !isBaseFieldVisible(type, key, inGroupAtRead)) preserved[key] = value;
+  }
+  const preservedParams: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(src)) {
+    if (!declared.has(key)) preservedParams[key] = value;
+  }
   return {
+    ...(Object.keys(preserved).length > 0 ? { preserved } : {}),
+    ...(Object.keys(preservedParams).length > 0 ? { preservedParams } : {}),
     key: nextBlockKey(),
     name: ex.name,
     type,
@@ -688,7 +740,9 @@ function toPositiveNumber(raw: string): number | undefined {
  */
 export function blockToExercise(block: EditableBlock, order: number, inGroup = false): Exercise {
   const loadValue = toPositiveNumber(block.loadValue);
-  const exercise: Exercise = { name: block.name.trim(), order };
+  // TLX-259 : les champs du document que l'éditeur ne représente pas sont reconduits **d'abord**,
+  // puis recouverts par ce que le modèle éditable possède réellement.
+  const exercise: Exercise = { ...(block.preserved ?? {}), name: block.name.trim(), order };
   // `type` n'est posé que pour une discipline (un bloc `custom` reste byte-identique au v1).
   if (block.type !== BlockType.custom) exercise.type = block.type;
   // Champs de base : sérialisés seulement s'ils sont visibles pour le type — un champ
@@ -697,6 +751,11 @@ export function blockToExercise(block: EditableBlock, order: number, inGroup = f
   const reps = toPositiveInt(block.reps);
   const durationSeconds = toPositiveInt(block.durationSeconds);
   const restSeconds = toPositiveInt(block.restSeconds);
+  // Un champ de base masqué n'est **pas** sérialisé depuis le modèle éditable : une valeur tapée
+  // puis masquée (changement de type, TLX-94) ou supplantée par un `param` ne doit pas fuiter.
+  // La valeur qui vient du **document**, elle, est reconduite par `preserved` ci-dessus (TLX-259) :
+  // c'est la provenance qui décide, pas la visibilité. Si le champ redevient visible, la ligne
+  // ci-dessous écrase la valeur reconduite — le modèle éditable reprend la main.
   if (sets != null && isBaseFieldVisible(block.type, 'sets', inGroup)) exercise.sets = sets;
   if (reps != null && isBaseFieldVisible(block.type, 'reps', inGroup)) exercise.reps = reps;
   if (durationSeconds != null && isBaseFieldVisible(block.type, 'durationSeconds', inGroup)) {
@@ -715,9 +774,13 @@ export function blockToExercise(block: EditableBlock, order: number, inGroup = f
   // Les champs `select` stockent une chaîne (valeur d'option), `text` une chaîne libre épurée,
   // les autres un nombre positif.
   const paramFields = specForType(block.type).paramFields;
-  if (paramFields?.length) {
-    const params: Record<string, number | string | boolean> = {};
-    paramFields.forEach((f) => {
+  {
+    // Les clés hors spec du document sont reconduites (conteneur ouvert, ADR-18) puis
+    // recouvertes par les champs déclarés que l'éditeur possède.
+    const params: Record<string, number | string | boolean> = {
+      ...(block.preservedParams as Record<string, number | string | boolean> | undefined),
+    };
+    paramFields?.forEach((f) => {
       if (f.kind === 'select') {
         const raw = (block.params[f.key] ?? '').trim();
         if (raw !== '' && f.options?.some((o) => o.value === raw)) params[f.key] = raw;
