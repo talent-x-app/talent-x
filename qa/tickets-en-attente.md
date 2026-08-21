@@ -156,3 +156,114 @@ sur les portes coach. La lecture client applique la même règle de résolution 
 `coachAccessFor`, `multiCoach`) · `apps/api/src/common/authorization/consent.gate.ts:33-44` ·
 `apps/api/src/groups/groups.service.ts:268,306-320` · ADR-51 §D2/§D2a (consentement scopé
 déposé par l'adhésion) · TX-SEC-003 · scénario QA-06.2
+
+---
+
+## 2. BLOQUANT — crash de l'onglet Groupe athlète après un passage par Confidentialité
+
+**Priorité : Urgent · Labels : `qa-campagne`, `frontend`**
+
+**Reproduit sur appareil réel pendant QA-06.2 (2026-08-21, staging, `main` `8c66697`),
+compte `+qa-a3` (Zoe), Metro relancé avec `--clear`.** Trace complète fournie par le
+propriétaire.
+
+```
+ERROR [TypeError: groups.map is not a function (it is undefined)]
+Call Stack
+  AthleteGroupsScreen (apps/mobile/src/groups/AthleteGroupsScreen.tsx)
+  AthleteGroupsRoute (apps/mobile/app/(athlete)/groups.tsx)
+```
+
+L'athlète visite l'onglet **Groupe**, puis va dans **Profil → Confidentialité & données**.
+L'onglet Groupe **meurt**, rattrapé par l'`ErrorBoundary`. Il le reste jusqu'au
+redémarrage de l'application.
+
+### Quatre producteurs sur une clé, et l'un d'eux n'écrit pas la même forme
+
+`MY_GROUPS_QUERY_KEY = ['groups', 'mine']` :
+
+| Producteur                     | Type annoncé       | Ce qu'il écrit                         |
+| ------------------------------ | ------------------ | -------------------------------------- |
+| `AthleteGroupsScreen.tsx:23`   | `AthleteGroup[]`   | `response.data.data` — **tableau**     |
+| `AthleteGroupHubScreen.tsx:38` | `AthleteGroup[]`   | `response.data.data` — **tableau**     |
+| `AthleteHomeScreen.tsx:80`     | `AthleteGroup[]`   | `response.data.data` — **tableau**     |
+| **`PrivacySection.tsx:107`**   | `AthleteGroupList` | `response.data` — **objet `{ data }`** |
+
+Trois s'accordent, le quatrième non. Chaque `useQuery` type le sien localement : les quatre
+annotations sont **localement cohérentes et mutuellement contradictoires**, et le
+compilateur ne peut pas les rapprocher — les clés TanStack ne sont pas typées globalement.
+
+`PrivacySection` lit ensuite `groups.data?.data ?? []`, ce qui est juste **pour lui**. Il
+fonctionne parfaitement et empoisonne les trois autres.
+
+### Pourquoi ça tue précisément l'onglet Groupe
+
+`AthleteGroupsScreen` est une **racine d'onglet** : React Navigation ne la démonte jamais.
+Elle reste montée, abonnée à la clé, pendant que l'athlète est ailleurs dans l'app.
+
+Ouvrir Confidentialité exécute la `queryFn` de `PrivacySection`, qui écrit l'objet dans la
+clé partagée. L'écran encore monté se re-rend, `query.data ?? []` vaut désormais un objet,
+et `groups.map` n'existe pas. **L'athlète n'était même pas sur l'onglet Groupe au moment du
+crash.**
+
+### L'ordre des gestes conditionne la reproduction
+
+Une première tentative de reproduction, plus tôt le même jour, **n'a pas planté** — ce qui
+avait fait classer le crash en « non établi ». La raison est mécanique : **l'onglet Groupe
+doit avoir été visité au moins une fois** dans la session pour être monté et donc abonné à
+la clé. Sans cette visite préalable, aucun observateur ne consomme la valeur empoisonnée.
+
+Séquence qui reproduit à coup sûr :
+
+1. ouvrir l'onglet **Groupe** (le monter) ;
+2. aller dans **Profil → Confidentialité & données** ;
+3. le crash survient — sans qu'il soit nécessaire de revenir sur Groupe.
+
+C'est la même leçon que TLX-245 : le scénario n'a de valeur que si l'état préalable est
+posé.
+
+### C'est TLX-238, à seize lignes près
+
+Le correctif de TLX-238 a créé `coachGroupsQuery()` comme **producteur unique** de
+`['groups']`. Sa propre documentation, dans `groups-query.ts`, décrit ce défaut-ci mot pour
+mot — **symptôme compris** :
+
+> Deux écrans peuplaient cette clé avec des formes incompatibles […] Le dernier écran monté
+> gagnait le cache et cassait l'autre, l'un par `groups.map is not a function`, l'autre par
+> une liste vide **sans erreur**.
+>
+> Le défaut de fond n'était pas la forme retenue mais **l'existence de deux producteurs** :
+> ce module se présentait déjà comme le propriétaire du cache des groupes sans en détenir la
+> `queryFn`.
+
+Seize lignes plus bas dans le **même fichier**, `MY_GROUPS_QUERY_KEY` est déclaré comme une
+**clé nue, sans producteur** — et quatre écrans écrivent chacun le leur. Le diagnostic était
+juste, le correctif s'est arrêté à la clé qui avait planté ce jour-là.
+
+### Correctif
+
+Appliquer à `['groups','mine']` exactement ce que TLX-238 a appliqué à `['groups']` :
+**une `queryFn` unique dans `groups-query.ts`**, forme canonique `AthleteGroup[]` (celle
+des trois producteurs majoritaires), et les quatre écrans consomment ce `queryOptions`.
+`PrivacySection` devient `groups.data ?? []`.
+
+**Ne pas s'arrêter aux deux clés connues.** Le vrai livrable est un contrôle qui empêche la
+troisième occurrence : aucune clé de cache ne doit avoir plus d'une `queryFn`. Le patron de
+découverte existe déjà dans le dépôt — `app/routes-key.test.ts` (ADR-58) énumère ses cibles
+sur le disque au lieu de les lister à la main, et se protège d'un résultat vide. Un test
+équivalent qui recense les `useQuery` par clé et échoue au-delà d'un producteur fermerait la
+classe entière.
+
+Deux occurrences trouvées, toutes deux par un crash en production de qualification. La
+troisième ne sera pas trouvée autrement.
+
+### DoD
+
+Visiter l'onglet Groupe puis Confidentialité ne casse rien, dans les deux ordres. Une seule
+`queryFn` par clé de cache dans `apps/mobile`, vérifié par un test qui découvre ses cibles.
+
+**Réf. :** `apps/mobile/src/groups/groups-query.ts:9-51` (`coachGroupsQuery`, doc de
+TLX-238 ; `MY_GROUPS_QUERY_KEY` sans producteur) · `AthleteGroupsScreen.tsx:21-31` ·
+`AthleteGroupHubScreen.tsx:37-46` · `AthleteHomeScreen.tsx:79-87` ·
+`PrivacySection.tsx:106-113` · TLX-238 (même défaut, autre clé) · ADR-58 (écrans d'onglet
+jamais démontés — la condition qui rend ce crash visible) · scénario QA-06.2
