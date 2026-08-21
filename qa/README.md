@@ -188,10 +188,13 @@ la rejoue sur appareil seulement si la colonne l'indique.
 | reportAnnouncementReply                                                                       | QA-04.3                                            | E2E:tlx-186                               |
 | getTeamPulse                                                                                  | QA-04.4                                            | E2E:tlx-185                               |
 | createSession / listSessions / getSession                                                     | QA-02.2                                            | E2E:tlx-166, tlx-209                      |
-| updateSession / deleteSession / duplicateSession / archiveSession                             | QA-02.3                                            | E2E:tlx-194, coach-misc                   |
+| updateSession / deleteSession                                                                 | QA-02.3                                            | E2E:tlx-194, coach-misc                   |
+| duplicateSession                                                                              | QA-02.3 — **modèles seulement**, pas les séances   | aucun E2E (vérifié le 20/08)              |
+| archiveSession                                                                                | QA-02.3 — **aucun client mobile** (TLX-256)        | aucun E2E possible : rien à piloter       |
 | assignSession (individuel + groupe) / unassignSessionGroup                                    | QA-02.4                                            | E2E:tlx-133, tlx-198                      |
 | createCompetition / listCompetitions / getCompetition / updateCompetition / deleteCompetition | QA-02.7                                            | E2E:tlx-85                                |
-| engageAthletes / listEntries / unengageAthlete                                                | QA-02.7                                            | E2E:tlx-85                                |
+| engageAthletes / listEntries                                                                  | QA-02.7                                            | E2E:tlx-85                                |
+| unengageAthlete                                                                               | QA-02.7 — **aucun client mobile** (TLX-256)        | aucun E2E possible : rien à piloter       |
 | listAssignments                                                                               | QA-03.3                                            | E2E:tlx-173                               |
 | getAssignment / updateAssignment                                                              | QA-03.4 / QA-03.5                                  | E2E:tlx-220                               |
 | deleteAssignment                                                                              | QA-02.4                                            | —                                         |
