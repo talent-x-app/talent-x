@@ -15,7 +15,9 @@ ici, on vérifie **sur appareil** et **le fan-out réel multi-comptes**.
 push validé en QA-05) ; le pouls de lecture évolue côté coach ; la suppression est un
 soft-delete (l'annonce disparaît des listes).
 **Preuve** : `select count(*) from notifications where type = 'group_announcement' and
-resource_id = '<groupId>'` → = nombre de membres − 1.
+resource_id = '<groupId>'` → **= nombre de membres actifs** quand l'auteur est le **coach**
+(il n'est pas membre du groupe), **= membres − 1** si l'auteur est lui-même membre.
+Vérifié le 21/08 : 2 membres, coach auteur → **2 notifications par annonce**, aucune au coach.
 
 ## QA-04.2 — Réactions
 
