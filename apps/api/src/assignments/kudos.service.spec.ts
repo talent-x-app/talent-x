@@ -74,7 +74,7 @@ function targetGoing(over: Record<string, unknown> = {}) {
 
 describe('KudosService (ADR-48/49, Palier 2)', () => {
   describe('give', () => {
-    it('membre + cible going : upsert idempotent + notifie group_kudos (resourceId = séance)', async () => {
+    it('membre + cible going : upsert idempotent + notifie group_kudos (resourceId = affectation)', async () => {
       const prisma = prismaMock();
       const queue = queueMock();
       prisma.sessionAssignment.findFirst.mockResolvedValue(targetGoing());
@@ -90,9 +90,31 @@ describe('KudosService (ADR-48/49, Palier 2)', () => {
         }),
       );
       expect(queue.enqueue).toHaveBeenCalledWith(
-        { type: 'group_kudos', recipientUserId: 'a-2', resourceId: 's-1', actorId: 'a-1' },
+        { type: 'group_kudos', recipientUserId: 'a-2', resourceId: 'asg-2', actorId: 'a-1' },
         'group_kudos--asg-2--a-1',
       );
+    });
+
+    /**
+     * TLX-266 — la valeur émise décide de l'écran ouvert. Elle valait `sessionId`, et le tap
+     * de l'athlète tombait sur « Impossible de charger cette séance » (mesuré sur appareil,
+     * QA-04.6) : la route athlète `session/[id]` consomme une **affectation**, son nom ment.
+     *
+     * La fixture sépare exprès les deux identifiants (`asg-2` ≠ `s-1`) : c'est la seule façon
+     * pour un test de voir la différence. Le test mobile symétrique passait justement parce
+     * qu'il se donnait `'asg-3'` — une valeur choisie pour lui plaire, jamais rencontrée.
+     */
+    it('le resourceId émis est l’affectation, pas la séance — la distinction est mesurable', async () => {
+      const prisma = prismaMock();
+      const queue = queueMock();
+      prisma.sessionAssignment.findFirst.mockResolvedValue(targetGoing());
+      prisma.groupMember.findFirst.mockResolvedValue({ id: 'm-1' });
+
+      await service(prisma, queue).give(GIVER, 'asg-2');
+
+      const [payload] = (queue.enqueue as jest.Mock).mock.calls[0] as [{ resourceId: string }];
+      expect(payload.resourceId).toBe('asg-2');
+      expect(payload.resourceId).not.toBe('s-1');
     });
 
     it('séance individuelle (sans provenance de groupe) → 404, sans écrire', async () => {

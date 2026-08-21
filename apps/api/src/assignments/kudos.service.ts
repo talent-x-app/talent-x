@@ -95,13 +95,19 @@ export class KudosService {
       create: { assignmentId, giverId: user.id },
       update: {},
     });
-    // resourceId = séance (ADR-10) → tap ouvre la séance. Push toujours générique (aucun nom) ;
-    // `actorId` (ADR-55) ne sert qu'à la résolution nominative du feed in-app.
+    // resourceId = **l'affectation du destinataire** (TLX-266, amende ADR-49 §Notification, qui
+    // prescrivait la séance). Côté athlète il n'existe aucune route indexée par identifiant de
+    // séance : celle qui s'appelle `session/[id]` consomme une affectation (`getAssignment`).
+    // Émettre la séance envoyait donc le tap sur `GET /assignments/<sessionId>` → 404 → « Impossible
+    // de charger cette séance », mesuré sur appareil (QA-04.6). C'est aussi la convention de tous
+    // les autres types : `group_kudos` était le seul à émettre une séance, et le seul à échouer.
+    // Push toujours générique (aucun nom, ADR-10) ; `actorId` (ADR-55) ne sert qu'à la résolution
+    // nominative du feed in-app.
     await this.notificationQueue.enqueue(
       {
         type: 'group_kudos',
         recipientUserId: target.athleteId,
-        resourceId: target.sessionId,
+        resourceId: assignmentId,
         // Acteur (ADR-55) = le coéquipier qui encourage.
         actorId: user.id,
       },

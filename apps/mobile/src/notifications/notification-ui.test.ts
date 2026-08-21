@@ -1,3 +1,4 @@
+import type { NotificationType } from '@talent-x/api-client';
 import {
   NOTIFICATION_PRESENTATIONS,
   formatRelativeDate,
@@ -86,6 +87,35 @@ describe('notification-ui (TLX-111, ADR-23)', () => {
 
     it('group_kudos : l’affectation (les 👏 sont sous son préfixe)', () => {
       expect(notificationQueryKeys('group_kudos', 'asg-3')).toEqual([['assignment', 'asg-3']]);
+    });
+
+    /**
+     * TLX-266 — ce que cette suite ne peut pas prouver, et le filet qui reste.
+     *
+     * Ces fonctions sont **pures** : elles reçoivent le `resourceId` qu'on leur donne et ne
+     * peuvent pas savoir ce que le serveur émet réellement. C'est précisément ce qui a permis
+     * au défaut de vivre : le test se donnait `'asg-3'` pendant que `kudos.service.ts` envoyait
+     * un `sessionId`. La garde sur la valeur émise est côté API (`kudos.service.spec.ts`).
+     *
+     * Ce qui se vérifie ici, c'est la **cohérence des deux fonctions entre elles** : tout type
+     * dont le tap ouvre `session/[id]` — une route qui consomme une affectation — doit produire
+     * une clé d'invalidation `['assignment', id]`. Les deux avaient été écrites sur deux
+     * croyances différentes du même identifiant, et rien ne les confrontait.
+     */
+    it('les types qui ouvrent `session/[id]` ET invalident le détail visent le même identifiant', () => {
+      // `session_assigned` est volontairement hors liste : il n'invalide que `['assignments']`
+      // (la séance arrive dans la liste, son détail n'est pas monté), donc il n'utilise pas
+      // `resourceId` dans sa clé et n'a rien à confronter.
+      const types: NotificationType[] = ['performance_feedback', 'group_kudos'];
+
+      for (const type of types) {
+        expect(notificationHref('athlete', type, 'asg-9')).toEqual({
+          pathname: '/(athlete)/session/[id]',
+          params: { id: 'asg-9' },
+        });
+        // La route consomme une affectation ; la clé du détail doit porter le même `asg-9`.
+        expect(notificationQueryKeys(type, 'asg-9')).toContainEqual(['assignment', 'asg-9']);
+      }
     });
 
     it('group_reply : préfixe des annonces — couvre le fil ET le compteur de réponses', () => {

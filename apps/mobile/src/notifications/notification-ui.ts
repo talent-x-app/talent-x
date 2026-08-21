@@ -110,7 +110,9 @@ export function notificationHref(
   if (role === 'athlete' && type === 'group_announcement') {
     return { pathname: '/(athlete)/group/[id]', params: { id: resourceId } };
   }
-  // Kudos (ADR-49) : resourceId = séance → l'athlète ouvre le détail de la séance.
+  // Kudos (ADR-49, amendé TLX-266) : resourceId = **affectation**, comme les autres types que
+  // cette route sert. Elle s'appelle `session/[id]` mais consomme une affectation — le nom a
+  // induit ADR-49 en erreur, et le tap tombait sur un écran d'erreur.
   if (role === 'athlete' && type === 'group_kudos') {
     return { pathname: '/(athlete)/session/[id]', params: { id: resourceId } };
   }
@@ -196,8 +198,11 @@ export function notificationQueryKeys(
     case 'group_announcement':
       return [groupAnnouncementsQueryKey(resourceId)];
 
-    // Kudos (ADR-49) : resourceId = affectation ; les 👏 vivent sous
-    // `['assignment', id, 'teammates-attendance']`, couvert par le préfixe.
+    // Kudos (ADR-49, amendé TLX-266) : resourceId = affectation ; les 👏 vivent sous
+    // `['assignment', id, 'teammates-attendance']`, couvert par le préfixe. Ce commentaire
+    // décrivait déjà l'affectation alors que le serveur émettait une séance : la clé produite
+    // ne correspondait à aucune requête montée, donc l'invalidation à l'arrivée du push
+    // (TLX-235) était inerte pour les kudos. Il est vrai depuis que l'émetteur l'est.
     case 'group_kudos':
       return [assignmentDetailKey(resourceId)];
 

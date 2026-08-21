@@ -45,8 +45,10 @@ reactions: { emoji, count, reactors: GroupTeammate[] }[]   // reactors plafonné
   actif** vers lequel la séance a été diffusée (fan-out ADR-30), **et** la présence cible doit être
   `going`. Sinon **404** (anti-énumération). On ne peut pas se donner un kudos à soi-même.
 - **Notification** : nouveau type `group_kudos`, **gaté par la préférence `groupUpdates`** (ADR-22/23),
-  destinataire = titulaire de l'affectation, `resourceId` = `sessionId` (ouvre la séance). Contenu
-  **minimal** (ADR-10 : signal + `resourceId`, aucun nom ni détail dans le corps push).
+  destinataire = titulaire de l'affectation, `resourceId` = **`assignmentId`** — l'affectation du
+  destinataire (**amendé le 2026-08-21, TLX-266** ; cette ligne prescrivait `sessionId`, voir
+  *Amendement* en fin de document). Contenu **minimal** (ADR-10 : signal + `resourceId`, aucun nom
+  ni détail dans le corps push).
 - **Invariant dur (ADR-48 / ADR-08/21)** : le kudos porte **uniquement** sur le fait de **venir**
   (`attendance = going`) — **jamais** sur une performance, une charge ou un record. Aucun chiffre de
   perf ne transite ni ne conditionne un kudos.
@@ -94,3 +96,49 @@ et réversibles (enrichissements de lecture + table isolée désactivable).
 - **Kudos scopé `/groups/{id}/…`.** Écarté : la présence vit sur l'affectation (ADR-43) ; scoper sur
   l'assignment colle au modèle et évite d'inventer une route de présence de groupe.
 - **Kudos sur la performance/un record.** Écarté : viole ADR-08/21 (santé, consent-gated, coach-scopée).
+
+---
+
+## Amendement — 2026-08-21 (TLX-266) : `resourceId` = l'affectation, pas la séance
+
+**Ce qui était prescrit.** §D2 posait `resourceId` = `sessionId`, avec la glose « ouvre la séance ».
+
+**Ce que ça produisait.** L'athlète reçoit « Alex t'envoie des encouragements 👏 », tape dessus, et
+obtient **« Impossible de charger cette séance »**. La notification n'offre aucune autre action : son
+seul geste échoue, à tous les coups. Mesuré sur appareil (QA-04.6, 2026-08-21) — `resource_id` vérifié
+en base comme étant bien le `sessionId`, et non l'affectation du destinataire.
+
+**Pourquoi la prescription était fausse.** Côté athlète, **il n'existe aucune route indexée par
+identifiant de séance**. Celle qui s'appelle `session/[id]` consomme une **affectation** : elle appelle
+`getAssignment(id)`. Le nom de la route est le piège — ADR-49 a écrit « ouvre la séance » en toute
+bonne foi, et la route qui porte ce nom ne prend pas ce qu'il croit. Émettre la séance envoyait le tap
+sur `GET /assignments/<sessionId>` → 404.
+
+C'est aussi la convention de **tous les autres types** : `session_assigned`, `performance_feedback` et
+`performance_submitted` émettent une affectation, et `comments.service.ts` l'écrit noir sur blanc
+(« `resourceId` = affectation : c'est la ressource navigable côté athlète »). `group_kudos` était le
+seul à émettre une séance, et le seul dont le tap échouait.
+
+**Décision.** `give()` émet l'`assignmentId` — l'affectation du destinataire, qu'il tient déjà en
+paramètre. Aucun changement de contrat : la forme du payload est inchangée, seule la valeur l'est.
+
+**Second symptôme, même cause, invisible celui-là.** `notification-ui.ts` produisait
+`['assignment', <sessionId>]` comme clé d'invalidation à l'arrivée du push (TLX-235) : une clé qui ne
+correspondait à **aucune** requête montée, donc une invalidation inerte pour les kudos. Rien n'était
+visiblement cassé — la seule surface de kudos montre les 👏 *des coéquipiers*, jamais les siens, donc
+le destinataire n'avait rien à rafraîchir. C'était une mine, pas une panne : le jour où un badge
+« 3 👏 reçus » apparaît, il ne se rafraîchit pas et le commentaire jure que si. Les deux symptômes
+tombent avec le même mot.
+
+**Le point de méthode, qui vaut au-delà de ce ticket.** Le commentaire serveur, le commentaire client,
+le test **et** le nom de la route avaient tous été écrits sur la même croyance fausse. Le test passait
+parce qu'il se donnait `'asg-3'` — un identifiant d'affectation — et ne rencontrait jamais la valeur
+réelle. **Un test qui choisit sa donnée d'entrée ne prouve rien sur ce que le système produit.** La
+garde est donc côté API, sur la valeur émise, avec une fixture où l'identifiant d'affectation et celui
+de séance diffèrent — sans quoi aucun test ne peut voir la différence.
+
+**Vérifié au passage, plutôt que supposé.** Les six autres émetteurs ont été relus un par un :
+`assignments.service.ts` (affectation), `performances.service.ts` (affectation), `comments.service.ts`
+(affectation), `announcements.service.ts` et `announcement-replies.service.ts` (groupe),
+`groups.service.ts` (groupe et affectation selon le type). Tous concordent avec ce que
+`notificationHref` attend pour leur rôle. `group_kudos` était bien le seul écart.
