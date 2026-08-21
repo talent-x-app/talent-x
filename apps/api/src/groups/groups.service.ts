@@ -11,14 +11,14 @@ import { GroupCreateDto } from './dto/group-create.dto';
 import { GroupUpdateDto } from './dto/group-update.dto';
 import { GroupMemberPageDto, GroupMemberDto } from './dto/group-member.dto';
 import { AthleteGroupDto, AthleteGroupListDto } from './dto/athlete-group.dto';
-import { GroupTeammateDto, GroupTeammateListDto } from './dto/group-teammate.dto';
+import { GroupTeammateListDto } from './dto/group-teammate.dto';
 import { InviteCodeDto, type InviteCodeAction } from './dto/invite-code.dto';
 import { generateInviteCode } from './invite-code';
 import { NotificationQueueService } from '../jobs/notification-queue.service';
+import { TeammatePresenter } from '../storage/teammate-presenter.service';
 
 const GROUP_SORTABLE = ['createdAt', 'name', 'updatedAt'] as const;
 const MAX_CODE_ATTEMPTS = 5;
-const DEFAULT_AVATAR_READ_TTL_SECONDS = 3600;
 
 /**
  * Groupes d'entraînement (TLX-041). Source d'autorisation (matrice TX-SPEC-002 §6) :
@@ -39,6 +39,7 @@ export class GroupsService {
     private readonly notificationQueue: NotificationQueueService,
     private readonly storage: ObjectStorageService,
     private readonly config: ConfigService,
+    private readonly teammates: TeammatePresenter,
   ) {}
 
   async createGroup(coachId: string, dto: GroupCreateDto): Promise<GroupDto> {
@@ -75,14 +76,26 @@ export class GroupsService {
       include: {
         group: {
           include: {
-            coach: { select: { id: true, firstName: true, lastName: true, sport: true } },
+            coach: {
+              select: { id: true, firstName: true, lastName: true, sport: true, photoUrl: true },
+            },
             ...activeMemberCount,
           },
         },
       },
       orderBy: { joinedAt: 'asc' },
     });
-    return { data: rows.map(toAthleteGroupDto) };
+    // Avatar du coach présigné best-effort (ADR-37 §A1/§A3, TLX-252) : l'athlète voit la photo
+    // de **son** coach. Sans photo ou stockage indisponible → champ omis, repli sur les initiales.
+    return {
+      data: await Promise.all(
+        rows.map(async (row) => {
+          const dto = toAthleteGroupDto(row);
+          dto.coach.avatarUrl = await this.teammates.presignAvatar(row.group.coach.photoUrl);
+          return dto;
+        }),
+      ),
+    };
   }
 
   /**
@@ -107,34 +120,9 @@ export class GroupsService {
       },
       orderBy: { joinedAt: 'asc' },
     });
-    const ttl =
-      this.config.get<number>('AVATAR_URL_TTL_SECONDS') ?? DEFAULT_AVATAR_READ_TTL_SECONDS;
-    return { data: await Promise.all(members.map((m) => this.toTeammateDto(m.athlete, ttl))) };
-  }
-
-  /** Mappe un athlète vers la vue pair, en présignant l'avatar (best-effort, sans bloquer). */
-  private async toTeammateDto(
-    athlete: {
-      id: string;
-      firstName: string | null;
-      lastName: string | null;
-      photoUrl: string | null;
-    },
-    ttlSeconds: number,
-  ): Promise<GroupTeammateDto> {
-    const dto: GroupTeammateDto = {
-      id: athlete.id,
-      firstName: athlete.firstName ?? undefined,
-      lastName: athlete.lastName ?? undefined,
-    };
-    if (athlete.photoUrl) {
-      try {
-        dto.avatarUrl = await this.storage.getPresignedDownloadUrl(athlete.photoUrl, ttlSeconds);
-      } catch {
-        // Stockage indisponible (dev/test) → avatar omis ; le client retombe sur les initiales.
-      }
-    }
-    return dto;
+    // TLX-252 : passe par `TeammatePresenter` — ce service portait jusqu'ici une copie inline
+    // de la même présignature best-effort, écrite avant l'extraction du présentateur.
+    return { data: await this.teammates.presentMany(members.map((m) => m.athlete)) };
   }
 
   async getGroup(coachId: string, id: string): Promise<GroupDto> {
@@ -187,7 +175,9 @@ export class GroupsService {
       this.prisma.groupMember.findMany({
         where,
         include: {
-          athlete: { select: { id: true, firstName: true, lastName: true, sport: true } },
+          athlete: {
+            select: { id: true, firstName: true, lastName: true, sport: true, photoUrl: true },
+          },
         },
         orderBy: { joinedAt: 'asc' },
         skip: q.skip,
@@ -195,8 +185,18 @@ export class GroupsService {
       }),
       this.prisma.groupMember.count({ where }),
     ]);
+    // Avatar de l'athlète présigné best-effort (ADR-37 §A1/§A3, TLX-252) : le coach voit la photo
+    // des athlètes de **son** groupe — la garde reste l'ownership du groupe, inchangée.
     return {
-      data: rows.map(toGroupMemberDto),
+      data: await Promise.all(
+        rows.map(async (row) => {
+          const dto = toGroupMemberDto(row);
+          if (dto.athlete) {
+            dto.athlete.avatarUrl = await this.teammates.presignAvatar(row.athlete?.photoUrl);
+          }
+          return dto;
+        }),
+      ),
       meta: buildPageMeta(total, q.page, q.limit),
     };
   }
@@ -533,6 +533,8 @@ type AthleteSummary = {
   firstName: string | null;
   lastName: string | null;
   sport: string | null;
+  /** Clé d'objet de l'avatar — présignée à la présentation (ADR-37 §A3), jamais renvoyée telle quelle. */
+  photoUrl?: string | null;
 };
 
 type MemberWithGroupAndCoach = {
@@ -561,12 +563,7 @@ type MemberWithAthlete = {
   athleteId: string;
   groupId: string;
   joinedAt: Date;
-  athlete?: {
-    id: string;
-    firstName: string | null;
-    lastName: string | null;
-    sport: string | null;
-  } | null;
+  athlete?: AthleteSummary | null;
 };
 
 function toGroupMemberDto(member: MemberWithAthlete): GroupMemberDto {

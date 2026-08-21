@@ -11,12 +11,15 @@ let mockParams: Record<string, string> = {};
 
 const mockGetAthleteProgress = jest.fn();
 const mockListAthleteRecords = jest.fn();
+const mockGetCoachDashboard = jest.fn();
 
 jest.mock('@talent-x/api-client', () => ({
   getAthleteStats: (...args: unknown[]) => mockGetAthleteStats(...args),
   listAssignments: (...args: unknown[]) => mockListAssignments(...args),
   getAthleteProgress: (...args: unknown[]) => mockGetAthleteProgress(...args),
   listAthleteRecords: (...args: unknown[]) => mockListAthleteRecords(...args),
+  // TLX-252 : l'avatar de l'en-tête est relu du tableau de bord (déjà en cache en usage réel).
+  getCoachDashboard: (...args: unknown[]) => mockGetCoachDashboard(...args),
   AthleteStatus: { up_to_date: 'up_to_date', late: 'late', pending_review: 'pending_review' },
   AssignmentStatus: {
     assigned: 'assigned',
@@ -83,6 +86,57 @@ beforeEach(() => {
   // Par défaut : pas d'accès (les sections progression/records restent masquées).
   mockGetAthleteProgress.mockResolvedValue({ status: 403, data: { error: 'CONSENT_REQUIRED' } });
   mockListAthleteRecords.mockResolvedValue({ status: 403, data: { error: 'CONSENT_REQUIRED' } });
+  // Athlète sans photo par défaut → en-tête en initiales.
+  mockGetCoachDashboard.mockResolvedValue({
+    status: 200,
+    data: { athletes: [{ id: 'a-1', status: 'late', overdueCount: 0, toReviewCount: 0 }] },
+  });
+});
+
+describe('AthleteDetailScreen — photo de l’athlète (TLX-252, ADR-37 §A1)', () => {
+  it('avec photo : en-tête en image présignée, relue du tableau de bord', async () => {
+    mockGetAthleteStats.mockResolvedValue({ status: 200, data: STATS });
+    mockGetCoachDashboard.mockResolvedValue({
+      status: 200,
+      data: {
+        athletes: [
+          {
+            id: 'a-1',
+            status: 'late',
+            overdueCount: 0,
+            toReviewCount: 0,
+            avatarUrl: 'https://signed/avatar',
+          },
+        ],
+      },
+    });
+    render(<AthleteDetailScreen />, { wrapper: Wrapper });
+
+    await waitFor(() => expect(screen.getByTestId('athlete-detail-avatar')).toBeOnTheScreen());
+    expect(screen.getByTestId('athlete-detail-avatar').props.source).toEqual({
+      uri: 'https://signed/avatar',
+    });
+    expect(screen.queryByTestId('athlete-detail-initials')).toBeNull();
+  });
+
+  it('sans photo : repli sur les initiales dérivées du nom de route', async () => {
+    mockGetAthleteStats.mockResolvedValue({ status: 200, data: STATS });
+    render(<AthleteDetailScreen />, { wrapper: Wrapper });
+
+    await waitFor(() => expect(screen.getByTestId('athlete-detail-initials')).toBeOnTheScreen());
+    expect(screen.getByTestId('athlete-detail-initials')).toHaveTextContent('LD');
+    expect(screen.queryByTestId('athlete-detail-avatar')).toBeNull();
+  });
+
+  it('tableau de bord en échec : l’écran reste utilisable, initiales en repli', async () => {
+    mockGetAthleteStats.mockResolvedValue({ status: 200, data: STATS });
+    mockGetCoachDashboard.mockResolvedValue({ status: 500, data: { error: 'INTERNAL_ERROR' } });
+    render(<AthleteDetailScreen />, { wrapper: Wrapper });
+
+    // L'avatar est un ornement : son échec ne doit pas dégrader l'écran de détail.
+    await waitFor(() => expect(screen.getByTestId('athlete-detail-initials')).toBeOnTheScreen());
+    expect(screen.getByTestId('athlete-detail-name')).toHaveTextContent('Léa Dubois');
+  });
 });
 
 describe('AthleteDetailScreen (TLX-045)', () => {

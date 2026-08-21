@@ -1,7 +1,7 @@
 ## ADR-37 — Lecture athlète des coéquipiers de son groupe (`GET /groups/{id}/teammates`)
 
-- **Statut :** Accepté (2026-06-15)
-- **Date :** 2026-06-14 (proposé) · 2026-06-15 (accepté & implémenté)
+- **Statut :** Accepté (2026-06-15) · **amendé le 2026-08-20** (TLX-252 — l'avatar traverse la relation coach ↔ athlète, voir *Amendement* en fin de document)
+- **Date :** 2026-06-14 (proposé) · 2026-06-15 (accepté & implémenté) · 2026-08-20 (amendé)
 - **Réf. :** Audit UX écran de séance / section « Mon groupe » (athlète) · ADR-26 (lecture athlète de ses groupes — **complète**) · ADR-08 (autorisation : rôle + appartenance) · ADR-16 (code d'invitation réservé au coach) · ADR-24/26 (classification : rattachement = donnée d'identification/planification, **pas** de santé) · TX-SPEC-002 §6 (matrice d'autorisation) · TX-DATA-006 §5.1 (groupes / `group_members`) · TX-SEC-003 (RGPD) · TX-DPIA-007 (AIPD) · `talent-x-openapi.yaml` · TLX-88
 
 **Contexte.** ADR-26 a doté l'athlète de `GET /groups/mine` (ses groupes actifs, enrichis du coach et d'un **effectif** `memberCount`), consommé par la section « Mon groupe » du Profil (`MyGroupSection`). Mais cet ADR a **délibérément exclu la liste des membres** : `AthleteGroup` ne porte qu'un compteur, et l'unique endpoint qui matérialise la composition d'un groupe — `GET /groups/{id}/members` — est `@Roles('coach')` (propriétaire), renvoyant un `GroupMember` riche (`{ athleteId, groupId, joinedAt, athlete: UserSummary }`). **Conséquence :** un athlète voit *qu'il y a* 8 membres, mais **pas qui** ; il ne peut pas identifier ses coéquipiers. L'audit UX a relevé ce manque (« voir le détail de mon groupe »). Combler ce besoin suppose d'**exposer l'identité d'autres athlètes à un pair** : c'est une décision **structurante d'autorisation et de RGPD** que ni les specs ni ADR-26 ne tranchent (CLAUDE.md §7) → ADR avant code.
@@ -69,3 +69,92 @@ Cette décision introduit une **visibilité d'identité pair-à-pair** nouvelle 
 3. **TX-DPIA-007 / notice de confidentialité → suivi non-code** : le livrable est **additif et minimisé** (identité seule, membre-gated, périmètre borné au groupe rejoint), mais la **visibilité d'identité pair-à-pair** reste à tracer dans l'AIPD et à mentionner dans la notice **avant la mise en production** de la fonctionnalité (ne se code pas ; à acter côté conformité).
 
 **Implémentation (2026-06-15).** `GET /groups/{id}/teammates` (`@Roles('athlete')`, membre-gated → 404 anti-énumération) ; schémas `GroupTeammate`/`GroupTeammateList` au contrat → DTO → client orval régénéré ; `GroupsService.listTeammates` (présignature avatar via `StorageModule`). Front : écran `app/(athlete)/group/[id].tsx` (`AthleteGroupDetailScreen`) ouvert depuis `MyGroupCard`. Tests : API unit + intégration DB-backed, mobile RTL.
+
+---
+
+## Amendement — 2026-08-20 (TLX-252) : l'avatar traverse aussi la relation coach ↔ athlète
+
+**Ce que cet ADR avait couvert, et ce qu'il n'avait pas couvert.** §2 a introduit `avatarUrl` sur la
+vue **pair-à-pair** `GroupTeammate`, et §4 a fait analyser cette visibilité d'identité en AIPD. La
+relation **coach ↔ athlète** n'a jamais été examinée sous cet angle : `GroupMember.athlete` et
+`AthleteGroup.coach` pointent tous deux sur `UserSummary`, qui **ne porte pas d'avatar**.
+
+Le résultat, mesuré sur staging en QA-03.9 avec un athlète ayant une photo réelle : `GET /users/me`
+renvoie bien une URL présignée, `GET /groups/{id}/members` côté coach n'en renvoie aucune, et les
+écrans coach rendent des initiales, jamais une image. **Ce n'était pas un défaut, c'était le
+contrat** — et il produisait une asymétrie cocasse une fois énoncée : *un athlète voit la photo de
+ses coéquipiers, mais ni son coach ni lui-même ne se voient*.
+
+**Demande produit du propriétaire (2026-08-20) :**
+
+> On peut corriger l'ADR 37. Le coach doit pouvoir voir la photo de profil et inversement
+
+### A1 — Décision : l'avatar traverse la relation coach ↔ athlète, dans les deux sens
+
+La photo d'un athlète est visible de **ses** coachs ; la photo d'un coach est visible de **ses**
+athlètes. Dans les deux sens : via une **URL présignée à TTL court**, avec **repli sur les
+initiales** quand il n'y a pas de photo ou que le stockage est indisponible.
+
+**Pourquoi la minimisation d'ADR-37 ne s'y oppose pas.** §2 bornait ce qui fuit vers un **pair** —
+un athlète que rien n'autorise a priori à connaître les autres, d'où la revue AIPD. La relation
+coach ↔ athlète est d'une **autre nature** : elle est déjà **consentie explicitement**
+(`coach_access`, scopé par coach depuis ADR-51 §D2), déjà **matérialisée** par un lien
+(`CoachAthleteLink`), et elle porte déjà des données **autrement plus sensibles** — performances,
+charge d'entraînement, assiduité, RPE. Y ajouter une photo de profil **ne change pas la catégorie de
+traitement** : c'est la donnée la moins sensible qui circule déjà sur ce canal.
+
+**Ce qui ne traverse toujours pas.** L'amendement porte sur l'**avatar seul**. Restent exclus de ces
+surfaces : l'**e-mail**, la **date de naissance**, et toute **donnée de santé**. La minimisation
+reste la règle partout ailleurs — en particulier la vue **pair-à-pair** (§2) est **inchangée** : un
+coéquipier ne gagne rien ici.
+
+### A2 — Forme au contrat : un schéma présenté, pas un `UserSummary` élargi
+
+Deux options étaient ouvertes : étendre `UserSummary` (porté par `GroupMember.athlete`,
+`AthleteGroup.coach`, `Announcement.author`), ou introduire une **variante présentée**.
+
+**Retenu : la variante présentée** — `LinkedUserSummary` = `UserSummary` + `avatarUrl?`, appliquée
+**explicitement** à chaque surface qui doit exposer la photo. Élargir `UserSummary` aurait exposé
+l'avatar **par effet de bord** partout où le schéma est réutilisé, présent et futur : la décision
+d'exposition doit se lire à l'endroit où elle est prise, pas se déduire d'un schéma partagé. C'est
+exactement l'argument qui a fait préférer `GroupTeammate` à `UserSummary` en §2, et `AthleteGroup` à
+`Group` en ADR-26.
+
+Surfaces retenues (et **seulement** celles-là) :
+
+| Surface | Schéma | Sens |
+| --- | --- | --- |
+| `GET /groups/{id}/members` → `GroupMember.athlete` | `LinkedUserSummary` | coach voit l'athlète |
+| `GET /coach/dashboard` → `DashboardAthlete` | `avatarUrl` additif | coach voit l'athlète |
+| `GET /groups/mine` → `AthleteGroup.coach` | `LinkedUserSummary` | athlète voit son coach |
+
+`Announcement.author` reste sur `UserSummary` **sans avatar** : rien ne le demande, et l'inclure
+aurait été précisément l'effet de bord qu'on refuse.
+
+### A3 — Présignature : un seul présentateur
+
+`TeammatePresenter` (`storage/teammate-presenter.service.ts`) fait déjà ce travail — présignature
+best-effort, TTL `AVATAR_URL_TTL_SECONDS`, avatar **omis** si le stockage est indisponible. Les
+nouvelles surfaces le **réutilisent**.
+
+Constat au passage : `GroupsService.listTeammates` portait une **copie inline** de cette logique
+(`toTeammateDto`), écrite avant l'extraction du présentateur et jamais repliée dessus — deux
+implémentations du même best-effort, dont une seule était testée comme telle. Elle est supprimée au
+profit du présentateur.
+
+### A4 — Non-fuite : la garde est celle qui existe déjà
+
+Aucune porte d'autorisation neuve. Les trois surfaces sont **déjà** gardées :
+`GET /groups/{id}/members` par l'ownership du groupe, `GET /coach/dashboard` par le scope coach,
+`GET /groups/mine` par l'appartenance de l'athlète. **Un coach non lié n'atteint aucune de ces
+routes**, donc ne récupère aucune URL — la propriété à tester est que l'avatar ne franchit pas une
+porte, pas qu'une porte nouvelle le retienne.
+
+### A5 — AIPD
+
+§4 avait déclenché une revue AIPD pour la visibilité pair-à-pair. Le même réflexe s'applique :
+le flux est consigné en **TX-DPIA-007 §5.8**, ne serait-ce que pour acter qu'il est **couvert par le
+consentement existant** et qu'il n'ajoute aucune catégorie de donnée à un canal déjà analysé.
+
+**Réf. de l'amendement :** Linear TLX-252 · scénario QA-03.9 · ADR-51 §D2 (consentement scopé par
+coach) · `teammate-presenter.service.ts` · TX-DPIA-007 §5.8

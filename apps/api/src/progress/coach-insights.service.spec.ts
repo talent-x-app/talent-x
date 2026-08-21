@@ -2,6 +2,9 @@ import { ForbiddenException } from '@nestjs/common';
 import type { OwnershipService } from '../common/authorization/ownership.service';
 import type { ConsentGate } from '../common/authorization/consent.gate';
 import type { PrismaService } from '../prisma/prisma.service';
+import type { ConfigService } from '@nestjs/config';
+import type { ObjectStorageService } from '../storage/object-storage.service';
+import { TeammatePresenter } from '../storage/teammate-presenter.service';
 import { CoachInsightsService } from './coach-insights.service';
 import { AthleteStatus } from './dto/dashboard.dto';
 
@@ -66,12 +69,27 @@ function prismaMock(): PrismaMock {
   };
 }
 
+/** Stockage objet factice : présigne un avatar (échec testé via `mockRejectedValue`). */
+function storageMock(over: Partial<ObjectStorageService> = {}): ObjectStorageService {
+  return {
+    getPresignedDownloadUrl: jest.fn().mockResolvedValue('https://signed/avatar'),
+    ...over,
+  } as unknown as ObjectStorageService;
+}
+
 function service(
   prisma: PrismaMock,
   ownership = ownershipMock(),
   consent = consentMock(),
+  storage = storageMock(),
 ): CoachInsightsService {
-  return new CoachInsightsService(prisma as unknown as PrismaService, ownership, consent);
+  const config = { get: jest.fn().mockReturnValue(undefined) } as unknown as ConfigService;
+  return new CoachInsightsService(
+    prisma as unknown as PrismaService,
+    ownership,
+    consent,
+    new TeammatePresenter(storage, config),
+  );
 }
 
 describe('CoachInsightsService', () => {
@@ -91,6 +109,70 @@ describe('CoachInsightsService', () => {
         overdueCount: 0,
         toReviewCount: 0,
       });
+    });
+
+    it('avatar de l’athlète présigné pour son coach (ADR-37 §A1, TLX-252)', async () => {
+      const prisma = prismaMock();
+      prisma.coachAthleteLink.findMany.mockResolvedValue([
+        link('a-1', { photoUrl: 'avatars/a-1.jpg' }),
+      ]);
+      const storage = storageMock();
+
+      const res = await service(prisma, ownershipMock(), consentMock(), storage).getCoachDashboard(
+        COACH,
+      );
+
+      expect(res.athletes[0].avatarUrl).toBe('https://signed/avatar');
+      // C'est bien la **clé d'objet** qui est présignée, jamais renvoyée telle quelle.
+      expect(storage.getPresignedDownloadUrl).toHaveBeenCalledWith('avatars/a-1.jpg', 3600);
+      expect(JSON.stringify(res)).not.toContain('avatars/a-1.jpg');
+    });
+
+    it('sans photo : aucun avatar, aucune présignature tentée', async () => {
+      const prisma = prismaMock();
+      prisma.coachAthleteLink.findMany.mockResolvedValue([link('a-1', { photoUrl: null })]);
+      const storage = storageMock();
+
+      const res = await service(prisma, ownershipMock(), consentMock(), storage).getCoachDashboard(
+        COACH,
+      );
+
+      expect(res.athletes[0].avatarUrl).toBeUndefined();
+      expect(storage.getPresignedDownloadUrl).not.toHaveBeenCalled();
+    });
+
+    it('stockage indisponible : avatar omis, le tableau de bord répond quand même', async () => {
+      const prisma = prismaMock();
+      prisma.coachAthleteLink.findMany.mockResolvedValue([
+        link('a-1', { photoUrl: 'avatars/a-1.jpg' }),
+      ]);
+      const storage = storageMock({
+        getPresignedDownloadUrl: jest.fn().mockRejectedValue(new Error('S3 down')),
+      });
+
+      const res = await service(prisma, ownershipMock(), consentMock(), storage).getCoachDashboard(
+        COACH,
+      );
+
+      // Best-effort (ADR-37 §A3) : la panne de stockage ne casse pas la lecture.
+      expect(res.athletes[0].avatarUrl).toBeUndefined();
+      expect(res.athletes[0].id).toBe('a-1');
+    });
+
+    it('avatar hors porte de consentement, contrairement à la charge (ADR-37 §A1)', async () => {
+      const prisma = prismaMock();
+      prisma.coachAthleteLink.findMany.mockResolvedValue([
+        link('a-1', { photoUrl: 'avatars/a-1.jpg' }),
+      ]);
+      prisma.consent.findMany.mockResolvedValue([{ userId: 'a-1', granted: false }]);
+
+      const res = await service(prisma).getCoachDashboard(COACH);
+
+      // L'avatar est une donnée d'**identification** (même classement qu'ADR-37 §3) ;
+      // `load` dérive du RPE et reste, elle, consent-gated.
+      expect(res.athletes[0].coachAccessGranted).toBe(false);
+      expect(res.athletes[0].avatarUrl).toBe('https://signed/avatar');
+      expect(res.athletes[0].load).toBeUndefined();
     });
 
     it('marque En retard une affectation échue non réalisée', async () => {

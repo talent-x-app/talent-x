@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { UserSummaryDto } from './group-member.dto';
+import { LinkedUserSummaryDto } from './group-member.dto';
 
 /**
  * Vue athlète d'un de ses groupes (ADR-26) — schéma `AthleteGroup`. Distinct de
@@ -22,8 +22,8 @@ export class AthleteGroupDto {
   @ApiProperty({ format: 'date-time' })
   joinedAt!: string;
 
-  @ApiProperty({ type: UserSummaryDto })
-  coach!: UserSummaryDto;
+  @ApiProperty({ type: LinkedUserSummaryDto })
+  coach!: LinkedUserSummaryDto;
 }
 
 /** Liste (bornée, non paginée) des groupes actifs de l'athlète — schéma `AthleteGroupList`. */

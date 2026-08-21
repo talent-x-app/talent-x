@@ -6,6 +6,7 @@ import type { ObjectStorageService } from '../storage/object-storage.service';
 import type { PrismaService } from '../prisma/prisma.service';
 import { PaginationQueryDto } from '../common/pagination/pagination-query.dto';
 import type { NotificationQueueService } from '../jobs/notification-queue.service';
+import { TeammatePresenter } from '../storage/teammate-presenter.service';
 import { GroupsService } from './groups.service';
 
 function groupRow(over: Record<string, unknown> = {}) {
@@ -101,7 +102,16 @@ function service(
   storage = storageMock(),
   config = configMock(),
 ): GroupsService {
-  return new GroupsService(prisma as unknown as PrismaService, ownership, queue, storage, config);
+  // Vrai présentateur monté sur le stockage factice : la règle best-effort (présigné / omis en
+  // cas d'échec) reste **sous test** au lieu d'être stubée (ADR-37 §A3).
+  return new GroupsService(
+    prisma as unknown as PrismaService,
+    ownership,
+    queue,
+    storage,
+    config,
+    new TeammatePresenter(storage, config),
+  );
 }
 
 describe('GroupsService', () => {
@@ -189,6 +199,123 @@ describe('GroupsService', () => {
 
       const res = await service(prisma).listMyGroups('a-1');
       expect(res.data).toEqual([]);
+    });
+
+    it('avatar du coach présigné pour ses athlètes (ADR-37 §A1, TLX-252)', async () => {
+      const prisma = prismaMock();
+      prisma.groupMember.findMany.mockResolvedValue([
+        {
+          joinedAt: new Date('2026-02-01T00:00:00.000Z'),
+          group: {
+            ...groupRow({ _count: { members: 4 } }),
+            coach: {
+              id: 'c-1',
+              firstName: 'Coach',
+              lastName: 'One',
+              sport: null,
+              photoUrl: 'avatars/c-1.jpg',
+            },
+          },
+        },
+      ]);
+      const storage = storageMock();
+
+      const res = await service(prisma, ownershipMock(), queueMock(), storage).listMyGroups('a-1');
+
+      expect(res.data[0].coach.avatarUrl).toBe('https://signed/avatar');
+      expect(storage.getPresignedDownloadUrl).toHaveBeenCalledWith('avatars/c-1.jpg', 3600);
+      // La clé d'objet brute ne sort jamais du serveur.
+      expect(JSON.stringify(res)).not.toContain('avatars/c-1.jpg');
+    });
+
+    it('coach sans photo → pas d’avatar, repli initiales côté client', async () => {
+      const prisma = prismaMock();
+      prisma.groupMember.findMany.mockResolvedValue([
+        {
+          joinedAt: new Date('2026-02-01T00:00:00.000Z'),
+          group: {
+            ...groupRow({ _count: { members: 4 } }),
+            coach: { id: 'c-1', firstName: 'Coach', lastName: 'One', sport: null, photoUrl: null },
+          },
+        },
+      ]);
+      const storage = storageMock();
+
+      const res = await service(prisma, ownershipMock(), queueMock(), storage).listMyGroups('a-1');
+
+      expect(res.data[0].coach.avatarUrl).toBeUndefined();
+      expect(storage.getPresignedDownloadUrl).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('listGroupMembers — avatar de l’athlète vu du coach (TLX-252)', () => {
+    /** Roster coach d'un groupe possédé : la garde reste l'ownership, inchangée (ADR-37 §A4). */
+    function memberRow(over: Record<string, unknown> = {}) {
+      return {
+        athleteId: 'a-1',
+        groupId: 'g-1',
+        joinedAt: new Date('2026-02-01T00:00:00.000Z'),
+        athlete: {
+          id: 'a-1',
+          firstName: 'Léa',
+          lastName: 'Dubois',
+          sport: null,
+          photoUrl: 'avatars/a-1.jpg',
+          ...over,
+        },
+      };
+    }
+
+    it('présigne l’avatar de chaque membre', async () => {
+      const prisma = prismaMock();
+      prisma.$transaction.mockResolvedValue([[memberRow()], 1]);
+      const storage = storageMock();
+
+      const res = await service(prisma, ownershipMock(), queueMock(), storage).listGroupMembers(
+        'c-1',
+        'g-1',
+        new PaginationQueryDto(),
+      );
+
+      expect(res.data[0].athlete?.avatarUrl).toBe('https://signed/avatar');
+      expect(res.data[0].athlete?.firstName).toBe('Léa');
+      expect(JSON.stringify(res)).not.toContain('avatars/a-1.jpg');
+    });
+
+    it('membre sans photo → avatar omis', async () => {
+      const prisma = prismaMock();
+      prisma.$transaction.mockResolvedValue([[memberRow({ photoUrl: null })], 1]);
+      const storage = storageMock();
+
+      const res = await service(prisma, ownershipMock(), queueMock(), storage).listGroupMembers(
+        'c-1',
+        'g-1',
+        new PaginationQueryDto(),
+      );
+
+      expect(res.data[0].athlete?.avatarUrl).toBeUndefined();
+      expect(storage.getPresignedDownloadUrl).not.toHaveBeenCalled();
+    });
+
+    it('coach non propriétaire : refusé avant toute présignature (non-fuite)', async () => {
+      const prisma = prismaMock();
+      const ownership = ownershipMock();
+      (ownership.assertGroupOwnedByCoach as jest.Mock).mockRejectedValue(
+        new NotFoundException('Groupe introuvable.'),
+      );
+      const storage = storageMock();
+
+      await expect(
+        service(prisma, ownership, queueMock(), storage).listGroupMembers(
+          'c-intrus',
+          'g-1',
+          new PaginationQueryDto(),
+        ),
+      ).rejects.toBeInstanceOf(NotFoundException);
+
+      // L'avatar ne franchit pas une porte : la garde existante arrête l'appel en amont.
+      expect(storage.getPresignedDownloadUrl).not.toHaveBeenCalled();
+      expect(prisma.$transaction).not.toHaveBeenCalled();
     });
   });
 

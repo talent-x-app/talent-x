@@ -410,6 +410,49 @@ périmètre du consentement épouse désormais la relation réelle coach↔athl�
 - minimisation\)\. Aucune donnée nouvelle n'est collectée ; `coach_id` est une méta\-donnée de
 consentement\. Rétrocompatibilité mono\-coach : comportement inchangé \(NULL = global\)\.
 
+## 5\.8 Visibilité de la photo de profil entre coach et athlète \(ADR\-37 amendé\)
+
+*\(Ajout TLX\-252 / ADR\-37 §A1–A5 — amendement du 20/08/2026\.\)*
+
+__Évolution\. __La photo de profil \(`users.photo_url`, avatar TLX\-124\) devient visible **dans les
+deux sens** de la relation coach↔athlète : un coach voit la photo des athlètes de ses groupes
+\(roster de groupe, tableau de bord\), un athlète voit celle de **son** coach \(carte « Ton coach »\)\.
+Jusqu'ici aucun des deux sens ne fonctionnait — non par défaut d'implémentation mais **par le
+contrat** : `GroupMember.athlete` et `AthleteGroup.coach` portaient `UserSummary`, dépourvu
+d'avatar\. Seule la vue **pair\-à\-pair** \(§5\.5\) exposait un avatar\.
+
+__Données partagées\. __L'**avatar seul**, sous forme d'**URL présignée à TTL court**
+\(`AVATAR_URL_TTL_SECONDS`, défaut 3600 s\), omise si le stockage est indisponible \(repli sur les
+initiales\)\. **Exclus** de ces surfaces, inchangés : e\-mail, date de naissance, et toute donnée de
+l'art\. 9\. La vue **pair\-à\-pair** \(§5\.5\) n'est **pas** élargie par cet amendement\.
+
+__Nécessité et proportionnalité\. __Le canal coach↔athlète transporte déjà, sous consentement
+`coach_access` **scopé par coach** \(§5\.7, ADR\-51 §D2\), des données nettement plus sensibles :
+performances, charge d'entraînement, assiduité, RPE\. La photo de profil est la donnée **la moins
+sensible** de ce canal ; elle **n'ajoute aucune catégorie de traitement**\. Finalité : reconnaître
+son interlocuteur dans une relation d'entraînement nominative et déjà consentie\. Le sens
+athlète→coach est symétrique et sans enjeu supplémentaire \(le coach est déjà identifié nominativement
+par ADR\-26\)\.
+
+__Base juridique\. __Inchangée — exécution de la relation d'entraînement + consentement `coach_access`
+pour le sens coach→athlète\. Aucun consentement **nouveau** n'est requis : le périmètre du
+consentement existant couvre ce flux\. Le retrait du consentement, ou la sortie du dernier groupe du
+coach \(`endLinkIfLastGroup`, ADR\-51 §D5\), ferme l'accès **y compris à l'avatar**\.
+
+__Mesures en place\. __Schéma **présenté dédié** \(`LinkedUserSummary`\) appliqué **surface par
+surface** plutôt qu'un `UserSummary` élargi — la décision d'exposition reste lisible à l'endroit où
+elle est prise et n'atteint pas les surfaces non visées \(`Announcement.author` reste sans avatar\) ;
+présignature **best\-effort** à TTL court via un présentateur **unique** \(`TeammatePresenter`\), donc
+pas d'URL permanente ni d'objet public ; gardes d'autorisation **existantes et inchangées**
+\(ownership du groupe, scope coach, appartenance de l'athlète\) — un coach non lié n'atteint aucune
+de ces routes ; suppression de la photo \(`DELETE`\) effective immédiatement, l'URL présignée
+survivante expirant au plus tard au TTL\.
+
+__Effet sur les risques\. __Neutre sur §5\.1 \(accès illégitime\) : aucune porte nouvelle, aucune
+donnée d'une catégorie nouvelle sur un canal déjà analysé\. Risque résiduel **faible** : une URL
+présignée déjà émise reste valide jusqu'à expiration après retrait du consentement ou suppression de
+la photo — borné par le TTL, identique au risque déjà accepté en §5\.5\.
+
 # 6\. Plan d'action et risques résiduels
 
 __Action__

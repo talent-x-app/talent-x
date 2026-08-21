@@ -96,6 +96,7 @@ export * from './jobStatus';
 export * from './joinGroupRequest';
 export * from './kudosSummary';
 export * from './limitParamParameter';
+export * from './linkedUserSummary';
 export * from './listAssignmentsParams';
 export * from './listCommentsParams';
 export * from './listCompetitionsParams';

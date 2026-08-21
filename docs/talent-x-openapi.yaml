@@ -3207,6 +3207,33 @@ components:
           type: string
       required:
       - id
+    LinkedUserSummary:
+      type: object
+      description: >-
+        Identité d'un utilisateur **lié** par une relation coach↔athlète, enrichie de
+        l'avatar présigné (ADR-37 §A1/§A2, amendement TLX-252). Variante **présentée** de
+        `UserSummary` : elle n'est employée qu'aux surfaces qui doivent exposer la photo
+        (roster de groupe coach, carte « Ton coach » athlète), pour que la décision
+        d'exposition se lise à l'endroit où elle est prise plutôt que par effet de bord
+        sur un schéma partagé. `Announcement.author` reste sur `UserSummary`, sans avatar.
+      properties:
+        id:
+          type: string
+          format: uuid
+        firstName:
+          type: string
+        lastName:
+          type: string
+        sport:
+          type: string
+        avatarUrl:
+          type: string
+          description: >-
+            URL présignée temporaire de l'avatar (TTL `AVATAR_URL_TTL_SECONDS`), si
+            l'utilisateur en a une et que le stockage est disponible. Omise sinon — le
+            client retombe sur les initiales.
+      required:
+      - id
     AnnouncementCreate:
       type: object
       description: Corps d'une annonce de groupe (ADR-46) — texte seul, borné.
@@ -3617,7 +3644,7 @@ components:
           type: string
           format: date-time
         athlete:
-          $ref: '#/components/schemas/UserSummary'
+          $ref: '#/components/schemas/LinkedUserSummary'
       required:
       - athleteId
       - groupId
@@ -3640,7 +3667,7 @@ components:
           type: string
           format: date-time
         coach:
-          $ref: '#/components/schemas/UserSummary'
+          $ref: '#/components/schemas/LinkedUserSummary'
       required:
       - id
       - name
@@ -4862,6 +4889,11 @@ components:
           type: string
         sport:
           type: string
+        avatarUrl:
+          type: string
+          description: >-
+            URL présignée temporaire de l'avatar (ADR-37 §A2, TLX-252) — omise sans photo
+            ou si le stockage est indisponible ; le client retombe sur les initiales.
         status:
           $ref: '#/components/schemas/AthleteStatus'
         overdueCount:

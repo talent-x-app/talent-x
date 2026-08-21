@@ -14,7 +14,7 @@ import { useMutation, useQuery, useQueryClient, type UseQueryResult } from '@tan
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Share, Text, View } from 'react-native';
+import { ActivityIndicator, Image, Pressable, ScrollView, Share, Text, View } from 'react-native';
 import { Button, Card, InlineConfirm, Input, QrCode, SegmentedTabs } from '../components/ui';
 import { toUserMessage, useToast } from '../feedback';
 import { GROUPS_QUERY_KEY, groupMembersQueryKey, groupQueryKey } from './groups-query';
@@ -820,26 +820,36 @@ function MemberRow({ groupId, member }: { groupId: string; member: GroupMember }
     <Card testID={`group-member-${member.athleteId}`}>
       <View style={{ gap: confirming ? spacing[3] : 0 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[3] }}>
-          <View
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: 10,
-              backgroundColor: colors.accentSubtle,
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Text
+          {/* Photo de l'athlète si elle existe (ADR-37 §A1, TLX-252), sinon initiales. */}
+          {member.athlete?.avatarUrl ? (
+            <Image
+              testID={`group-member-${member.athleteId}-avatar`}
+              source={{ uri: member.athlete.avatarUrl }}
+              style={{ width: 36, height: 36, borderRadius: 10 }}
+            />
+          ) : (
+            <View
+              testID={`group-member-${member.athleteId}-initials`}
               style={{
-                color: colors.accentText,
-                fontFamily: typography.fontFamily.bold,
-                fontSize: typography.bodySm.fontSize,
+                width: 36,
+                height: 36,
+                borderRadius: 10,
+                backgroundColor: colors.accentSubtle,
+                alignItems: 'center',
+                justifyContent: 'center',
               }}
             >
-              {memberInitials(member)}
-            </Text>
-          </View>
+              <Text
+                style={{
+                  color: colors.accentText,
+                  fontFamily: typography.fontFamily.bold,
+                  fontSize: typography.bodySm.fontSize,
+                }}
+              >
+                {memberInitials(member)}
+              </Text>
+            </View>
+          )}
           <View style={{ flex: 1, gap: 2 }}>
             <Text
               numberOfLines={1}

@@ -15,6 +15,7 @@ import {
   sessionLoad,
   type LoadPoint,
 } from './training-load';
+import { TeammatePresenter } from '../storage/teammate-presenter.service';
 
 /** Statuts d'affectation comptant comme « à faire » (échéance / aujourd'hui). */
 export const PENDING_STATUSES = ['assigned', 'in_progress'] as const;
@@ -34,6 +35,7 @@ export class CoachInsightsService {
     private readonly prisma: PrismaService,
     private readonly ownership: OwnershipService,
     private readonly consent: ConsentGate,
+    private readonly teammates: TeammatePresenter,
   ) {}
 
   /** Tableau de bord : athlètes liés enrichis de leur statut + KPIs agrégés. */
@@ -43,7 +45,9 @@ export class CoachInsightsService {
         where: { coachId, endedAt: null },
         select: {
           athleteId: true,
-          athlete: { select: { id: true, firstName: true, lastName: true, sport: true } },
+          athlete: {
+            select: { id: true, firstName: true, lastName: true, sport: true, photoUrl: true },
+          },
         },
         distinct: ['athleteId'],
       }),
@@ -110,25 +114,31 @@ export class CoachInsightsService {
       }
     }
 
-    const athletes: DashboardAthleteDto[] = links.map((l) => {
-      const counts = perAthlete.get(l.athleteId) ?? { overdue: 0, toReview: 0 };
-      const coachAccessGranted = consentByAthlete.get(l.athleteId) ?? false;
-      // Charge consent-gated (RPE = donnée de l'athlète) : calculée seulement si coach_access.
-      const load: TrainingLoadDto | undefined = coachAccessGranted
-        ? toTrainingLoadDto(computeTrainingLoad(loadPointsByAthlete.get(l.athleteId) ?? [], now))
-        : undefined;
-      return {
-        id: l.athlete.id,
-        firstName: l.athlete.firstName ?? undefined,
-        lastName: l.athlete.lastName ?? undefined,
-        sport: l.athlete.sport ?? undefined,
-        status: deriveStatus(counts.overdue, counts.toReview),
-        overdueCount: counts.overdue,
-        toReviewCount: counts.toReview,
-        coachAccessGranted,
-        ...(load ? { load } : {}),
-      };
-    });
+    const athletes: DashboardAthleteDto[] = await Promise.all(
+      links.map(async (l) => {
+        const counts = perAthlete.get(l.athleteId) ?? { overdue: 0, toReview: 0 };
+        const coachAccessGranted = consentByAthlete.get(l.athleteId) ?? false;
+        // Charge consent-gated (RPE = donnée de l'athlète) : calculée seulement si coach_access.
+        const load: TrainingLoadDto | undefined = coachAccessGranted
+          ? toTrainingLoadDto(computeTrainingLoad(loadPointsByAthlete.get(l.athleteId) ?? [], now))
+          : undefined;
+        return {
+          id: l.athlete.id,
+          firstName: l.athlete.firstName ?? undefined,
+          lastName: l.athlete.lastName ?? undefined,
+          sport: l.athlete.sport ?? undefined,
+          // Avatar présigné best-effort (ADR-37 §A1/§A3, TLX-252). Volontairement **hors**
+          // porte de consentement : c'est une donnée d'identification, pas de performance —
+          // même classement qu'ADR-37 §3 pour le roster. `load` reste consent-gated ci-dessus.
+          avatarUrl: await this.teammates.presignAvatar(l.athlete.photoUrl),
+          status: deriveStatus(counts.overdue, counts.toReview),
+          overdueCount: counts.overdue,
+          toReviewCount: counts.toReview,
+          coachAccessGranted,
+          ...(load ? { load } : {}),
+        };
+      }),
+    );
 
     const missedSessions = athletes.reduce((sum, a) => sum + a.overdueCount, 0);
     const toReview = athletes.reduce((sum, a) => sum + a.toReviewCount, 0);

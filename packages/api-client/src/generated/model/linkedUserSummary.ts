@@ -7,25 +7,15 @@
  * Conventions transverses : préfixe /api/v1 ; jeton d'accès JWT (RS256) via en-tête Authorization ; pagination par enveloppe { data, meta } ; idempotence des écritures sensibles via Idempotency-Key ; opérations longues asynchrones (202 + ressource de statut) ; rate limiting signalé par les en-têtes RateLimit-*. L'autorisation combine rôle, appartenance (lien coach↔athlète), propriété et consentement ; voir TX-SPEC-002 §6.
  * OpenAPI spec version: 1.0.0
  */
-import type { AthleteStatus } from './athleteStatus';
-import type { TrainingLoad } from './trainingLoad';
 
 /**
- * Athlète lié du coach, enrichi de son statut dérivé — étend UserSummary (ADR-17).
+ * Identité d'un utilisateur **lié** par une relation coach↔athlète, enrichie de l'avatar présigné (ADR-37 §A1/§A2, amendement TLX-252). Variante **présentée** de `UserSummary` : elle n'est employée qu'aux surfaces qui doivent exposer la photo (roster de groupe coach, carte « Ton coach » athlète), pour que la décision d'exposition se lise à l'endroit où elle est prise plutôt que par effet de bord sur un schéma partagé. `Announcement.author` reste sur `UserSummary`, sans avatar.
  */
-export interface DashboardAthlete {
+export interface LinkedUserSummary {
   id: string;
   firstName?: string;
   lastName?: string;
   sport?: string;
-  /** URL présignée temporaire de l'avatar (ADR-37 §A2, TLX-252) — omise sans photo ou si le stockage est indisponible ; le client retombe sur les initiales. */
+  /** URL présignée temporaire de l'avatar (TTL `AVATAR_URL_TTL_SECONDS`), si l'utilisateur en a une et que le stockage est disponible. Omise sinon — le client retombe sur les initiales. */
   avatarUrl?: string;
-  status: AthleteStatus;
-  /** Affectations échues non réalisées. */
-  overdueCount: number;
-  /** Performances soumises en attente de retour du coach. */
-  toReviewCount: number;
-  /** Accès aux perfs bloqué tant que coach_access n'est pas accordé. */
-  coachAccessGranted?: boolean;
-  load?: TrainingLoad;
 }

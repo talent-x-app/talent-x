@@ -2,8 +2,8 @@ import {
   getGroupTeammates,
   getMe,
   type GroupTeammate,
+  type LinkedUserSummary,
   type User,
-  type UserSummary,
 } from '@talent-x/api-client';
 import { useTheme } from '@talent-x/design-tokens';
 import { useQuery } from '@tanstack/react-query';
@@ -28,7 +28,7 @@ export function TeammatesPane({
   joinedAt,
 }: {
   groupId: string;
-  coach?: UserSummary;
+  coach?: LinkedUserSummary;
   joinedAt?: string;
 }) {
   const { colors, typography, spacing } = useTheme();
@@ -140,32 +140,45 @@ export function TeammatesPane({
   );
 }
 
-/** Carte « Ton coach » (ADR-44 suivi UX) : avatar initiales + nom + libellé de rôle. */
-function CoachCard({ coach }: { coach: UserSummary }) {
+/**
+ * Carte « Ton coach » (ADR-44 suivi UX) : photo du coach si elle existe, sinon initiales + nom
+ * et libellé de rôle. La photo traverse la relation coach↔athlète depuis TLX-252 (ADR-37 §A1) ;
+ * l'URL est présignée à TTL court côté serveur et **absente** si le coach n'a pas de photo.
+ */
+function CoachCard({ coach }: { coach: LinkedUserSummary }) {
   const { colors, typography, spacing } = useTheme();
   return (
     <Card testID="athlete-group-coach">
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[3] }}>
-        <View
-          style={{
-            width: 44,
-            height: 44,
-            borderRadius: 13,
-            backgroundColor: colors.accent,
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <Text
+        {coach.avatarUrl ? (
+          <Image
+            testID="athlete-group-coach-avatar"
+            source={{ uri: coach.avatarUrl }}
+            style={{ width: 44, height: 44, borderRadius: 13 }}
+          />
+        ) : (
+          <View
+            testID="athlete-group-coach-initials"
             style={{
-              color: colors.textOnAccent,
-              fontFamily: typography.fontFamily.bold,
-              fontSize: typography.body.fontSize,
+              width: 44,
+              height: 44,
+              borderRadius: 13,
+              backgroundColor: colors.accent,
+              alignItems: 'center',
+              justifyContent: 'center',
             }}
           >
-            {personInitials(coach.firstName, coach.lastName)}
-          </Text>
-        </View>
+            <Text
+              style={{
+                color: colors.textOnAccent,
+                fontFamily: typography.fontFamily.bold,
+                fontSize: typography.body.fontSize,
+              }}
+            >
+              {personInitials(coach.firstName, coach.lastName)}
+            </Text>
+          </View>
+        )}
         <View style={{ flex: 1 }}>
           <Text
             style={{

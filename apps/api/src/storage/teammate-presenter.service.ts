@@ -38,21 +38,31 @@ export class TeammatePresenter {
     return this.config.get<number>('AVATAR_URL_TTL_SECONDS') ?? DEFAULT_AVATAR_READ_TTL_SECONDS;
   }
 
+  /**
+   * Présigne une clé d'avatar **best-effort** : `undefined` s'il n'y a pas de photo **ou** si le
+   * stockage est indisponible (dev/test) — le client retombe alors sur les initiales.
+   *
+   * Exposé séparément de `present` (TLX-252) pour les surfaces qui portent déjà leur propre forme
+   * de sortie — `LinkedUserSummary` (roster coach, carte « Ton coach »), `DashboardAthlete` — et
+   * n'ont besoin que de cette règle-là, pas de la vue pair-à-pair minimisée.
+   */
+  async presignAvatar(photoUrl: string | null | undefined): Promise<string | undefined> {
+    if (!photoUrl) return undefined;
+    try {
+      return await this.storage.getPresignedDownloadUrl(photoUrl, this.ttl());
+    } catch {
+      return undefined;
+    }
+  }
+
   /** Mappe un athlète vers la vue pair, avatar présigné best-effort. */
   async present(athlete: MinimalAthlete): Promise<TeammateView> {
-    const view: TeammateView = {
+    return {
       id: athlete.id,
       firstName: athlete.firstName ?? undefined,
       lastName: athlete.lastName ?? undefined,
+      avatarUrl: await this.presignAvatar(athlete.photoUrl),
     };
-    if (athlete.photoUrl) {
-      try {
-        view.avatarUrl = await this.storage.getPresignedDownloadUrl(athlete.photoUrl, this.ttl());
-      } catch {
-        // Stockage indisponible (dev/test) → avatar omis ; le client retombe sur les initiales.
-      }
-    }
-    return view;
   }
 
   /** Présente une liste d'athlètes (présignatures en parallèle). */

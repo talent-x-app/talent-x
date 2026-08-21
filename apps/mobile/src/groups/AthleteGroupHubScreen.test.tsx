@@ -125,6 +125,46 @@ describe('AthleteGroupHubScreen (ADR-44 — hub mince)', () => {
     expect(screen.queryByTestId('athlete-group-teammate-self-1')).toBeNull();
   });
 
+  it('Coéquipiers : photo du coach quand il en a une (TLX-252, ADR-37 §A1)', async () => {
+    mockGetMyGroups.mockResolvedValue({
+      status: 200,
+      data: {
+        data: [
+          {
+            ...GROUPS.data.data[0],
+            coach: {
+              id: 'c',
+              firstName: 'Mamadou',
+              lastName: 'Diallo',
+              avatarUrl: 'https://signed/coach',
+            },
+          },
+        ],
+      },
+    });
+    mockGetGroupTeammates.mockResolvedValue({ status: 200, data: { data: [] } });
+    renderHub();
+    await waitFor(() => expect(screen.getByTestId('athlete-group-tabs')).toBeOnTheScreen());
+
+    fireEvent.press(screen.getByLabelText('Coéquipiers'));
+    await waitFor(() => expect(screen.getByTestId('athlete-group-coach')).toBeOnTheScreen());
+    const avatar = screen.getByTestId('athlete-group-coach-avatar');
+    expect(avatar.props.source).toEqual({ uri: 'https://signed/coach' });
+    expect(screen.queryByTestId('athlete-group-coach-initials')).toBeNull();
+  });
+
+  it('Coéquipiers : coach sans photo → initiales (repli)', async () => {
+    // `GROUPS` porte un coach **sans** `avatarUrl` — cas par défaut du contrat.
+    mockGetGroupTeammates.mockResolvedValue({ status: 200, data: { data: [] } });
+    renderHub();
+    await waitFor(() => expect(screen.getByTestId('athlete-group-tabs')).toBeOnTheScreen());
+
+    fireEvent.press(screen.getByLabelText('Coéquipiers'));
+    await waitFor(() => expect(screen.getByTestId('athlete-group-coach')).toBeOnTheScreen());
+    expect(screen.getByTestId('athlete-group-coach-initials')).toHaveTextContent('MD');
+    expect(screen.queryByTestId('athlete-group-coach-avatar')).toBeNull();
+  });
+
   it('pas de fil « Séances » dans le hub ; calendrier du groupe présent (ADR-47)', async () => {
     renderHub();
     await waitFor(() => expect(screen.getByTestId('athlete-group-tabs')).toBeOnTheScreen());

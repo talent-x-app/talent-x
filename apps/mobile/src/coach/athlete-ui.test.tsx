@@ -1,5 +1,7 @@
 import { type DashboardAthlete } from '@talent-x/api-client';
-import { sortAthletesByStatus } from './athlete-ui';
+import { ThemeProvider } from '@talent-x/design-tokens';
+import { render, screen } from '@testing-library/react-native';
+import { AthleteListItem, sortAthletesByStatus } from './athlete-ui';
 
 /** Fabrique un athlète de dashboard minimal (champs non pertinents par défaut). */
 function athlete(partial: Record<string, unknown>) {
@@ -57,5 +59,37 @@ describe('sortAthletesByStatus (TLX-147)', () => {
     expect(sorted).not.toBe(source); // nouvelle référence
     expect(sorted.map((a) => a.id)).toEqual(['late', 'ok']);
     expect(source.map((a) => a.id)).toEqual(['ok', 'late']); // source non mutée
+  });
+});
+
+describe('AthleteListItem — photo de l’athlète vue du coach (TLX-252, ADR-37 §A1)', () => {
+  const wrapper = ({ children }: { children: React.ReactNode }) => (
+    <ThemeProvider>{children}</ThemeProvider>
+  );
+
+  it('avec photo : rend l’image présignée, pas les initiales', () => {
+    render(
+      <AthleteListItem
+        athlete={athlete({ id: 'a-1', avatarUrl: 'https://signed/avatar' }) as DashboardAthlete}
+      />,
+      { wrapper },
+    );
+
+    const image = screen.getByTestId('athlete-avatar-a-1');
+    expect(image).toBeOnTheScreen();
+    expect(image.props.source).toEqual({ uri: 'https://signed/avatar' });
+    expect(screen.queryByTestId('athlete-initials-a-1')).toBeNull();
+  });
+
+  it('sans photo : repli sur les initiales', () => {
+    render(
+      <AthleteListItem
+        athlete={athlete({ id: 'a-2', firstName: 'Léa', lastName: 'Dubois' }) as DashboardAthlete}
+      />,
+      { wrapper },
+    );
+
+    expect(screen.getByTestId('athlete-initials-a-2')).toHaveTextContent('LD');
+    expect(screen.queryByTestId('athlete-avatar-a-2')).toBeNull();
   });
 });

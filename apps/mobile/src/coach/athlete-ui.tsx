@@ -1,6 +1,6 @@
 import { AthleteStatus, type DashboardAthlete } from '@talent-x/api-client';
 import { useTheme } from '@talent-x/design-tokens';
-import { StyleSheet, Text, View } from 'react-native';
+import { Image, StyleSheet, Text, View } from 'react-native';
 import { Card } from '../components/ui';
 
 /** Libellé + tonalité (token) par statut dérivé (ADR-17). Partagé dashboard ↔ liste. */
@@ -83,17 +83,30 @@ export function AthleteListItem({
   return (
     <Card testID={testID ?? `athlete-item-${athlete.id}`} onPress={onPress}>
       <View style={styles.row}>
-        <View style={[styles.avatar, { backgroundColor: colors.accentSubtle }]}>
-          <Text
-            style={{
-              color: colors.accentText,
-              fontFamily: typography.fontFamily.bold,
-              fontSize: typography.body.fontSize,
-            }}
+        {/* Photo de l'athlète si elle existe (ADR-37 §A1, TLX-252) — URL présignée à TTL court ;
+            repli sur les initiales sans photo ou si le stockage était indisponible. */}
+        {athlete.avatarUrl ? (
+          <Image
+            testID={`athlete-avatar-${athlete.id}`}
+            source={{ uri: athlete.avatarUrl }}
+            style={styles.avatar}
+          />
+        ) : (
+          <View
+            testID={`athlete-initials-${athlete.id}`}
+            style={[styles.avatar, { backgroundColor: colors.accentSubtle }]}
           >
-            {athleteInitials(athlete)}
-          </Text>
-        </View>
+            <Text
+              style={{
+                color: colors.accentText,
+                fontFamily: typography.fontFamily.bold,
+                fontSize: typography.body.fontSize,
+              }}
+            >
+              {athleteInitials(athlete)}
+            </Text>
+          </View>
+        )}
         <View style={{ flex: 1, gap: 2 }}>
           <Text
             style={{

@@ -1,10 +1,12 @@
 import {
   getAthleteProgress,
   getAthleteStats,
+  getCoachDashboard,
   listAssignments,
   listAthleteRecords,
   type AthleteStatus,
   type Assignment,
+  type Dashboard,
   type PersonalRecord,
   type Progress,
   type Stats,
@@ -13,9 +15,18 @@ import { useTheme } from '@talent-x/design-tokens';
 import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 import { Feather } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { Button, Card } from '../components/ui';
 import { ProgressExplorer, ProgressMetricsRow, RecordRow } from '../athlete/progress-charts';
+import { COACH_DASHBOARD_QUERY_KEY } from '../dashboard/dashboard-query';
 import { AthleteStatusBadge } from './athlete-ui';
 
 /** Réponse 403 dont le code métier indique un consentement manquant. */
@@ -41,6 +52,22 @@ export function AthleteDetailScreen() {
   }>();
   const id = params.id;
   const name = params.name && params.name.length > 0 ? params.name : 'Athlète';
+
+  // Avatar (ADR-37 §A1, TLX-252) : l'identité de cet écran vient des **paramètres de route**, qui
+  // ne peuvent pas porter une URL présignée (longue, expirante, et recopiée dans l'historique de
+  // navigation). On le relit donc du tableau de bord — déjà en cache, puisque l'écran s'ouvre
+  // depuis la liste d'athlètes qui le consomme ; `useQuery` refetch tout seul si le cache est froid.
+  const dashboard = useQuery({
+    queryKey: COACH_DASHBOARD_QUERY_KEY,
+    queryFn: async (): Promise<Dashboard> => {
+      const response = await getCoachDashboard();
+      if (response.status === 200) return response.data;
+      throw response;
+    },
+    retry: false,
+    meta: { skipGlobalErrorToast: true },
+  });
+  const avatarUrl = dashboard.data?.athletes.find((a) => a.id === id)?.avatarUrl;
 
   const stats = useQuery({
     queryKey: ['athlete', id, 'stats'],
@@ -94,17 +121,24 @@ export function AthleteDetailScreen() {
       </Pressable>
 
       <View style={styles.header}>
-        <View style={[styles.avatar, { backgroundColor: colors.accentSubtle }]}>
-          <Text
-            style={{
-              color: colors.accentText,
-              fontFamily: typography.fontFamily.bold,
-              fontSize: typography.h3.fontSize,
-            }}
+        {avatarUrl ? (
+          <Image testID="athlete-detail-avatar" source={{ uri: avatarUrl }} style={styles.avatar} />
+        ) : (
+          <View
+            testID="athlete-detail-initials"
+            style={[styles.avatar, { backgroundColor: colors.accentSubtle }]}
           >
-            {initialsFromName(name)}
-          </Text>
-        </View>
+            <Text
+              style={{
+                color: colors.accentText,
+                fontFamily: typography.fontFamily.bold,
+                fontSize: typography.h3.fontSize,
+              }}
+            >
+              {initialsFromName(name)}
+            </Text>
+          </View>
+        )}
         <View style={{ flex: 1, gap: spacing[1] }}>
           <Text
             testID="athlete-detail-name"

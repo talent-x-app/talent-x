@@ -63,6 +63,13 @@ export class DashboardAthleteDto {
   @ApiPropertyOptional()
   sport?: string;
 
+  @ApiPropertyOptional({
+    description:
+      "URL présignée temporaire de l'avatar (ADR-37 §A2, TLX-252) — omise sans photo ou si " +
+      'le stockage est indisponible ; le client retombe sur les initiales.',
+  })
+  avatarUrl?: string;
+
   @ApiProperty({ enum: AthleteStatus })
   status!: AthleteStatus;
 

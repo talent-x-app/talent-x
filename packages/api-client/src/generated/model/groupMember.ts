@@ -7,11 +7,11 @@
  * Conventions transverses : préfixe /api/v1 ; jeton d'accès JWT (RS256) via en-tête Authorization ; pagination par enveloppe { data, meta } ; idempotence des écritures sensibles via Idempotency-Key ; opérations longues asynchrones (202 + ressource de statut) ; rate limiting signalé par les en-têtes RateLimit-*. L'autorisation combine rôle, appartenance (lien coach↔athlète), propriété et consentement ; voir TX-SPEC-002 §6.
  * OpenAPI spec version: 1.0.0
  */
-import type { UserSummary } from './userSummary';
+import type { LinkedUserSummary } from './linkedUserSummary';
 
 export interface GroupMember {
   athleteId: string;
   groupId: string;
   joinedAt?: string;
-  athlete?: UserSummary;
+  athlete?: LinkedUserSummary;
 }
