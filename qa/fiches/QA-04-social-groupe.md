@@ -60,16 +60,47 @@ d'autrui exposé).
 ## QA-04.6 — Kudos
 
 **Couvre** : `giveKudos`, `removeKudos`.
-**Étapes** : l'athlète 2 envoie des kudos sur l'affectation réalisée par B ; B reçoit
-`group_kudos` (bannière « Un coéquipier t'encourage 👏 », **sans nom** — générique
-ADR-10) ; l'athlète 2 retire puis renvoie.
-**Attendu** : idempotence du retrait/renvoi ; pas de kudos sur sa propre affectation
-(sonde → refus).
-**Preuve** : `select count(*) from assignment_kudos where assignment_id = '<id>'`.
+**Étapes** : l'athlète 2 envoie des kudos sur l'affectation de B ; B reçoit `group_kudos` ;
+l'athlète 2 retire puis renvoie.
+**Attendu** : bannière push **générique** — titre « Un coéquipier t'encourage », corps
+« Quelqu'un de ton groupe t'a envoyé des encouragements 👏. », **sans nom** (ADR-10) —
+alors que l'entrée in-app **nomme l'acteur** : « Alex t'envoie des encouragements 👏. »
+(ADR-55). Le push ne transporte que `{ type, resourceId }` : aucun nom n'y circule.
+Idempotence du retrait/renvoi ; pas de kudos sur sa propre affectation (sonde → refus).
+**Preuve** : `select count(*) from participation_kudos where assignment_id = '<id>'` ;
+code HTTP de la sonde (**422 `KUDOS_SELF_FORBIDDEN`**, pas un 403).
+
+⚠️ **La garde du kudos porte sur `attendance`, pas sur `status`** : une affectation encore
+`assigned` est encourageable dès lors que la présence est `going` (`kudos.service.ts`).
+Ne pas exiger une séance réalisée pour dérouler le scénario.
+
+⚠️ **Sens du test, et il est contre-intuitif.** Le jeton push suit le dernier `signIn` et
+l'appareil n'en détient qu'un : **c'est le porteur de l'appareil qui doit recevoir**, donc
+le donneur est piloté par script. Basculer de compte pour « se mettre côté receveur »
+déplace le jeton et détruit le témoin. Le 21/08, le kudos de 12:16:08 partait de l'appareil
+vers un compte sans jeton : il n'a produit aucune bannière, et ne prouvait rien.
+Script : `kudos-recu.mjs` (`give` / `remove` / `status`).
 
 ## QA-04.7 — Discussion de séance
 
 **Couvre** : `createComment` (cible session), `listComments`, `deleteComment`.
-**Étapes** : B commente la **séance** (fil de séance, tlx-129) ; le coach répond ; B
-supprime son propre commentaire ; sonde : B tente de supprimer celui du coach.
-**Attendu** : fil visible des deux côtés ; suppression d'autrui refusée.
+**Étapes** : B commente la **séance** (section « Discussion », TLX-118 — pas le fil de perf
+d'A-09) ; le coach répond (script `fil-seance.mjs reply`) ; sondes de suppression **par
+script**.
+**Attendu** : fil visible des deux côtés ; suppression d'autrui → **403** (« Vous ne pouvez
+supprimer que vos propres commentaires. »), du sien → **204**, suppression **douce**
+(`deleted_at`). **Aucune notification n'est émise, dans aucun des deux sens** — mesuré le
+21/08, c'est le défaut TLX-268, pas un ratage de sonde.
+
+⚠️ **`deleteComment` n'a aucun appelant mobile** (TLX-256) : « B supprime son propre
+commentaire » **n'est pas exécutable sur appareil**. Sonder par script uniquement.
+
+⚠️ **Ne pas soumettre de performance sur la séance testée.** Côté athlète la « Discussion »
+n'est montée que **tant qu'aucune perf n'existe** (`SessionDetailScreen.tsx:589-603`) ;
+dès la soumission elle cède la place au fil de feedback et le scénario devient injouable.
+Le coach, lui, garde le fil en permanence.
+
+⚠️ **L'écran de détail n'a pas de tirer-pour-rafraîchir** (TLX-269). Pour voir la réponse
+du coach : sortir vers une autre séance et revenir — et **seulement après 30 s**
+(`staleTime`). Plus tôt, l'aller-retour ne ramène rien et on conclut à tort que la réponse
+s'est perdue.
