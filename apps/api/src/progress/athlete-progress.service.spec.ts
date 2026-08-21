@@ -182,6 +182,12 @@ describe('AthleteProgressService (TLX-090, ADR-21)', () => {
 
     // 1 point (la meilleure) ; les autres marques du jour sont exposées dans `others` (ADR-56).
     expect(res.series[0].points).toEqual([{ date: '2026-06-10', value: 7.48, others: [7.6] }]);
+    // TLX-244 — et la ligne de saison compte **deux marques**, pas un point. Ce test portait
+    // déjà les deux marques du même jour et n'assertait que `points` : c'est exactement le
+    // trou par lequel la contradiction est passée en production, puis a survécu à la première
+    // moitié du correctif. L'écran affichait « 2 marques » au détail du jour et « 1 marque »
+    // sur la ligne 2026, à trois lignes d'écart.
+    expect(res.series[0].marksByYear).toEqual([{ year: 2026, best: 7.48, count: 2 }]);
   });
 
   it('date du point = date réalisée (dueDate), pas la soumission (ADR-56)', async () => {

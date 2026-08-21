@@ -9,10 +9,18 @@ import { isBetter } from './record-detection';
  * - `seasonBest` = meilleure marque (sens `min`/`max` de l'épreuve) de l'**année en cours**
  *   (absent si aucune marque cette année) ;
  * - `marksByYear` = meilleure marque + nombre de marques par année, **décroissant** par année.
+ *   Le compte porte sur les **marques**, pas sur les points : un point condense la journée et
+ *   porte ses `others` (TLX-244).
  */
 export interface DatedMark {
   date: Date;
   value: number;
+  /**
+   * Autres marques du **même jour** (ADR-56). Un point de série n'est pas une marque : le
+   * backend condense en meilleure marque par jour et range le reste ici. Sans ce champ,
+   * `count` comptait des **jours** sous le mot « marques » (TLX-244).
+   */
+  others?: readonly number[];
 }
 
 export interface SeasonPoint {
@@ -47,12 +55,16 @@ export function seasonAggregates(
 
   for (const point of points) {
     const year = yearOf(point.date);
+    // TLX-244 — le point tracé **plus** les autres marques du même jour. L'athlète qui saisit
+    // deux marques le même jour en voit deux dans le détail du jour ; la ligne de saison en
+    // annonçait une seule, à trois lignes d'écart sur le même écran.
+    const marks = 1 + (point.others?.length ?? 0);
 
     const agg = byYear.get(year);
     if (!agg) {
-      byYear.set(year, { best: point.value, count: 1 });
+      byYear.set(year, { best: point.value, count: marks });
     } else {
-      agg.count += 1;
+      agg.count += marks;
       if (isBetter(point.value, agg.best, direction)) agg.best = point.value;
     }
 
