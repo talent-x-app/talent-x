@@ -54,13 +54,13 @@ la branche fraîchement fusionnée, ce qu'il n'est pas ; c'est écrit dans le lo
 
 ## Résultats par scénario
 
-| Scénario                          | Verdict   | Preuve                                                     |
-| --------------------------------- | --------- | ---------------------------------------------------------- |
-| QA-04.6 — kudos, côté receveur    | ✅ + ❌❌ | asymétrie ADR-10/ADR-55 **vérifiée** — TLX-266, TLX-267    |
-| QA-04.7 — discussion de séance    | ✅ + ❌❌ | 403/204 et soft-delete conformes — TLX-268, TLX-269        |
-| QA-06.1 — retrait du consentement | ✅ + ❌❌ | `403 CONSENT_REQUIRED` conforme — TLX-270, TLX-271         |
-| QA-06.2 — accès coach, par coach  | ✅ + ❌❌ | **5/5 portes, puis 6/6 rouvertes** — 2 défauts sans numéro |
-| Rejeu TLX-243                     | ✅ fermé  | record 30 m créé, 40 m intact                              |
+| Scénario                          | Verdict   | Preuve                                                  |
+| --------------------------------- | --------- | ------------------------------------------------------- |
+| QA-04.6 — kudos, côté receveur    | ✅ + ❌❌ | asymétrie ADR-10/ADR-55 **vérifiée** — TLX-266, TLX-267 |
+| QA-04.7 — discussion de séance    | ✅ + ❌❌ | 403/204 et soft-delete conformes — TLX-268, TLX-269     |
+| QA-06.1 — retrait du consentement | ✅ + ❌❌ | `403 CONSENT_REQUIRED` conforme — TLX-270, TLX-271      |
+| QA-06.2 — accès coach, par coach  | ✅ + ❌❌ | **5/5 portes, puis 6/6 rouvertes** — TLX-272, TLX-273   |
+| Rejeu TLX-243                     | ✅ fermé  | record 30 m créé, 40 m intact                           |
 
 ## Ce que cette session a établi de plus utile
 
@@ -172,20 +172,22 @@ capturée sur le moment.
 
 ## Défauts ouverts à l'issue de la session
 
-| Réf                | Sév.         | Objet                                                           |
-| ------------------ | ------------ | --------------------------------------------------------------- |
-| **sans numéro §2** | **Bloquant** | l'onglet Groupe meurt après un passage par Confidentialité      |
-| **sans numéro §1** | **Majeur**   | « Accès de mon coach » affiche OFF alors que l'accès est ouvert |
-| **TLX-270**        | Majeur       | rétablir un consentement ne rétablit aucun écran                |
-| **TLX-271**        | Majeur       | une perf saisie partiellement ne peut plus être complétée       |
-| TLX-266            | Medium       | taper une notification de kudos ouvre un écran d'erreur         |
-| TLX-268            | Medium       | la discussion de séance ne prévient personne                    |
-| TLX-269            | Medium       | aucun écran de détail n'a de tirer-pour-rafraîchir              |
-| TLX-267            | Low          | retirer puis renvoyer un kudos pousse sans rien ajouter au feed |
+| Réf         | Sév.         | Objet                                                           |
+| ----------- | ------------ | --------------------------------------------------------------- |
+| **TLX-272** | **Bloquant** | l'onglet Groupe meurt après un passage par Confidentialité      |
+| **TLX-273** | **Majeur**   | « Accès de mon coach » affiche OFF alors que l'accès est ouvert |
+| **TLX-270** | Majeur       | rétablir un consentement ne rétablit aucun écran                |
+| **TLX-271** | Majeur       | une perf saisie partiellement ne peut plus être complétée       |
+| TLX-266     | Medium       | taper une notification de kudos ouvre un écran d'erreur         |
+| TLX-268     | Medium       | la discussion de séance ne prévient personne                    |
+| TLX-269     | Medium       | aucun écran de détail n'a de tirer-pour-rafraîchir              |
+| TLX-267     | Low          | retirer puis renvoyer un kudos pousse sans rien ajouter au feed |
 
-**Linear a atteint la limite d'issues de son plan gratuit** en cours de session. Les deux
-premiers sont donc dans `qa/tickets-en-attente.md`, au même standard de preuve, à créer dès
-que la limite est levée.
+**Linear a atteint la limite d'issues de son plan gratuit** en cours de session — 271
+issues, aucune archivée. Les deux premiers défauts ont attendu dans
+`qa/tickets-en-attente.md` avant d'être créés. Déblocage vérifié plutôt que supposé :
+dix issues closes archivées d'abord, relecture d'une archivée et création d'essai, **puis**
+les 229 autres. Archiver libère le quota et ne rend rien illisible.
 
 **TLX-243 est fermé** sur rejeu appareil, et **TLX-256 complété** d'un quatrième cas.
 
