@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service';
 import { NotificationProcessor } from './notification.processor';
 import type { PushProvider } from './push-provider';
@@ -15,7 +16,7 @@ function prismaMock(): PrismaMock {
       findMany: jest.fn().mockResolvedValue([]),
       updateMany: jest.fn().mockResolvedValue({ count: 0 }),
     },
-    notification: { upsert: jest.fn().mockResolvedValue({}) },
+    notification: { create: jest.fn().mockResolvedValue({}) },
   };
 }
 
@@ -83,26 +84,26 @@ describe('NotificationProcessor (TLX-110, ADR-22)', () => {
     await make(prisma, provider).process(PAYLOAD);
 
     expect(provider.send).not.toHaveBeenCalled();
-    expect(prisma.notification.upsert).not.toHaveBeenCalled();
+    expect(prisma.notification.create).not.toHaveBeenCalled();
   });
 
-  it('persiste l’entrée in-app (upsert dedupe_key) même sans device actif', async () => {
+  it('persiste l’entrée in-app (clé dedupe_key) même sans device actif', async () => {
     const prisma = prismaMock();
     const provider = providerMock();
     prisma.deviceToken.findMany.mockResolvedValue([]);
 
     await make(prisma, provider).process(PAYLOAD);
 
-    expect(prisma.notification.upsert).toHaveBeenCalledWith({
-      where: { dedupeKey: 'session_assigned--asg-1' },
-      create: {
+    // TLX-267 : `create` et non `upsert` — c'est le fait d'avoir **créé** qui décide du push,
+    // et un `upsert` Prisma ne le rapporte pas. L'unicité de `dedupeKey` reste la garde.
+    expect(prisma.notification.create).toHaveBeenCalledWith({
+      data: {
         userId: 'u-1',
         type: 'session_assigned',
         resourceId: 'asg-1',
         actorId: null,
         dedupeKey: 'session_assigned--asg-1',
       },
-      update: {},
     });
     expect(provider.send).not.toHaveBeenCalled();
   });
@@ -114,10 +115,8 @@ describe('NotificationProcessor (TLX-110, ADR-22)', () => {
 
     await make(prisma, provider).process({ ...PAYLOAD, actorId: 'actor-9' });
 
-    expect(prisma.notification.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        create: expect.objectContaining({ actorId: 'actor-9' }),
-      }),
+    expect(prisma.notification.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ actorId: 'actor-9' }) }),
     );
     // Le push ne porte jamais le nom : data = { type, resourceId } seulement (ADR-10/55).
     const [, message] = (provider.send as jest.Mock).mock.calls[0];
@@ -161,7 +160,7 @@ describe('NotificationProcessor (TLX-110, ADR-22)', () => {
     });
 
     expect(provider.send).not.toHaveBeenCalled();
-    expect(prisma.notification.upsert).not.toHaveBeenCalled();
+    expect(prisma.notification.create).not.toHaveBeenCalled();
   });
 
   it('performance_submitted : envoi avec le libellé coach quand la préférence est active', async () => {
@@ -187,6 +186,69 @@ describe('NotificationProcessor (TLX-110, ADR-22)', () => {
 
     await make(prisma, provider).process(PAYLOAD);
     expect(provider.send).not.toHaveBeenCalled();
+  });
+
+  /**
+   * TLX-267 — le push ne part que si l'entrée de feed est **neuve**.
+   *
+   * Mesuré sur appareil (QA-04.6) : Alex retire puis renvoie son kudos ; Zoe reçoit une seconde
+   * bannière à `12:42:30` alors que son feed reste daté `12:39:02` et **déjà lu** depuis
+   * `12:41:34`. Elle est prévenue d'un encouragement introuvable dans l'app. Le `dedupe_key`
+   * étant stable à vie, l'écriture retombait sur la ligne existante pendant que le push, hors de
+   * ce chemin, partait à chaque job.
+   *
+   * Le test compte les appels au **provider push**, pas les lignes en base : c'est l'écart entre
+   * les deux qui est le défaut. Un test qui ne regarde que `notifications` était vert avant le
+   * correctif — la déduplication du feed, elle, a toujours fonctionné.
+   */
+  describe('push conditionné à la création de l’entrée (TLX-267)', () => {
+    /** Violation d'unicité Prisma sur `dedupeKey` — ce que renvoie la base au second geste. */
+    function uniqueViolation() {
+      return new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
+        code: 'P2002',
+        clientVersion: 'test',
+      });
+    }
+
+    it('même dedupeKey une seconde fois → aucune bannière, aucune ligne de plus', async () => {
+      const prisma = prismaMock();
+      const provider = providerMock();
+      prisma.deviceToken.findMany.mockResolvedValue(DEVICES);
+      // 1er geste : la ligne est créée. 2nd geste (retrait puis renvoi) : même clé → collision.
+      prisma.notification.create.mockResolvedValueOnce({}).mockRejectedValueOnce(uniqueViolation());
+      const processor = make(prisma, provider);
+
+      await processor.process(PAYLOAD);
+      await processor.process(PAYLOAD);
+
+      expect(prisma.notification.create).toHaveBeenCalledTimes(2);
+      expect(provider.send).toHaveBeenCalledTimes(1);
+    });
+
+    it('un job rejoué par la file ne pousse plus non plus — comportement voulu', async () => {
+      // C'est un changement pour **tous** les types, pas seulement les kudos : le `dedupe_key`
+      // existait déjà pour qu'un rejeu ne crée pas de doublon en base ; il évite désormais aussi
+      // la bannière en double. Aucun type n'émet la même clé pour deux événements distincts.
+      const prisma = prismaMock();
+      const provider = providerMock();
+      prisma.deviceToken.findMany.mockResolvedValue(DEVICES);
+      prisma.notification.create.mockRejectedValue(uniqueViolation());
+
+      await make(prisma, provider).process({ ...PAYLOAD, type: 'performance_feedback' });
+
+      expect(provider.send).not.toHaveBeenCalled();
+    });
+
+    it('une erreur de base qui n’est pas une collision remonte, elle n’est pas avalée', async () => {
+      // Sans cette garde, une panne d'écriture passerait pour un doublon : le job serait acquitté
+      // en silence, sans entrée de feed ni push, et la file ne le rejouerait jamais.
+      const prisma = prismaMock();
+      const provider = providerMock();
+      prisma.notification.create.mockRejectedValue(new Error('base injoignable'));
+
+      await expect(make(prisma, provider).process(PAYLOAD)).rejects.toThrow('base injoignable');
+      expect(provider.send).not.toHaveBeenCalled();
+    });
   });
 
   it('révoque les tokens signalés invalides par le provider', async () => {

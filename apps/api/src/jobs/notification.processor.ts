@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import type { NotificationJobPayload, NotificationType } from './jobs.constants';
 import { PushProvider, type PushMessage } from './push-provider';
@@ -92,11 +93,42 @@ export class NotificationProcessor {
 
     // Feed in-app (ADR-23) — un job rejoué retombe sur la même ligne. `actorId` (ADR-55) est
     // persisté pour la résolution nominative au read ; le push (plus bas) reste générique.
-    await this.prisma.notification.upsert({
-      where: { dedupeKey },
-      create: { userId: recipientUserId, type, resourceId, actorId: actorId ?? null, dedupeKey },
-      update: {},
+    //
+    // TLX-267 — `create` + rattrapage de la violation d'unicité, **et non** `upsert`, parce que
+    // le résultat qui nous intéresse ici n'est pas la ligne mais le fait d'avoir **créé**. Un
+    // `upsert` Prisma ne le dit pas. Le détour par un `findUnique` préalable le dirait, mais
+    // laisserait une fenêtre de course : deux jobs concurrents de même `dedupeKey` verraient
+    // tous deux « absent » et pousseraient tous deux. La contrainte d'unicité, elle, tranche
+    // atomiquement — exactement un gagnant, donc exactement un push.
+    const created = await this.createFeedEntry({
+      userId: recipientUserId,
+      type,
+      resourceId,
+      actorId: actorId ?? null,
+      dedupeKey,
     });
+
+    // Le push ne part que si l'entrée de feed est neuve (TLX-267, arbitrage du 21/08).
+    //
+    // Mesuré sur appareil : retirer puis renvoyer un kudos produisait une **seconde bannière**
+    // alors que le feed restait inchangé — même entrée, même date, déjà lue. La destinataire
+    // était prévenue d'un encouragement introuvable dans l'app. Le `dedupe_key` étant stable à
+    // vie, l'`upsert` retombait sur la ligne existante pendant que le push, hors de ce chemin,
+    // partait à chaque job. Le push traitait le renvoi comme un événement neuf, le feed comme un
+    // doublon : les deux ne pouvaient pas avoir raison, et le feed a été jugé le bon.
+    //
+    // **Changement de comportement pour tous les types**, pas seulement `group_kudos` : un job
+    // rejoué par la file ne crée toujours pas de doublon — c'est la raison d'être du
+    // `dedupe_key` — et désormais il ne repousse plus non plus. C'est le comportement voulu :
+    // aucun type n'émet deux fois le même `dedupeKey` pour deux événements distincts (les clés
+    // portent l'identifiant de la ressource et celui de l'acteur), donc aucun ne dépendait du
+    // re-push pour signaler un fait nouveau.
+    if (!created) {
+      this.logger.log(
+        `Notification déjà connue (aucun push) : type=${type} dest=${recipientUserId}`,
+      );
+      return;
+    }
 
     const devices = await this.prisma.deviceToken.findMany({
       where: { userId: recipientUserId, revokedAt: null },
@@ -116,6 +148,28 @@ export class NotificationProcessor {
         data: { revokedAt: new Date() },
       });
       this.logger.warn(`${invalidTokens.length} token(s) invalide(s) révoqué(s).`);
+    }
+  }
+
+  /**
+   * Écrit l'entrée de feed et dit si elle a été **créée** (TLX-267). `false` = une ligne de même
+   * `dedupeKey` existait déjà : job rejoué, ou geste rejoué (retrait puis renvoi d'un kudos).
+   */
+  private async createFeedEntry(data: {
+    userId: string;
+    type: NotificationJobPayload['type'];
+    resourceId: string;
+    actorId: string | null;
+    dedupeKey: string;
+  }): Promise<boolean> {
+    try {
+      await this.prisma.notification.create({ data });
+      return true;
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        return false;
+      }
+      throw error;
     }
   }
 }

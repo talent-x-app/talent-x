@@ -153,6 +153,31 @@ describe('KudosService (ADR-48/49, Palier 2)', () => {
     });
   });
 
+  /**
+   * TLX-267, moitié amont. Le processor ne pousse que si l'entrée de feed est neuve ; encore
+   * faut-il que le renvoi présente bien la **même** clé de déduplication — sinon la garde ne
+   * s'applique jamais et le défaut survit. C'est le chaînon qui relie les deux tests.
+   */
+  it('give → remove → give : la clé de déduplication est identique (TLX-267)', async () => {
+    const prisma = prismaMock();
+    const queue = queueMock();
+    prisma.sessionAssignment.findFirst.mockResolvedValue(targetGoing());
+    prisma.groupMember.findFirst.mockResolvedValue({ id: 'm-1' });
+    const kudos = service(prisma, queue);
+
+    await kudos.give(GIVER, 'asg-2');
+    await kudos.remove(GIVER, 'asg-2');
+    await kudos.give(GIVER, 'asg-2');
+
+    const calls = (queue.enqueue as jest.Mock).mock.calls as [unknown, string][];
+    expect(calls).toHaveLength(2); // `remove` ne notifie pas
+    expect(calls[1][1]).toBe(calls[0][1]);
+    // La ligne de kudos, elle, est bien détruite puis recréée : c'est un geste neuf côté base,
+    // et c'est exactement pourquoi le push repartait alors que le feed ne bougeait pas.
+    expect(prisma.participationKudos.deleteMany).toHaveBeenCalledTimes(1);
+    expect(prisma.participationKudos.upsert).toHaveBeenCalledTimes(2);
+  });
+
   describe('remove', () => {
     it('idempotent : deleteMany du kudos de l’appelant', async () => {
       const prisma = prismaMock();
