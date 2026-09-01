@@ -159,7 +159,7 @@ vérifie **après** fusion et non branche par branche, et la liste est close :
 pnpm --filter @talent-x/api-client build     # le contrat a pu bouger — dist/ est hors dépôt
 pnpm --filter @talent-x/mobile test:cov      # `test` seul ne regarde pas la couverture
 pnpm --filter @talent-x/api    test
-pnpm --filter @talent-x/api    test:int      # DB-backed — exige Docker (Postgres :5433)
+pnpm --filter @talent-x/api    test:int      # DB-backed — exige Docker (`docker compose up -d`)
 pnpm --filter @talent-x/mobile typecheck && pnpm --filter @talent-x/api typecheck
 ```
 
@@ -174,6 +174,25 @@ et personne ne l'a exécutée : `main` est parti rouge (TLX-277). **Un trou de v
 annoncé et non comblé n'est pas un risque partagé, c'est un trou.** Si Docker n'est pas
 disponible, l'intégration attend — ou le CI fait foi et on le regarde **avant** d'annoncer
 un lot vert.
+
+**Deux obstacles matériels expliquaient une partie de ce trou. Les deux sont levés (01/09).**
+
+- **Le port annoncé était faux.** Ce plan et les en-têtes des `*.int-spec.ts` annonçaient
+  Postgres sur **`:5433`**. `docker-compose.yml`, `apps/api/.env` et les trois jobs CI sont
+  tous sur **`:5432`** — mesuré. Qui cherchait une base sur 5433 concluait qu'il n'y en avait
+  pas. Les commentaires des specs portent encore l'erreur (signalé, pas corrigé : c'est du
+  code).
+- **La suite tombait avant de mesurer.** Le `beforeAll` compile tout `AppModule` et dépassait
+  les **5 s** par défaut de Jest sur machine froide : la suite entière échouait sur un timeout
+  de hook et affichait **23 échecs au lieu des 4 réels**. Corrigé par TLX-277
+  (`testTimeout: 30000` dans `test/jest-integration.json`).
+
+Prérequis réels, et ils tiennent en deux lignes :
+
+```bash
+docker compose up -d                                  # postgres :5432, redis, minio
+pnpm --filter @talent-x/api exec prisma migrate deploy
+```
 
 ## Annexe A — couverture du contrat (80 opérations)
 
