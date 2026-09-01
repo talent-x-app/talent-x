@@ -449,21 +449,37 @@ export class AssignmentsService {
   }
 
   /**
-   * Garde-fou ADR-29 : un modèle de séance (statut `template`, bibliothèque C-10) n'est
-   * **pas assignable** — il doit d'abord être dupliqué en séance réelle. 422
-   * `SESSION_NOT_ASSIGNABLE`. La séance est déjà connue comme appartenant au coach
-   * (ownership vérifié en amont) → simple lecture du statut.
+   * Garde-fou d'assignabilité — **les quatre statuts, une bonne fois** (TLX-256).
+   *
+   * Il ne traitait que `template` (ADR-29 : un modèle se duplique avant de s'affecter), et ne
+   * disait rien des deux autres états non diffusables. Les compléter séparément aurait produit
+   * la même dérive que les quatre opérations sans appelant : un cas à la fois, trouvé par hasard.
+   *
+   * - `template` : bibliothèque C-10, à dupliquer d'abord (ADR-29, inchangé).
+   * - `archived` : la séance a été **rangée** (TLX-256). L'affecter la ferait ressortir chez
+   *   l'athlète alors que le coach vient de la retirer de ses listes.
+   * - `draft` : un brouillon ne se diffuse pas — arbitrage rendu sur TLX-258, appliqué ici.
+   * - `published` : seul statut diffusable.
+   *
+   * Les affectations **existantes** d'une séance qu'on archive sont conservées : archiver range
+   * le plan du coach, ça ne retire pas du travail déjà donné à l'athlète. Ce garde ne porte que
+   * sur les **nouvelles** affectations.
    */
   private async assertSessionAssignable(sessionId: string): Promise<void> {
     const session = await this.prisma.session.findUnique({
       where: { id: sessionId },
       select: { status: true },
     });
-    if (session?.status === SessionStatus.Template) {
-      throw new UnprocessableEntityException({
-        error: 'SESSION_NOT_ASSIGNABLE',
-        message: 'Un modèle de séance ne peut pas être affecté : dupliquez-le d’abord.',
-      });
+    const refusals: Partial<Record<SessionStatus, string>> = {
+      [SessionStatus.Template]:
+        'Un modèle de séance ne peut pas être affecté : dupliquez-le d’abord.',
+      [SessionStatus.Archived]:
+        'Une séance archivée ne peut pas être affectée : désarchivez-la d’abord.',
+      [SessionStatus.Draft]: 'Un brouillon ne peut pas être affecté : publiez la séance d’abord.',
+    };
+    const message = session ? refusals[session.status as SessionStatus] : undefined;
+    if (message) {
+      throw new UnprocessableEntityException({ error: 'SESSION_NOT_ASSIGNABLE', message });
     }
   }
 

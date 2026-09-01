@@ -1,9 +1,13 @@
 import {
   BlockType,
+  SessionStatus,
+  archiveSession,
   deleteSession,
+  duplicateSession,
   getCoachDashboard,
   getSession,
   listAssignments,
+  updateSession,
   type Session,
 } from '@talent-x/api-client';
 import { useTheme } from '@talent-x/design-tokens';
@@ -258,6 +262,18 @@ export function CoachSessionDetailScreen() {
               À noter pour la reproduction : le défaut n'apparaît que si la séance suivante est
               **déjà en cache**. Sinon `session.isLoading` repasse à vrai, ce bloc se démonte, et
               la confirmation retombe d'elle-même. */}
+          {/* TLX-256 — deux opérations du contrat qui n'avaient aucun appelant côté app.
+              `duplicateSession` en avait un, mais **seulement** depuis les modèles : dupliquer
+              une séance qui a bien marché pour la reproposer la semaine suivante est pourtant le
+              geste quotidien d'un coach. `archiveSession` n'en avait aucun. */}
+          <DuplicateSessionAction sessionId={id} />
+          <ArchiveSessionAction
+            key={`archive-${id}`}
+            sessionId={id}
+            title={session.data.title}
+            status={session.data.status}
+          />
+
           <DeleteSessionAction key={id} sessionId={id} title={session.data.title} />
 
           {/* TLX-118 : discussion de séance — le coach répond aux questions des athlètes
@@ -272,6 +288,134 @@ export function CoachSessionDetailScreen() {
         </>
       )}
     </ScrollView>
+  );
+}
+
+/**
+ * Action « Dupliquer la séance » (TLX-256) — `POST /sessions/:id/duplicate`. L'opération existait
+ * au contrat et n'était appelée que depuis les **modèles** (`CoachTemplatesScreen`) : on pouvait
+ * dupliquer un modèle, pas une séance. Au succès, on ouvre directement la copie en édition —
+ * dupliquer sert à modifier, pas à contempler.
+ */
+function DuplicateSessionAction({ sessionId }: { sessionId: string }) {
+  const { colors } = useTheme();
+  const router = useRouter();
+  const toast = useToast();
+  const queryClient = useQueryClient();
+
+  const copy = useMutation({
+    mutationFn: async (): Promise<Session> => {
+      const response = await duplicateSession(sessionId);
+      if (response.status !== 201) throw response;
+      return response.data;
+    },
+    onSuccess: (created) => {
+      void queryClient.invalidateQueries({ queryKey: ['sessions'] });
+      toast.show({ variant: 'success', title: 'Séance dupliquée' });
+      router.push(editSessionHref(created.id));
+    },
+    onError: () => {
+      toast.show({ variant: 'danger', title: 'Échec de la duplication' });
+    },
+  });
+
+  return (
+    <Button
+      testID="coach-session-duplicate"
+      variant="secondary"
+      loading={copy.isPending}
+      onPress={() => copy.mutate()}
+      leftIcon={<Feather name="copy" size={18} color={colors.textPrimary} />}
+    >
+      Dupliquer la séance
+    </Button>
+  );
+}
+
+/**
+ * Action « Archiver » / « Désarchiver » (TLX-256) — `POST /sessions/:id/archive` n'avait **aucun**
+ * appelant, et le statut `archived` n'apparaissait que comme libellé dans `calendar-model.ts` :
+ * l'app savait étiqueter un état qu'elle ne pouvait ni produire ni lister.
+ *
+ * **Le désarchivage passe par `updateSession`** : le contrat n'a pas d'opération inverse. C'est
+ * dit ici plutôt que découvert plus tard — sans lui, l'archivage serait une suppression à sens
+ * unique, ce que le produit a déjà par ailleurs.
+ *
+ * Archiver n'est pas destructeur (le statut se repose), d'où une confirmation plus légère que
+ * celle de la suppression — mais une confirmation quand même : la séance quitte les filtres où
+ * le coach a l'habitude de la voir.
+ */
+function ArchiveSessionAction({
+  sessionId,
+  title,
+  status,
+}: {
+  sessionId: string;
+  title: string;
+  status: SessionStatus;
+}) {
+  const { colors } = useTheme();
+  const toast = useToast();
+  const queryClient = useQueryClient();
+  const [confirming, setConfirming] = useState(false);
+  const archived = status === SessionStatus.archived;
+
+  const move = useMutation({
+    mutationFn: async (): Promise<void> => {
+      // Retour depuis l'archive : `published`, l'état d'où l'on vient dans le parcours normal.
+      const response = archived
+        ? await updateSession(sessionId, { status: SessionStatus.published })
+        : await archiveSession(sessionId);
+      if (response.status !== 200) throw response;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['sessions'] });
+      void queryClient.invalidateQueries({ queryKey: ['session', sessionId] });
+      setConfirming(false);
+      toast.show({
+        variant: 'success',
+        title: archived ? 'Séance désarchivée' : 'Séance archivée',
+      });
+    },
+    onError: () => {
+      toast.show({ variant: 'danger', title: 'Échec de l’archivage' });
+    },
+  });
+
+  if (archived) {
+    return (
+      <Button
+        testID="coach-session-unarchive"
+        variant="secondary"
+        loading={move.isPending}
+        onPress={() => move.mutate()}
+        leftIcon={<Feather name="corner-up-left" size={18} color={colors.textPrimary} />}
+      >
+        Désarchiver la séance
+      </Button>
+    );
+  }
+  if (confirming) {
+    return (
+      <InlineConfirm
+        message={`Archiver « ${title} » ? Elle quitte tes listes et reste consultable dans « Archivées ».`}
+        confirmLabel="Archiver"
+        confirmTestID="coach-session-archive-confirm"
+        loading={move.isPending}
+        onConfirm={() => move.mutate()}
+        onCancel={() => setConfirming(false)}
+      />
+    );
+  }
+  return (
+    <Button
+      testID="coach-session-archive"
+      variant="secondary"
+      onPress={() => setConfirming(true)}
+      leftIcon={<Feather name="archive" size={18} color={colors.textPrimary} />}
+    >
+      Archiver la séance
+    </Button>
   );
 }
 

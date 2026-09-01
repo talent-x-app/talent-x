@@ -7,10 +7,12 @@ import { type ReactNode, useState } from 'react';
 const mockListComments = jest.fn();
 const mockCreateComment = jest.fn();
 const mockShow = jest.fn();
+const mockDeleteComment = jest.fn();
 
 jest.mock('@talent-x/api-client', () => ({
   listComments: (...a: unknown[]) => mockListComments(...a),
   createComment: (...a: unknown[]) => mockCreateComment(...a),
+  deleteComment: (...a: unknown[]) => mockDeleteComment(...a),
   getCoachDashboard: jest.fn(),
   AthleteStatus: { up_to_date: 'up_to_date', late: 'late', pending_review: 'pending_review' },
 }));
@@ -77,6 +79,81 @@ describe('FeedbackThread (TLX-086/092)', () => {
     await waitFor(() => expect(screen.getByTestId('comment-cm-1')).toBeOnTheScreen());
     expect(screen.getByText('Bien joué')).toBeOnTheScreen();
     expect(mockListComments).toHaveBeenCalledWith({ performanceId: 'perf-1' });
+  });
+
+  /**
+   * TLX-256 — `deleteComment` était implémentée, autorisée (403 sur le message d'autrui) et
+   * publiée dans le client généré, **sans aucun appelant** : un athlète qui postait un message
+   * maladroit ou sur la mauvaise séance n'avait aucun moyen de le retirer. C'est celle des
+   * quatre opérations orphelines qui pesait le plus lourd.
+   */
+  describe('suppression de son propre message (TLX-256)', () => {
+    /** Fil à deux messages : un du coach, un de l'utilisateur courant. */
+    function twoAuthors() {
+      mockListComments.mockResolvedValue({
+        status: 200,
+        data: {
+          data: [
+            { id: 'cm-coach', authorId: 'c-1', body: 'Bien joué', createdAt: null },
+            { id: 'cm-mine', authorId: 'me-1', body: 'Merci !', createdAt: null },
+          ],
+          meta: {},
+        },
+      });
+    }
+
+    /** Rend le fil avec un cache `['me']` déjà chaud — l'identité n'ajoute aucune requête. */
+    function renderWithMe(meId: string | null) {
+      const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+      if (meId) client.setQueryData(['me'], { id: meId });
+      const wrapper = ({ children }: { children: ReactNode }) => (
+        <QueryClientProvider client={client}>
+          <ThemeProvider>{children}</ThemeProvider>
+        </QueryClientProvider>
+      );
+      return render(
+        <FeedbackThread
+          performanceId="perf-1"
+          composerPlaceholder="Écrire…"
+          sendLabel="Envoyer"
+          emptyHint="Pas encore de retour."
+        />,
+        { wrapper },
+      );
+    }
+
+    it('propose la suppression sur le sien, jamais sur celui d’un autre', async () => {
+      twoAuthors();
+      renderWithMe('me-1');
+
+      await waitFor(() => expect(screen.getByTestId('comment-cm-mine')).toBeOnTheScreen());
+      expect(screen.getByTestId('comment-delete-cm-mine')).toBeOnTheScreen();
+      // Le serveur refuserait par 403 : l'écran ne doit pas proposer un geste voué à l'échec.
+      expect(screen.queryByTestId('comment-delete-cm-coach')).toBeNull();
+    });
+
+    it('supprime après confirmation, et recharge le fil', async () => {
+      twoAuthors();
+      mockDeleteComment.mockResolvedValue({ status: 204 });
+      renderWithMe('me-1');
+      await waitFor(() => expect(screen.getByTestId('comment-delete-cm-mine')).toBeOnTheScreen());
+
+      // Confirmation inline, comme les autres gestes destructifs (TLX-194/245/250).
+      fireEvent.press(screen.getByTestId('comment-delete-cm-mine'));
+      fireEvent.press(await screen.findByTestId('comment-delete-confirm-cm-mine'));
+
+      await waitFor(() => expect(mockDeleteComment).toHaveBeenCalledWith('cm-mine'));
+    });
+
+    it('identité inconnue → aucune action proposée (repli sûr)', async () => {
+      // L'identité vient du cache `['me']`, sans requête ajoutée : là où il est froid, l'action
+      // est simplement absente. Au pire on n'offre rien, jamais on ne propose à tort.
+      twoAuthors();
+      renderWithMe(null);
+
+      await waitFor(() => expect(screen.getByTestId('comment-cm-mine')).toBeOnTheScreen());
+      expect(screen.queryByTestId('comment-delete-cm-mine')).toBeNull();
+    });
   });
 
   it('affiche un indice quand le fil est vide', async () => {

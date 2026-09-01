@@ -25,6 +25,10 @@ const FILTERS: { key: FilterKey; label: string }[] = [
   { key: 'past', label: 'Passées' },
   { key: 'drafts', label: 'Brouillons' },
   { key: 'templates', label: 'Modèles' },
+  // TLX-256 — le libellé « Archivée » existait déjà dans `calendar-model`, sans aucun endroit où
+  // relire ce qu'on avait archivé. Poser un statut sans pouvoir le relire est une suppression
+  // déguisée, et le produit en a déjà une.
+  { key: 'archived', label: 'Archivées' },
 ];
 
 const EMPTY_LABEL: Record<FilterKey, string> = {
@@ -32,6 +36,7 @@ const EMPTY_LABEL: Record<FilterKey, string> = {
   past: 'Aucune séance passée.',
   drafts: 'Aucun brouillon.',
   templates: 'Aucun modèle.',
+  archived: 'Aucune séance archivée.',
 };
 
 /**

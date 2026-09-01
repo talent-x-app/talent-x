@@ -1,9 +1,10 @@
-import { createComment, listComments, type Comment } from '@talent-x/api-client';
+import { createComment, deleteComment, listComments, type Comment } from '@talent-x/api-client';
 import { useTheme } from '@talent-x/design-tokens';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { ActivityIndicator, Text, TextInput, View } from 'react-native';
-import { Button, Card } from '../components/ui';
+import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-native';
+import { Feather } from '@expo/vector-icons';
+import { Button, Card, InlineConfirm } from '../components/ui';
 import { useToast } from '../feedback';
 import { COACH_DASHBOARD_QUERY_KEY } from '../dashboard/dashboard-query';
 
@@ -46,6 +47,8 @@ export function FeedbackThread({
   const toast = useToast();
   const queryClient = useQueryClient();
   const [body, setBody] = useState('');
+  // Confirmation inline de suppression, ciblée sur un message (TLX-256).
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
 
   // Cible du contrat /comments (séance XOR perf) + clé de cache associée.
   const target = sessionId ? { sessionId } : { performanceId: performanceId! };
@@ -88,6 +91,33 @@ export function FeedbackThread({
     },
   });
 
+  /**
+   * TLX-256 — suppression de **son propre** message. `deleteComment` était implémentée, autorisée
+   * correctement (403 sur le commentaire d'autrui, suppression **douce** côté serveur), testée et
+   * publiée dans le client généré — et n'avait aucun appelant : ni l'athlète ni le coach ne
+   * pouvaient retirer un message posté par erreur ou sur la mauvaise séance.
+   *
+   * L'identité vient du cache `['me']` (même clé que le Profil), sans requête ajoutée : le
+   * bouton n'apparaît donc que là où le cache est déjà chaud. C'est un repli **sûr** — au pire
+   * l'action est absente, jamais proposée à tort sur le message d'un autre, ce que le serveur
+   * refuserait de toute façon.
+   */
+  const me = queryClient.getQueryData<{ id?: string }>(['me']);
+  const removal = useMutation({
+    mutationFn: async (commentId: string): Promise<void> => {
+      const response = await deleteComment(commentId);
+      if (response.status !== 204) throw response;
+    },
+    onSuccess: () => {
+      setConfirmingId(null);
+      void queryClient.invalidateQueries({ queryKey });
+      toast.show({ title: 'Message supprimé', variant: 'success' });
+    },
+    onError: () => {
+      toast.show({ title: 'Échec de la suppression', variant: 'danger' });
+    },
+  });
+
   const canSend = body.trim().length > 0 && !mutation.isPending;
 
   return (
@@ -110,28 +140,55 @@ export function FeedbackThread({
         <View style={{ gap: spacing[2] }}>
           {comments.data.map((c) => (
             <Card key={c.id} testID={`comment-${c.id}`}>
-              <View style={{ gap: spacing[1] }}>
-                <Text
-                  style={{
-                    color: colors.textPrimary,
-                    fontFamily: typography.fontFamily.regular,
-                    fontSize: typography.body.fontSize,
-                  }}
-                >
-                  {c.body}
-                </Text>
-                {c.createdAt ? (
-                  <Text
-                    style={{
-                      color: colors.textSecondary,
-                      fontFamily: typography.fontFamily.regular,
-                      fontSize: typography.caption.fontSize,
-                    }}
-                  >
-                    {formatDateTime(c.createdAt)}
-                  </Text>
-                ) : null}
-              </View>
+              {confirmingId === c.id ? (
+                <InlineConfirm
+                  message="Supprimer ce message ?"
+                  confirmLabel="Supprimer"
+                  confirmTestID={`comment-delete-confirm-${c.id}`}
+                  danger
+                  loading={removal.isPending}
+                  onConfirm={() => removal.mutate(c.id)}
+                  onCancel={() => setConfirmingId(null)}
+                />
+              ) : (
+                <View style={{ flexDirection: 'row', gap: spacing[2] }}>
+                  <View style={{ flex: 1, gap: spacing[1] }}>
+                    <Text
+                      style={{
+                        color: colors.textPrimary,
+                        fontFamily: typography.fontFamily.regular,
+                        fontSize: typography.body.fontSize,
+                      }}
+                    >
+                      {c.body}
+                    </Text>
+                    {c.createdAt ? (
+                      <Text
+                        style={{
+                          color: colors.textSecondary,
+                          fontFamily: typography.fontFamily.regular,
+                          fontSize: typography.caption.fontSize,
+                        }}
+                      >
+                        {formatDateTime(c.createdAt)}
+                      </Text>
+                    ) : null}
+                  </View>
+                  {/* Le sien seulement (TLX-256) — le serveur refuse le reste par 403, l'écran
+                      ne doit pas proposer un geste qui sera rejeté. */}
+                  {me?.id && c.authorId === me.id ? (
+                    <Pressable
+                      testID={`comment-delete-${c.id}`}
+                      onPress={() => setConfirmingId(c.id)}
+                      accessibilityRole="button"
+                      accessibilityLabel="Supprimer mon message"
+                      hitSlop={8}
+                    >
+                      <Feather name="trash-2" size={16} color={colors.danger} />
+                    </Pressable>
+                  ) : null}
+                </View>
+              )}
             </Card>
           ))}
         </View>

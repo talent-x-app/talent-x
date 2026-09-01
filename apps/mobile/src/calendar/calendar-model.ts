@@ -194,6 +194,12 @@ export interface CoachSessionBuckets {
   drafts: CalendarEntry[];
   /** Modèles (statut `template`, bibliothèque C-10). */
   templates: CalendarEntry[];
+  /**
+   * Archivées (statut `archived`, TLX-256). Sans ce seau, archiver n'aurait rien rangé : les
+   * séances archivées restaient dans À venir / Passées, et le statut n'était qu'un libellé que
+   * l'app savait afficher sans pouvoir le produire ni le lister.
+   */
+  archived: CalendarEntry[];
 }
 
 /**
@@ -210,8 +216,15 @@ export function coachSessionBuckets(
   const todayKey = dayKey(now);
   // `coachSessionEntries` exclut déjà les modèles et porte date effective / overdue / isDraft.
   const entries = coachSessionEntries(sessions, assignments, now);
-  const drafts = entries.filter((e) => e.isDraft);
-  const published = entries.filter((e) => !e.isDraft);
+  // TLX-256 — les archivées sortent des autres filtres : archiver sert à **désencombrer**, une
+  // séance qui reste dans « À venir » après archivage n'aurait rien rangé du tout.
+  const archivedIds = new Set(
+    sessions.filter((s) => s.status === SessionStatus.archived).map((s) => s.id),
+  );
+  const active = entries.filter((e) => !archivedIds.has(e.id));
+  const archived = entries.filter((e) => archivedIds.has(e.id));
+  const drafts = active.filter((e) => e.isDraft);
+  const published = active.filter((e) => !e.isDraft);
   // Non datées (date null → clé '') triées avant les datées → « Non planifiée » en tête d'À venir.
   const upcoming = published
     .filter((e) => e.date == null || e.date >= todayKey)
@@ -222,7 +235,7 @@ export function coachSessionBuckets(
   const templates = sessions
     .filter((s) => s.status === SessionStatus.template)
     .map((s) => sessionToCalendarEntry(s));
-  return { upcoming, past, drafts, templates };
+  return { upcoming, past, drafts, templates, archived };
 }
 
 export function competitionToCalendarEntry(c: Competition): CalendarEntry {

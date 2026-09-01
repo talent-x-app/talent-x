@@ -226,6 +226,28 @@ describe('coachSessionBuckets (ADR-53)', () => {
     expect(b.drafts.map((e) => e.id)).toEqual(['s-draft']);
     expect(b.templates.map((e) => e.id)).toEqual(['t-1']);
   });
+
+  /**
+   * TLX-256 — l'app savait **étiqueter** `archived` (`SESSION_STATUS_META`) sans pouvoir le
+   * produire ni le lister : `archiveSession` n'avait aucun appelant, et aucun filtre ne montrait
+   * ce qui aurait été archivé. Le seau manquant est la moitié qui donne son sens à l'action —
+   * archiver sans pouvoir relire est une suppression déguisée.
+   */
+  it('les séances archivées ont leur seau, et quittent les autres filtres', () => {
+    const sessions = [
+      session({ id: 's-future', status: 'published', scheduledDate: '2026-06-20' }),
+      // Datée dans le futur : sans exclusion, elle resterait dans « À venir » et archiver
+      // n'aurait rien rangé du tout.
+      session({ id: 's-archived', status: 'archived', scheduledDate: '2026-06-20' }),
+      session({ id: 's-archived-past', status: 'archived', scheduledDate: '2026-06-01' }),
+    ];
+
+    const b = coachSessionBuckets(sessions, [], NOW);
+
+    expect(b.archived.map((e) => e.id).sort()).toEqual(['s-archived', 's-archived-past']);
+    expect(b.upcoming.map((e) => e.id)).toEqual(['s-future']);
+    expect(b.past).toEqual([]);
+  });
 });
 
 describe('assignedCountBySession (ADR-53 lot 2)', () => {

@@ -234,6 +234,42 @@ describe('AssignmentsService', () => {
       expect(prisma.sessionAssignment.create).not.toHaveBeenCalled();
       expect(queue.enqueue).not.toHaveBeenCalled();
     });
+
+    /**
+     * TLX-256 — le garde ne traitait que `template` et ne disait rien des deux autres états non
+     * diffusables. Les compléter un par un aurait rejoué la dérive du ticket : un cas à la fois,
+     * trouvé par hasard. Les quatre statuts sont donc figés ici, ensemble.
+     */
+    it.each([
+      ['template', true, 'un modèle se duplique avant de s’affecter (ADR-29)'],
+      ['archived', true, 'une séance archivée vient d’être rangée par le coach (TLX-256)'],
+      ['draft', true, 'un brouillon ne se diffuse pas (arbitrage TLX-258)'],
+      ['published', false, 'seul statut diffusable'],
+    ])('statut %s → refus=%s (%s)', async (status, refused) => {
+      const prisma = prismaMock();
+      const queue = queueMock();
+      prisma.session.findUnique.mockResolvedValue({ status });
+      prisma.sessionAssignment.findFirst.mockResolvedValue(null);
+
+      const call = service(prisma, ownershipMock(), queue).assignSession('c-1', 's-1', {
+        athleteIds: ['a-1'],
+      });
+
+      if (refused) {
+        await expect(call).rejects.toMatchObject({
+          constructor: UnprocessableEntityException,
+          response: { error: 'SESSION_NOT_ASSIGNABLE' },
+        });
+        expect(prisma.sessionAssignment.create).not.toHaveBeenCalled();
+      } else {
+        // Le cas passant n'assert que **le garde**, pas le reste du flux : avec ce mock minimal
+        // l'affectation échoue plus loin, et les chemins heureux complets sont couverts par les
+        // tests voisins. Ce qui compte ici est qu'aucun refus d'assignabilité ne soit levé.
+        await expect(call).rejects.not.toMatchObject({
+          response: { error: 'SESSION_NOT_ASSIGNABLE' },
+        });
+      }
+    });
   });
 
   describe('assignSession — par groupe (ADR-30)', () => {

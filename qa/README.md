@@ -189,12 +189,12 @@ la rejoue sur appareil seulement si la colonne l'indique.
 | getTeamPulse                                                                                  | QA-04.4                                            | E2E:tlx-185                               |
 | createSession / listSessions / getSession                                                     | QA-02.2                                            | E2E:tlx-166, tlx-209                      |
 | updateSession / deleteSession                                                                 | QA-02.3                                            | E2E:tlx-194, coach-misc                   |
-| duplicateSession                                                                              | QA-02.3 — **modèles seulement**, pas les séances   | aucun E2E (vérifié le 20/08)              |
-| archiveSession                                                                                | QA-02.3 — **aucun client mobile** (TLX-256)        | aucun E2E possible : rien à piloter       |
+| duplicateSession                                                                              | QA-02.3 — modèles **et** séances (TLX-256)         | aucun E2E (vérifié le 20/08)              |
+| archiveSession                                                                                | QA-02.3 — détail de séance + filtre « Archivées »  | à rejouer sur appareil (TLX-256)          |
 | assignSession (individuel + groupe) / unassignSessionGroup                                    | QA-02.4                                            | E2E:tlx-133, tlx-198                      |
 | createCompetition / listCompetitions / getCompetition / updateCompetition / deleteCompetition | QA-02.7                                            | E2E:tlx-85                                |
 | engageAthletes / listEntries                                                                  | QA-02.7                                            | E2E:tlx-85                                |
-| unengageAthlete                                                                               | QA-02.7 — **aucun client mobile** (TLX-256)        | aucun E2E possible : rien à piloter       |
+| unengageAthlete                                                                               | QA-02.7 — « Déjà engagés » de l'écran d'engagement | à rejouer sur appareil (TLX-256)          |
 | listAssignments                                                                               | QA-03.3                                            | E2E:tlx-173                               |
 | getAssignment / updateAssignment                                                              | QA-03.4 / QA-03.5                                  | E2E:tlx-220                               |
 | deleteAssignment                                                                              | QA-02.4                                            | —                                         |
@@ -203,7 +203,8 @@ la rejoue sur appareil seulement si la colonne l'indique.
 | giveKudos / removeKudos                                                                       | QA-04.6                                            | E2E:tlx-185                               |
 | submitPerformance                                                                             | QA-03.5 · QA-07.1 (idempotence)                    | int, E2E:tlx-220                          |
 | getPerformance / updatePerformance                                                            | QA-03.5                                            | E2E:tlx-220                               |
-| createComment / listComments / deleteComment                                                  | QA-02.5 · QA-04.7                                  | E2E:tlx-129                               |
+| createComment / listComments                                                                  | QA-02.5 · QA-04.7                                  | E2E:tlx-129                               |
+| deleteComment                                                                                 | QA-04.7 — son propre message, dans le fil          | à rejouer sur appareil (TLX-256)          |
 | getMyProgress                                                                                 | QA-03.6                                            | E2E:tlx-131                               |
 | listMyRecords / createManualRecord / confirmRecord                                            | QA-03.7                                            | E2E:tlx-131                               |
 | logTrainingSession                                                                            | QA-03.8                                            | E2E:tlx-132                               |
