@@ -320,10 +320,13 @@ describe('Parcours critiques (E2E DB) — TLX-120', () => {
         .set(bearer(athlete.token))
         .send({ inviteCode: group.body.inviteCode })
         .expect(200);
+      // `status: 'published'` explicite : une séance créée sans statut naît en brouillon, et
+      // un brouillon n'est plus affectable (arbitrage TLX-258, garde posée par TLX-256).
+      // Ce test parle d'idempotence, pas de statut : la fixture doit être diffusable.
       const session = await http()
         .post('/api/v1/sessions')
         .set(bearer(coach.token))
-        .send({ title: 'S', exercises: { items: [{ name: 'A', order: 0 }] } })
+        .send({ title: 'S', status: 'published', exercises: { items: [{ name: 'A', order: 0 }] } })
         .expect(201);
 
       const key = `assign-${session.body.id}`;
@@ -375,10 +378,12 @@ describe('Parcours critiques (E2E DB) — TLX-120', () => {
         .set(bearer(athlete.token))
         .send({ inviteCode: group.body.inviteCode })
         .expect(200);
+      // Séance publiée : ce test porte sur le refus de perf **sans consentement**, pas sur
+      // l'assignabilité. Un brouillon ferait échouer l'affectation en 422 bien avant (TLX-258).
       const session = await http()
         .post('/api/v1/sessions')
         .set(bearer(coach.token))
-        .send({ title: 'S', exercises: { items: [{ name: 'A', order: 0 }] } })
+        .send({ title: 'S', status: 'published', exercises: { items: [{ name: 'A', order: 0 }] } })
         .expect(201);
       const assign = await http()
         .post(`/api/v1/sessions/${session.body.id}/assign`)
@@ -582,7 +587,7 @@ describe('Parcours critiques (E2E DB) — TLX-120', () => {
   });
 
   describe('Modèles de séance — bibliothèque C-10 (ADR-29)', () => {
-    it('crée un modèle, le liste, refuse de l’affecter (422) et le duplique en séance assignable', async () => {
+    it('crée un modèle, le liste, refuse de l’affecter (422) et le duplique en brouillon — affectable une fois publié', async () => {
       const coach = await register('coach');
 
       // 1) Le coach crée un **modèle** (statut `template`) — non daté, réutilisable.
@@ -636,8 +641,27 @@ describe('Parcours critiques (E2E DB) — TLX-120', () => {
       expect(copy.body.status).toBe('draft');
       expect(copy.body.id).not.toBe(templateId);
 
-      // La copie (draft) franchit le garde de modèle : elle échoue plus loin, sur le lien athlète
-      // inexistant (403) — preuve que le garde 422 est spécifique au statut `template`.
+      // 5) La copie naît en **brouillon**, et un brouillon n'est pas davantage affectable
+      //    qu'un modèle (arbitrage TLX-258, garde posée par TLX-256). L'ancienne version de ce
+      //    test affectait la copie directement et concluait que le 422 était « spécifique au
+      //    statut `template` » : cette propriété a été délibérément abandonnée, le refus porte
+      //    désormais sur tout statut non diffusable.
+      const assignDraft = await http()
+        .post(`/api/v1/sessions/${copy.body.id}/assign`)
+        .set(bearer(coach.token))
+        .set('Idempotency-Key', `copy-draft-${copy.body.id}`)
+        .send({ athleteIds: [randomUUID()] })
+        .expect(422);
+      expect(assignDraft.body.error).toBe('SESSION_NOT_ASSIGNABLE');
+
+      // 6) Publiée, la copie franchit la garde d'assignabilité et échoue **plus loin**, sur le
+      //    lien athlète inexistant (403). C'est ce que ce test voulait prouver depuis le début :
+      //    le contrôle du lien coach↔athlète est bien atteint, pas court-circuité.
+      await http()
+        .put(`/api/v1/sessions/${copy.body.id}`)
+        .set(bearer(coach.token))
+        .send({ status: 'published' })
+        .expect(200);
       await http()
         .post(`/api/v1/sessions/${copy.body.id}/assign`)
         .set(bearer(coach.token))

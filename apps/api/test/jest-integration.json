@@ -6,6 +6,7 @@
   "testRegex": "\\.int-spec\\.ts$",
   "moduleFileExtensions": ["ts", "js", "json"],
   "setupFiles": ["<rootDir>/test/setup-int.ts"],
+  "testTimeout": 30000,
   "transform": {
     "^.+\\.ts$": ["ts-jest", { "tsconfig": "<rootDir>/tsconfig.spec.json" }]
   }

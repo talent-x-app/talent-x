@@ -54,6 +54,10 @@ describe('Présence (RSVP) — DB intégration (ADR-43 §1, TLX-173)', () => {
       .set(bearer(coachToken))
       .send({
         title: 'Test 150 m',
+        // Publiée d'emblée : sans statut la séance naît en brouillon, et un brouillon n'est plus
+        // affectable (TLX-258/256). Ce helper sert tous les tests de présence de ce fichier —
+        // la correction est ici, une seule fois.
+        status: 'published',
         exercises: {
           schemaVersion: 3,
           items: [{ name: '150m', order: 0, type: 'sprint', params: { distanceMeters: 150 } }],
