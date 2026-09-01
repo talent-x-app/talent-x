@@ -42,10 +42,11 @@ export class CommentsService {
   async createComment(user: AuthenticatedUser, dto: CommentCreateDto): Promise<CommentDto> {
     const target = exactlyOneTarget(dto.sessionId, dto.performanceId);
     let performance: PerformanceTarget | undefined;
+    let session: SessionTarget | undefined;
     if (target === 'performance') {
       performance = await this.assertCanAccessPerformance(user, dto.performanceId!);
     } else {
-      await this.assertCanAccessSession(user, dto.sessionId!);
+      session = await this.assertCanAccessSession(user, dto.sessionId!);
     }
 
     const comment = await this.prisma.comment.create({
@@ -72,6 +73,14 @@ export class CommentsService {
         // « : » est interdit dans un jobId BullMQ (séparateur interne de clés Redis).
         `performance_feedback--${comment.id}`,
       );
+    }
+
+    // Fil de séance (TLX-268, ADR-59) — les deux sens. Jusqu'ici seul le chemin ci-dessus
+    // existait, gardé par `target === 'performance'` : la cible séance n'était traitée nulle
+    // part, et l'écran promettait « Pose une question à ton coach » à une boîte que personne
+    // ne relevait.
+    if (target === 'session' && session) {
+      await this.notifySessionThread(user, session, comment.id);
     }
     return toCommentDto(comment);
   }
@@ -148,7 +157,10 @@ export class CommentsService {
   }
 
   /** Accès à une séance cible : coach propriétaire, ou athlète affecté (lien à la séance). */
-  private async assertCanAccessSession(user: AuthenticatedUser, sessionId: string): Promise<void> {
+  private async assertCanAccessSession(
+    user: AuthenticatedUser,
+    sessionId: string,
+  ): Promise<SessionTarget> {
     const session = await this.prisma.session.findFirst({
       where: { id: sessionId, deletedAt: null },
       select: { coachId: true },
@@ -160,7 +172,7 @@ export class CommentsService {
       if (session.coachId !== user.id) {
         throw new ForbiddenException('Cette séance ne vous appartient pas.');
       }
-      return;
+      return { sessionId, coachId: session.coachId };
     }
     const assigned = await this.prisma.sessionAssignment.findFirst({
       where: { sessionId, athleteId: user.id, deletedAt: null },
@@ -169,7 +181,70 @@ export class CommentsService {
     if (!assigned) {
       throw new ForbiddenException('Cette séance ne vous est pas accessible.');
     }
+    return { sessionId, coachId: session.coachId };
   }
+
+  /**
+   * Fan-out d'un message posté sur le fil d'une **séance** (ADR-59 §D2/§D3).
+   *
+   * Le fil est **commun** : il est attaché à la séance et lu par tous ses affectés (ADR-30).
+   * D'où deux sens dissymétriques :
+   *  - athlète → **le coach propriétaire** seul. Notifier les autres athlètes ferait d'un fil à
+   *    dix affectés une chambre d'écho, où chaque message de chacun réveille les neuf autres.
+   *  - coach → **tous les athlètes affectés**, parce qu'ils voient tous la réponse ; n'en
+   *    prévenir qu'un serait une incohérence de plus, pas une économie.
+   *
+   * Le `resourceId` est **celui que son destinataire sait ouvrir** — c'est la leçon de TLX-266.
+   * Les deux routes s'appellent `session/[id]` et ne prennent pas la même chose : celle du coach
+   * consomme un identifiant de séance, celle de l'athlète une **affectation**. Un identifiant
+   * unique partagé enverrait forcément l'un des deux sur un écran d'erreur. On émet donc une
+   * notification par destinataire, chacune portant sa propre ressource navigable.
+   */
+  private async notifySessionThread(
+    author: AuthenticatedUser,
+    target: SessionTarget,
+    commentId: string,
+  ): Promise<void> {
+    const recipients: { userId: string; resourceId: string }[] = [];
+
+    if (author.role === 'coach') {
+      const assignments = await this.prisma.sessionAssignment.findMany({
+        where: { sessionId: target.sessionId, deletedAt: null },
+        select: { id: true, athleteId: true },
+      });
+      for (const a of assignments) {
+        recipients.push({ userId: a.athleteId, resourceId: a.id });
+      }
+    } else {
+      // Le coach ouvre la séance elle-même (C-05), jamais une affectation.
+      recipients.push({ userId: target.coachId, resourceId: target.sessionId });
+    }
+
+    for (const recipient of recipients) {
+      // L'auteur ne se notifie jamais lui-même (ADR-59 §D2). Un coach n'est pas affecté à sa
+      // propre séance, donc la garde est théorique aujourd'hui — elle est écrite quand même :
+      // la protection ne doit pas dépendre d'une propriété du modèle de données.
+      if (recipient.userId === author.id) continue;
+      await this.notificationQueue.enqueue(
+        {
+          type: 'session_comment',
+          recipientUserId: recipient.userId,
+          resourceId: recipient.resourceId,
+          // Acteur (ADR-55) — résolu en prénom au read ; le push reste générique (ADR-10).
+          actorId: author.id,
+        },
+        // Le destinataire fait partie de la clé : sans lui, le fan-out se dédupliquerait contre
+        // lui-même et un seul athlète serait servi. « : » est interdit dans un jobId BullMQ.
+        `session_comment--${commentId}--${recipient.userId}`,
+      );
+    }
+  }
+}
+
+/** Séance cible d'un commentaire : son propriétaire, pour le fan-out (ADR-59). */
+interface SessionTarget {
+  sessionId: string;
+  coachId: string;
 }
 
 /** Titulaire + affectation d'une performance cible (notification ADR-22/23). */

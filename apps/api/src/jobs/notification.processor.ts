@@ -22,6 +22,11 @@ const PREFERENCE_GATE: Record<
   group_kudos: 'groupUpdates',
   // ADR-48/50 : réponse sous une annonce, même préférence « mises à jour du groupe ».
   group_reply: 'groupUpdates',
+  // ADR-59 §D4 : gardé par `performanceFeedback` plutôt qu'une colonne dédiée — c'est la même
+  // conversation coach ↔ athlète, une étape plus tôt. `groupUpdates` rangerait un échange
+  // personnel parmi les nouvelles du groupe. Limite assumée : couper le feedback coupe aussi
+  // les questions de séance.
+  session_comment: 'performanceFeedback',
 };
 
 /**
@@ -56,6 +61,12 @@ const MESSAGES: Record<NotificationType, { title: string; body: string }> = {
   group_reply: {
     title: 'Nouvelle réponse',
     body: 'Quelqu’un a répondu à ton annonce.',
+  },
+  // ADR-59/ADR-10 : générique dans les deux sens — le même libellé sert au coach qui reçoit une
+  // question et à l'athlète qui reçoit une réponse. Aucun extrait du message, aucun nom.
+  session_comment: {
+    title: 'Nouveau message',
+    body: 'Quelqu’un a écrit sur une séance.',
   },
 };
 

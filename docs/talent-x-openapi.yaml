@@ -5056,6 +5056,7 @@ components:
       - group_announcement
       - group_kudos
       - group_reply
+      - session_comment
     NotificationActor:
       type: object
       description: Acteur d'une notification (ADR-55) — prénom minimisé, résolu au

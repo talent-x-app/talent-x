@@ -185,6 +185,27 @@ describe('SessionDetailScreen (TLX-065/071 — A-03/A-04)', () => {
     expect(mockListComments).toHaveBeenCalledWith({ sessionId: 's-1' });
   });
 
+  /**
+   * TLX-268 / ADR-59 — le fil de séance était **remplacé** par celui de la perf dès la première
+   * soumission. Or c'est la séquence normale : l'athlète pose sa question avant la séance, la
+   * fait, saisit sa perf, et la réponse du coach arrive après. Notifier vers un écran où le fil
+   * n'est plus rendu aurait été un nouveau TLX-266 — un tap qui ne mène nulle part.
+   */
+  it('le fil de séance survit à la soumission de la perf (TLX-268)', async () => {
+    mockGetAssignment.mockResolvedValue({ status: 200, data: ASSIGNMENT });
+    // Perf déjà enregistrée : avant, cette branche masquait la discussion de séance.
+    mockGetPerformance.mockResolvedValue({
+      status: 200,
+      data: { id: 'perf-1', assignmentId: 'as-1', results: { items: [] }, rpe: 6 },
+    });
+    render(<SessionDetailScreen />, { wrapper: Wrapper });
+
+    await waitFor(() => expect(screen.getByText('Discussion')).toBeOnTheScreen());
+    // Les deux fils coexistent : deux conversations distinctes, la séance et la perf.
+    expect(mockListComments).toHaveBeenCalledWith({ sessionId: 's-1' });
+    expect(mockListComments).toHaveBeenCalledWith({ performanceId: 'perf-1' });
+  });
+
   it('affiche la cible dérivée des params typés d’un bloc (TLX-062)', async () => {
     mockGetAssignment.mockResolvedValue({
       status: 200,

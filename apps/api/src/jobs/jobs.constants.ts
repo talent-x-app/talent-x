@@ -38,7 +38,10 @@ export type NotificationType =
   // ADR-48/49 (Palier 2) : un coéquipier encourage une présence confirmée (kudos 👏).
   | 'group_kudos'
   // ADR-48/50 (Palier 3) : quelqu'un a répondu sous une annonce → notifie l'auteur de l'annonce.
-  | 'group_reply';
+  | 'group_reply'
+  // ADR-59 : message sur le fil d'une séance (TLX-118). Question d'athlète → le coach
+  // propriétaire ; réponse du coach → tous les athlètes affectés (le fil est commun).
+  | 'session_comment';
 
 /**
  * Payload d'un job de notification — minimal et non sensible (ADR-10) : un signal

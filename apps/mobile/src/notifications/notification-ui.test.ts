@@ -118,6 +118,33 @@ describe('notification-ui (TLX-111, ADR-23)', () => {
       }
     });
 
+    /**
+     * TLX-268 / ADR-59 §D3 — les deux routes s'appellent `session/[id]` et **ne prennent pas la
+     * même chose** : celle du coach consomme une séance, celle de l'athlète une affectation.
+     * L'émetteur donne à chacun la ressource que son écran sait ouvrir ; ici on vérifie que le
+     * routage suit bien le rôle, sans quoi on rejouerait TLX-266 sous un autre type.
+     */
+    it('session_comment : le coach ouvre sa séance, l’athlète son affectation', () => {
+      expect(notificationHref('coach', 'session_comment', 's-1')).toEqual({
+        pathname: '/(coach)/session/[id]',
+        params: { id: 's-1' },
+      });
+      expect(notificationHref('athlete', 'session_comment', 'asg-1')).toEqual({
+        pathname: '/(athlete)/session/[id]',
+        params: { id: 'asg-1' },
+      });
+    });
+
+    it('session_comment : invalide le détail ET le préfixe des fils de séance', () => {
+      // Le fil vit sous `['session', <sessionId>, 'comments']` et l'athlète ne reçoit que son
+      // affectation : viser le fil précis demanderait une requête, d'où le préfixe racine —
+      // même raisonnement que `performance_feedback` avec `['performance']`.
+      const keys = notificationQueryKeys('session_comment', 'asg-1');
+
+      expect(keys).toContainEqual(['assignment', 'asg-1']);
+      expect(keys).toContainEqual(['session']);
+    });
+
     it('group_reply : préfixe des annonces — couvre le fil ET le compteur de réponses', () => {
       // `resourceId` est le GROUPE, jamais l'annonce : viser le fil précis est impossible
       // sans requête, le préfixe est donc la clé la plus fine disponible.

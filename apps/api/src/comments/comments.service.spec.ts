@@ -57,7 +57,8 @@ function prismaMock(): PrismaMock {
     },
     performance: { findUnique: jest.fn() },
     session: { findFirst: jest.fn() },
-    sessionAssignment: { findFirst: jest.fn() },
+    // `findMany` : fan-out du fil de séance vers les athlètes affectés (ADR-59).
+    sessionAssignment: { findFirst: jest.fn(), findMany: jest.fn().mockResolvedValue([]) },
     $transaction: jest.fn((arg: unknown) =>
       Array.isArray(arg) ? Promise.all(arg) : (arg as (tx: unknown) => unknown)(mock),
     ),
@@ -252,6 +253,147 @@ describe('CommentsService (TLX-086)', () => {
       await expect(
         make(prisma).createComment(ATHLETE, { sessionId: SESSION_ID, body: 'x' }),
       ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+  });
+
+  /**
+   * TLX-268 / ADR-59 — le fil de séance ne prévenait **personne, dans aucun des deux sens**.
+   * Mesuré sur appareil (QA-04.7) : question postée → 0 notification ; réponse du coach → 0.
+   * L'écran promettait « Pose une question à ton coach » à une boîte que personne ne relevait.
+   *
+   * Le seul chemin de notification qui existait était gardé par `target === 'performance'` : la
+   * cible séance n'était traitée nulle part, et la taxonomie ADR-22 n'avait même pas de type
+   * pour elle.
+   */
+  describe('createComment — fil de séance : notifications (TLX-268, ADR-59)', () => {
+    /** Séance de `c-1`, commentée par `author`. Les affectations pilotent le fan-out. */
+    function sessionThread(prisma: PrismaMock, authorId: string, assignments: unknown[] = []) {
+      prisma.session.findFirst.mockResolvedValue({ coachId: 'c-1' });
+      prisma.sessionAssignment.findFirst.mockResolvedValue({ id: 'asg-1' });
+      prisma.sessionAssignment.findMany.mockResolvedValue(assignments);
+      prisma.comment.create.mockResolvedValue(
+        commentRow({ sessionId: SESSION_ID, performanceId: null, authorId }),
+      );
+    }
+
+    it('question d’athlète → le coach propriétaire, avec l’identifiant de SÉANCE', async () => {
+      const prisma = prismaMock();
+      const queue = queueMock();
+      sessionThread(prisma, 'a-1');
+
+      await make(prisma, ownershipMock(), consentMock(), queue).createComment(ATHLETE, {
+        sessionId: SESSION_ID,
+        body: 'Question',
+      });
+
+      expect(queue.enqueue).toHaveBeenCalledTimes(1);
+      const [payload, jobId] = (queue.enqueue as jest.Mock).mock.calls[0];
+      // Le coach ouvre `(coach)/session/[id]`, qui consomme une **séance** (ADR-59 §D3).
+      expect(payload).toEqual({
+        type: 'session_comment',
+        recipientUserId: 'c-1',
+        resourceId: SESSION_ID,
+        actorId: 'a-1',
+      });
+      expect(jobId).toBe('session_comment--cm-1--c-1');
+    });
+
+    it('réponse du coach → tous les athlètes affectés, chacun avec SON affectation', async () => {
+      // Le fil est commun : tous les affectés voient la réponse, tous doivent être prévenus.
+      const prisma = prismaMock();
+      const queue = queueMock();
+      sessionThread(prisma, 'c-1', [
+        { id: 'asg-1', athleteId: 'a-1' },
+        { id: 'asg-2', athleteId: 'a-2' },
+      ]);
+
+      await make(prisma, ownershipMock(), consentMock(), queue).createComment(COACH, {
+        sessionId: SESSION_ID,
+        body: 'Réponse',
+      });
+
+      const calls = (queue.enqueue as jest.Mock).mock.calls as [
+        { recipientUserId: string; resourceId: string },
+        string,
+      ][];
+      expect(calls).toHaveLength(2);
+      // TLX-266, la leçon : la route athlète s'appelle `session/[id]` mais consomme une
+      // **affectation**. Chacun reçoit donc la sienne, pas l'identifiant de la séance.
+      expect(calls.map((c) => [c[0].recipientUserId, c[0].resourceId])).toEqual([
+        ['a-1', 'asg-1'],
+        ['a-2', 'asg-2'],
+      ]);
+      expect(calls.map((c) => c[0].resourceId)).not.toContain(SESSION_ID);
+      // Le destinataire fait partie de la clé : sans lui, le fan-out se dédupliquerait contre
+      // lui-même et un seul athlète serait servi.
+      expect(calls.map((c) => c[1])).toEqual([
+        'session_comment--cm-1--a-1',
+        'session_comment--cm-1--a-2',
+      ]);
+    });
+
+    it('un athlète qui écrit ne réveille pas les autres athlètes du fil', async () => {
+      // Sans cette borne, un fil à dix affectés devient une chambre d'écho (ADR-59 §D2).
+      const prisma = prismaMock();
+      const queue = queueMock();
+      sessionThread(prisma, 'a-1', [
+        { id: 'asg-1', athleteId: 'a-1' },
+        { id: 'asg-2', athleteId: 'a-2' },
+      ]);
+
+      await make(prisma, ownershipMock(), consentMock(), queue).createComment(ATHLETE, {
+        sessionId: SESSION_ID,
+        body: 'Question',
+      });
+
+      const recipients = (queue.enqueue as jest.Mock).mock.calls.map(
+        (c) => (c[0] as { recipientUserId: string }).recipientUserId,
+      );
+      expect(recipients).toEqual(['c-1']);
+    });
+
+    it('l’auteur ne se notifie jamais lui-même, même s’il figure dans les affectés', async () => {
+      // Garde explicite : un coach n'est pas affecté à sa propre séance aujourd'hui, donc le cas
+      // ne se produit pas — la protection ne doit pas dépendre d'une propriété du modèle.
+      const prisma = prismaMock();
+      const queue = queueMock();
+      sessionThread(prisma, 'c-1', [
+        { id: 'asg-0', athleteId: 'c-1' },
+        { id: 'asg-1', athleteId: 'a-1' },
+      ]);
+
+      await make(prisma, ownershipMock(), consentMock(), queue).createComment(COACH, {
+        sessionId: SESSION_ID,
+        body: 'Réponse',
+      });
+
+      const recipients = (queue.enqueue as jest.Mock).mock.calls.map(
+        (c) => (c[0] as { recipientUserId: string }).recipientUserId,
+      );
+      expect(recipients).toEqual(['a-1']);
+    });
+
+    it('un commentaire de performance ne passe pas par ce chemin (non-régression)', async () => {
+      // Le feedback de perf garde son type et son `resourceId` : `session_comment` ne doit pas
+      // s'y substituer ni s'y ajouter.
+      const prisma = prismaMock();
+      const queue = queueMock();
+      prisma.performance.findUnique.mockResolvedValue(perfAccessible());
+      prisma.comment.create.mockResolvedValue(commentRow());
+
+      await make(prisma, ownershipMock(), consentMock(), queue).createComment(COACH, {
+        performanceId: PERF_ID,
+        body: 'Bravo',
+      });
+
+      // Un seul job, de l'ancien type, avec l'affectation de la perf — inchangé.
+      expect(queue.enqueue).toHaveBeenCalledTimes(1);
+      expect((queue.enqueue as jest.Mock).mock.calls[0][0]).toMatchObject({
+        type: 'performance_feedback',
+        recipientUserId: 'a-1',
+        resourceId: 'asg-7',
+      });
+      expect(prisma.sessionAssignment.findMany).not.toHaveBeenCalled();
     });
   });
 

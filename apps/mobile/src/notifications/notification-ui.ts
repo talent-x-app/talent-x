@@ -55,6 +55,12 @@ export const NOTIFICATION_PRESENTATIONS: Record<NotificationType, NotificationPr
     title: 'Nouvelle réponse',
     description: 'Quelqu’un a répondu à ton annonce.',
   },
+  // ADR-59 : fil de séance, les deux sens (question d'athlète, réponse de coach).
+  session_comment: {
+    icon: 'message-circle',
+    title: 'Nouveau message',
+    description: 'Quelqu’un a écrit sur une séance.',
+  },
 };
 
 /**
@@ -80,6 +86,8 @@ export function notificationDescription(type: NotificationType, actorName?: stri
       return `${actorName} t’envoie des encouragements 👏.`;
     case 'group_reply':
       return `${actorName} a répondu à ton annonce.`;
+    case 'session_comment':
+      return `${actorName} a écrit sur une séance.`;
     default:
       return fallback;
   }
@@ -120,6 +128,18 @@ export function notificationHref(
   if (role === 'coach' && type === 'group_reply') {
     return { pathname: '/(coach)/group/[id]', params: { id: resourceId } };
   }
+  /*
+   * Fil de séance (ADR-59 §D3) — les deux routes s'appellent `session/[id]` et **ne prennent pas
+   * la même chose** : celle du coach consomme un identifiant de séance, celle de l'athlète une
+   * affectation. L'émetteur envoie donc à chaque destinataire la ressource que *son* écran sait
+   * ouvrir ; ici on se contente de router selon le rôle. C'est la leçon de TLX-266, où un
+   * identifiant unique partagé menait l'un des deux camps sur un écran d'erreur.
+   */
+  if (type === 'session_comment') {
+    return role === 'coach'
+      ? { pathname: '/(coach)/session/[id]', params: { id: resourceId } }
+      : { pathname: '/(athlete)/session/[id]', params: { id: resourceId } };
+  }
   return null;
 }
 
@@ -146,6 +166,14 @@ function assignmentDetailKey(assignmentId: string): readonly unknown[] {
  * seront rechargés ; les autres sont simplement marqués périmés.
  */
 const PERFORMANCE_COMMENTS_PREFIX: readonly unknown[] = ['performance'];
+
+/**
+ * Séances et leurs fils de discussion (`['session', <sessionId>, 'comments']`, cf.
+ * `sessionCommentsKey`) — même raison que ci-dessus : côté athlète, la notification de fil de
+ * séance porte l'identifiant de l'**affectation**, jamais celui de la séance. Le préfixe racine
+ * emporte au passage le détail de séance coach, qui est la cible de son côté (ADR-59 §D3).
+ */
+const SESSION_COMMENTS_PREFIX: readonly unknown[] = ['session'];
 
 /**
  * Clés de cache à invalider à l'**arrivée** d'une notification (TLX-235), dérivées du seul
@@ -210,6 +238,18 @@ export function notificationQueryKeys(
     // préfixe des annonces couvre à la fois la liste (son `replyCount`) et tous les fils.
     case 'group_reply':
       return [groupAnnouncementsQueryKey(resourceId)];
+
+    // Fil de séance (ADR-59). Le `resourceId` est l'affectation côté athlète, la séance côté
+    // coach : on invalide donc le détail d'affectation **et** le préfixe racine des séances.
+    //
+    // Ce dernier est volontairement large, pour la raison exacte de `PERFORMANCE_COMMENTS_PREFIX`
+    // ci-dessus : le fil vit sous `['session', <sessionId>, 'comments']`, et la notification de
+    // l'athlète ne porte pas le `sessionId` — viser le fil précis demanderait une requête. Seuls
+    // les fils réellement montés sont rechargés ; les autres sont marqués périmés, sans coût.
+    // Sans cette clé, la notification annoncerait un message que l'écran n'afficherait pas —
+    // le défaut même de TLX-235.
+    case 'session_comment':
+      return [assignmentDetailKey(resourceId), SESSION_COMMENTS_PREFIX];
 
     default:
       return [];

@@ -22,4 +22,5 @@ export const NotificationType = {
   group_announcement: 'group_announcement',
   group_kudos: 'group_kudos',
   group_reply: 'group_reply',
+  session_comment: 'session_comment',
 } as const;

@@ -601,15 +601,29 @@ export function SessionDetailScreen() {
                 />
               )}
 
-              {/* Échange avec le coach : une fois la perf enregistrée, fil de feedback sur la
-                  perf (A-09) ; avant, discussion pré-séance sur la séance (TLX-118) — l'athlète
-                  peut poser une question sur la séance à venir (cible = séance). */}
+              {/* Échange avec le coach : deux fils, deux conversations. Le feedback porte sur la
+                  perf réalisée (A-09), la discussion sur la séance à venir (TLX-118).
+
+                  TLX-268 / ADR-59 — le fil de séance était **remplacé** par celui de perf dès la
+                  première soumission. Or c'est la séquence normale : l'athlète pose sa question
+                  avant la séance, la fait, saisit sa perf, et la réponse du coach arrive après.
+                  La notifier vers un écran où le fil n'est plus rendu aurait été un nouveau
+                  TLX-266 — un tap qui ne mène nulle part. Les deux fils coexistent donc. */}
               {existing.data ? (
                 <FeedbackThread
                   performanceId={existing.data.id}
                   composerPlaceholder="Répondre à ton coach…"
                   sendLabel="Envoyer"
                   emptyHint="Pas encore de retour de ton coach sur cette séance."
+                />
+              ) : null}
+              {existing.data ? (
+                <FeedbackThread
+                  sessionId={assignment.data.sessionId}
+                  title="Discussion"
+                  composerPlaceholder="Une question sur cette séance ?"
+                  sendLabel="Envoyer"
+                  emptyHint="Aucun message sur cette séance."
                 />
               ) : (
                 <FeedbackThread
