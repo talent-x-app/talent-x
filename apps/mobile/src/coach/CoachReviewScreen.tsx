@@ -8,7 +8,8 @@ import { useTheme } from '@talent-x/design-tokens';
 import { useQuery } from '@tanstack/react-query';
 import { Feather } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
+import { usePullToRefresh } from '../data/usePullToRefresh';
 import { Button, Card } from '../components/ui';
 import { FeedbackThread } from '../comments/FeedbackThread';
 import { formatMeasures } from '../athlete/perf-entry';
@@ -56,10 +57,22 @@ export function CoachReviewScreen() {
     retry: false,
   });
 
+  // Tirer-pour-rafraîchir (TLX-269) : la revue héberge le fil où l'athlète pose ses questions —
+  // même famille que le détail de séance, le préfixe de l'affectation emporte la performance.
+  const refresh = usePullToRefresh([['assignment', assignmentId], ['performance']]);
+
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: colors.background }}
       contentContainerStyle={{ padding: spacing[6], gap: spacing[5] }}
+      refreshControl={
+        <RefreshControl
+          testID="review-refresh"
+          refreshing={refresh.refreshing}
+          onRefresh={refresh.onRefresh}
+          tintColor={colors.accent}
+        />
+      }
     >
       <Pressable
         testID="review-back"

@@ -8,7 +8,8 @@ import { useTheme } from '@talent-x/design-tokens';
 import { useQuery } from '@tanstack/react-query';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
+import { usePullToRefresh } from '../data/usePullToRefresh';
 import { Button, Card } from '../components/ui';
 import {
   CompetitionEntryStatusBadge,
@@ -47,10 +48,26 @@ export function CompetitionDetailScreen({ competitionId }: { competitionId: stri
     retry: false,
   });
 
+  // Tirer-pour-rafraîchir (TLX-269) : les engagements sont posés par le **coach**, donc du
+  // contenu produit par autrui — le contrôle qui vaut n'est pas « les deux détails de séance ont
+  // une poignée » mais « aucun écran affichant du contenu d'autrui n'en est dépourvu ».
+  const refresh = usePullToRefresh([
+    ['competition', competitionId],
+    competitionEntriesQueryKey(competitionId),
+  ]);
+
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: colors.background }}
       contentContainerStyle={{ padding: spacing[6], gap: spacing[5] }}
+      refreshControl={
+        <RefreshControl
+          testID="competition-detail-refresh"
+          refreshing={refresh.refreshing}
+          onRefresh={refresh.onRefresh}
+          tintColor={colors.accent}
+        />
+      }
     >
       <Pressable
         testID="competition-detail-back"

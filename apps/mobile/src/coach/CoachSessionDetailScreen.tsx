@@ -11,7 +11,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Feather } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
+import { usePullToRefresh } from '../data/usePullToRefresh';
 import { Button, Card, InlineConfirm } from '../components/ui';
 import { useToast } from '../feedback';
 import { SESSION_STATUS_META } from '../sessions/session-status-meta';
@@ -51,6 +52,10 @@ export function CoachSessionDetailScreen() {
     meta: { skipGlobalErrorToast: true },
   });
 
+  // Tirer-pour-rafraîchir (TLX-269) : la séance, ses affectations (présences des athlètes) et
+  // les fils de discussion, indexés par identifiant de performance.
+  const refresh = usePullToRefresh([['session', id], ['assignments'], ['performance']]);
+
   const statusMeta = session.data ? SESSION_STATUS_META[session.data.status] : undefined;
   const exercises = session.data?.exercises?.items ?? [];
 
@@ -87,6 +92,14 @@ export function CoachSessionDetailScreen() {
     <ScrollView
       style={{ flex: 1, backgroundColor: colors.background }}
       contentContainerStyle={{ padding: spacing[6], gap: spacing[5] }}
+      refreshControl={
+        <RefreshControl
+          testID="coach-session-detail-refresh"
+          refreshing={refresh.refreshing}
+          onRefresh={refresh.onRefresh}
+          tintColor={colors.accent}
+        />
+      }
     >
       <Pressable
         testID="coach-session-back"

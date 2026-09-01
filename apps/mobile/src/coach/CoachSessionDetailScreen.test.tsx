@@ -1,6 +1,7 @@
 import { ThemeProvider } from '@talent-x/design-tokens';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { RefreshControl } from 'react-native';
 import { type ReactNode, useState } from 'react';
 
 const mockGetSession = jest.fn();
@@ -140,6 +141,20 @@ describe('CoachSessionDetailScreen (C-05 — détail lecture seule)', () => {
     expect(screen.getByTestId('exercise-0')).toHaveTextContent(/A1 · Squat/);
     // Pas de saisie de perf.
     expect(screen.queryByTestId('submit-performance')).toBeNull();
+  });
+
+  it('porte un tirer-pour-rafraîchir (TLX-269)', async () => {
+    // La DoD porte sur les **deux** rôles : le coach attend la question de son athlète sur le
+    // même fil. Comportement couvert par `usePullToRefresh.test.tsx` ; ici, le câblage.
+    mockGetSession.mockResolvedValue({ status: 200, data: SESSION });
+    render(<CoachSessionDetailScreen />, { wrapper: Wrapper });
+    await waitFor(() => expect(mockGetSession).toHaveBeenCalledTimes(1));
+
+    // Le `RefreshControl` est passé en PROP du ScrollView, pas rendu comme élément hôte : il
+    // faut le viser par son type (même patron que `NotificationsScreen.test.tsx`).
+    act(() => fireEvent(screen.UNSAFE_getByType(RefreshControl), 'refresh'));
+
+    await waitFor(() => expect(mockGetSession).toHaveBeenCalledTimes(2));
   });
 
   it('actions : Éditer → constructeur, Assigner → écran d’assignation', async () => {

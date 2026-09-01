@@ -1,6 +1,7 @@
 import { ThemeProvider } from '@talent-x/design-tokens';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { RefreshControl } from 'react-native';
 import { type ReactNode, useState } from 'react';
 
 const mockGetAssignment = jest.fn();
@@ -154,6 +155,23 @@ describe('SessionDetailScreen (TLX-065/071 — A-03/A-04)', () => {
     await enterEntryMode();
     expect(screen.getByTestId('submit-performance')).toHaveTextContent('Enregistrer ma perf');
     expect(screen.getByTestId('rpe-slider')).toBeOnTheScreen();
+  });
+
+  it('porte un tirer-pour-rafraîchir (TLX-269)', async () => {
+    // Onze écrans de liste en avaient un, zéro écran de détail — alors que c'est ici qu'arrive
+    // le contenu produit par autrui. Le comportement du rafraîchissement est couvert par
+    // `usePullToRefresh.test.tsx` ; ce test-ci ne prouve que le **câblage** sur cet écran.
+    mockGetAssignment.mockResolvedValue({ status: 200, data: ASSIGNMENT });
+    mockGetPerformance.mockResolvedValue({ status: 404, data: { error: 'NOT_FOUND' } });
+    render(<SessionDetailScreen />, { wrapper: Wrapper });
+    await waitFor(() => expect(mockGetAssignment).toHaveBeenCalledTimes(1));
+
+    // Le `RefreshControl` est passé en PROP du ScrollView, pas rendu comme élément hôte : il
+    // faut le viser par son type (même patron que `NotificationsScreen.test.tsx`).
+    act(() => fireEvent(screen.UNSAFE_getByType(RefreshControl), 'refresh'));
+
+    // Le geste recharge réellement — et sans attendre l'expiration de `staleTime`.
+    await waitFor(() => expect(mockGetAssignment).toHaveBeenCalledTimes(2));
   });
 
   it('expose la discussion de séance avant la saisie (TLX-118)', async () => {

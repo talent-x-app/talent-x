@@ -22,12 +22,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
+import { usePullToRefresh } from '../data/usePullToRefresh';
 import { Button, Card, Chip, SegmentedTabs, Slider } from '../components/ui';
 import { SkipSessionCard } from '../assignments/assignment-lifecycle';
 import { useNetworkStatus, useToast } from '../feedback';
@@ -136,6 +138,12 @@ export function SessionDetailScreen() {
     },
     retry: false,
   });
+
+  // Tirer-pour-rafraîchir (TLX-269) : le préfixe de l'affectation emporte performance, présence,
+  // agrégat et kudos ; celui des performances emporte les fils de commentaires, qui sont indexés
+  // par identifiant de **performance**. C'est ici qu'arrive le contenu produit par autrui, et
+  // c'était le seul écran de l'app où le geste ne faisait rien.
+  const refresh = usePullToRefresh([['assignment', id], ['performance']]);
 
   // Performance existante (préremplissage). 404 = pas encore saisie : on ne retente pas.
   const existing = useQuery({
@@ -400,6 +408,14 @@ export function SessionDetailScreen() {
     <ScrollView
       style={{ flex: 1, backgroundColor: colors.background }}
       contentContainerStyle={{ padding: spacing[6], gap: spacing[5] }}
+      refreshControl={
+        <RefreshControl
+          testID="session-detail-refresh"
+          refreshing={refresh.refreshing}
+          onRefresh={refresh.onRefresh}
+          tintColor={colors.accent}
+        />
+      }
     >
       <Pressable
         testID="session-detail-back"

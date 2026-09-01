@@ -4,12 +4,13 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { Button, Card, SegmentedTabs } from '../components/ui';
+import { usePullToRefresh } from '../data/usePullToRefresh';
 import { toUserMessage, useToast } from '../feedback';
 import { NotificationsBell } from '../notifications/NotificationsBell';
 import { joinGroupHref } from './navigation';
-import { MY_GROUPS_QUERY_KEY } from './groups-query';
+import { MY_GROUPS_QUERY_KEY, groupAnnouncementsQueryKey } from './groups-query';
 import { TeammatesPane } from './group-teammates-ui';
 import { AnnouncementsPane } from './announcements-ui';
 import { GroupCalendarPane } from './GroupCalendarPane';
@@ -43,6 +44,15 @@ export function AthleteGroupHubScreen({
     },
     retry: false,
   });
+
+  // Tirer-pour-rafraîchir (TLX-269) : le hub est presque **entièrement** du contenu produit par
+  // autrui — annonces du coach et leurs fils de réponses, roster, calendrier. Le préfixe des
+  // annonces emporte la liste et tous les fils (même raisonnement que `notificationQueryKeys`).
+  const refresh = usePullToRefresh([
+    MY_GROUPS_QUERY_KEY,
+    groupAnnouncementsQueryKey(groupId),
+    ['assignments'],
+  ]);
   const group = (myGroups.data ?? []).find((g) => g.id === groupId);
 
   return (
@@ -136,6 +146,14 @@ export function AthleteGroupHubScreen({
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={{ padding: spacing[5], gap: spacing[5] }}
+        refreshControl={
+          <RefreshControl
+            testID="group-hub-refresh"
+            refreshing={refresh.refreshing}
+            onRefresh={refresh.onRefresh}
+            tintColor={colors.accent}
+          />
+        }
       >
         {tab === 'announcements' ? (
           <AnnouncementsPane groupId={groupId} coachId={group?.coach.id} />

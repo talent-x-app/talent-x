@@ -14,10 +14,25 @@ import { useMutation, useQuery, useQueryClient, type UseQueryResult } from '@tan
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Image, Pressable, ScrollView, Share, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Image,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  Share,
+  Text,
+  View,
+} from 'react-native';
 import { Button, Card, InlineConfirm, Input, QrCode, SegmentedTabs } from '../components/ui';
+import { usePullToRefresh } from '../data/usePullToRefresh';
 import { toUserMessage, useToast } from '../feedback';
-import { GROUPS_QUERY_KEY, groupMembersQueryKey, groupQueryKey } from './groups-query';
+import {
+  GROUPS_QUERY_KEY,
+  groupAnnouncementsQueryKey,
+  groupMembersQueryKey,
+  groupQueryKey,
+} from './groups-query';
 import { AnnouncementsPane } from './announcements-ui';
 
 type GroupTab = 'members' | 'announcements' | 'settings';
@@ -53,6 +68,16 @@ export function CoachGroupDetailScreen({ groupId }: { groupId: string }) {
     },
     retry: false,
   });
+
+  // Tirer-pour-rafraîchir (TLX-269). **Au-dessus du premier retour conditionnel** : cet écran
+  // sort tôt sur l'état de chargement, et un hook posé plus bas ne serait pas appelé au même
+  // rang d'un rendu à l'autre. Les réponses aux annonces viennent des athlètes — du contenu
+  // produit par autrui, comme sur le hub côté athlète.
+  const refresh = usePullToRefresh([
+    groupQueryKey(groupId),
+    groupMembersQueryKey(groupId),
+    groupAnnouncementsQueryKey(groupId),
+  ]);
 
   if (group.isLoading) {
     return (
@@ -253,6 +278,14 @@ export function CoachGroupDetailScreen({ groupId }: { groupId: string }) {
         style={{ flex: 1 }}
         contentContainerStyle={{ padding: spacing[5], gap: spacing[5] }}
         keyboardShouldPersistTaps="handled"
+        refreshControl={
+          <RefreshControl
+            testID="coach-group-detail-refresh"
+            refreshing={refresh.refreshing}
+            onRefresh={refresh.onRefresh}
+            tintColor={colors.accent}
+          />
+        }
       >
         {tab === 'members' ? (
           <MembersTab groupId={groupId} group={data} members={members} />
