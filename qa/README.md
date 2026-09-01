@@ -152,6 +152,29 @@ de campagne n'ouvre jamais ce chantier elle-même.
 concernés** contre le staging redéployé, et le rapport suivant clôt les lignes du
 registre §7. Un défaut n'est clos que par un scénario vert, pas par un commit.
 
+**Vérification après fusion — les quatre suites, pas trois.** L'intégration d'un lot se
+vérifie **après** fusion et non branche par branche, et la liste est close :
+
+```bash
+pnpm --filter @talent-x/api-client build     # le contrat a pu bouger — dist/ est hors dépôt
+pnpm --filter @talent-x/mobile test:cov      # `test` seul ne regarde pas la couverture
+pnpm --filter @talent-x/api    test
+pnpm --filter @talent-x/api    test:int      # DB-backed — exige Docker (Postgres :5433)
+pnpm --filter @talent-x/mobile typecheck && pnpm --filter @talent-x/api typecheck
+```
+
+⚠️ **Ne jamais lancer deux suites Jest en parallèle** : elles se disputent le cache de
+transformation et produisent un `EPERM … rename` qui ressemble à un échec de code. Symptôme
+qui ne trompe pas — des suites qui **ne démarrent pas**, zéro test en échec, et une
+couverture effondrée parce que leur code n'est pas compté (payé le 21/08).
+
+⚠️ **`test:int` est la seule suite qui parle à une base, et c'est celle qu'on saute.** Le
+21/08, la session de correction a _signalé_ ne pas avoir pu la lancer, la campagne l'a _lu_,
+et personne ne l'a exécutée : `main` est parti rouge (TLX-277). **Un trou de vérification
+annoncé et non comblé n'est pas un risque partagé, c'est un trou.** Si Docker n'est pas
+disponible, l'intégration attend — ou le CI fait foi et on le regarde **avant** d'annoncer
+un lot vert.
+
 ## Annexe A — couverture du contrat (80 opérations)
 
 Chaque opération d'`docs/talent-x-openapi.yaml` et le scénario qui l'exerce sur staging.

@@ -3,8 +3,11 @@
 Neuvième session, courte et sans appareil : **intégration des neuf tickets du lot 6** et
 vérification des signalements laissés par la session de correction.
 
-**`main` passe de `fce9439` à `562a35f`.** Tout est vert. Trois nouveaux tickets, dont deux
-issus de signalements qu'il a fallu corriger avant de les retenir.
+**`main` passe de `fce9439` à `562a35f`.** Trois nouveaux tickets, dont deux issus de
+signalements qu'il a fallu corriger avant de les retenir.
+
+⚠️ **Le CI est rouge** — découvert après coup, et c'est le résultat le plus instructif de
+cette session. Voir §« La vérification que personne n'a faite ».
 
 ## Intégration
 
@@ -28,11 +31,12 @@ session de correction. Le contenu sur `main` est identique ; la branche apparaî
 
 ## Vérification après fusion
 
-| Contrôle               | Résultat                                               |
-| ---------------------- | ------------------------------------------------------ |
-| Mobile `test:cov`      | **123 suites, 1205 tests verts**, aucun seuil enfreint |
-| API `test`             | **72 suites, 719 tests verts**                         |
-| Typecheck mobile + API | verts                                                  |
+| Contrôle                       | Résultat                                               |
+| ------------------------------ | ------------------------------------------------------ |
+| Mobile `test:cov`              | **123 suites, 1205 tests verts**, aucun seuil enfreint |
+| API `test`                     | **72 suites, 719 tests verts**                         |
+| Typecheck mobile + API         | verts                                                  |
+| API `test:int` (DB) — **omis** | **4 échecs sur 53**, découverts par le CI              |
 
 ### Une première passe rouge qui ne prouvait rien
 
@@ -60,6 +64,37 @@ La session de correction annonçait les **branches** comme point de bascule (80,
 branche empilée). Après intégration complète, c'est **`functions` qui tient à +0,15** — une
 seule fonction non couverte fait basculer la porte. C'est cette métrique qu'il faut
 surveiller au prochain lot, pas celle qu'on surveillait.
+
+## La vérification que personne n'a faite
+
+Le CI (run #264) est **rouge** sur `562a35f`. Tout le pipeline passe — build, typecheck,
+unitaires API et mobile, e2e API, migrations — sauf le job **« Tests d'intégration &
+parcours critiques (DB) »** : 4 tests en échec sur 53.
+
+Les quatre ont la même signature : `POST /sessions/{id}/assign` renvoie **422** là où **201**
+était attendu. Cause : `assertSessionAssignable` refuse désormais `draft` — et **c'est
+exactement ce que l'arbitrage de TLX-258 avait demandé**, appliqué par TLX-256 au titre du
+« traiter les quatre statuts d'un coup ». Les specs, elles, créent leur séance sans `status`,
+donc en brouillon, et l'affectent.
+
+**Ce ne sont pas les correctifs qui régressent, ce sont les tests qui encodent le
+comportement que le produit a décidé d'abandonner.** Ticket TLX-277.
+
+### Ce que ça dit de la méthode, et c'est le point
+
+La session de correction avait **écrit** que les specs d'intégration n'avaient pas tourné
+chez elle, faute de Docker. Je l'ai lu, je l'ai relayé dans mon compte rendu — et j'ai
+vérifié `test`, `test:cov` et les typechecks, sans lancer `test:int`.
+
+**Un trou de vérification annoncé par une partie et non comblé par l'autre n'est pas un
+risque partagé : c'est un trou.** Le signaler ne le referme pas. La vérification après
+fusion doit inclure la suite d'intégration, ou l'intégration doit attendre que quelqu'un
+puisse la lancer.
+
+Ironie utile : cette session a passé une heure à démontrer qu'une première passe rouge ne
+prouvait rien (le cache Jest) — et a conclu au vert sur une suite qu'elle n'avait pas
+exécutée. Les deux erreurs sont symétriques : **lire un résultat sans le qualifier, et
+qualifier une absence de résultat comme un succès.**
 
 ## Les signalements, vérifiés plutôt que repris
 
@@ -137,6 +172,8 @@ absent), donc la garde d'intégration sur `/coach/dashboard` n'a jamais été ex
 
 ## Suites à donner
 
+- [ ] **TLX-277 d'abord** : `main` est rouge, la publication GHCR est sautée (précédent TLX-254).
+- [ ] **Ajouter `test:int` à la vérification après fusion** — c'est la correction de méthode.
 - [ ] **Redéployer le staging**, migration d'abord. Préalable à tout rejeu.
 - [ ] **Rejouer les neuf sur appareil** — aucun ticket ne se ferme avant.
 - [ ] **Surveiller `functions`** au prochain lot : +0,15 point de marge.
